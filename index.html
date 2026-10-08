@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sinless Gaming - Esports Hub</title>
+    <title>Sinless Gaming - Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -11,7 +11,7 @@
             theme: {
                 extend: {
                     colors: {
-                        sinless: { 950: '#0b0f19', 900: '#111827', 800: '#1f2937', 700: '#374151', cyan: '#00f3ff', magenta: '#ff007f' }
+                        sinless: { 950: '#0b0f19', 900: '#111827', 800: '#1f2937', cyan: '#00f3ff', magenta: '#ff007f' }
                     }
                 }
             }
@@ -21,182 +21,160 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { background-color: #0b0f19; color: #f3f4f6; font-family: 'Inter', sans-serif; }
-        .discord-sidebar { background-color: #111827; border-right: 1px solid rgba(255,255,255,0.06); }
-        .discord-chat { background-color: #0b0f19; }
-        .channel-item { transition: all 0.2s ease; }
-        .channel-item:hover, .channel-item.active { background-color: rgba(255,255,255,0.08); color: #00f3ff; }
     </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden">
+<body class="min-h-screen flex flex-col">
 
-    <!-- Top Minimal Navbar -->
-    <header class="h-14 bg-sinless-900 border-b border-gray-800 flex items-center justify-between px-4 z-50">
-        <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-bold text-white text-sm">SG</div>
-            <h1 class="font-bold text-sm tracking-wide text-white">SINLESS GAMING HUB</h1>
+    <!-- Navbar -->
+    <header class="h-14 bg-sinless-900 border-b border-gray-800 flex items-center justify-between px-4 sticky top-0 z-50">
+        <div class="flex items-center space-x-2">
+            <div class="w-7 h-7 rounded bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-bold text-white text-xs">SG</div>
+            <h1 class="font-bold text-xs tracking-wide text-white">SINLESS GAMING</h1>
         </div>
-        <div class="flex items-center space-x-3">
-            <button onclick="toggleAdminMode()" id="adminToggleBtn" class="px-3 py-1 rounded text-xs font-semibold bg-gray-800 text-gray-300 border border-gray-700">
-                <i class="fa-solid fa-shield-halved mr-1"></i> CEO Admin
+        <div class="flex items-center space-x-2">
+            <button onclick="toggleAdminMode()" id="adminToggleBtn" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-gray-800 text-gray-300 border border-gray-700">
+                <i class="fa-solid fa-shield-halved mr-1"></i> Admin
             </button>
-            <span class="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 font-medium">Online</span>
+            <span class="text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-medium">Live</span>
         </div>
     </header>
 
-    <!-- Main App Layout (Discord Style) -->
-    <div class="flex-1 flex overflow-hidden">
-        
-        <!-- Sidebar Channel Navigator -->
-        <div class="w-64 discord-sidebar flex flex-col hidden md:flex">
-            <div class="p-3 border-b border-gray-800 font-semibold text-xs text-gray-400 uppercase tracking-wider">Tournaments & Channels</div>
-            <div class="flex-1 overflow-y-auto p-2 space-y-1" id="sidebarChannels">
-                <!-- Injected via JS -->
-            </div>
-        </div>
-
-        <!-- Main Content Area -->
-        <div class="flex-1 flex flex-col discord-chat overflow-hidden">
-            
-            <!-- Channel Header -->
-            <div class="h-12 border-b border-gray-800 flex items-center justify-between px-4 bg-sinless-900/50">
-                <div class="flex items-center space-x-2">
-                    <span id="activeChannelTitle" class="font-bold text-sm text-white"># champions-league</span>
-                    <span class="text-xs text-gray-400 hidden sm:inline">| Official Live Standings & Chat Room</span>
-                </div>
-                <div class="flex space-x-2">
-                    <button onclick="switchView('chat')" id="btnViewChat" class="px-3 py-1 text-xs rounded bg-cyan-500 text-gray-950 font-semibold">Chat</button>
-                    <button onclick="switchView('standings')" id="btnViewStandings" class="px-3 py-1 text-xs rounded bg-gray-800 text-gray-300 font-semibold">Standings</button>
-                </div>
-            </div>
-
-            <!-- Chat View Container -->
-            <div id="viewChat" class="flex-1 flex flex-col overflow-hidden">
-                <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-4 space-y-4">
-                    <!-- Messages populated dynamically -->
-                </div>
-                <div class="p-3 bg-sinless-900/40 border-t border-gray-800">
-                    <div class="flex items-center space-x-2 bg-sinless-800 rounded-lg px-3 py-2 border border-gray-700">
-                        <input type="text" id="chatInputMsg" placeholder="Message #channel..." class="flex-1 bg-transparent text-xs text-white focus:outline-none">
-                        <button onclick="sendChatMessage()" class="text-cyan-400 hover:text-cyan-300 px-2 text-xs font-bold"><i class="fa-solid fa-paper-plane"></i></button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Standings View Container (Hidden by default) -->
-            <div id="viewStandings" class="flex-1 overflow-y-auto p-4 hidden space-y-4">
-                <div class="flex items-center justify-between">
-                    <h3 id="standingsHeaderTitle" class="text-sm font-bold text-white uppercase">Tournament Standings</h3>
-                    <button id="addTeamBtn" onclick="addTeamModal()" class="hidden px-3 py-1 bg-emerald-600 text-white rounded text-xs font-semibold">+ Add Team</button>
-                </div>
-                <div class="bg-sinless-900 rounded-lg border border-gray-800 overflow-hidden">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr class="bg-gray-800/50 text-gray-400 text-[10px] uppercase border-b border-gray-800">
-                                <th class="p-2.5">Rank</th>
-                                <th class="p-2.5">Team / Player</th>
-                                <th class="p-2.5 text-center">P</th>
-                                <th class="p-2.5 text-center">W</th>
-                                <th class="p-2.5 text-center">D</th>
-                                <th class="p-2.5 text-center">L</th>
-                                <th class="p-2.5 text-center">GD</th>
-                                <th class="p-2.5 text-center">PTS</th>
-                            </tr>
-                        </thead>
-                        <tbody id="standingsTableBody" class="divide-y divide-gray-800/60"></tbody>
-                    </table>
-                </div>
-            </div>
-
-        </div>
+    <!-- Tournament Selector Bar -->
+    <div class="bg-sinless-900/80 border-b border-gray-800 p-2 overflow-x-auto flex space-x-2 scrollbar-none">
+        <button onclick="switchTournament('champions-league')" id="tab-champions-league" class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-cyan-500 text-gray-950">Champions League</button>
+        <button onclick="switchTournament('super-league')" id="tab-super-league" class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-gray-800 text-gray-300">Super League</button>
+        <button onclick="switchTournament('open-cup')" id="tab-open-cup" class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-gray-800 text-gray-300">Open Cup</button>
+        <button onclick="switchTournament('rising-stars')" id="tab-rising-stars" class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-gray-800 text-gray-300">Rising Stars</button>
     </div>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex flex-col max-w-2xl w-full mx-auto p-3 space-y-3">
+        
+        <!-- View Toggle (Chat vs Standings) -->
+        <div class="flex bg-sinless-900 p-1 rounded-xl border border-gray-800">
+            <button onclick="switchView('chat')" id="btnViewChat" class="flex-1 py-1.5 text-xs rounded-lg bg-cyan-500 text-gray-950 font-bold transition">💬 Live Chat</button>
+            <button onclick="switchView('standings')" id="btnViewStandings" class="flex-1 py-1.5 text-xs rounded-lg text-gray-400 font-bold transition">🏆 Standings</button>
+        </div>
+
+        <!-- Chat Container -->
+        <div id="viewChat" class="flex-1 flex flex-col bg-sinless-900 rounded-2xl border border-gray-800 overflow-hidden h-[450px]">
+            <div class="p-3 border-b border-gray-800 text-xs font-bold text-cyan-400 flex items-center justify-between">
+                <span id="chatHeaderTitle"># champions-league chat</span>
+                <span class="text-[10px] text-gray-500 font-normal">Synced</span>
+            </div>
+            <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-3 space-y-3"></div>
+            <div class="p-2.5 border-t border-gray-800 bg-sinless-950/50 flex space-x-2">
+                <input type="text" id="chatInputMsg" placeholder="Type message..." class="flex-1 bg-sinless-800 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
+                <button onclick="sendChatMessage()" class="px-3.5 py-2 bg-cyan-500 text-gray-950 font-bold rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+
+        <!-- Standings Container -->
+        <div id="viewStandings" class="hidden flex-1 flex flex-col bg-sinless-900 rounded-2xl border border-gray-800 overflow-hidden p-3 space-y-3">
+            <div class="flex items-center justify-between">
+                <h3 id="standingsTitle" class="text-xs font-bold text-white uppercase tracking-wider">Champions League Standings</h3>
+                <button id="addTeamBtn" onclick="addTeamModal()" class="hidden px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[11px] font-bold">+ Add Team</button>
+            </div>
+            <div class="overflow-x-auto flex-1">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-gray-800/40 text-gray-400 text-[10px] uppercase border-b border-gray-800">
+                            <th class="p-2">Rank</th>
+                            <th class="p-2">Player / Team</th>
+                            <th class="p-2 text-center">P</th>
+                            <th class="p-2 text-center">GD</th>
+                            <th class="p-2 text-center">PTS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="standingsTableBody" class="divide-y divide-gray-800/60"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
 
     <script>
         let isAdmin = false;
-        let currentTournament = 'champions-league';
+        let currentTourney = 'champions-league';
         let currentView = 'chat';
 
-        const tournaments = {
+        const data = {
             'champions-league': {
-                name: '# champions-league',
+                name: 'Champions League',
                 teams: [
-                    { rank: 1, name: 'DON PRIME (Darkdemon)', p: 3, w: 2, d: 1, l: 0, gd: '+6', pts: 12 },
-                    { rank: 2, name: 'MUBARAQ', p: 4, w: 2, d: 0, l: 2, gd: '+4', pts: 8 },
-                    { rank: 3, name: 'NONCHALANT (Cobbykay)', p: 3, w: 2, d: 0, l: 1, gd: '+6', pts: 8 }
+                    { name: 'DON PRIME (Darkdemon)', p: 3, gd: '+6', pts: 12 },
+                    { name: 'MUBARAQ', p: 4, gd: '+4', pts: 8 },
+                    { name: 'NONCHALANT (Cobbykay)', p: 3, gd: '+6', pts: 8 }
                 ],
-                messages: [{ user: 'System', text: 'Welcome to Champions League live chat and results room.', time: 'Just now' }]
+                messages: [{ user: 'System', text: 'Welcome to Champions League room.', time: 'Just now' }]
             },
-            'sinless-super-league': {
-                name: '# super-league',
+            'super-league': {
+                name: 'Super League',
                 teams: [
-                    { rank: 1, name: 'KUKU1Z', p: 2, w: 2, d: 0, l: 0, gd: '+5', pts: 6 },
-                    { rank: 2, name: 'MILLY SHARDS', p: 2, w: 1, d: 0, l: 1, gd: '0', pts: 3 }
+                    { name: 'KUKU1Z', p: 2, gd: '+5', pts: 6 },
+                    { name: 'MILLY SHARDS', p: 2, gd: '0', pts: 3 }
                 ],
-                messages: [{ user: 'System', text: 'Welcome to Sinless Super League room.', time: 'Just now' }]
+                messages: [{ user: 'System', text: 'Welcome to Super League room.', time: 'Just now' }]
             },
             'open-cup': {
-                name: '# open-cup',
+                name: 'Open Cup',
                 teams: [
-                    { rank: 1, name: 'REAL HOME WISER', p: 1, w: 1, d: 0, l: 0, gd: '+2', pts: 3 }
+                    { name: 'REAL HOME WISER', p: 1, gd: '+2', pts: 3 }
                 ],
-                messages: [{ user: 'System', text: 'Welcome to the Open Cup tournament room.', time: 'Just now' }]
+                messages: [{ user: 'System', text: 'Welcome to Open Cup room.', time: 'Just now' }]
             },
             'rising-stars': {
-                name: '# rising-stars',
+                name: 'Rising Stars',
                 teams: [
-                    { rank: 1, name: 'CHUMASI', p: 1, w: 1, d: 0, l: 0, gd: '+3', pts: 3 }
+                    { name: 'CHUMASI', p: 1, gd: '+3', pts: 3 }
                 ],
-                messages: [{ user: 'System', text: 'Welcome to Rising Stars league room.', time: 'Just now' }]
+                messages: [{ user: 'System', text: 'Welcome to Rising Stars room.', time: 'Just now' }]
             }
         };
 
-        function renderSidebar() {
-            const container = document.getElementById('sidebarChannels');
-            container.innerHTML = '';
-            for (let key in tournaments) {
-                let active = key === currentTournament ? 'active bg-gray-800 text-cyan-400' : 'text-gray-400';
-                container.innerHTML += `
-                    <div onclick="selectTournament('${key}')" class="channel-item px-3 py-2 rounded-lg text-xs font-medium cursor-pointer flex items-center justify-between ${active}">
-                        <span>${tournaments[key].name}</span>
-                    </div>
-                `;
-            }
-        }
-
-        function selectTournament(key) {
-            currentTournament = key;
-            document.getElementById('activeChannelTitle').innerText = tournaments[key].name;
-            document.getElementById('standingsHeaderTitle').innerText = tournaments[key].name.replace('#', '') + ' Standings';
-            renderSidebar();
+        function switchTournament(key) {
+            currentTourney = key;
+            ['champions-league', 'super-league', 'open-cup', 'rising-stars'].forEach(k => {
+                const btn = document.getElementById('tab-' + k);
+                if(k === key) {
+                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-cyan-500 text-gray-950 shadow-md";
+                } else {
+                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-gray-800 text-gray-300";
+                }
+            });
+            document.getElementById('chatHeaderTitle').innerText = '#' + key + ' chat';
+            document.getElementById('standingsTitle').innerText = data[key].name + ' Standings';
             renderChat();
             renderStandings();
         }
 
         function switchView(view) {
             currentView = view;
+            const chatBtn = document.getElementById('btnViewChat');
+            const standBtn = document.getElementById('btnViewStandings');
             if(view === 'chat') {
                 document.getElementById('viewChat').classList.remove('hidden');
                 document.getElementById('viewStandings').classList.add('hidden');
-                document.getElementById('btnViewChat').className = 'px-3 py-1 text-xs rounded bg-cyan-500 text-gray-950 font-semibold';
-                document.getElementById('btnViewStandings').className = 'px-3 py-1 text-xs rounded bg-gray-800 text-gray-300 font-semibold';
+                chatBtn.className = "flex-1 py-1.5 text-xs rounded-lg bg-cyan-500 text-gray-950 font-bold transition";
+                standBtn.className = "flex-1 py-1.5 text-xs rounded-lg text-gray-400 font-bold transition";
             } else {
                 document.getElementById('viewChat').classList.add('hidden');
                 document.getElementById('viewStandings').classList.remove('hidden');
-                document.getElementById('btnViewStandings').className = 'px-3 py-1 text-xs rounded bg-cyan-500 text-gray-950 font-semibold';
-                document.getElementById('btnViewChat').className = 'px-3 py-1 text-xs rounded bg-gray-800 text-gray-300 font-semibold';
+                standBtn.className = "flex-1 py-1.5 text-xs rounded-lg bg-cyan-500 text-gray-950 font-bold transition";
+                chatBtn.className = "flex-1 py-1.5 text-xs rounded-lg text-gray-400 font-bold transition";
             }
         }
 
         function renderChat() {
             const box = document.getElementById('chatMessagesBox');
             box.innerHTML = '';
-            tournaments[currentTournament].messages.forEach(m => {
+            data[currentTourney].messages.forEach(m => {
                 box.innerHTML += `
-                    <div class="space-y-1">
-                        <div class="flex items-center space-x-2">
-                            <span class="font-bold text-xs text-cyan-400">${m.user}</span>
-                            <span class="text-[10px] text-gray-500">${m.time}</span>
+                    <div class="bg-sinless-950/60 p-2.5 rounded-xl border border-gray-800">
+                        <div class="flex items-center justify-between text-[10px] text-cyan-400 font-bold mb-0.5">
+                            <span>${m.user}</span>
+                            <span class="text-gray-500 font-normal">${m.time}</span>
                         </div>
-                        <p class="text-xs text-gray-300">${m.text}</p>
+                        <p class="text-xs text-gray-200">${m.text}</p>
                     </div>
                 `;
             });
@@ -206,7 +184,7 @@
         function sendChatMessage() {
             const input = document.getElementById('chatInputMsg');
             if(!input.value.trim()) return;
-            tournaments[currentTournament].messages.push({
+            data[currentTourney].messages.push({
                 user: isAdmin ? 'CEO [Admin]' : 'Manager',
                 text: input.value,
                 time: 'Just now'
@@ -218,17 +196,14 @@
         function renderStandings() {
             const tbody = document.getElementById('standingsTableBody');
             tbody.innerHTML = '';
-            tournaments[currentTournament].teams.forEach((t, i) => {
+            data[currentTourney].teams.forEach((t, i) => {
                 tbody.innerHTML += `
                     <tr class="hover:bg-gray-800/30">
-                        <td class="p-2.5 font-bold text-cyan-400">0${i+1}</td>
-                        <td class="p-2.5 font-semibold text-white">${t.name}</td>
-                        <td class="p-2.5 text-center text-gray-300">${t.p}</td>
-                        <td class="p-2.5 text-center text-gray-300">${t.w}</td>
-                        <td class="p-2.5 text-center text-gray-300">${t.d}</td>
-                        <td class="p-2.5 text-center text-gray-300">${t.l}</td>
-                        <td class="p-2.5 text-center text-cyan-300">${t.gd}</td>
-                        <td class="p-2.5 text-center font-bold text-white">${t.pts}</td>
+                        <td class="p-2 font-bold text-cyan-400">0${i+1}</td>
+                        <td class="p-2 font-semibold text-white">${t.name}</td>
+                        <td class="p-2 text-center text-gray-300">${t.p}</td>
+                        <td class="p-2 text-center text-cyan-300">${t.gd}</td>
+                        <td class="p-2 text-center font-bold text-white">${t.pts}</td>
                     </tr>
                 `;
             });
@@ -239,13 +214,13 @@
             const btn = document.getElementById('adminToggleBtn');
             const addBtn = document.getElementById('addTeamBtn');
             if(isAdmin) {
-                btn.className = 'px-3 py-1 rounded text-xs font-semibold bg-pink-600/20 text-pink-400 border border-pink-500/40';
-                btn.innerHTML = '<i class="fa-solid fa-crown mr-1"></i> CEO Active';
+                btn.className = "px-2.5 py-1 rounded text-[11px] font-semibold bg-pink-600/20 text-pink-400 border border-pink-500/40";
+                btn.innerHTML = '<i class="fa-solid fa-crown mr-1"></i> Active';
                 addBtn.classList.remove('hidden');
                 alert('CEO God-Mode Unlocked');
             } else {
-                btn.className = 'px-3 py-1 rounded text-xs font-semibold bg-gray-800 text-gray-300 border border-gray-700';
-                btn.innerHTML = '<i class="fa-solid fa-shield-halved mr-1"></i> CEO Admin';
+                btn.className = "px-2.5 py-1 rounded text-[11px] font-semibold bg-gray-800 text-gray-300 border border-gray-700";
+                btn.innerHTML = '<i class="fa-solid fa-shield-halved mr-1"></i> Admin';
                 addBtn.classList.add('hidden');
             }
         }
@@ -253,19 +228,12 @@
         function addTeamModal() {
             const name = prompt("Enter team/player name:");
             if(name) {
-                tournaments[currentTournament].teams.push({
-                    rank: tournaments[currentTournament].teams.length + 1,
-                    name: name.toUpperCase(),
-                    p: 0, w: 0, d: 0, l: 0, gd: '0', pts: 0
-                });
+                data[currentTourney].teams.push({ name: name.toUpperCase(), p: 0, gd: '0', pts: 0 });
                 renderStandings();
             }
         }
 
-        // Initialize
-        renderSidebar();
-        renderChat();
-        renderStandings();
+        switchTournament('champions-league');
     </script>
 </body>
 </html>
