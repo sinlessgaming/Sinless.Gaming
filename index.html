@@ -65,7 +65,7 @@
             <button onclick="switchView('global')" id="btnViewGlobal" class="flex-1 py-2.5 text-xs rounded-xl text-gray-400 font-bold transition"><i class="fa-solid fa-globe mr-1"></i> Ranks</button>
         </div>
 
-        <!-- 1. FYP View (Includes Interleaved Live Streams & Video Feeds) -->
+        <!-- 1. FYP View -->
         <div id="viewFyp" class="flex-1 flex flex-col space-y-4 overflow-y-auto pb-4">
             <div class="text-center py-0.5"><span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold">🔥 Global Highlights & Live Broadcasts</span></div>
             <div id="fypFeedContainer" class="space-y-4"></div>
@@ -264,20 +264,24 @@
         async function startScreenShare() {
             try {
                 if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-                    activeMediaStream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: 'monitor' }, audio: true });
+                    activeMediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
                 } else {
-                    activeMediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
+                    alert('Screen sharing is not supported on this mobile browser. Opening front camera instead.');
+                    startCameraStream();
+                    return;
                 }
                 attachStreamToVideo(activeMediaStream, '🔴 Screen Share Active!');
             } catch (err) {
-                alert('Screen sharing initiated fallback camera stream.');
-                startCameraStream();
+                alert('Screen sharing canceled or restricted by browser.');
             }
         }
 
         async function startCameraStream() {
             try {
-                activeMediaStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: true });
+                activeMediaStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, 
+                    audio: true 
+                });
                 attachStreamToVideo(activeMediaStream, '🎥 Face Cam Active!');
             } catch (err) {
                 alert('Camera access unavailable or blocked.');
@@ -291,7 +295,6 @@
             videoEl.classList.remove('hidden');
             placeholder.classList.add('hidden');
             
-            // Also push this live broadcast to the FYP feed for everyone to see while scrolling!
             fypPosts.unshift({
                 type: 'live',
                 user: 'You [Live Broadcast]',
