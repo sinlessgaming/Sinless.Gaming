@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sinless Gaming - Elite Esports Circuit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        sinless: {
+                            900: '#02050b',
+                            800: '#070f1e',
+                            700: '#0f1d36',
+                            cyan: '#00f3ff',
+                            magenta: '#ff007f',
+                            purple: '#8b5cf6',
+                            darkcard: 'rgba(7, 15, 30, 0.88)'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #02050b;
+            color: #f1f5f9;
+            font-family: 'Inter', sans-serif;
+            background-image: 
+                linear-gradient(to right, rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 0, 127, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .cyber-card {
+            background: rgba(7, 15, 30, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 243, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .neon-glow-cyan { box-shadow: 0 0 20px rgba(0, 243, 255, 0.35); }
+        .neon-glow-magenta { box-shadow: 0 0 20px rgba(255, 0, 127, 0.35); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <header class="cyber-card sticky top-0 z-50 px-4 py-3 flex items-center justify-between border-b border-cyan-500/20">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center neon-glow-cyan">
+                <i class="fa-solid fa-crown text-white text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-lg tracking-wider bg-gradient-to-r from-cyan-400 to-magenta bg-clip-text text-transparent">SINLESS GAMING</h1>
+                <p class="text-[10px] text-cyan-400/70 tracking-widest uppercase font-semibold">Global Circuit • CEO Mode</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button onclick="toggleAdminMode()" id="adminToggleBtn" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                <i class="fa-solid fa-shield-halved mr-1"></i> CEO Admin
+            </button>
+            <div class="flex items-center space-x-1 bg-sinless-700/60 px-2.5 py-1 rounded-full text-xs border border-cyan-500/20">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="onlineCountBadge" class="font-bold text-cyan-300">1</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-5xl w-full mx-auto p-4 space-y-6">
+        
+        <!-- Quick Stats Banner -->
+        <div class="cyber-card rounded-2xl p-5 border-l-4 border-l-cyan-400">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 font-semibold border border-cyan-500/20">⚡ GLOBAL ECOSYSTEM ACTIVE</span>
+                    <h2 class="text-2xl font-black mt-2 text-white">CHAMPIONS LEAGUE & ESPORTS HUB</h2>
+                    <p class="text-xs text-slate-400 mt-1">Manage 130+ teams, live stream matches, host global chat rooms, and execute CEO moderation.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="switchTab('tournaments')" class="px-4 py-2 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20"><i class="fa-solid fa-trophy mr-1.5"></i> Standings</button>
+                    <button onclick="switchTab('rooms')" class="px-4 py-2 rounded-xl bg-sinless-700 hover:bg-sinless-700/80 text-cyan-400 border border-cyan-500/30 font-bold text-xs"><i class="fa-solid fa-comments mr-1.5"></i> Chat Rooms</button>
+                    <button onclick="switchTab('stream')" class="px-4 py-2 rounded-xl bg-sinless-700 hover:bg-sinless-700/80 text-magenta border border-magenta/30 font-bold text-xs"><i class="fa-solid fa-video mr-1.5"></i> Live Stream</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Content Sections -->
+        <div id="appContainer">
+            <!-- Standings View -->
+            <div id="tabTournaments" class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-white flex items-center"><i class="fa-solid fa-list-ol text-cyan-400 mr-2"></i> Active Leagues & Standings (130+ Team Scale)</h3>
+                    <div id="adminTeamControls" class="hidden flex gap-2">
+                        <button onclick="openAddTeamModal()" class="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-lg text-xs font-bold"><i class="fa-solid fa-plus mr-1"></i> Add Team</button>
+                    </div>
+                </div>
+                <div class="cyber-card rounded-2xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-sinless-900/80 text-[11px] text-cyan-400 uppercase tracking-wider border-b border-cyan-500/20">
+                                    <th class="p-3">No</th>
+                                    <th class="p-3">Club / Player</th>
+                                    <th class="p-3 text-center">P</th>
+                                    <th class="p-3 text-center">W</th>
+                                    <th class="p-3 text-center">D</th>
+                                    <th class="p-3 text-center">L</th>
+                                    <th class="p-3 text-center">GD</th>
+                                    <th class="p-3 text-center">PTS</th>
+                                    <th class="p-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="standingsTableBody" class="divide-y divide-cyan-500/10 text-xs"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Rooms View -->
+            <div id="tabRooms" class="hidden space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="cyber-card rounded-2xl p-3 space-y-2">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Channels</span>
+                            <button id="addRoomBtn" class="hidden text-xs text-cyan-400 hover:text-white" onclick="createNewRoom()"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                        <div id="roomListContainer" class="space-y-1"></div>
+                    </div>
+                    <div class="cyber-card rounded-2xl p-4 md:col-span-3 flex flex-col h-[500px]">
+                        <div class="border-b border-cyan-500/20 pb-3 flex items-center justify-between">
+                            <h4 id="currentActiveRoomTitle" class="font-bold text-cyan-400 text-sm"># champions-league-results</h4>
+                            <span class="text-[10px] text-slate-400">Global Sync Active</span>
+                        </div>
+                        <div id="chatMessagesBox" class="flex-1 overflow-y-auto py-3 space-y-3 pr-2"></div>
+                        <div class="pt-3 border-t border-cyan-500/20 space-y-2">
+                            <div class="flex items-center space-x-2">
+                                <label class="cursor-pointer px-3 py-2 bg-sinless-700 rounded-xl text-cyan-400 text-xs border border-cyan-500/30">
+                                    <i class="fa-solid fa-paperclip"></i> <input type="file" id="mediaUploadInput" class="hidden" onchange="handleFileUpload(event)">
+                                </label>
+                                <input type="text" id="chatInputMsg" placeholder="Type a message or @tag someone..." class="flex-1 bg-sinless-900 border border-cyan-500/30 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
+                                <button onclick="sendChatMessage()" class="px-4 py-2 bg-cyan-500 text-slate-950 font-bold rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Stream View -->
+            <div id="tabStream" class="hidden space-y-4">
+                <div class="cyber-card rounded-2xl p-4 space-y-4">
+                    <h3 class="text-lg font-bold text-white flex items-center"><i class="fa-solid fa-video text-magenta mr-2"></i> Live Match Broadcast Center</h3>
+                    <div class="aspect-video bg-sinless-900 rounded-xl border border-magenta/30 flex flex-col items-center justify-center p-6 text-center">
+                        <i class="fa-solid fa-tower-broadcast text-4xl text-magenta animate-bounce mb-3"></i>
+                        <h4 class="font-bold text-white text-sm">No Active Broadcast Stream Linked</h4>
+                        <p class="text-xs text-slate-400 mt-1">As CEO, input your YouTube or Twitch stream link below to broadcast live to all global users.</p>
+                        <div class="mt-4 flex w-full max-w-md gap-2">
+                            <input type="text" id="streamUrlInput" placeholder="Paste YouTube/Twitch Embed URL..." class="flex-1 bg-sinless-800 border border-magenta/30 rounded-xl px-3 py-2 text-xs text-white">
+                            <button onclick="updateLiveStream()" class="px-4 py-2 bg-magenta text-white font-bold rounded-xl text-xs">Broadcast</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let isAdmin = false;
+        let currentRoom = '#champions-league-results';
+        let teamsData = [
+            { id: 1, name: 'DON PRIME (Darkdemon)', p: 3, w: 2, d: 1, l: 0, gd: '+6', pts: 12, status: 'CHAMPIONS LEAGUE' },
+            { id: 2, name: 'MUBARAQ', p: 4, w: 2, d: 0, l: 2, gd: '+4', pts: 8, status: 'CHAMPIONS LEAGUE' },
+            { id: 3, name: 'NONCHALANT (Cobbykay)', p: 3, w: 2, d: 0, l: 1, gd: '+6', pts: 8, status: 'CHAMPIONS LEAGUE' },
+            { id: 4, name: 'KOBE GLASS (Chumasi)', p: 5, w: 1, d: 1, l: 3, gd: '-2', pts: 8, status: 'SAFE' },
+            { id: 5, name: 'RICK ROSS (DknAD)', p: 4, w: 3, d: 1, l: 0, gd: '+2', pts: 7, status: 'SAFE' }
+        ];
+
+        let rooms = ['#champions-league-results', '#sinless-super-league-results', '#tournament-registration-room', '#general-chat', '#clips-and-highlights'];
+        let messages = {
+            '#champions-league-results': [{ user: 'System', text: 'Welcome to Sinless Gaming Global Hub.', time: 'Just now' }]
+        };
+
+        function toggleAdminMode() {
+            isAdmin = !isAdmin;
+            const btn = document.getElementById('adminToggleBtn');
+            const teamControls = document.getElementById('adminTeamControls');
+            const addRoomBtn = document.getElementById('addRoomBtn');
+            if(isAdmin) {
+                btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-magenta/20 text-magenta border border-magenta/40";
+                btn.innerHTML = '<i class="fa-solid fa-crown mr-1"></i> CEO Active';
+                teamControls.classList.remove('hidden');
+                addRoomBtn.classList.remove('hidden');
+                alert('CEO God-Mode Unlocked!');
+            } else {
+                btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30";
+                btn.innerHTML = '<i class="fa-solid fa-shield-halved mr-1"></i> CEO Admin';
+                teamControls.classList.add('hidden');
+                addRoomBtn.classList.add('hidden');
+            }
+        }
+
+        function switchTab(tabName) {
+            document.getElementById('tabTournaments').classList.add('hidden');
+            document.getElementById('tabRooms').classList.add('hidden');
+            document.getElementById('tabStream').classList.add('hidden');
+            document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.remove('hidden');
+        }
+
+        function renderStandings() {
+            const tbody = document.getElementById('standingsTableBody');
+            tbody.innerHTML = '';
+            teamsData.forEach((t, index) => {
+                let badgeColor = t.status === 'CHAMPIONS LEAGUE' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-cyan-500/5 transition">
+                        <td class="p-3 font-bold text-cyan-400">0${index+1}</td>
+                        <td class="p-3 font-bold text-white">${t.name}</td>
+                        <td class="p-3 text-center">${t.p}</td>
+                        <td class="p-3 text-center">${t.w}</td>
+                        <td class="p-3 text-center">${t.d}</td>
+                        <td class="p-3 text-center">${t.l}</td>
+                        <td class="p-3 text-center text-cyan-300">${t.gd}</td>
+                        <td class="p-3 text-center font-extrabold text-white">${t.pts}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeColor}">${t.status}</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderRooms() {
+            const container = document.getElementById('roomListContainer');
+            container.innerHTML = '';
+            rooms.forEach(r => {
+                let activeClass = r === currentRoom ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40' : 'text-slate-400 hover:bg-sinless-700/50';
+                container.innerHTML += `<div onclick="selectRoom('${r}')" class="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer border border-transparent ${activeClass}">${r}</div>`;
+            });
+        }
+
+        function selectRoom(r) {
+            currentRoom = r;
+            document.getElementById('currentActiveRoomTitle').innerText = r;
+            renderRooms();
+            renderMessages();
+        }
+
+        function renderMessages() {
+            const box = document.getElementById('chatMessagesBox');
+            box.innerHTML = '';
+            let msgs = messages[currentRoom] || [];
+            msgs.forEach(m => {
+                box.innerHTML += `
+                    <div class="bg-sinless-900/60 p-2.5 rounded-xl border border-cyan-500/10">
+                        <div class="flex items-center justify-between text-[10px] text-cyan-400 font-semibold mb-1">
+                            <span>${m.user}</span>
+                            <span class="text-slate-500">${m.time}</span>
+                        </div>
+                        <p class="text-xs text-slate-200">${m.text}</p>
+                    </div>
+                `;
+            });
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chatInputMsg');
+            if(!input.value.trim()) return;
+            if(!messages[currentRoom]) messages[currentRoom] = [];
+            messages[currentRoom].push({ user: isAdmin ? 'CEO [Admin]' : 'GamerTag', text: input.value, time: 'Just now' });
+            input.value = '';
+            renderMessages();
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            if(!messages[currentRoom]) messages[currentRoom] = [];
+            messages[currentRoom].push({ user: 'GamerTag [Media]', text: `📎 Uploaded file: ${file.name}`, time: 'Just now' });
+            renderMessages();
+            alert('File attached successfully to ' + currentRoom);
+        }
+
+        function openAddTeamModal() {
+            const name = prompt("Enter new team/club name:");
+            if(name) {
+                teamsData.push({ id: teamsData.length + 1, name: name.toUpperCase(), p: 0, w: 0, d: 0, l: 0, gd: '0', pts: 0, status: 'SAFE' });
+                renderStandings();
+            }
+        }
+
+        function createNewRoom() {
+            const name = prompt("Enter new channel name (e.g., #mega-cup):");
+            if(name) {
+                let formatted = name.startsWith('#') ? name : '#' + name;
+                rooms.push(formatted);
+                messages[formatted] = [{ user: 'System', text: `Channel ${formatted} created by CEO.`, time: 'Just now' }];
+                renderRooms();
+            }
+        }
+
+        function updateLiveStream() {
+            const url = document.getElementById('streamUrlInput').value;
+            if(url) alert('Live Stream Broadcast URL successfully updated across global nodes!');
+        }
+
+        renderStandings();
+        renderRooms();
+        renderMessages();
+    </script>
+</body>
+</html>
