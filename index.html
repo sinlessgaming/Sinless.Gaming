@@ -33,7 +33,7 @@
             <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-black text-slate-950 text-sm shadow-lg shadow-cyan-500/20">GG</div>
             <div>
                 <h1 class="font-black text-sm tracking-wider bg-gradient-to-r from-cyan-400 to-magenta bg-clip-text text-transparent">GG.</h1>
-                <p class="text-[9px] text-cyan-400/70 tracking-widest uppercase" id="currentRegionLabel">🌍 Global Feed</p>
+                <p class="text-[9px] text-cyan-400/70 tracking-widest uppercase">🌍 Global Network</p>
             </div>
         </div>
         <div class="flex items-center space-x-2">
@@ -46,24 +46,42 @@
         </div>
     </header>
 
-    <!-- Tournament Selector Bar -->
+    <!-- Tournament Selector Bar (Official Circuits pinned first, then community rooms) -->
     <div id="tournamentBar" class="bg-gg-900/90 border-b border-cyan-500/20 p-2.5 overflow-x-auto flex space-x-2 scrollbar-none"></div>
 
     <!-- Main Workspace -->
     <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3">
         
-        <!-- View Tabs -->
-        <div class="flex cyber-card p-1 rounded-2xl">
-            <button onclick="switchView('fyp')" id="btnViewFyp" class="flex-1 py-2 text-xs rounded-xl bg-magenta text-white font-extrabold transition shadow-md"><i class="fa-solid fa-fire mr-1"></i> FYP</button>
-            <button onclick="switchView('chat')" id="btnViewChat" class="flex-1 py-2 text-xs rounded-xl text-cyan-400 font-extrabold transition"><i class="fa-solid fa-comments mr-1"></i> Chat</button>
-            <button onclick="switchView('standings')" id="btnViewStandings" class="flex-1 py-2 text-xs rounded-xl text-cyan-400 font-extrabold transition"><i class="fa-solid fa-trophy mr-1"></i> Standings</button>
-            <button onclick="switchView('global')" id="btnViewGlobal" class="flex-1 py-2 text-xs rounded-xl text-cyan-400 font-extrabold transition"><i class="fa-solid fa-globe mr-1"></i> Ranks</button>
+        <!-- View Tabs (Restored Streams Tab + FYP) -->
+        <div class="flex cyber-card p-1 rounded-2xl overflow-x-auto">
+            <button onclick="switchView('fyp')" id="btnViewFyp" class="flex-1 py-2 px-2 text-[11px] rounded-xl bg-magenta text-white font-extrabold transition shadow-md whitespace-nowrap"><i class="fa-solid fa-fire mr-1"></i> FYP</button>
+            <button onclick="switchView('streams')" id="btnViewStreams" class="flex-1 py-2 px-2 text-[11px] rounded-xl text-cyan-400 font-extrabold transition whitespace-nowrap"><i class="fa-solid fa-tower-broadcast mr-1"></i> Live</button>
+            <button onclick="switchView('chat')" id="btnViewChat" class="flex-1 py-2 px-2 text-[11px] rounded-xl text-cyan-400 font-extrabold transition whitespace-nowrap"><i class="fa-solid fa-comments mr-1"></i> Chat</button>
+            <button onclick="switchView('standings')" id="btnViewStandings" class="flex-1 py-2 px-2 text-[11px] rounded-xl text-cyan-400 font-extrabold transition whitespace-nowrap"><i class="fa-solid fa-trophy mr-1"></i> Table</button>
+            <button onclick="switchView('global')" id="btnViewGlobal" class="flex-1 py-2 px-2 text-[11px] rounded-xl text-cyan-400 font-extrabold transition whitespace-nowrap"><i class="fa-solid fa-globe mr-1"></i> Ranks</button>
         </div>
 
         <!-- FYP Vertical Video Feed View -->
         <div id="viewFyp" class="flex-1 flex flex-col space-y-4 overflow-y-auto pb-6">
             <div class="text-center pb-1"><span class="text-[10px] uppercase tracking-widest text-gray-400 font-bold">🔥 GG Global Highlights & Viral Goals</span></div>
             <div id="fypFeedContainer" class="space-y-4"></div>
+        </div>
+
+        <!-- Live Streams View -->
+        <div id="viewStreams" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-3 space-y-3">
+            <div class="flex items-center justify-between">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-tower-broadcast text-magenta mr-1.5"></i> Live Match Broadcasts</h3>
+                <button onclick="addStream()" class="px-2 py-1 bg-magenta/20 text-magenta border border-magenta/40 rounded-lg text-[10px] font-bold">+ Add Stream</button>
+            </div>
+            <div id="streamsContainer" class="space-y-3 overflow-y-auto flex-1">
+                <div class="bg-gg-900/60 p-3 rounded-xl border border-cyan-500/20 space-y-2">
+                    <div class="flex justify-between text-xs font-bold text-cyan-400"><span>Champions League Main Stage</span><span class="text-emerald-400 font-bold">● LIVE</span></div>
+                    <div class="aspect-video bg-gg-950 rounded-lg flex flex-col items-center justify-center border border-cyan-500/30 text-xs text-gray-400 p-4 text-center">
+                        <i class="fa-solid fa-play text-3xl text-cyan-400 animate-pulse mb-2"></i>
+                        <span>Official Match Broadcast Node Active</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Chat View -->
@@ -128,12 +146,14 @@
         let currentTourney = 'champions-league';
         let fypPosts = [
             { user: 'DON PRIME', caption: 'Insane 90th minute bicycle kick winner! 🚲⚽ GG', likes: 1420, comments: 84, videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4' },
-            { user: 'KUKU1Z', caption: 'Clean tiki-taka buildup leading to the top corner rocket 🚀', likes: 980, comments: 42, videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-controller-while-playing-video-games-41583-large.mp4' }
+            { user: 'KUKU1Z', caption: 'Clean tiki-taka buildup leading to top corner rocket 🚀', likes: 980, comments: 42, videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-controller-while-playing-video-games-41583-large.mp4' }
         ];
 
+        // Official circuits pinned first with isOfficial: true
         const tournamentData = {
-            'champions-league': { name: 'Champions League', teams: [{ name: 'DON PRIME (Darkdemon)', p: 3, w: 2, gd: '+6', pts: 12 }, { name: 'MUBARAQ', p: 4, w: 2, gd: '+4', pts: 8 }], messages: [{ user: 'System', text: 'Welcome to GG Champions League channel.', time: 'Just now' }] },
-            'super-league': { name: 'Super League', teams: [{ name: 'KUKU1Z', p: 2, w: 2, gd: '+5', pts: 6 }], messages: [{ user: 'System', text: 'Welcome to GG Super League lobby.', time: 'Just now' }] }
+            'champions-league': { name: '🏆 Champions League', isOfficial: true, teams: [{ name: 'DON PRIME (Darkdemon)', p: 3, w: 2, gd: '+6', pts: 12 }, { name: 'MUBARAQ', p: 4, w: 2, gd: '+4', pts: 8 }], messages: [{ user: 'System', text: 'Welcome to GG Champions League channel.', time: 'Just now' }] },
+            'super-league': { name: '⚡ Super League', isOfficial: true, teams: [{ name: 'KUKU1Z', p: 2, w: 2, gd: '+5', pts: 6 }], messages: [{ user: 'System', text: 'Welcome to GG Super League lobby.', time: 'Just now' }] },
+            'open-cup': { name: '🛡️ Open Cup', isOfficial: true, teams: [{ name: 'REAL HOME WISER', p: 1, w: 1, gd: '+2', pts: 3 }], messages: [{ user: 'System', text: 'Welcome to Open Cup tournament channel.', time: 'Just now' }] }
         };
 
         function renderFypFeed() {
@@ -187,9 +207,19 @@
         function renderTournamentBar() {
             const bar = document.getElementById('tournamentBar');
             bar.innerHTML = '';
+            // Render official tournaments first
             for (let key in tournamentData) {
-                let activeClass = key === currentTourney ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20" : "bg-gg-800 text-cyan-400 border border-cyan-500/20";
-                bar.innerHTML += `<button onclick="switchTournament('${key}')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap ${activeClass}">${tournamentData[key].name}</button>`;
+                if(tournamentData[key].isOfficial) {
+                    let activeClass = key === currentTourney ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20" : "bg-gg-800 text-cyan-400 border border-cyan-500/20";
+                    bar.innerHTML += `<button onclick="switchTournament('${key}')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap ${activeClass}">${tournamentData[key].name}</button>`;
+                }
+            }
+            // Render community tournaments next
+            for (let key in tournamentData) {
+                if(!tournamentData[key].isOfficial) {
+                    let activeClass = key === currentTourney ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20" : "bg-gg-800 text-magenta border border-magenta/30";
+                    bar.innerHTML += `<button onclick="switchTournament('${key}')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap ${activeClass}">🌐 ${tournamentData[key].name}</button>`;
+                }
             }
         }
 
@@ -197,7 +227,7 @@
             const title = prompt("Enter community tournament name:");
             if(title && title.trim()) {
                 const key = title.toLowerCase().replace(/[^a-z0-9]/g, '-');
-                tournamentData[key] = { name: title.trim(), teams: [{ name: 'FOUNDER CLUB', p: 0, w: 0, gd: '0', pts: 0 }], messages: [{ user: 'System', text: `Community tournament '${title.trim()}' successfully deployed on GG.`, time: 'Just now' }] };
+                tournamentData[key] = { name: title.trim(), isOfficial: false, teams: [{ name: 'FOUNDER CLUB', p: 0, w: 0, gd: '0', pts: 0 }], messages: [{ user: 'System', text: `Community tournament '${title.trim()}' successfully deployed on GG.`, time: 'Just now' }] };
                 renderTournamentBar();
                 switchTournament(key);
             }
@@ -213,12 +243,12 @@
         }
 
         function switchView(view) {
-            ['fyp', 'chat', 'standings', 'global'].forEach(v => {
+            ['fyp', 'streams', 'chat', 'standings', 'global'].forEach(v => {
                 document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('hidden');
-                document.getElementById('btnView' + v.charAt(0).toUpperCase() + v.slice(1)).className = "flex-1 py-2 text-xs rounded-xl text-cyan-400 font-extrabold transition";
+                document.getElementById('btnView' + v.charAt(0).toUpperCase() + v.slice(1)).className = "flex-1 py-2 px-2 text-[11px] rounded-xl text-cyan-400 font-extrabold transition whitespace-nowrap";
             });
             document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1)).classList.remove('hidden');
-            document.getElementById('btnView' + view.charAt(0).toUpperCase() + view.slice(1)).className = "flex-1 py-2 text-xs rounded-xl bg-magenta text-white font-extrabold transition shadow-md";
+            document.getElementById('btnView' + view.charAt(0).toUpperCase() + view.slice(1)).className = "flex-1 py-2 px-2 text-[11px] rounded-xl bg-magenta text-white font-extrabold transition shadow-md whitespace-nowrap";
         }
 
         function renderChat() {
@@ -252,6 +282,11 @@
                 tournamentData[currentTourney].teams.push({ name: name.toUpperCase(), p: 0, w: 0, gd: '0', pts: 0 });
                 renderStandings();
             }
+        }
+
+        function addStream() {
+            const url = prompt("Paste livestream URL or stream link:");
+            if(url) alert('Livestream successfully linked to GG Live Broadcasts!');
         }
 
         renderTournamentBar();
