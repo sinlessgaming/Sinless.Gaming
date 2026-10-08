@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sinless GG - Global Esports Hub & FYP</title>
+    <title>Sinless GG - Global Esports Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -21,116 +21,119 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { background-color: #02050b; color: #f1f5f9; font-family: 'Inter', sans-serif; }
-        .cyber-card { background: rgba(7, 15, 30, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(0, 243, 255, 0.15); }
+        .cyber-card { background: rgba(7, 15, 30, 0.95); backdrop-filter: blur(16px); border: 1px solid rgba(0, 243, 255, 0.2); }
         .scrollbar-none::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col selection:bg-cyan-500 selection:text-slate-950">
 
     <!-- Navbar -->
-    <header class="h-14 bg-gg-900 border-b border-cyan-500/20 flex items-center justify-between px-4 sticky top-0 z-50">
-        <div class="flex items-center space-x-2">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-black text-slate-950 text-sm shadow-lg shadow-cyan-500/20">SG</div>
+    <header class="h-16 bg-gg-900/90 border-b border-cyan-500/20 backdrop-blur-md flex items-center justify-between px-4 sticky top-0 z-50">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-black text-slate-950 text-base shadow-lg shadow-cyan-500/20">SG</div>
             <div>
-                <h1 class="font-black text-xs tracking-wider bg-gradient-to-r from-cyan-400 to-magenta bg-clip-text text-transparent">SINLESS GG</h1>
-                <p class="text-[9px] text-cyan-400/70 tracking-widest uppercase">🌍 Global Network</p>
+                <h1 class="font-extrabold text-sm tracking-wide bg-gradient-to-r from-cyan-400 to-magenta bg-clip-text text-transparent">SINLESS GG</h1>
+                <p class="text-[10px] text-cyan-400/80 tracking-widest font-semibold uppercase">Global Esports Network</p>
             </div>
         </div>
         <div class="flex items-center space-x-2">
-            <button onclick="openPostModal()" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-magenta/20 text-magenta border border-magenta/40">
-                <i class="fa-solid fa-video mr-1"></i> Post Clip
+            <button onclick="openPostModal()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-magenta/20 text-magenta border border-magenta/40 hover:bg-magenta/30 transition">
+                <i class="fa-solid fa-video mr-1"></i> Post
             </button>
-            <button onclick="openCreateTournamentModal()" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
-                <i class="fa-solid fa-plus"></i> Host
+            <button onclick="openCreateTournamentModal()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 hover:bg-cyan-500/30 transition">
+                <i class="fa-solid fa-plus mr-1"></i> Host
             </button>
         </div>
     </header>
 
     <!-- Tournament Selector Bar -->
-    <div id="tournamentBar" class="bg-gg-900/90 border-b border-cyan-500/20 p-2.5 overflow-x-auto flex space-x-2 scrollbar-none"></div>
+    <div id="tournamentBar" class="bg-gg-900/60 border-b border-cyan-500/10 p-3 overflow-x-auto flex space-x-2.5 scrollbar-none"></div>
 
     <!-- Main Workspace -->
-    <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3">
+    <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3.5">
         
         <!-- View Tabs -->
-        <div class="flex cyber-card p-1 rounded-2xl overflow-x-auto">
-            <button onclick="switchView('fyp')" id="btnViewFyp" class="flex-1 py-2 px-2 text-[11px] rounded-xl bg-magenta text-white font-extrabold transition shadow-md whitespace-nowrap"><i class="fa-solid fa-fire mr-1"></i> FYP</button>
-            <button onclick="switchView('streams')" id="btnViewStreams" class="flex-1 py-2 px-2 text-[11px] rounded-xl text-cyan-400 font-extrabold transition whitespace-nowrap"><i class="fa-solid fa-tower-broadcast mr-1"></i> Live</button>
-            <button onclick="switchView('chat')" id="btnViewChat" class="flex-1 py-2 px-2 text-[11px] rounded-xl text-cyan-400 font-extrabold transition whitespace-nowrap"><i class="fa-solid fa-comments mr-1"></i> Chat</button>
-            <button onclick="switchView('standings')" id="btnViewStandings" class="flex-1 py-2 px-2 text-[11px] rounded-xl text-cyan-400 font-extrabold transition whitespace-nowrap"><i class="fa-solid fa-trophy mr-1"></i> Table</button>
-            <button onclick="switchView('global')" id="btnViewGlobal" class="flex-1 py-2 px-2 text-[11px] rounded-xl text-cyan-400 font-extrabold transition whitespace-nowrap"><i class="fa-solid fa-globe mr-1"></i> Ranks</button>
+        <div class="flex cyber-card p-1.5 rounded-2xl shadow-xl">
+            <button onclick="switchView('fyp')" id="btnViewFyp" class="flex-1 py-2 text-xs rounded-xl bg-magenta text-white font-black transition shadow-md"><i class="fa-solid fa-fire mr-1"></i> FYP</button>
+            <button onclick="switchView('streams')" id="btnViewStreams" class="flex-1 py-2 text-xs rounded-xl text-cyan-400 font-bold transition"><i class="fa-solid fa-tower-broadcast mr-1"></i> Live</button>
+            <button onclick="switchView('chat')" id="btnViewChat" class="flex-1 py-2 text-xs rounded-xl text-cyan-400 font-bold transition"><i class="fa-solid fa-comments mr-1"></i> Chat</button>
+            <button onclick="switchView('standings')" id="btnViewStandings" class="flex-1 py-2 text-xs rounded-xl text-cyan-400 font-bold transition"><i class="fa-solid fa-trophy mr-1"></i> Table</button>
+            <button onclick="switchView('global')" id="btnViewGlobal" class="flex-1 py-2 text-xs rounded-xl text-cyan-400 font-bold transition"><i class="fa-solid fa-globe mr-1"></i> Ranks</button>
         </div>
 
-        <!-- FYP Vertical Video Feed View -->
+        <!-- FYP Feed View -->
         <div id="viewFyp" class="flex-1 flex flex-col space-y-4 overflow-y-auto pb-6">
-            <div class="text-center pb-1"><span class="text-[10px] uppercase tracking-widest text-gray-400 font-bold">🔥 Sinless GG Global Highlights & Viral Goals</span></div>
+            <div class="text-center py-1"><span class="text-[11px] uppercase tracking-widest text-cyan-400 font-bold">🔥 Global Highlights & Viral Goals</span></div>
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
-        <!-- Robust HD Live Studio -->
-        <div id="viewStreams" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-3 space-y-3">
+        <!-- Live Studio View -->
+        <div id="viewStreams" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-4 space-y-3.5 shadow-2xl">
             <div class="flex items-center justify-between">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-tower-broadcast text-magenta mr-1.5"></i> HD Mobile Studio</h3>
-                <div class="flex space-x-1">
-                    <button onclick="startScreenShare()" class="px-2.5 py-1 bg-cyan-500 text-slate-950 rounded-lg text-[10px] font-black">Screen Share</button>
-                    <button onclick="startCameraStream()" class="px-2.5 py-1 bg-magenta text-white rounded-lg text-[10px] font-black">Face Cam</button>
+                <div>
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-tower-broadcast text-magenta mr-1.5"></i> HD Mobile Studio</h3>
+                    <p class="text-[10px] text-gray-400">Stream your gameplay or face cam live</p>
+                </div>
+                <div class="flex space-x-1.5">
+                    <button onclick="startScreenShare()" class="px-2.5 py-1.5 bg-cyan-500 text-slate-950 rounded-xl text-[11px] font-black shadow-md">Screen</button>
+                    <button onclick="startCameraStream()" class="px-2.5 py-1.5 bg-magenta text-white rounded-xl text-[11px] font-black shadow-md">Face Cam</button>
                 </div>
             </div>
 
-            <div class="relative aspect-[9/16] bg-gg-950 rounded-2xl flex flex-col items-center justify-center border border-cyan-500/30 overflow-hidden">
+            <div class="relative aspect-[9/16] bg-gg-950 rounded-2xl flex flex-col items-center justify-center border border-cyan-500/30 overflow-hidden shadow-inner">
                 <video id="liveScreenFeed" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover hidden"></video>
                 <div id="livePlaceholder" class="flex flex-col items-center justify-center p-6 text-center space-y-3">
                     <div class="w-16 h-16 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 border border-cyan-500/40 text-2xl animate-pulse">
                         <i class="fa-solid fa-circle-play"></i>
                     </div>
-                    <p class="text-xs text-gray-300 font-semibold">Tap <b>Screen Share</b> or <b>Face Cam</b> to broadcast live instantly without freezing.</p>
+                    <p class="text-xs text-gray-300 font-medium leading-relaxed">Tap <b>Screen</b> to share your mobile game display or <b>Face Cam</b> to broadcast live in HD.</p>
                 </div>
             </div>
 
-            <!-- Live Stream Controls -->
+            <!-- Broadcast Controls -->
             <div class="grid grid-cols-3 gap-2 pt-1">
-                <button onclick="resumeStream()" class="py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-play mr-1"></i> Resume</button>
-                <button onclick="pauseStream()" class="py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-pause mr-1"></i> Pause</button>
-                <button onclick="stopStream()" class="py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-stop mr-1"></i> Stop</button>
+                <button onclick="resumeStream()" class="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition"><i class="fa-solid fa-play mr-1"></i> Resume</button>
+                <button onclick="pauseStream()" class="py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs shadow-lg transition"><i class="fa-solid fa-pause mr-1"></i> Pause</button>
+                <button onclick="stopStream()" class="py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs shadow-lg transition"><i class="fa-solid fa-stop mr-1"></i> Stop</button>
             </div>
         </div>
 
         <!-- Chat View -->
-        <div id="viewChat" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden h-[480px]">
-            <div class="p-3 border-b border-cyan-500/20 text-xs font-bold text-cyan-400 flex items-center justify-between bg-gg-900/60">
+        <div id="viewChat" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden h-[500px] shadow-2xl">
+            <div class="p-3.5 border-b border-cyan-500/20 text-xs font-bold text-cyan-400 flex items-center justify-between bg-gg-900/80">
                 <span id="chatHeaderTitle"># chat-room</span>
-                <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">● Worldwide Sync</span>
+                <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-semibold">● Worldwide Sync</span>
             </div>
-            <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-3 space-y-3"></div>
-            <div class="p-3 border-t border-cyan-500/20 bg-gg-950/80 flex items-center space-x-2">
-                <label class="cursor-pointer text-cyan-400 hover:text-cyan-300 px-2 text-sm" title="Upload Media">
+            <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-3.5 space-y-3"></div>
+            <div class="p-3 border-t border-cyan-500/20 bg-gg-950/90 flex items-center space-x-2">
+                <label class="cursor-pointer text-cyan-400 hover:text-cyan-300 px-2 text-base transition" title="Upload Media">
                     <i class="fa-solid fa-image"></i>
                     <input type="file" id="chatMediaInput" accept="image/*,video/*" class="hidden" onchange="handleChatMediaUpload(this)">
                 </label>
-                <input type="text" id="chatInputMsg" placeholder="Broadcast message or drop media..." class="flex-1 bg-gg-800 border border-cyan-500/30 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
-                <button onclick="sendChatMessage()" class="px-4 py-2 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
+                <input type="text" id="chatInputMsg" placeholder="Broadcast message or drop media..." class="flex-1 bg-gg-800 border border-cyan-500/30 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400">
+                <button onclick="sendChatMessage()" class="px-4 py-2.5 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs shadow-lg"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
 
         <!-- Standings View -->
-        <div id="viewStandings" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-3 space-y-3">
+        <div id="viewStandings" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-4 space-y-3.5 shadow-2xl">
             <div class="flex items-center justify-between">
                 <h3 id="standingsTitle" class="text-xs font-black text-white uppercase tracking-wider">Standings</h3>
                 <div class="flex space-x-1.5">
-                    <button onclick="openAutoScoreModal()" class="px-2 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-lg text-[10px] font-bold"><i class="fa-solid fa-bolt mr-1"></i> Auto-Score</button>
-                    <button onclick="addTeamModal()" class="px-2 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-lg text-[10px] font-bold">+ Club</button>
+                    <button onclick="openAutoScoreModal()" class="px-2.5 py-1.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-xl text-[10px] font-bold shadow-md"><i class="fa-solid fa-bolt mr-1"></i> Auto-Score</button>
+                    <button onclick="addTeamModal()" class="px-2.5 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl text-[10px] font-bold shadow-md">+ Club</button>
                 </div>
             </div>
             <div class="overflow-x-auto flex-1">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
                         <tr class="bg-gg-900 text-cyan-400 text-[10px] uppercase border-b border-cyan-500/20">
-                            <th class="p-2">Rank</th>
-                            <th class="p-2">Club / Player</th>
-                            <th class="p-2 text-center">P</th>
-                            <th class="p-2 text-center">W</th>
-                            <th class="p-2 text-center">GD</th>
-                            <th class="p-2 text-center">PTS</th>
+                            <th class="p-2.5">Rank</th>
+                            <th class="p-2.5">Club / Player</th>
+                            <th class="p-2.5 text-center">P</th>
+                            <th class="p-2.5 text-center">W</th>
+                            <th class="p-2.5 text-center">GD</th>
+                            <th class="p-2.5 text-center">PTS</th>
                         </tr>
                     </thead>
                     <tbody id="standingsTableBody" class="divide-y divide-cyan-500/10"></tbody>
@@ -139,21 +142,21 @@
         </div>
 
         <!-- World Leaderboard View -->
-        <div id="viewGlobal" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-3 space-y-3">
-            <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-earth-americas text-cyan-400 mr-1.5"></i> Sinless GG World Leaderboard</h3>
+        <div id="viewGlobal" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-4 space-y-3.5 shadow-2xl">
+            <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-earth-americas text-cyan-400 mr-1.5"></i> World Leaderboard</h3>
             <div class="overflow-x-auto flex-1">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
                         <tr class="bg-gg-900 text-cyan-400 text-[10px] uppercase border-b border-cyan-500/20">
-                            <th class="p-2">Rank</th>
-                            <th class="p-2">GamerTag</th>
-                            <th class="p-2">Region</th>
-                            <th class="p-2 text-center">Rating</th>
+                            <th class="p-2.5">Rank</th>
+                            <th class="p-2.5">GamerTag</th>
+                            <th class="p-2.5">Region</th>
+                            <th class="p-2.5 text-center">Rating</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-cyan-500/10 text-xs">
-                        <tr class="hover:bg-cyan-500/5"><td class="p-2 font-bold text-cyan-400">#01</td><td class="p-2 font-bold text-white">DON PRIME</td><td class="p-2 text-gray-400">Africa</td><td class="p-2 text-center font-extrabold text-cyan-300">2,840 ELO</td></tr>
-                        <tr class="hover:bg-cyan-500/5"><td class="p-2 font-bold text-cyan-400">#02</td><td class="p-2 font-bold text-white">KUKU1Z</td><td class="p-2 text-gray-400">Europe</td><td class="p-2 text-center font-extrabold text-cyan-300">2,710 ELO</td></tr>
+                        <tr class="hover:bg-cyan-500/5"><td class="p-2.5 font-bold text-cyan-400">#01</td><td class="p-2.5 font-bold text-white">DON PRIME</td><td class="p-2.5 text-gray-400">Africa</td><td class="p-2.5 text-center font-extrabold text-cyan-300">2,840 ELO</td></tr>
+                        <tr class="hover:bg-cyan-500/5"><td class="p-2.5 font-bold text-cyan-400">#02</td><td class="p-2.5 font-bold text-white">KUKU1Z</td><td class="p-2.5 text-gray-400">Europe</td><td class="p-2.5 text-center font-extrabold text-cyan-300">2,710 ELO</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -179,20 +182,20 @@
             container.innerHTML = '';
             fypPosts.forEach((post, index) => {
                 container.innerHTML += `
-                    <div class="cyber-card rounded-2xl overflow-hidden space-y-2 pb-3">
-                        <div class="p-3 pb-0 flex items-center justify-between">
-                            <div class="flex items-center space-x-2">
-                                <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-black text-slate-950 text-[10px]">SG</div>
+                    <div class="cyber-card rounded-2xl overflow-hidden space-y-2 pb-3 shadow-xl">
+                        <div class="p-3.5 pb-0 flex items-center justify-between">
+                            <div class="flex items-center space-x-2.5">
+                                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-black text-slate-950 text-xs">SG</div>
                                 <span class="font-bold text-xs text-white">@${post.user}</span>
                             </div>
-                            <span class="text-[10px] bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/20">Verified Clip</span>
+                            <span class="text-[10px] bg-cyan-500/10 text-cyan-400 px-2.5 py-0.5 rounded-full border border-cyan-500/20 font-semibold">Verified Clip</span>
                         </div>
-                        <p class="px-3 text-xs text-gray-200">${post.caption}</p>
+                        <p class="px-3.5 text-xs text-gray-200">${post.caption}</p>
                         <div class="relative aspect-[9/16] bg-gg-950 flex items-center justify-center overflow-hidden">
                             <video src="${post.videoUrl}" autoplay loop muted playsinline class="w-full h-full object-cover"></video>
-                            <div class="absolute right-3 bottom-4 flex flex-col items-center space-y-3">
-                                <button onclick="likePost(${index})" class="w-10 h-10 rounded-full bg-gg-900/80 border border-cyan-500/30 flex flex-col items-center justify-center text-magenta"><i class="fa-solid fa-heart text-sm"></i><span class="text-[9px] text-white font-bold">${post.likes}</span></button>
-                                <button class="w-10 h-10 rounded-full bg-gg-900/80 border border-cyan-500/30 flex flex-col items-center justify-center text-cyan-400"><i class="fa-solid fa-comment text-sm"></i><span class="text-[9px] text-white font-bold">${post.comments}</span></button>
+                            <div class="absolute right-3.5 bottom-4 flex flex-col items-center space-y-3">
+                                <button onclick="likePost(${index})" class="w-10 h-10 rounded-full bg-gg-900/90 border border-cyan-500/30 flex flex-col items-center justify-center text-magenta shadow-lg"><i class="fa-solid fa-heart text-sm"></i><span class="text-[9px] text-white font-bold">${post.likes}</span></button>
+                                <button class="w-10 h-10 rounded-full bg-gg-900/90 border border-cyan-500/30 flex flex-col items-center justify-center text-cyan-400 shadow-lg"><i class="fa-solid fa-comment text-sm"></i><span class="text-[9px] text-white font-bold">${post.comments}</span></button>
                             </div>
                         </div>
                     </div>
@@ -231,7 +234,6 @@
                 }
                 attachStreamToVideo(activeMediaStream, '🔴 Screen Broadcast Active!');
             } catch (err) {
-                // Instant seamless fallback to high-quality camera if mobile browser restricts screen capture
                 startCameraStream();
             }
         }
@@ -289,7 +291,7 @@
                 
                 tournamentData[currentTourney].messages.push({
                     user: 'You [Media]',
-                    text: isVideo ? `<video src="${fileUrl}" controls class="w-full rounded-lg mt-1 max-h-48 object-cover"></video>` : `<img src="${fileUrl}" class="w-full rounded-lg mt-1 max-h-48 object-cover">`,
+                    text: isVideo ? `<video src="${fileUrl}" controls class="w-full rounded-xl mt-1.5 max-h-48 object-cover"></video>` : `<img src="${fileUrl}" class="w-full rounded-xl mt-1.5 max-h-48 object-cover">`,
                     time: 'Just now',
                     isMedia: true
                 });
@@ -337,14 +339,14 @@
             bar.innerHTML = '';
             for (let key in tournamentData) {
                 if(tournamentData[key].isOfficial) {
-                    let activeClass = key === currentTourney ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20" : "bg-gg-800 text-cyan-400 border border-cyan-500/20";
-                    bar.innerHTML += `<button onclick="switchTournament('${key}')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap ${activeClass}">${tournamentData[key].name}</button>`;
+                    let activeClass = key === currentTourney ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20 font-black" : "bg-gg-800 text-cyan-400 border border-cyan-500/20 font-semibold";
+                    bar.innerHTML += `<button onclick="switchTournament('${key}')" class="px-4 py-2 rounded-xl text-xs whitespace-nowrap transition ${activeClass}">${tournamentData[key].name}</button>`;
                 }
             }
             for (let key in tournamentData) {
                 if(!tournamentData[key].isOfficial) {
-                    let activeClass = key === currentTourney ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20" : "bg-gg-800 text-magenta border border-magenta/30";
-                    bar.innerHTML += `<button onclick="switchTournament('${key}')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap ${activeClass}">🌐 ${tournamentData[key].name}</button>`;
+                    let activeClass = key === currentTourney ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20 font-black" : "bg-gg-800 text-magenta border border-magenta/30 font-semibold";
+                    bar.innerHTML += `<button onclick="switchTournament('${key}')" class="px-4 py-2 rounded-xl text-xs whitespace-nowrap transition ${activeClass}">🌐 ${tournamentData[key].name}</button>`;
                 }
             }
         }
@@ -371,10 +373,10 @@
         function switchView(view) {
             ['fyp', 'streams', 'chat', 'standings', 'global'].forEach(v => {
                 document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('hidden');
-                document.getElementById('btnView' + v.charAt(0).toUpperCase() + v.slice(1)).className = "flex-1 py-2 px-2 text-[11px] rounded-xl text-cyan-400 font-extrabold transition whitespace-nowrap";
+                document.getElementById('btnView' + v.charAt(0).toUpperCase() + v.slice(1)).className = "flex-1 py-2 px-2 text-[11px] rounded-xl text-cyan-400 font-bold transition whitespace-nowrap";
             });
             document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1)).classList.remove('hidden');
-            document.getElementById('btnView' + view.charAt(0).toUpperCase() + view.slice(1)).className = "flex-1 py-2 px-2 text-[11px] rounded-xl bg-magenta text-white font-extrabold transition shadow-md whitespace-nowrap";
+            document.getElementById('btnView' + view.charAt(0).toUpperCase() + view.slice(1)).className = "flex-1 py-2 px-2 text-[11px] rounded-xl bg-magenta text-white font-black transition shadow-md whitespace-nowrap";
         }
 
         function renderChat() {
@@ -383,10 +385,10 @@
             tournamentData[currentTourney].messages.forEach(m => {
                 let content = m.isMedia ? m.text : `<p class="text-xs text-slate-200">${m.text}</p>`;
                 box.innerHTML += `
-                    <div class="bg-gg-900/60 p-2.5 rounded-xl border border-cyan-500/10">
-                        <div class="flex justify-between text-[10px] text-cyan-400 font-bold mb-0.5">
+                    <div class="bg-gg-900/80 p-3 rounded-xl border border-cyan-500/15 shadow-md">
+                        <div class="flex justify-between text-[10px] text-cyan-400 font-bold mb-1">
                             <span>${m.user}</span>
-                            <span class="text-slate-500">${m.time}</span>
+                            <span class="text-slate-500 font-normal">${m.time}</span>
                         </div>
                         ${content}
                     </div>
@@ -408,7 +410,7 @@
             tbody.innerHTML = '';
             tournamentData[currentTourney].teams.forEach((t, i) => {
                 let gdFormatted = t.gd > 0 ? '+' + t.gd : t.gd;
-                tbody.innerHTML += `<tr class="hover:bg-cyan-500/5 transition"><td class="p-2 font-bold text-cyan-400">0${i+1}</td><td class="p-2 font-bold text-white">${t.name}</td><td class="p-2 text-center">${t.p}</td><td class="p-2 text-center">${t.w}</td><td class="p-2 text-center text-cyan-300">${gdFormatted}</td><td class="p-2 text-center font-extrabold text-white">${t.pts}</td></tr>`;
+                tbody.innerHTML += `<tr class="hover:bg-cyan-500/5 transition"><td class="p-3 font-bold text-cyan-400">0${i+1}</td><td class="p-3 font-bold text-white">${t.name}</td><td class="p-3 text-center">${t.p}</td><td class="p-3 text-center">${t.w}</td><td class="p-3 text-center text-cyan-300 font-semibold">${gdFormatted}</td><td class="p-3 text-center font-extrabold text-white">${t.pts}</td></tr>`;
             });
         }
 
