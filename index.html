@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sinless Gaming - Hub</title>
+    <title>Sinless Gaming - Global Esports Hub & FYP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -11,172 +11,223 @@
             theme: {
                 extend: {
                     colors: {
-                        sinless: { 950: '#0b0f19', 900: '#111827', 800: '#1f2937', cyan: '#00f3ff', magenta: '#ff007f' }
+                        sinless: { 950: '#02050b', 900: '#070f1e', 800: '#0f1d36', cyan: '#00f3ff', magenta: '#ff007f' }
                     }
                 }
             }
         }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #0b0f19; color: #f3f4f6; font-family: 'Inter', sans-serif; }
+        body { background-color: #02050b; color: #f1f5f9; font-family: 'Inter', sans-serif; }
+        .cyber-card { background: rgba(7, 15, 30, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(0, 243, 255, 0.15); }
+        .scrollbar-none::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
     <!-- Navbar -->
-    <header class="h-14 bg-sinless-900 border-b border-gray-800 flex items-center justify-between px-4 sticky top-0 z-50">
+    <header class="h-14 bg-sinless-900 border-b border-cyan-500/20 flex items-center justify-between px-4 sticky top-0 z-50">
         <div class="flex items-center space-x-2">
-            <div class="w-7 h-7 rounded bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-bold text-white text-xs">SG</div>
-            <h1 class="font-bold text-xs tracking-wide text-white">SINLESS GAMING</h1>
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-black text-white text-xs shadow-lg shadow-cyan-500/20">SG</div>
+            <div>
+                <h1 class="font-extrabold text-xs tracking-wider bg-gradient-to-r from-cyan-400 to-magenta bg-clip-text text-transparent">SINLESS GAMING</h1>
+                <p class="text-[9px] text-cyan-400/70 tracking-widest uppercase" id="currentRegionLabel">🌍 Global Feed</p>
+            </div>
         </div>
         <div class="flex items-center space-x-2">
-            <button onclick="toggleAdminMode()" id="adminToggleBtn" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-gray-800 text-gray-300 border border-gray-700">
-                <i class="fa-solid fa-shield-halved mr-1"></i> Admin
+            <button onclick="openPostModal()" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-magenta/20 text-magenta border border-magenta/40">
+                <i class="fa-solid fa-video mr-1"></i> Post Clip
             </button>
-            <span class="text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-medium">Live</span>
+            <button onclick="openCreateTournamentModal()" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
+                <i class="fa-solid fa-plus"></i> Host
+            </button>
         </div>
     </header>
 
     <!-- Tournament Selector Bar -->
-    <div class="bg-sinless-900/80 border-b border-gray-800 p-2 overflow-x-auto flex space-x-2 scrollbar-none">
-        <button onclick="switchTournament('champions-league')" id="tab-champions-league" class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-cyan-500 text-gray-950">Champions League</button>
-        <button onclick="switchTournament('super-league')" id="tab-super-league" class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-gray-800 text-gray-300">Super League</button>
-        <button onclick="switchTournament('open-cup')" id="tab-open-cup" class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-gray-800 text-gray-300">Open Cup</button>
-        <button onclick="switchTournament('rising-stars')" id="tab-rising-stars" class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-gray-800 text-gray-300">Rising Stars</button>
-    </div>
+    <div id="tournamentBar" class="bg-sinless-900/90 border-b border-cyan-500/20 p-2.5 overflow-x-auto flex space-x-2 scrollbar-none"></div>
 
     <!-- Main Workspace -->
-    <main class="flex-1 flex flex-col max-w-2xl w-full mx-auto p-3 space-y-3">
+    <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3">
         
-        <!-- View Toggle (Chat vs Standings) -->
-        <div class="flex bg-sinless-900 p-1 rounded-xl border border-gray-800">
-            <button onclick="switchView('chat')" id="btnViewChat" class="flex-1 py-1.5 text-xs rounded-lg bg-cyan-500 text-gray-950 font-bold transition">💬 Live Chat</button>
-            <button onclick="switchView('standings')" id="btnViewStandings" class="flex-1 py-1.5 text-xs rounded-lg text-gray-400 font-bold transition">🏆 Standings</button>
+        <!-- View Tabs (Added FYP Feed) -->
+        <div class="flex cyber-card p-1 rounded-2xl">
+            <button onclick="switchView('fyp')" id="btnViewFyp" class="flex-1 py-2 text-xs rounded-xl bg-magenta text-white font-extrabold transition shadow-md"><i class="fa-solid fa-fire mr-1"></i> FYP</button>
+            <button onclick="switchView('chat')" id="btnViewChat" class="flex-1 py-2 text-xs rounded-xl text-cyan-400 font-extrabold transition"><i class="fa-solid fa-comments mr-1"></i> Chat</button>
+            <button onclick="switchView('standings')" id="btnViewStandings" class="flex-1 py-2 text-xs rounded-xl text-cyan-400 font-extrabold transition"><i class="fa-solid fa-trophy mr-1"></i> Standings</button>
+            <button onclick="switchView('global')" id="btnViewGlobal" class="flex-1 py-2 text-xs rounded-xl text-cyan-400 font-extrabold transition"><i class="fa-solid fa-globe mr-1"></i> Ranks</button>
         </div>
 
-        <!-- Chat Container -->
-        <div id="viewChat" class="flex-1 flex flex-col bg-sinless-900 rounded-2xl border border-gray-800 overflow-hidden h-[450px]">
-            <div class="p-3 border-b border-gray-800 text-xs font-bold text-cyan-400 flex items-center justify-between">
-                <span id="chatHeaderTitle"># champions-league chat</span>
-                <span class="text-[10px] text-gray-500 font-normal">Synced</span>
+        <!-- FYP Vertical Video Feed View -->
+        <div id="viewFyp" class="flex-1 flex flex-col space-y-4 overflow-y-auto pb-6">
+            <div class="text-center pb-1"><span class="text-[10px] uppercase tracking-widest text-gray-400 font-bold">🔥 Global Highlights & Viral Goals</span></div>
+            <div id="fypFeedContainer" class="space-y-4">
+                <!-- Populated Dynamically -->
+            </div>
+        </div>
+
+        <!-- Chat View -->
+        <div id="viewChat" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden h-[480px]">
+            <div class="p-3 border-b border-cyan-500/20 text-xs font-bold text-cyan-400 flex items-center justify-between bg-sinless-900/60">
+                <span id="chatHeaderTitle"># chat-room</span>
+                <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">● Worldwide Sync</span>
             </div>
             <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-3 space-y-3"></div>
-            <div class="p-2.5 border-t border-gray-800 bg-sinless-950/50 flex space-x-2">
-                <input type="text" id="chatInputMsg" placeholder="Type message..." class="flex-1 bg-sinless-800 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
-                <button onclick="sendChatMessage()" class="px-3.5 py-2 bg-cyan-500 text-gray-950 font-bold rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
+            <div class="p-3 border-t border-cyan-500/20 bg-sinless-950/80 flex space-x-2">
+                <input type="text" id="chatInputMsg" placeholder="Broadcast to lobby..." class="flex-1 bg-sinless-800 border border-cyan-500/30 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
+                <button onclick="sendChatMessage()" class="px-4 py-2 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
 
-        <!-- Standings Container -->
-        <div id="viewStandings" class="hidden flex-1 flex flex-col bg-sinless-900 rounded-2xl border border-gray-800 overflow-hidden p-3 space-y-3">
+        <!-- Standings View -->
+        <div id="viewStandings" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-3 space-y-3">
             <div class="flex items-center justify-between">
-                <h3 id="standingsTitle" class="text-xs font-bold text-white uppercase tracking-wider">Champions League Standings</h3>
-                <button id="addTeamBtn" onclick="addTeamModal()" class="hidden px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[11px] font-bold">+ Add Team</button>
+                <h3 id="standingsTitle" class="text-xs font-black text-white uppercase tracking-wider">Standings</h3>
+                <button onclick="addTeamModal()" class="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-lg text-[11px] font-bold">+ Register Club</button>
             </div>
             <div class="overflow-x-auto flex-1">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
-                        <tr class="bg-gray-800/40 text-gray-400 text-[10px] uppercase border-b border-gray-800">
+                        <tr class="bg-sinless-900 text-cyan-400 text-[10px] uppercase border-b border-cyan-500/20">
                             <th class="p-2">Rank</th>
-                            <th class="p-2">Player / Team</th>
+                            <th class="p-2">Club / Player</th>
                             <th class="p-2 text-center">P</th>
+                            <th class="p-2 text-center">W</th>
                             <th class="p-2 text-center">GD</th>
                             <th class="p-2 text-center">PTS</th>
                         </tr>
                     </thead>
-                    <tbody id="standingsTableBody" class="divide-y divide-gray-800/60"></tbody>
+                    <tbody id="standingsTableBody" class="divide-y divide-cyan-500/10"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- World Leaderboard View -->
+        <div id="viewGlobal" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-3 space-y-3">
+            <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-earth-americas text-cyan-400 mr-1.5"></i> World Leaderboard</h3>
+            <div class="overflow-x-auto flex-1">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-sinless-900 text-cyan-400 text-[10px] uppercase border-b border-cyan-500/20">
+                            <th class="p-2">Rank</th>
+                            <th class="p-2">GamerTag</th>
+                            <th class="p-2">Region</th>
+                            <th class="p-2 text-center">Rating</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-cyan-500/10 text-xs">
+                        <tr class="hover:bg-cyan-500/5"><td class="p-2 font-bold text-cyan-400">#01</td><td class="p-2 font-bold text-white">DON PRIME</td><td class="p-2 text-gray-400">Africa</td><td class="p-2 text-center font-extrabold text-cyan-300">2,840 ELO</td></tr>
+                        <tr class="hover:bg-cyan-500/5"><td class="p-2 font-bold text-cyan-400">#02</td><td class="p-2 font-bold text-white">KUKU1Z</td><td class="p-2 text-gray-400">Europe</td><td class="p-2 text-center font-extrabold text-cyan-300">2,710 ELO</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
     </main>
 
     <script>
-        let isAdmin = false;
         let currentTourney = 'champions-league';
-        let currentView = 'chat';
+        let fypPosts = [
+            { user: 'DON PRIME', caption: 'Insane 90th minute bicycle kick winner in Champions League! 🚲⚽', likes: 1420, comments: 84, videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4' },
+            { user: 'KUKU1Z', caption: 'Clean tiki-taka buildup leading to the top corner rocket 🚀', likes: 980, comments: 42, videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-controller-while-playing-video-games-41583-large.mp4' }
+        ];
 
-        const data = {
-            'champions-league': {
-                name: 'Champions League',
-                teams: [
-                    { name: 'DON PRIME (Darkdemon)', p: 3, gd: '+6', pts: 12 },
-                    { name: 'MUBARAQ', p: 4, gd: '+4', pts: 8 },
-                    { name: 'NONCHALANT (Cobbykay)', p: 3, gd: '+6', pts: 8 }
-                ],
-                messages: [{ user: 'System', text: 'Welcome to Champions League room.', time: 'Just now' }]
-            },
-            'super-league': {
-                name: 'Super League',
-                teams: [
-                    { name: 'KUKU1Z', p: 2, gd: '+5', pts: 6 },
-                    { name: 'MILLY SHARDS', p: 2, gd: '0', pts: 3 }
-                ],
-                messages: [{ user: 'System', text: 'Welcome to Super League room.', time: 'Just now' }]
-            },
-            'open-cup': {
-                name: 'Open Cup',
-                teams: [
-                    { name: 'REAL HOME WISER', p: 1, gd: '+2', pts: 3 }
-                ],
-                messages: [{ user: 'System', text: 'Welcome to Open Cup room.', time: 'Just now' }]
-            },
-            'rising-stars': {
-                name: 'Rising Stars',
-                teams: [
-                    { name: 'CHUMASI', p: 1, gd: '+3', pts: 3 }
-                ],
-                messages: [{ user: 'System', text: 'Welcome to Rising Stars room.', time: 'Just now' }]
-            }
+        const tournamentData = {
+            'champions-league': { name: 'Champions League', teams: [{ name: 'DON PRIME (Darkdemon)', p: 3, w: 2, gd: '+6', pts: 12 }, { name: 'MUBARAQ', p: 4, w: 2, gd: '+4', pts: 8 }], messages: [{ user: 'System', text: 'Welcome to global Champions League channel.', time: 'Just now' }] },
+            'super-league': { name: 'Sinless Super League', teams: [{ name: 'KUKU1Z', p: 2, w: 2, gd: '+5', pts: 6 }], messages: [{ user: 'System', text: 'Welcome to Super League lobby.', time: 'Just now' }] }
         };
+
+        function renderFypFeed() {
+            const container = document.getElementById('fypFeedContainer');
+            container.innerHTML = '';
+            fypPosts.forEach((post, index) => {
+                container.innerHTML += `
+                    <div class="cyber-card rounded-2xl overflow-hidden space-y-2 pb-3">
+                        <div class="p-3 pb-0 flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-bold text-white text-[10px]">SG</div>
+                                <span class="font-bold text-xs text-white">@${post.user}</span>
+                            </div>
+                            <span class="text-[10px] bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/20">Verified Clip</span>
+                        </div>
+                        <p class="px-3 text-xs text-gray-200">${post.caption}</p>
+                        <div class="relative aspect-[9/16] bg-sinless-950 flex items-center justify-center overflow-hidden">
+                            <video src="${post.videoUrl}" autoplay loop muted playsinline class="w-full h-full object-cover"></video>
+                            <div class="absolute right-3 bottom-4 flex flex-col items-center space-y-3">
+                                <button onclick="likePost(${index})" class="w-10 h-10 rounded-full bg-sinless-900/80 border border-cyan-500/30 flex flex-col items-center justify-center text-magenta"><i class="fa-solid fa-heart text-sm"></i><span class="text-[9px] text-white font-bold">${post.likes}</span></button>
+                                <button class="w-10 h-10 rounded-full bg-sinless-900/80 border border-cyan-500/30 flex flex-col items-center justify-center text-cyan-400"><i class="fa-solid fa-comment text-sm"></i><span class="text-[9px] text-white font-bold">${post.comments}</span></button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function likePost(index) {
+            fypPosts[index].likes += 1;
+            renderFypFeed();
+        }
+
+        function openPostModal() {
+            const caption = prompt("Enter caption for your clip or picture (e.g., Ultimate comeback goal!):");
+            const videoUrl = prompt("Paste video URL or mp4 link (or leave blank for demo clip):");
+            if(caption) {
+                fypPosts.unshift({
+                    user: 'You [Creator]',
+                    caption: caption,
+                    likes: 1,
+                    comments: 0,
+                    videoUrl: videoUrl && videoUrl.trim() ? videoUrl.trim() : 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4'
+                });
+                renderFypFeed();
+                switchView('fyp');
+                alert('Your clip is now live on the global FYP feed!');
+            }
+        }
+
+        function renderTournamentBar() {
+            const bar = document.getElementById('tournamentBar');
+            bar.innerHTML = '';
+            for (let key in tournamentData) {
+                let activeClass = key === currentTourney ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20" : "bg-sinless-800 text-cyan-400 border border-cyan-500/20";
+                bar.innerHTML += `<button onclick="switchTournament('${key}')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap ${activeClass}">${tournamentData[key].name}</button>`;
+            }
+        }
+
+        function openCreateTournamentModal() {
+            const title = prompt("Enter international community tournament name:");
+            if(title && title.trim()) {
+                const key = title.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                tournamentData[key] = { name: title.trim(), teams: [{ name: 'FOUNDER CLUB', p: 0, w: 0, gd: '0', pts: 0 }], messages: [{ user: 'System', text: `Community tournament '${title.trim()}' successfully deployed globally.`, time: 'Just now' }] };
+                renderTournamentBar();
+                switchTournament(key);
+            }
+        }
 
         function switchTournament(key) {
             currentTourney = key;
-            ['champions-league', 'super-league', 'open-cup', 'rising-stars'].forEach(k => {
-                const btn = document.getElementById('tab-' + k);
-                if(k === key) {
-                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-cyan-500 text-gray-950 shadow-md";
-                } else {
-                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-gray-800 text-gray-300";
-                }
-            });
-            document.getElementById('chatHeaderTitle').innerText = '#' + key + ' chat';
-            document.getElementById('standingsTitle').innerText = data[key].name + ' Standings';
+            renderTournamentBar();
+            document.getElementById('chatHeaderTitle').innerText = '#' + key + '-global-chat';
+            document.getElementById('standingsTitle').innerText = tournamentData[key].name + ' Standings';
             renderChat();
             renderStandings();
         }
 
         function switchView(view) {
-            currentView = view;
-            const chatBtn = document.getElementById('btnViewChat');
-            const standBtn = document.getElementById('btnViewStandings');
-            if(view === 'chat') {
-                document.getElementById('viewChat').classList.remove('hidden');
-                document.getElementById('viewStandings').classList.add('hidden');
-                chatBtn.className = "flex-1 py-1.5 text-xs rounded-lg bg-cyan-500 text-gray-950 font-bold transition";
-                standBtn.className = "flex-1 py-1.5 text-xs rounded-lg text-gray-400 font-bold transition";
-            } else {
-                document.getElementById('viewChat').classList.add('hidden');
-                document.getElementById('viewStandings').classList.remove('hidden');
-                standBtn.className = "flex-1 py-1.5 text-xs rounded-lg bg-cyan-500 text-gray-950 font-bold transition";
-                chatBtn.className = "flex-1 py-1.5 text-xs rounded-lg text-gray-400 font-bold transition";
-            }
+            ['fyp', 'chat', 'standings', 'global'].forEach(v => {
+                document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('hidden');
+                document.getElementById('btnView' + v.charAt(0).toUpperCase() + v.slice(1)).className = "flex-1 py-2 text-xs rounded-xl text-cyan-400 font-extrabold transition";
+            });
+            document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1)).classList.remove('hidden');
+            document.getElementById('btnView' + view.charAt(0).toUpperCase() + view.slice(1)).className = "flex-1 py-2 text-xs rounded-xl bg-magenta text-white font-extrabold transition shadow-md";
         }
 
         function renderChat() {
             const box = document.getElementById('chatMessagesBox');
             box.innerHTML = '';
-            data[currentTourney].messages.forEach(m => {
-                box.innerHTML += `
-                    <div class="bg-sinless-950/60 p-2.5 rounded-xl border border-gray-800">
-                        <div class="flex items-center justify-between text-[10px] text-cyan-400 font-bold mb-0.5">
-                            <span>${m.user}</span>
-                            <span class="text-gray-500 font-normal">${m.time}</span>
-                        </div>
-                        <p class="text-xs text-gray-200">${m.text}</p>
-                    </div>
-                `;
+            tournamentData[currentTourney].messages.forEach(m => {
+                box.innerHTML += `<div class="bg-sinless-900/60 p-2.5 rounded-xl border border-cyan-500/10"><div class="flex justify-between text-[10px] text-cyan-400 font-bold mb-0.5"><span>${m.user}</span><span class="text-slate-500">${m.time}</span></div><p class="text-xs text-slate-200">${m.text}</p></div>`;
             });
             box.scrollTop = box.scrollHeight;
         }
@@ -184,11 +235,7 @@
         function sendChatMessage() {
             const input = document.getElementById('chatInputMsg');
             if(!input.value.trim()) return;
-            data[currentTourney].messages.push({
-                user: isAdmin ? 'CEO [Admin]' : 'Manager',
-                text: input.value,
-                time: 'Just now'
-            });
+            tournamentData[currentTourney].messages.push({ user: 'Gamer', text: input.value, time: 'Just now' });
             input.value = '';
             renderChat();
         }
@@ -196,43 +243,21 @@
         function renderStandings() {
             const tbody = document.getElementById('standingsTableBody');
             tbody.innerHTML = '';
-            data[currentTourney].teams.forEach((t, i) => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-gray-800/30">
-                        <td class="p-2 font-bold text-cyan-400">0${i+1}</td>
-                        <td class="p-2 font-semibold text-white">${t.name}</td>
-                        <td class="p-2 text-center text-gray-300">${t.p}</td>
-                        <td class="p-2 text-center text-cyan-300">${t.gd}</td>
-                        <td class="p-2 text-center font-bold text-white">${t.pts}</td>
-                    </tr>
-                `;
+            tournamentData[currentTourney].teams.forEach((t, i) => {
+                tbody.innerHTML += `<tr class="hover:bg-cyan-500/5 transition"><td class="p-2 font-bold text-cyan-400">0${i+1}</td><td class="p-2 font-bold text-white">${t.name}</td><td class="p-2 text-center">${t.p}</td><td class="p-2 text-center">${t.w}</td><td class="p-2 text-center text-cyan-300">${t.gd}</td><td class="p-2 text-center font-extrabold text-white">${t.pts}</td></tr>`;
             });
         }
 
-        function toggleAdminMode() {
-            isAdmin = !isAdmin;
-            const btn = document.getElementById('adminToggleBtn');
-            const addBtn = document.getElementById('addTeamBtn');
-            if(isAdmin) {
-                btn.className = "px-2.5 py-1 rounded text-[11px] font-semibold bg-pink-600/20 text-pink-400 border border-pink-500/40";
-                btn.innerHTML = '<i class="fa-solid fa-crown mr-1"></i> Active';
-                addBtn.classList.remove('hidden');
-                alert('CEO God-Mode Unlocked');
-            } else {
-                btn.className = "px-2.5 py-1 rounded text-[11px] font-semibold bg-gray-800 text-gray-300 border border-gray-700";
-                btn.innerHTML = '<i class="fa-solid fa-shield-halved mr-1"></i> Admin';
-                addBtn.classList.add('hidden');
-            }
-        }
-
         function addTeamModal() {
-            const name = prompt("Enter team/player name:");
+            const name = prompt("Enter club or player name:");
             if(name) {
-                data[currentTourney].teams.push({ name: name.toUpperCase(), p: 0, gd: '0', pts: 0 });
+                tournamentData[currentTourney].teams.push({ name: name.toUpperCase(), p: 0, w: 0, gd: '0', pts: 0 });
                 renderStandings();
             }
         }
 
+        renderTournamentBar();
+        renderFypFeed();
         switchTournament('champions-league');
     </script>
 </body>
