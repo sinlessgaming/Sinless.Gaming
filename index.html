@@ -47,8 +47,10 @@
             </div>
         </div>
         <div class="flex items-center space-x-2">
-            <button onclick="openUploadModal()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-magenta to-pink-600 text-white shadow-lg shadow-magenta/30 hover:opacity-90 transition">
-                <i class="fa-solid fa-plus mr-1"></i> Post
+            <!-- Hidden file input that opens native gallery directly -->
+            <input type="file" id="directGalleryInput" accept="video/*,image/*" class="hidden" onchange="handleDirectUpload(this)">
+            <button onclick="document.getElementById('directGalleryInput').click()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-magenta to-pink-600 text-white shadow-lg shadow-magenta/30 hover:opacity-90 transition">
+                <i class="fa-solid fa-cloud-arrow-up mr-1"></i> Post
             </button>
             <button onclick="openProfileModal()" class="w-9 h-9 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs font-bold shadow-md">
                 <i class="fa-solid fa-user"></i>
@@ -197,41 +199,9 @@
         </div>
     </main>
 
-    <!-- Professional Post Modal -->
-    <div id="uploadModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-        <div class="glass-panel w-full max-w-sm rounded-3xl p-5 space-y-4 border border-cyan-500/30 shadow-2xl">
-            <div class="flex justify-between items-center border-b border-cyan-500/20 pb-3">
-                <h3 class="font-black text-sm text-white uppercase tracking-wide"><i class="fa-solid fa-plus-circle text-magenta mr-2"></i> Create Sinless Post</h3>
-                <button onclick="closeUploadModal()" class="text-gray-400 hover:text-white text-base font-bold"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="space-y-3">
-                <!-- Post Type Selector -->
-                <div class="grid grid-cols-3 gap-1.5 bg-gg-900 p-1 rounded-xl border border-cyan-500/20">
-                    <button onclick="setPostType('video')" id="typeBtnVideo" class="py-1.5 rounded-lg text-[10px] font-extrabold bg-cyan-500 text-slate-950 transition">🎥 Video</button>
-                    <button onclick="setPostType('picture')" id="typeBtnPicture" class="py-1.5 rounded-lg text-[10px] font-bold text-gray-400 transition">🖼️ Picture</button>
-                    <button onclick="setPostType('rating')" id="typeBtnRating" class="py-1.5 rounded-lg text-[10px] font-bold text-gray-400 transition">⭐ Rating / Text</button>
-                </div>
-
-                <!-- Media File Input -->
-                <div id="mediaUploadField">
-                    <label id="mediaInputLabel" class="block text-[11px] font-bold text-cyan-400 mb-1">Select Video from Gallery (Any length)</label>
-                    <input type="file" id="modalMediaFile" accept="video/*" class="w-full text-xs text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-cyan-500/20 file:text-cyan-400 hover:file:bg-cyan-500/30 cursor-pointer">
-                </div>
-
-                <div>
-                    <label class="block text-[11px] font-bold text-cyan-400 mb-1" id="captionLabel">Caption / Match Thoughts</label>
-                    <textarea id="modalVideoCaption" rows="3" placeholder="Write your caption or player rating..." class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 resize-none"></textarea>
-                </div>
-
-                <button onclick="submitUserUpload()" class="w-full py-3 bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-cyan-500/20 uppercase tracking-wider mt-1">Publish to Feed</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         let currentTourney = 'champions-league';
         let activeMediaStream = null;
-        let currentPostType = 'video';
 
         let fypPosts = [
             { type: 'clip', user: 'DON PRIME', caption: 'Insane 90th minute bicycle kick winner! 🚲⚽ Sinless GG', likes: 1420, comments: 84, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', pinned: true },
@@ -244,33 +214,31 @@
             'open-cup': { name: 'Open Cup', isOfficial: true, teams: [{ name: 'REAL HOME WISER', p: 1, w: 1, gd: 2, pts: 3 }], messages: [{ user: 'System', text: 'Welcome to Open Cup tournament channel.', time: 'Just now' }] }
         };
 
-        function setPostType(type) {
-            currentPostType = type;
-            ['video', 'picture', 'rating'].forEach(t => {
-                let btn = document.getElementById('typeBtn' + t.charAt(0).toUpperCase() + t.slice(1));
-                if(t === type) {
-                    btn.className = "py-1.5 rounded-lg text-[10px] font-extrabold bg-cyan-500 text-slate-950 transition";
-                } else {
-                    btn.className = "py-1.5 rounded-lg text-[10px] font-bold text-gray-400 transition";
-                }
-            });
-
-            let mediaField = document.getElementById('mediaUploadField');
-            let fileInput = document.getElementById('modalMediaFile');
-            let label = document.getElementById('mediaInputLabel');
-
-            if(type === 'rating') {
-                mediaField.classList.add('hidden');
-            } else {
-                mediaField.classList.remove('hidden');
-                if(type === 'video') {
-                    fileInput.accept = 'video/*';
-                    label.innerText = 'Select Video from Gallery (Any length)';
-                } else {
-                    fileInput.accept = 'image/*';
-                    label.innerText = 'Select Picture from Gallery';
+        function handleDirectUpload(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const fileUrl = URL.createObjectURL(file);
+                const isVideo = file.type.startsWith('video');
+                
+                const caption = prompt("Enter caption or player rating for your post:", "Match highlight / Rating update");
+                if (caption !== null) {
+                    fypPosts.unshift({
+                        type: 'clip',
+                        user: 'You [Creator]',
+                        caption: caption.trim() || 'Sinless GG Match Post',
+                        likes: 1,
+                        comments: 0,
+                        mediaUrl: fileUrl,
+                        mediaType: isVideo ? 'video' : 'picture',
+                        pinned: false
+                    });
+                    renderFypFeed();
+                    renderUserProfileFeed();
+                    switchView('fyp');
+                    alert('🚀 Successfully uploaded and published to Sinless GG!');
                 }
             }
+            input.value = '';
         }
 
         function renderFypFeed() {
@@ -350,50 +318,6 @@
             alert(fypPosts[index].pinned ? '📌 Post Pinned to your Profile Page!' : '📌 Post unpinned.');
         }
 
-        function openUploadModal() {
-            document.getElementById('uploadModal').classList.remove('hidden');
-        }
-
-        function closeUploadModal() {
-            document.getElementById('uploadModal').classList.add('hidden');
-        }
-
-        function submitUserUpload() {
-            const fileInput = document.getElementById('modalMediaFile');
-            const captionInput = document.getElementById('modalVideoCaption');
-
-            if(!captionInput.value.trim() && currentPostType === 'rating') {
-                alert('Please enter your rating or status text.');
-                return;
-            }
-
-            let mediaSrc = '';
-            if(currentPostType !== 'rating' && fileInput.files && fileInput.files[0]) {
-                mediaSrc = URL.createObjectURL(fileInput.files[0]);
-            } else if(currentPostType === 'video') {
-                mediaSrc = 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4';
-            }
-
-            fypPosts.unshift({
-                type: 'clip',
-                user: 'You [Creator]',
-                caption: captionInput.value.trim() || (currentPostType === 'rating' ? '⭐ Player Rating / Status Update' : 'New Post'),
-                likes: 1,
-                comments: 0,
-                mediaUrl: mediaSrc,
-                mediaType: currentPostType,
-                pinned: false
-            });
-
-            closeUploadModal();
-            captionInput.value = '';
-            fileInput.value = '';
-            renderFypFeed();
-            renderUserProfileFeed();
-            switchView('fyp');
-            alert('🚀 Successfully published to Sinless GG!');
-        }
-
         function openProfileModal() {
             switchView('profile');
             renderUserProfileFeed();
@@ -413,7 +337,7 @@
             let myPosts = fypPosts.filter(p => p.user.includes('You'));
             
             if(myPosts.length === 0) {
-                container.innerHTML = `<div class="text-center py-8 text-gray-400 text-xs">No posts yet. Tap "Post" above to share your clips, pictures, or ratings!</div>`;
+                container.innerHTML = `<div class="text-center py-8 text-gray-400 text-xs">No posts yet. Tap "Post" above to select videos or photos directly from your gallery!</div>`;
                 return;
             }
 
@@ -528,6 +452,12 @@
                 bar.innerHTML += `<button onclick="switchTournament('${key}')" class="px-4 py-2 rounded-xl text-xs whitespace-nowrap transition ${activeClass}">${tournamentData[key].name}</button>`;
             }
         }
+
+    <Steps>
+      <Step title="Update Code on GitHub" subtitle="Step 1">Copy the complete code above, paste it into your `index.html` file on GitHub, and click **Commit changes**.</Step>
+      <Step title="Perform Hard Refresh" subtitle="Step 2">Open your Netlify live link in an **Incognito / Private tab** to bypass your phone's browser cache.</Step>
+      <Step title="Test Native Gallery Picker" subtitle="Step 3">Tap the **Post** button at the top right, which will now instantly prompt your phone gallery to select any video or picture.</Step>
+    </Steps>
 
         function switchTournament(key) {
             currentTourney = key;
