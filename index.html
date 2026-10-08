@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GG - Global Esports Hub & FYP</title>
+    <title>Sinless GG - Global Esports Hub & FYP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -30,9 +30,9 @@
     <!-- Navbar -->
     <header class="h-14 bg-gg-900 border-b border-cyan-500/20 flex items-center justify-between px-4 sticky top-0 z-50">
         <div class="flex items-center space-x-2">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-black text-slate-950 text-sm shadow-lg shadow-cyan-500/20">GG</div>
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-black text-slate-950 text-sm shadow-lg shadow-cyan-500/20">SG</div>
             <div>
-                <h1 class="font-black text-sm tracking-wider bg-gradient-to-r from-cyan-400 to-magenta bg-clip-text text-transparent">GG.</h1>
+                <h1 class="font-black text-xs tracking-wider bg-gradient-to-r from-cyan-400 to-magenta bg-clip-text text-transparent">SINLESS GG</h1>
                 <p class="text-[9px] text-cyan-400/70 tracking-widest uppercase">🌍 Global Network</p>
             </div>
         </div>
@@ -46,13 +46,13 @@
         </div>
     </header>
 
-    <!-- Tournament Selector Bar (Official Circuits pinned first, then community rooms) -->
+    <!-- Tournament Selector Bar -->
     <div id="tournamentBar" class="bg-gg-900/90 border-b border-cyan-500/20 p-2.5 overflow-x-auto flex space-x-2 scrollbar-none"></div>
 
     <!-- Main Workspace -->
     <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3">
         
-        <!-- View Tabs (Restored Streams Tab + FYP) -->
+        <!-- View Tabs -->
         <div class="flex cyber-card p-1 rounded-2xl overflow-x-auto">
             <button onclick="switchView('fyp')" id="btnViewFyp" class="flex-1 py-2 px-2 text-[11px] rounded-xl bg-magenta text-white font-extrabold transition shadow-md whitespace-nowrap"><i class="fa-solid fa-fire mr-1"></i> FYP</button>
             <button onclick="switchView('streams')" id="btnViewStreams" class="flex-1 py-2 px-2 text-[11px] rounded-xl text-cyan-400 font-extrabold transition whitespace-nowrap"><i class="fa-solid fa-tower-broadcast mr-1"></i> Live</button>
@@ -63,7 +63,7 @@
 
         <!-- FYP Vertical Video Feed View -->
         <div id="viewFyp" class="flex-1 flex flex-col space-y-4 overflow-y-auto pb-6">
-            <div class="text-center pb-1"><span class="text-[10px] uppercase tracking-widest text-gray-400 font-bold">🔥 GG Global Highlights & Viral Goals</span></div>
+            <div class="text-center pb-1"><span class="text-[10px] uppercase tracking-widest text-gray-400 font-bold">🔥 Sinless GG Global Highlights & Viral Goals</span></div>
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
@@ -122,7 +122,7 @@
 
         <!-- World Leaderboard View -->
         <div id="viewGlobal" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-3 space-y-3">
-            <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-earth-americas text-cyan-400 mr-1.5"></i> GG World Leaderboard</h3>
+            <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-earth-americas text-cyan-400 mr-1.5"></i> Sinless GG World Leaderboard</h3>
             <div class="overflow-x-auto flex-1">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
@@ -145,14 +145,13 @@
     <script>
         let currentTourney = 'champions-league';
         let fypPosts = [
-            { user: 'DON PRIME', caption: 'Insane 90th minute bicycle kick winner! 🚲⚽ GG', likes: 1420, comments: 84, videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4' },
+            { user: 'DON PRIME', caption: 'Insane 90th minute bicycle kick winner! 🚲⚽ Sinless GG', likes: 1420, comments: 84, videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4' },
             { user: 'KUKU1Z', caption: 'Clean tiki-taka buildup leading to top corner rocket 🚀', likes: 980, comments: 42, videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-controller-while-playing-video-games-41583-large.mp4' }
         ];
 
-        // Official circuits pinned first with isOfficial: true
         const tournamentData = {
-            'champions-league': { name: '🏆 Champions League', isOfficial: true, teams: [{ name: 'DON PRIME (Darkdemon)', p: 3, w: 2, gd: '+6', pts: 12 }, { name: 'MUBARAQ', p: 4, w: 2, gd: '+4', pts: 8 }], messages: [{ user: 'System', text: 'Welcome to GG Champions League channel.', time: 'Just now' }] },
-            'super-league': { name: '⚡ Super League', isOfficial: true, teams: [{ name: 'KUKU1Z', p: 2, w: 2, gd: '+5', pts: 6 }], messages: [{ user: 'System', text: 'Welcome to GG Super League lobby.', time: 'Just now' }] },
+            'champions-league': { name: '🏆 Champions League', isOfficial: true, teams: [{ name: 'DON PRIME (Darkdemon)', p: 3, w: 2, gd: '+6', pts: 12 }, { name: 'MUBARAQ', p: 4, w: 2, gd: '+4', pts: 8 }], messages: [{ user: 'System', text: 'Welcome to Sinless GG Champions League channel.', time: 'Just now' }] },
+            'super-league': { name: '⚡ Super League', isOfficial: true, teams: [{ name: 'KUKU1Z', p: 2, w: 2, gd: '+5', pts: 6 }], messages: [{ user: 'System', text: 'Welcome to Sinless GG Super League lobby.', time: 'Just now' }] },
             'open-cup': { name: '🛡️ Open Cup', isOfficial: true, teams: [{ name: 'REAL HOME WISER', p: 1, w: 1, gd: '+2', pts: 3 }], messages: [{ user: 'System', text: 'Welcome to Open Cup tournament channel.', time: 'Just now' }] }
         };
 
@@ -164,7 +163,7 @@
                     <div class="cyber-card rounded-2xl overflow-hidden space-y-2 pb-3">
                         <div class="p-3 pb-0 flex items-center justify-between">
                             <div class="flex items-center space-x-2">
-                                <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-black text-slate-950 text-[10px]">GG</div>
+                                <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-500 to-magenta flex items-center justify-center font-black text-slate-950 text-[10px]">SG</div>
                                 <span class="font-bold text-xs text-white">@${post.user}</span>
                             </div>
                             <span class="text-[10px] bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/20">Verified Clip</span>
@@ -200,21 +199,19 @@
                 });
                 renderFypFeed();
                 switchView('fyp');
-                alert('Clip successfully posted to the GG FYP feed!');
+                alert('Clip successfully posted to the Sinless GG FYP feed!');
             }
         }
 
         function renderTournamentBar() {
             const bar = document.getElementById('tournamentBar');
             bar.innerHTML = '';
-            // Render official tournaments first
             for (let key in tournamentData) {
                 if(tournamentData[key].isOfficial) {
                     let activeClass = key === currentTourney ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20" : "bg-gg-800 text-cyan-400 border border-cyan-500/20";
                     bar.innerHTML += `<button onclick="switchTournament('${key}')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap ${activeClass}">${tournamentData[key].name}</button>`;
                 }
             }
-            // Render community tournaments next
             for (let key in tournamentData) {
                 if(!tournamentData[key].isOfficial) {
                     let activeClass = key === currentTourney ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20" : "bg-gg-800 text-magenta border border-magenta/30";
@@ -227,7 +224,7 @@
             const title = prompt("Enter community tournament name:");
             if(title && title.trim()) {
                 const key = title.toLowerCase().replace(/[^a-z0-9]/g, '-');
-                tournamentData[key] = { name: title.trim(), isOfficial: false, teams: [{ name: 'FOUNDER CLUB', p: 0, w: 0, gd: '0', pts: 0 }], messages: [{ user: 'System', text: `Community tournament '${title.trim()}' successfully deployed on GG.`, time: 'Just now' }] };
+                tournamentData[key] = { name: title.trim(), isOfficial: false, teams: [{ name: 'FOUNDER CLUB', p: 0, w: 0, gd: '0', pts: 0 }], messages: [{ user: 'System', text: `Community tournament '${title.trim()}' successfully deployed on Sinless GG.`, time: 'Just now' }] };
                 renderTournamentBar();
                 switchTournament(key);
             }
@@ -286,7 +283,7 @@
 
         function addStream() {
             const url = prompt("Paste livestream URL or stream link:");
-            if(url) alert('Livestream successfully linked to GG Live Broadcasts!');
+            if(url) alert('Livestream successfully linked to Sinless GG Live Broadcasts!');
         }
 
         renderTournamentBar();
