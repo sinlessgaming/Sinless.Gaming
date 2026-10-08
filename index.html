@@ -67,13 +67,13 @@
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
-        <!-- HD Live Studio with Start, Pause, Stop Controls -->
+        <!-- Robust HD Live Studio -->
         <div id="viewStreams" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-3 space-y-3">
             <div class="flex items-center justify-between">
                 <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-tower-broadcast text-magenta mr-1.5"></i> HD Mobile Studio</h3>
                 <div class="flex space-x-1">
-                    <button onclick="startScreenShare()" class="px-2 py-1 bg-cyan-500 text-slate-950 rounded-lg text-[10px] font-black">Screen</button>
-                    <button onclick="startCameraStream()" class="px-2 py-1 bg-magenta text-white rounded-lg text-[10px] font-black">Face Cam</button>
+                    <button onclick="startScreenShare()" class="px-2.5 py-1 bg-cyan-500 text-slate-950 rounded-lg text-[10px] font-black">Screen Share</button>
+                    <button onclick="startCameraStream()" class="px-2.5 py-1 bg-magenta text-white rounded-lg text-[10px] font-black">Face Cam</button>
                 </div>
             </div>
 
@@ -83,11 +83,11 @@
                     <div class="w-16 h-16 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 border border-cyan-500/40 text-2xl animate-pulse">
                         <i class="fa-solid fa-circle-play"></i>
                     </div>
-                    <p class="text-xs text-gray-300 font-semibold">Choose <b>Screen</b> or <b>Face Cam</b> to broadcast live in HD.</p>
+                    <p class="text-xs text-gray-300 font-semibold">Tap <b>Screen Share</b> or <b>Face Cam</b> to broadcast live instantly without freezing.</p>
                 </div>
             </div>
 
-            <!-- Live Stream Control Actions (Start, Pause, Stop) -->
+            <!-- Live Stream Controls -->
             <div class="grid grid-cols-3 gap-2 pt-1">
                 <button onclick="resumeStream()" class="py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-play mr-1"></i> Resume</button>
                 <button onclick="pauseStream()" class="py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-pause mr-1"></i> Pause</button>
@@ -95,7 +95,7 @@
             </div>
         </div>
 
-        <!-- Chat View with Media Upload -->
+        <!-- Chat View -->
         <div id="viewChat" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden h-[480px]">
             <div class="p-3 border-b border-cyan-500/20 text-xs font-bold text-cyan-400 flex items-center justify-between bg-gg-900/60">
                 <span id="chatHeaderTitle"># chat-room</span>
@@ -112,7 +112,7 @@
             </div>
         </div>
 
-        <!-- Standings View with Auto Score Updater -->
+        <!-- Standings View -->
         <div id="viewStandings" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-3 space-y-3">
             <div class="flex items-center justify-between">
                 <h3 id="standingsTitle" class="text-xs font-black text-white uppercase tracking-wider">Standings</h3>
@@ -225,34 +225,33 @@
         async function startScreenShare() {
             try {
                 if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-                    activeMediaStream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: 'monitor', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: true });
+                    activeMediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
                 } else {
-                    activeMediaStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: true });
+                    throw new Error("Display media not supported");
                 }
-                const videoEl = document.getElementById('liveScreenFeed');
-                const placeholder = document.getElementById('livePlaceholder');
-                videoEl.srcObject = activeMediaStream;
-                videoEl.classList.remove('hidden');
-                placeholder.classList.add('hidden');
-                alert('🔴 HD Screen Broadcast Active!');
+                attachStreamToVideo(activeMediaStream, '🔴 Screen Broadcast Active!');
             } catch (err) {
-                alert('Screen sharing started as camera fallback or was canceled.');
+                // Instant seamless fallback to high-quality camera if mobile browser restricts screen capture
                 startCameraStream();
             }
         }
 
         async function startCameraStream() {
             try {
-                activeMediaStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: true });
-                const videoEl = document.getElementById('liveScreenFeed');
-                const placeholder = document.getElementById('livePlaceholder');
-                videoEl.srcObject = activeMediaStream;
-                videoEl.classList.remove('hidden');
-                placeholder.classList.add('hidden');
-                alert('🎥 HD Face Cam Broadcast Active!');
+                activeMediaStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
+                attachStreamToVideo(activeMediaStream, '🎥 HD Broadcast Active!');
             } catch (err) {
-                alert('Camera access unavailable.');
+                alert('Camera access unavailable or blocked by browser permissions.');
             }
+        }
+
+        function attachStreamToVideo(stream, successMsg) {
+            const videoEl = document.getElementById('liveScreenFeed');
+            const placeholder = document.getElementById('livePlaceholder');
+            videoEl.srcObject = stream;
+            videoEl.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            alert(successMsg);
         }
 
         function pauseStream() {
