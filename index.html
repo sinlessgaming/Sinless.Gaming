@@ -67,27 +67,31 @@
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
-        <!-- TikTok Style HD/4K Screen & Face Share Studio -->
+        <!-- HD Live Studio with Start, Pause, Stop Controls -->
         <div id="viewStreams" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-3 space-y-3">
             <div class="flex items-center justify-between">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-tower-broadcast text-magenta mr-1.5"></i> HD Mobile Broadcast</h3>
-                <div class="flex space-x-1.5">
-                    <button onclick="startScreenShare()" class="px-2.5 py-1.5 bg-cyan-500 text-slate-950 rounded-xl text-[11px] font-black shadow-lg">
-                        <i class="fa-solid fa-mobile-screen mr-1"></i> Screen Share
-                    </button>
-                    <button onclick="startCameraStream()" class="px-2.5 py-1.5 bg-magenta text-white rounded-xl text-[11px] font-black shadow-lg">
-                        <i class="fa-solid fa-camera mr-1"></i> Face Cam
-                    </button>
+                <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-tower-broadcast text-magenta mr-1.5"></i> HD Mobile Studio</h3>
+                <div class="flex space-x-1">
+                    <button onclick="startScreenShare()" class="px-2 py-1 bg-cyan-500 text-slate-950 rounded-lg text-[10px] font-black">Screen</button>
+                    <button onclick="startCameraStream()" class="px-2 py-1 bg-magenta text-white rounded-lg text-[10px] font-black">Face Cam</button>
                 </div>
             </div>
+
             <div class="relative aspect-[9/16] bg-gg-950 rounded-2xl flex flex-col items-center justify-center border border-cyan-500/30 overflow-hidden">
                 <video id="liveScreenFeed" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover hidden"></video>
                 <div id="livePlaceholder" class="flex flex-col items-center justify-center p-6 text-center space-y-3">
                     <div class="w-16 h-16 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 border border-cyan-500/40 text-2xl animate-pulse">
                         <i class="fa-solid fa-circle-play"></i>
                     </div>
-                    <p class="text-xs text-gray-300 font-semibold">Select <b>Screen Share</b> to broadcast your gameplay directly like TikTok, or <b>Face Cam</b> in stunning HD/4K resolution!</p>
+                    <p class="text-xs text-gray-300 font-semibold">Choose <b>Screen</b> or <b>Face Cam</b> to broadcast live in HD.</p>
                 </div>
+            </div>
+
+            <!-- Live Stream Control Actions (Start, Pause, Stop) -->
+            <div class="grid grid-cols-3 gap-2 pt-1">
+                <button onclick="resumeStream()" class="py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-play mr-1"></i> Resume</button>
+                <button onclick="pauseStream()" class="py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-pause mr-1"></i> Pause</button>
+                <button onclick="stopStream()" class="py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-stop mr-1"></i> Stop</button>
             </div>
         </div>
 
@@ -108,12 +112,12 @@
             </div>
         </div>
 
-        <!-- Standings View with Automated Match Upload / Score Parser -->
+        <!-- Standings View with Auto Score Updater -->
         <div id="viewStandings" class="hidden flex-1 flex flex-col cyber-card rounded-2xl overflow-hidden p-3 space-y-3">
             <div class="flex items-center justify-between">
                 <h3 id="standingsTitle" class="text-xs font-black text-white uppercase tracking-wider">Standings</h3>
                 <div class="flex space-x-1.5">
-                    <button onclick="openAutoScoreModal()" class="px-2 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-lg text-[10px] font-bold"><i class="fa-solid fa-bolt mr-1"></i> Auto-Update Score</button>
+                    <button onclick="openAutoScoreModal()" class="px-2 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-lg text-[10px] font-bold"><i class="fa-solid fa-bolt mr-1"></i> Auto-Score</button>
                     <button onclick="addTeamModal()" class="px-2 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-lg text-[10px] font-bold">+ Club</button>
                 </div>
             </div>
@@ -158,6 +162,7 @@
 
     <script>
         let currentTourney = 'champions-league';
+        let activeMediaStream = null;
         let fypPosts = [
             { user: 'DON PRIME', caption: 'Insane 90th minute bicycle kick winner! 🚲⚽ Sinless GG', likes: 1420, comments: 84, videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4' },
             { user: 'KUKU1Z', caption: 'Clean tiki-taka buildup leading to top corner rocket 🚀', likes: 980, comments: 42, videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-controller-while-playing-video-games-41583-large.mp4' }
@@ -219,30 +224,62 @@
 
         async function startScreenShare() {
             try {
-                const stream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 60 } }, audio: true });
+                if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+                    activeMediaStream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: 'monitor', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: true });
+                } else {
+                    activeMediaStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: true });
+                }
                 const videoEl = document.getElementById('liveScreenFeed');
                 const placeholder = document.getElementById('livePlaceholder');
-                videoEl.srcObject = stream;
+                videoEl.srcObject = activeMediaStream;
                 videoEl.classList.remove('hidden');
                 placeholder.classList.add('hidden');
-                alert('📱 HD/4K Screen Broadcast Active!');
+                alert('🔴 HD Screen Broadcast Active!');
             } catch (err) {
-                alert('Screen sharing canceled or unsupported on this mobile browser.');
+                alert('Screen sharing started as camera fallback or was canceled.');
+                startCameraStream();
             }
         }
 
         async function startCameraStream() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: true });
+                activeMediaStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: true });
                 const videoEl = document.getElementById('liveScreenFeed');
                 const placeholder = document.getElementById('livePlaceholder');
-                videoEl.srcObject = stream;
+                videoEl.srcObject = activeMediaStream;
                 videoEl.classList.remove('hidden');
                 placeholder.classList.add('hidden');
-                alert('🎥 HD/4K Face Cam Broadcast Active!');
+                alert('🎥 HD Face Cam Broadcast Active!');
             } catch (err) {
-                alert('Camera access denied.');
+                alert('Camera access unavailable.');
             }
+        }
+
+        function pauseStream() {
+            if(activeMediaStream) {
+                activeMediaStream.getTracks().forEach(track => track.enabled = false);
+                alert('⏸️ Live Broadcast Paused');
+            }
+        }
+
+        function resumeStream() {
+            if(activeMediaStream) {
+                activeMediaStream.getTracks().forEach(track => track.enabled = true);
+                alert('▶️ Live Broadcast Resumed');
+            }
+        }
+
+        function stopStream() {
+            if(activeMediaStream) {
+                activeMediaStream.getTracks().forEach(track => track.stop());
+                activeMediaStream = null;
+            }
+            const videoEl = document.getElementById('liveScreenFeed');
+            const placeholder = document.getElementById('livePlaceholder');
+            videoEl.srcObject = null;
+            videoEl.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+            alert('🛑 Live Broadcast Ended');
         }
 
         function handleChatMediaUpload(input) {
@@ -290,10 +327,9 @@
                     }
                 }
 
-                // Auto sort table by Points then GD
                 teams.sort((a, b) => b.pts - a.pts || b.gd - a.gd);
                 renderStandings();
-                alert('⚡ Standings automatically calculated and updated with zero errors!');
+                alert('⚡ Table automatically updated with zero errors!');
             }
         }
 
