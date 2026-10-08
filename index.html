@@ -197,7 +197,7 @@
         </div>
     </main>
 
-    <!-- Professional Post Modal (Supports Video, Picture, & Text Rating/Status) -->
+    <!-- Professional Post Modal -->
     <div id="uploadModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-3xl p-5 space-y-4 border border-cyan-500/30 shadow-2xl">
             <div class="flex justify-between items-center border-b border-cyan-500/20 pb-3">
@@ -212,7 +212,7 @@
                     <button onclick="setPostType('rating')" id="typeBtnRating" class="py-1.5 rounded-lg text-[10px] font-bold text-gray-400 transition">⭐ Rating / Text</button>
                 </div>
 
-                <!-- Media File Input (Hidden if Rating type is selected) -->
+                <!-- Media File Input -->
                 <div id="mediaUploadField">
                     <label id="mediaInputLabel" class="block text-[11px] font-bold text-cyan-400 mb-1">Select Video from Gallery (Any length)</label>
                     <input type="file" id="modalMediaFile" accept="video/*" class="w-full text-xs text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-cyan-500/20 file:text-cyan-400 hover:file:bg-cyan-500/30 cursor-pointer">
@@ -362,8 +362,8 @@
             const fileInput = document.getElementById('modalMediaFile');
             const captionInput = document.getElementById('modalVideoCaption');
 
-            if(!captionInput.value.trim() && currentPostType !== 'video' && currentPostType !== 'picture') {
-                alert('Please enter a caption or rating.');
+            if(!captionInput.value.trim() && currentPostType === 'rating') {
+                alert('Please enter your rating or status text.');
                 return;
             }
 
