@@ -84,13 +84,13 @@
     <!-- Main Workspace -->
     <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3">
         
-        <!-- View Tabs -->
-        <div class="glass-panel p-1.5 rounded-2xl flex shadow-xl">
-            <button onclick="switchView('fyp')" id="btnViewFyp" class="flex-1 py-2 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg"><i class="fa-solid fa-fire mr-0.5"></i> Feed</button>
-            <button onclick="switchView('clans')" id="btnViewClans" class="flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white"><i class="fa-solid fa-shield-halved mr-0.5"></i> Squads</button>
-            <button onclick="switchView('chat')" id="btnViewChat" class="flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white"><i class="fa-solid fa-comments mr-0.5"></i> Lobbies</button>
-            <button onclick="switchView('standings')" id="btnViewStandings" class="flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white"><i class="fa-solid fa-trophy mr-0.5"></i> Tables</button>
-            <button onclick="switchView('popular')" id="btnViewPopular" class="flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white"><i class="fa-solid fa-crown mr-0.5"></i> Top</button>
+        <!-- View Tabs (Now Includes Explore / Trending Tab!) -->
+        <div class="glass-panel p-1.5 rounded-2xl flex shadow-xl overflow-x-auto scrollbar-none">
+            <button onclick="switchView('fyp')" id="btnViewFyp" class="flex-1 py-2 px-2 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap"><i class="fa-solid fa-fire mr-0.5"></i> Feed</button>
+            <button onclick="switchView('explore')" id="btnViewExplore" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-compass mr-0.5"></i> Explore</button>
+            <button onclick="switchView('clans')" id="btnViewClans" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-shield-halved mr-0.5"></i> Squads</button>
+            <button onclick="switchView('chat')" id="btnViewChat" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-comments mr-0.5"></i> Lobbies</button>
+            <button onclick="switchView('standings')" id="btnViewStandings" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-trophy mr-0.5"></i> Tables</button>
         </div>
 
         <!-- 1. FYP / Feed View -->
@@ -131,7 +131,51 @@
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
-        <!-- 2. Clans View -->
+        <!-- 2. EXPLORE & TRENDING VIEW (Inspired by X / Twitter UI) -->
+        <div id="viewExplore" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
+            <!-- Search Bar Header -->
+            <div class="glass-panel p-3 rounded-2xl space-y-2.5 shadow-xl">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-cyan-400 text-xs"></i>
+                    <input type="text" id="globalSearchInput" oninput="handleGlobalSearch(this.value)" placeholder="Search players, tournaments, or tags..." class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none">
+                </div>
+            </div>
+
+            <!-- Global Trending / Hot Tags Section -->
+            <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl">
+                <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-chart-line text-cyan-400 mr-1.5"></i> Global Trending & Tags</h3>
+                    <span class="text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">LIVE</span>
+                </div>
+                <div id="trendingTagsList" class="space-y-3">
+                    <div class="cursor-pointer hover:bg-gg-900 p-2 rounded-xl transition" onclick="filterByTag('#SinlessSuperLeague')">
+                        <span class="text-[9px] text-gray-400">Trending in Esports • Gaming</span>
+                        <h4 class="font-bold text-xs text-white">#SinlessSuperLeague</h4>
+                        <span class="text-[9px] text-cyan-400">14.2K posts</span>
+                    </div>
+                    <div class="cursor-pointer hover:bg-gg-900 p-2 rounded-xl transition" onclick="filterByTag('#EFC27')">
+                        <span class="text-[9px] text-gray-400">Trending • EA FC</span>
+                        <h4 class="font-bold text-xs text-white">#EFC27</h4>
+                        <span class="text-[9px] text-cyan-400">8.9K posts</span>
+                    </div>
+                    <div class="cursor-pointer hover:bg-gg-900 p-2 rounded-xl transition" onclick="filterByTag('#DLS27')">
+                        <span class="text-[9px] text-gray-400">Trending • Mobile Football</span>
+                        <h4 class="font-bold text-xs text-white">#DLS27</h4>
+                        <span class="text-[9px] text-cyan-400">5.4K posts</span>
+                    </div>
+                    <div class="cursor-pointer hover:bg-gg-900 p-2 rounded-xl transition" onclick="filterByTag('#WRESTLEMANIA')">
+                        <span class="text-[9px] text-gray-400">Trending • Wrestling</span>
+                        <h4 class="font-bold text-xs text-white">#WRESTLEMANIA</h4>
+                        <span class="text-[9px] text-cyan-400">22.1K posts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Results Container -->
+            <div id="searchResultsContainer" class="space-y-3"></div>
+        </div>
+
+        <!-- 3. Clans View -->
         <div id="viewClans" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl">
                 <div class="flex items-center justify-between">
@@ -142,7 +186,7 @@
             <div id="clansListContainer" class="space-y-3"></div>
         </div>
 
-        <!-- 3. Chat View -->
+        <!-- 4. Chat View -->
         <div id="viewChat" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden h-[480px] shadow-2xl fade-in">
             <div class="p-3 border-b border-cyan-500/15 flex items-center justify-between bg-gg-900/90">
                 <select id="chatRoomSelect" onchange="switchChatRoom(this.value)" class="bg-gg-950 text-cyan-400 text-xs font-bold px-2 py-1 rounded-lg border border-cyan-500/30 focus:outline-none">
@@ -158,7 +202,7 @@
             </div>
         </div>
 
-        <!-- 4. Tables View (Now Powered by Confirmed Match Ladders!) -->
+        <!-- 5. Tables View -->
         <div id="viewStandings" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl fade-in">
             <div class="flex items-center justify-between">
                 <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-trophy text-amber-400 mr-1.5"></i> Weekly Leaderboard</h3>
@@ -175,40 +219,9 @@
                 <div id="ladderBody" class="divide-y divide-cyan-500/10"></div>
             </div>
         </div>
-
-        <!-- 5. Profile & Privacy View -->
-        <div id="viewProfile" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
-            <div class="glass-panel p-5 rounded-2xl text-center space-y-3 shadow-2xl">
-                <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-cyan-400 to-magenta mx-auto flex items-center justify-center font-black text-slate-950 text-2xl shadow-xl">SG</div>
-                <h2 id="profileUsernameDisplay" class="font-extrabold text-base text-white">@DON PRIME <span class="verified-badge text-xs ml-1" title="Verified Creator"><i class="fa-solid fa-circle-check"></i></span></h2>
-                <div class="bg-gg-950 p-3 rounded-xl border border-cyan-500/20 text-left space-y-2 mt-2">
-                    <div class="flex items-center justify-between">
-                        <span class="text-[10px] text-cyan-400 font-bold">Allow Direct Messages (DMs)</span>
-                        <input type="checkbox" id="dmPrivacyToggle" onchange="toggleDmPrivacy(this)" checked class="w-4 h-4 accent-cyan-400 cursor-pointer">
-                    </div>
-                </div>
-            </div>
-            <div id="userProfileFeed" class="space-y-4"></div>
-        </div>
-
-        <div id="viewPopular" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl fade-in">
-            <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-crown text-amber-400 mr-1.5"></i> Popularity Chart</h3>
-            <div class="overflow-x-auto flex-1">
-                <table class="w-full text-left border-collapse text-xs">
-                    <thead>
-                        <tr class="bg-gg-900 text-cyan-400 text-[10px] uppercase border-b border-cyan-500/15">
-                            <th class="p-3">Rank</th>
-                            <th class="p-3">Creator</th>
-                            <th class="p-3 text-center">GGs</th>
-                        </tr>
-                    </thead>
-                    <tbody id="popularCreatorsTableBody" class="divide-y divide-cyan-500/10"></tbody>
-                </table>
-            </div>
-        </div>
     </main>
 
-    <!-- SQUAD ROOM / INTERACTIVE LOBBY VIEW MODAL -->
+    <!-- SQUAD ROOM MODAL -->
     <div id="squadRoomModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col h-[480px] shadow-2xl fade-in border border-cyan-500/40 space-y-3">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -253,7 +266,7 @@
         </div>
     </div>
 
-    <!-- MEDIA ZOOM / LIGHTBOX VIEWER MODAL -->
+    <!-- MEDIA ZOOM VIEWER MODAL -->
     <div id="mediaViewerModal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-lg z-50 flex items-center justify-center p-2" onclick="closeMediaViewer()">
         <div class="relative max-w-2xl w-full max-h-[90vh] flex items-center justify-center" onclick="event.stopPropagation()">
             <button onclick="closeMediaViewer()" class="absolute -top-10 right-0 text-white font-black text-sm bg-gg-950/80 px-3 py-1 rounded-xl border border-cyan-500/30">✕ Close</button>
@@ -291,7 +304,7 @@
         </div>
     </div>
 
-    <!-- UNIVERSAL CREATE POST MODAL (Now with Match Result Proof Loop!) -->
+    <!-- UNIVERSAL CREATE POST MODAL -->
     <div id="createPostModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl fade-in border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -299,7 +312,7 @@
                 <button onclick="closeCreatePostModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             <div class="space-y-3">
-                <textarea id="postTextContent" rows="2" placeholder="What's happening in gaming..." class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white focus:outline-none"></textarea>
+                <textarea id="postTextContent" rows="2" placeholder="What's happening in gaming... Use tags like #SinlessSuperLeague" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white focus:outline-none"></textarea>
                 <input type="file" id="postMediaFile" accept="image/*,video/*" class="text-[10px] text-gray-300 w-full">
                 
                 <select id="postCategorySelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30 focus:outline-none">
@@ -312,7 +325,6 @@
                     <option value="COD">🎯 Call of Duty</option>
                 </select>
 
-                <!-- Grok's Match Result Proof Toggle -->
                 <div class="bg-gg-950 p-3 rounded-xl border border-cyan-500/20 space-y-2">
                     <label class="flex items-center gap-2 text-xs text-cyan-300 font-bold cursor-pointer">
                         <input id="isResult" type="checkbox" onchange="toggleResultFields(this)" class="accent-cyan-400 w-4 h-4">
@@ -361,15 +373,14 @@
         let currentOpenCommentPostIndex = null;
         let activeSquadRoomName = null;
 
-        // Persistent Match Results Storage for Ladders
         let matchResults = JSON.parse(localStorage.getItem('sg_results')) || [
             { id: '1', user: 'DON PRIME', game: 'EA FC', opp: 'BALL_MASTER', score: '3-1', comp: 'Sinless Super League', status: 'confirmed', ts: Date.now() },
             { id: '2', user: 'BALL_MASTER', game: 'EA FC', opp: 'DON PRIME', score: '2-1', comp: 'Rising Stars Cup', status: 'confirmed', ts: Date.now() }
         ];
 
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
-            { user: 'DON PRIME', verified: true, game: 'EA FC', caption: '😂😂😂😂', likes: 2, comments: [{user: 'BALL_MASTER', text: 'Insane match! 🔥 @GG-Bot analyze this tactics.'}], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: false, pinned: true, givers: {} },
-            { user: 'DON PRIME', verified: true, game: 'LIVE STREAM', caption: '🔴 LIVE SCREEN BROADCAST: Let’s go live', likes: 1, comments: [], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: true, pinned: false, givers: {} }
+            { user: 'DON PRIME', verified: true, game: 'EA FC', caption: 'Excited for the #SinlessSuperLeague finals today! 🔥', likes: 2, comments: [{user: 'BALL_MASTER', text: 'Let’s go! @GG-Bot tactics check.'}], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: false, pinned: true, givers: {} },
+            { user: 'DON PRIME', verified: true, game: 'LIVE STREAM', caption: '🔴 LIVE SCREEN BROADCAST: #EFC27 tournament match', likes: 1, comments: [], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: true, pinned: false, givers: {} }
         ];
 
         let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
@@ -380,11 +391,11 @@
 
         let chatMessages = JSON.parse(localStorage.getItem('sinless_chats')) || {
             'global': [{ user: 'System', text: 'Welcome to Sinless GG Global Lobby.', time: 'Now' }],
-            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! I am your AI tactical assistant for EA FC Mobile and eFootball. Ask me about formations or tactics.', time: 'Now' }]
+            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! I am your AI tactical assistant for EA FC Mobile and eFootball.', time: 'Now' }]
         };
 
-        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Match result leaderboards and Grok additions successfully loaded.', time: 'Now' }];
-        let notificationsList = [{ text: '🏆 Weekly tables are now fed by confirmed match results.', time: 'Now' }];
+        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Explore and Twitter-style trending feed successfully loaded.', time: 'Now' }];
+        let notificationsList = [{ text: '🔍 Explore & Global Trending tags are now active.', time: 'Now' }];
 
         document.getElementById('profileUsernameDisplay').innerHTML = `${myUsername} <span class="verified-badge text-xs ml-1" title="Verified Creator"><i class="fa-solid fa-circle-check"></i></span>`;
 
@@ -400,9 +411,9 @@
             renderLadder('EA FC');
             renderClansList();
             renderFypFeed();
+            renderSearchResults('');
         }
 
-        // Mobile Screen Capture Guard (Prevents getDisplayMedia crash on phones)
         function canCaptureScreen() {
             return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
         }
@@ -413,6 +424,44 @@
                 screenBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 screenBtn.title = 'Screen capture is not supported on mobile. Use Camera mode!';
             }
+        }
+
+        // Search & Explore Engine
+        function handleGlobalSearch(query) {
+            renderSearchResults(query.trim().toLowerCase());
+        }
+
+        function filterByTag(tag) {
+            document.getElementById('globalSearchInput').value = tag;
+            handleGlobalSearch(tag);
+        }
+
+        function renderSearchResults(query) {
+            const container = document.getElementById('searchResultsContainer');
+            if(!container) return;
+            container.innerHTML = `<h4 class="text-[10px] uppercase font-black text-cyan-400 mb-2">Search & Tag Results</h4>`;
+
+            let matches = fypPosts.filter(p => {
+                if(!query) return true;
+                return p.caption.toLowerCase().includes(query) || p.user.toLowerCase().includes(query) || p.game.toLowerCase().includes(query);
+            });
+
+            if(matches.length === 0) {
+                container.innerHTML += `<div class="glass-panel p-4 rounded-xl text-center text-gray-400 text-xs">No posts matching "${query}" found.</div>`;
+                return;
+            }
+
+            matches.forEach(post => {
+                container.innerHTML += `
+                    <div class="glass-panel p-3 rounded-xl space-y-1.5 shadow">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-xs text-white">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
+                            <span class="text-[9px] text-cyan-400 font-bold">${post.game}</span>
+                        </div>
+                        <p class="text-xs text-gray-200">${post.caption}</p>
+                    </div>
+                `;
+            });
         }
 
         // Squads & Rooms
@@ -459,7 +508,6 @@
             let input = document.getElementById('squadMsgInput');
             let text = input.value.trim();
             if(!text || !activeSquadRoomName) return;
-
             let squad = clansData.find(c => c.name === activeSquadRoomName);
             if(squad) {
                 if(!squad.messages) squad.messages = [];
@@ -489,7 +537,7 @@
             });
         }
 
-        // Tables & Leaderboard (Grok's Match Ladder Engine)
+        // Leaderboards
         function ladder(game) {
             const pts = {};
             matchResults.filter(r => r.game === game && r.status === 'confirmed').forEach(r => {
@@ -509,35 +557,33 @@
                     <span class="font-bold text-cyan-400">#${i + 1}</span>
                     <span class="font-bold text-white">@${name}</span>
                     <span class="text-right font-black text-amber-400">${pts} PTS</span>
-                </div>`).join('') || `<div class="p-6 text-center text-gray-400 text-xs">No confirmed match results for ${game} yet. Post a match result!</div>`;
+                </div>`).join('') || `<div class="p-6 text-center text-gray-400 text-xs">No confirmed matches for ${game} yet.</div>`;
         }
 
-        // Chat & Smart Tactic Bot
+        // Chat & AI Bot
         function switchChatRoom(room) {
             activeChatRoom = room;
             renderChatMessages();
         }
 
         const TACTICS_DB = {
-            'ea fc': '⚽ EA FC Tactic: 4-2-3-1 holding formation. Keep fullbacks on stay back while attacking, set your central CAM on free roam, and use driven through-balls into the channels.',
-            'efootball': '⚡ eFootball Tactic: 4-3-3 with a single defensive pivot. Use manual cursor switching on your striker and low crosses from the byline for maximum goal conversion.'
+            'ea fc': '⚽ EA FC Tactic: 4-2-3-1 holding formation. Keep fullbacks on stay back, set central CAM on free roam.',
+            'efootball': '⚡ eFootball Tactic: 4-3-3 with single defensive pivot and low crosses from byline.'
         };
 
         function ggBotReply(text) {
             const q = text.toLowerCase();
-            const hit = Object.keys(TACTICS_DB).find(k => q.includes(k) || q.includes('tactic') || q.includes('formation'));
+            const hit = Object.keys(TACTICS_DB).find(k => q.includes(k) || q.includes('tactic'));
             if (hit) return TACTICS_DB[hit];
-            return 'Post a confirmed result in the feed and I will break down your scoreline! Ask me about EA FC or eFootball formations.';
+            return 'Post a confirmed match result and I will break down your scoreline! Ask me about EA FC or eFootball tactics.';
         }
 
         function sendChatMessage() {
             let input = document.getElementById('chatInputMsg');
             let text = input.value.trim();
             if(!text) return;
-
             let senderName = myUsername.replace('@', '');
             if(!chatMessages[activeChatRoom]) chatMessages[activeChatRoom] = [];
-
             chatMessages[activeChatRoom].push({ user: senderName, text: text, time: 'Just now' });
             input.value = '';
 
@@ -549,7 +595,6 @@
                     renderChatMessages();
                 }, 500);
             }
-
             saveAppData();
             renderChatMessages();
         }
@@ -596,7 +641,6 @@
                         audio: true 
                     });
                 }
-                
                 let previewVideo = document.getElementById('activePreviewVideo');
                 previewVideo.srcObject = activeStreamObject;
                 document.getElementById('previewContainer').classList.remove('hidden');
@@ -640,11 +684,10 @@
                 saveAppData();
                 renderFypFeed();
                 closeLiveBroadcastModal();
-                alert('🔴 Portrait broadcast published live to feed!');
+                alert('🔴 Broadcast published!');
             }, 500);
         }
 
-        // Post & Match Result Creation
         function openCreatePostModal() { document.getElementById('createPostModal').classList.remove('hidden'); }
         function closeCreatePostModal() { document.getElementById('createPostModal').classList.add('hidden'); }
         function openDmModal() { document.getElementById('dmModal').classList.remove('hidden'); renderDms(); }
@@ -658,7 +701,6 @@
 
         function toggleDmPrivacy(checkbox) {
             localStorage.setItem('sinless_allow_dms', checkbox.checked);
-            alert(checkbox.checked ? '🔓 DMs enabled.' : '🔒 DMs restricted.');
         }
 
         function submitUniversalPost() {
@@ -676,10 +718,7 @@
                 let opp = document.getElementById('oppInput').value.trim() || '@opponent';
                 let score = document.getElementById('scoreInput').value.trim() || '2-1';
                 let comp = document.getElementById('compInput').value.trim() || 'Sinless Cup';
-                
                 captionText = `🏆 Match Result [${comp}]: vs ${opp} — ${score}`;
-                
-                // Push into matchResults and confirm automatically for instant ladder update
                 matchResults.unshift({
                     id: crypto.randomUUID(),
                     user: myUsername.replace('@', ''),
@@ -709,8 +748,9 @@
 
             saveAppData();
             renderFypFeed();
+            renderSearchResults('');
             closeCreatePostModal();
-            alert(isResult ? '🏆 Match result posted & leaderboard updated!' : '🚀 Published successfully!');
+            alert('🚀 Published successfully!');
         }
 
         function toggleGG(index) {
@@ -734,8 +774,6 @@
             renderFypFeed();
         }
 
-        function handleDoubleTapGG(e, index) { toggleGG(index); }
-
         function openMediaViewer(url, type) {
             let contentBox = document.getElementById('mediaViewerContent');
             if(type === 'video') {
@@ -745,53 +783,30 @@
             }
             document.getElementById('mediaViewerModal').classList.remove('hidden');
         }
-        function closeMediaViewer() {
-            document.getElementById('mediaViewerModal').classList.add('hidden');
-            document.getElementById('mediaViewerContent').innerHTML = '';
-        }
+        function closeMediaViewer() { document.getElementById('mediaViewerModal').classList.add('hidden'); }
 
         function openCommentsModal(index) {
             currentOpenCommentPostIndex = index;
             document.getElementById('commentsModal').classList.remove('hidden');
             renderCommentsList();
         }
-        function closeCommentsModal() {
-            document.getElementById('commentsModal').classList.add('hidden');
-            currentOpenCommentPostIndex = null;
-        }
+        function closeCommentsModal() { document.getElementById('commentsModal').classList.add('hidden'); }
 
         function renderCommentsList() {
             let box = document.getElementById('commentsListBox');
             box.innerHTML = '';
             if(currentOpenCommentPostIndex === null) return;
             let comments = fypPosts[currentOpenCommentPostIndex].comments || [];
-            if(comments.length === 0) {
-                box.innerHTML = `<div class="text-center text-gray-400 text-xs py-8">No comments yet. Be the first to comment!</div>`;
-                return;
-            }
             comments.forEach(c => {
                 box.innerHTML += `<div class="bg-gg-900 p-2.5 rounded-xl border border-cyan-500/10 space-y-1"><span class="text-[10px] text-cyan-400 font-bold">@${c.user}</span><p class="text-xs text-gray-200">${c.text}</p></div>`;
             });
-            box.scrollTop = box.scrollHeight;
         }
 
         function submitNewComment() {
             let input = document.getElementById('commentInputText');
             let text = input.value.trim();
             if(!text || currentOpenCommentPostIndex === null) return;
-
-            if(!fypPosts[currentOpenCommentPostIndex].comments) {
-                fypPosts[currentOpenCommentPostIndex].comments = [];
-            }
             fypPosts[currentOpenCommentPostIndex].comments.push({ user: myUsername.replace('@', ''), text: text });
-
-            if(text.toLowerCase().includes('@gg-bot')) {
-                fypPosts[currentOpenCommentPostIndex].comments.push({
-                    user: 'GG-Bot',
-                    text: '🤖 I checked this match! Solid scoreline and clean execution.'
-                });
-            }
-
             saveAppData();
             renderCommentsList();
             renderFypFeed();
@@ -836,17 +851,9 @@
             filtered.forEach((post) => {
                 let actualIndex = fypPosts.indexOf(post);
                 let liveBadge = post.isLive ? `<span class="text-[9px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30 font-bold animate-pulse">🔴 LIVE</span>` : '';
-                
-                let mediaContent = '';
-                if(post.mediaUrl) {
-                    if(post.mediaType === 'picture') {
-                        mediaContent = `<div class="relative cursor-pointer overflow-hidden bg-gg-950" ondblclick="handleDoubleTapGG(event, ${actualIndex})" onclick="openMediaViewer('${post.mediaUrl}', 'picture')"><img src="${post.mediaUrl}" loading="lazy" class="w-full max-h-[450px] object-cover pointer-events-none"><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
-                    } else {
-                        mediaContent = `<div class="relative cursor-pointer overflow-hidden bg-gg-950" ondblclick="handleDoubleTapGG(event, ${actualIndex})" onclick="openMediaViewer('${post.mediaUrl}', 'video')"><video src="${post.mediaUrl}" autoplay loop muted playsinline class="w-full max-h-[450px] object-cover pointer-events-none"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
-                    }
-                }
-
-                let commentCount = (post.comments || []).length;
+                let mediaContent = post.mediaUrl ? (post.mediaType === 'picture' ? 
+                    `<div class="relative cursor-pointer overflow-hidden bg-gg-950" onclick="openMediaViewer('${post.mediaUrl}', 'picture')"><img src="${post.mediaUrl}" class="w-full max-h-[450px] object-cover"><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>` :
+                    `<div class="relative cursor-pointer overflow-hidden bg-gg-950" onclick="openMediaViewer('${post.mediaUrl}', 'video')"><video src="${post.mediaUrl}" autoplay loop muted playsinline class="w-full max-h-[450px] object-cover"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`) : '';
 
                 container.innerHTML += `
                     <div class="glass-panel rounded-2xl overflow-hidden space-y-2.5 pb-3 shadow-xl">
@@ -866,9 +873,9 @@
                             </button>
                             <button onclick="openCommentsModal(${actualIndex})" class="flex items-center space-x-1.5 hover:text-cyan-400 transition">
                                 <i class="fa-solid fa-comment text-cyan-400"></i>
-                                <span class="text-[11px] font-bold text-white">${commentCount} Comments</span>
+                                <span class="text-[11px] font-bold text-white">${(post.comments || []).length} Comments</span>
                             </button>
-                            <button onclick="navigator.clipboard.writeText(window.location.href); alert('🔗 Post link copied!');" class="hover:text-cyan-400 transition">
+                            <button onclick="navigator.clipboard.writeText(window.location.href); alert('🔗 Copied!');" class="hover:text-cyan-400 transition">
                                 <i class="fa-solid fa-share-nodes"></i>
                             </button>
                         </div>
@@ -878,11 +885,15 @@
         }
 
         function switchView(view) {
-            ['fyp', 'clans', 'chat', 'standings', 'profile', 'popular'].forEach(v => {
-                document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('hidden');
+            ['fyp', 'explore', 'clans', 'chat', 'standings'].forEach(v => {
+                let el = document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1));
+                if(el) el.classList.add('hidden');
             });
-            document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1)).classList.remove('hidden');
+            let target = document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1));
+            if(target) target.classList.remove('hidden');
+
             if(view === 'standings') renderLadder(document.getElementById('ladderGameSelect').value);
+            if(view === 'explore') renderSearchResults('');
         }
     </script>
 </body>
