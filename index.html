@@ -88,6 +88,7 @@
         <div class="glass-panel p-1.5 rounded-2xl flex shadow-xl overflow-x-auto scrollbar-none">
             <button onclick="switchView('fyp')" id="nav-fyp" class="flex-1 py-2 px-2 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap"><i class="fa-solid fa-fire mr-0.5"></i> Feed</button>
             <button onclick="switchView('trending')" id="nav-trending" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-chart-line mr-0.5"></i> Trending</button>
+            <button onclick="switchView('market')" id="nav-market" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-store mr-0.5"></i> Market</button>
             <button onclick="switchView('clans')" id="nav-clans" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-shield-halved mr-0.5"></i> Squads</button>
             <button onclick="switchView('chat')" id="nav-chat" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-comments mr-0.5"></i> Lobbies</button>
             <button onclick="switchView('standings')" id="nav-standings" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-trophy mr-0.5"></i> Tables</button>
@@ -152,7 +153,21 @@
             <div id="searchResultsContainer" class="space-y-3"></div>
         </div>
 
-        <!-- 3. Clans View -->
+        <!-- 3. GG MARKET VIEW (Accounts, Points & Giveaways) -->
+        <div id="view-market" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
+            <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-store text-cyan-400 mr-1.5"></i> GG Market</h3>
+                        <p class="text-[9px] text-gray-400">Buy & sell accounts, game points, or giveaways.</p>
+                    </div>
+                    <button onclick="openMarketModal()" class="px-3 py-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 rounded-xl text-[10px] font-black shadow">+ List Item</button>
+                </div>
+            </div>
+            <div id="marketListContainer" class="space-y-3"></div>
+        </div>
+
+        <!-- 4. Clans View -->
         <div id="view-clans" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl">
                 <div class="flex items-center justify-between">
@@ -163,7 +178,7 @@
             <div id="clansListContainer" class="space-y-3"></div>
         </div>
 
-        <!-- 4. Chat View -->
+        <!-- 5. Chat View -->
         <div id="view-chat" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden h-[480px] shadow-2xl fade-in">
             <div class="p-3 border-b border-cyan-500/15 flex items-center justify-between bg-gg-900/90">
                 <select id="chatRoomSelect" onchange="switchChatRoom(this.value)" class="bg-gg-950 text-cyan-400 text-xs font-bold px-2 py-1 rounded-lg border border-cyan-500/30 focus:outline-none">
@@ -179,7 +194,7 @@
             </div>
         </div>
 
-        <!-- 5. Tables View -->
+        <!-- 6. Tables View -->
         <div id="view-standings" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl fade-in">
             <div class="flex items-center justify-between">
                 <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-trophy text-amber-400 mr-1.5"></i> Weekly Leaderboard</h3>
@@ -197,7 +212,7 @@
             </div>
         </div>
 
-        <!-- 6. Popular / Top View -->
+        <!-- 7. Popular / Top View -->
         <div id="view-popular" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl fade-in">
             <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-crown text-amber-400 mr-1.5"></i> Platform Rank & Creators</h3>
             <div class="overflow-x-auto flex-1">
@@ -222,6 +237,28 @@
     </main>
 
     <!-- Modals -->
+    <!-- Market Listing Modal -->
+    <div id="marketModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl border border-cyan-500/40">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-store text-cyan-400 mr-1"></i> List Item on Market</h3>
+                <button onclick="closeMarketModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
+            </div>
+            <div class="space-y-3">
+                <select id="marketTypeSelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30">
+                    <option value="Account">👤 Game Account Sale</option>
+                    <option value="Points">💎 Game Points / Currency</option>
+                    <option value="Giveaway">🎁 Free Account Giveaway</option>
+                </select>
+                <input type="text" id="marketTitleInput" placeholder="Item Title (e.g., 115 OVR FC Mobile Account)" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
+                <input type="text" id="marketPriceInput" placeholder="Price (e.g., $30 or FREE)" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
+                <textarea id="marketDescInput" rows="2" placeholder="Details (Rank, stats, contact info...)" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white"></textarea>
+                <button onclick="submitMarketListing()" class="w-full py-3 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs">🚀 Post Listing</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Squad Room Modal -->
     <div id="squadRoomModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col h-[480px] shadow-2xl space-y-3">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -333,6 +370,11 @@
         let currentOpenCommentPostIndex = null;
         let activeSquadRoomName = null;
 
+        let marketListings = JSON.parse(localStorage.getItem('sinless_market')) || [
+            { id: '1', seller: 'DON PRIME', type: 'Account', title: '115 OVR FC Mobile Endgame Account', price: '$40 / 500 GHS', desc: 'Max rank players, 2B coins, serious buyers DM.', ts: Date.now() },
+            { id: '2', seller: 'BALL_MASTER', type: 'Giveaway', title: 'Free eFootball Division 1 Account', price: 'FREE', desc: 'Giving out my old account to a loyal community member!', ts: Date.now() }
+        ];
+
         let matchResults = JSON.parse(localStorage.getItem('sg_results')) || [
             { id: '1', user: 'DON PRIME', game: 'FC MOBILE', opp: 'BALL_MASTER', score: '3-1', comp: 'Sinless Super League', status: 'confirmed', ts: Date.now() }
         ];
@@ -355,17 +397,19 @@
             localStorage.setItem('sinless_clans', JSON.stringify(clansData));
             localStorage.setItem('sinless_chats', JSON.stringify(chatMessages));
             localStorage.setItem('sg_results', JSON.stringify(matchResults));
+            localStorage.setItem('sinless_market', JSON.stringify(marketListings));
         }
 
         function initApp() {
             renderLadder('FC MOBILE');
             renderClansList();
             renderFypFeed();
+            renderMarketList();
             renderSearchResults('');
         }
 
         function switchView(viewName) {
-            ['fyp', 'trending', 'clans', 'chat', 'standings', 'popular'].forEach(v => {
+            ['fyp', 'trending', 'market', 'clans', 'chat', 'standings', 'popular'].forEach(v => {
                 let section = document.getElementById('view-' + v);
                 let navBtn = document.getElementById('nav-' + v);
                 if(section) section.classList.add('hidden');
@@ -385,8 +429,67 @@
 
             if(viewName === 'standings') renderLadder(document.getElementById('ladderGameSelect').value);
             if(viewName === 'trending') renderSearchResults('');
+            if(viewName === 'market') renderMarketList();
         }
 
+        // Market Functions
+        function openMarketModal() { document.getElementById('marketModal').classList.remove('hidden'); }
+        function closeMarketModal() { document.getElementById('marketModal').classList.add('hidden'); }
+        
+        function submitMarketListing() {
+            let type = document.getElementById('marketTypeSelect').value;
+            let title = document.getElementById('marketTitleInput').value.trim();
+            let price = document.getElementById('marketPriceInput').value.trim();
+            let desc = document.getElementById('marketDescInput').value.trim();
+
+            if(!title || !price) { alert('Please fill in the title and price.'); return; }
+
+            marketListings.unshift({
+                id: crypto.randomUUID(),
+                seller: myUsername.replace('@', ''),
+                type: type,
+                title: title,
+                price: price,
+                desc: desc || 'No additional details provided.',
+                ts: Date.now()
+            });
+
+            saveAppData();
+            renderMarketList();
+            closeMarketModal();
+            alert('🎉 Item successfully listed on GG Market!');
+        }
+
+        function renderMarketList() {
+            let container = document.getElementById('marketListContainer');
+            if(!container) return;
+            container.innerHTML = '';
+
+            if(marketListings.length === 0) {
+                container.innerHTML = `<div class="glass-panel p-6 rounded-xl text-center text-gray-400 text-xs">No items listed in GG Market yet. Be the first to list!</div>`;
+                return;
+            }
+
+            marketListings.forEach(item => {
+                let badgeColor = item.type === 'Giveaway' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30';
+                container.innerHTML += `
+                    <div class="glass-panel p-4 rounded-2xl space-y-2 shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[9px] px-2 py-0.5 rounded border font-extrabold ${badgeColor}">${item.type.toUpperCase()}</span>
+                            <span class="text-xs font-black text-amber-400">${item.price}</span>
+                        </div>
+                        <h4 class="font-bold text-xs text-white">${item.title}</h4>
+                        <p class="text-[11px] text-gray-300">${item.desc}</p>
+                        <div class="flex items-center justify-between pt-2 border-t border-cyan-500/10 text-[10px]">
+                            <span class="text-gray-400 font-bold">Seller: @${item.seller} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
+                            <button onclick="alert('💬 Contact seller @${item.seller} via DMs or Squad Lobbies to proceed!')" class="px-3 py-1.5 bg-cyan-500 text-slate-950 font-black rounded-lg">Contact Seller</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Universal Search
         function handleGlobalSearch(query) { renderSearchResults(query.trim().toLowerCase()); }
         function filterByTag(tag) {
             document.getElementById('globalSearchInput').value = tag;
@@ -400,11 +503,16 @@
             
             let matchedPosts = fypPosts.filter(p => !query || p.caption.toLowerCase().includes(query) || p.user.toLowerCase().includes(query) || p.game.toLowerCase().includes(query));
             let matchedClans = clansData.filter(c => !query || c.name.toLowerCase().includes(query) || c.tag.toLowerCase().includes(query));
+            let matchedMarket = marketListings.filter(m => !query || m.title.toLowerCase().includes(query) || m.seller.toLowerCase().includes(query));
 
-            if(matchedPosts.length === 0 && matchedClans.length === 0) {
+            if(matchedPosts.length === 0 && matchedClans.length === 0 && matchedMarket.length === 0) {
                 container.innerHTML += `<div class="glass-panel p-4 rounded-xl text-center text-gray-400 text-xs">No matching results.</div>`;
                 return;
             }
+
+            matchedMarket.forEach(item => {
+                container.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between shadow"><div class="text-xs font-bold text-white"><i class="fa-solid fa-store text-cyan-400 mr-1"></i> Market: ${item.title} (${item.price})</div><button onclick="switchView('market')" class="px-2.5 py-1 bg-cyan-500 text-slate-950 font-bold rounded-lg text-[10px]">View</button></div>`;
+            });
 
             matchedClans.forEach(clan => {
                 container.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between shadow"><div class="text-xs font-bold text-white"><i class="fa-solid fa-shield-halved text-cyan-400 mr-1"></i> Squad: ${clan.name} [${clan.tag}]</div><button onclick="openSquadRoom('${clan.name}')" class="px-2.5 py-1 bg-cyan-500 text-slate-950 font-bold rounded-lg text-[10px]">Open</button></div>`;
@@ -415,6 +523,7 @@
             });
         }
 
+        // Squads & Modals
         function openCreateClanModal() { document.getElementById('createClanModalBox').classList.remove('hidden'); }
         function closeCreateClanModal() { document.getElementById('createClanModalBox').classList.add('hidden'); }
         function submitNewClan() {
@@ -497,7 +606,7 @@
         function closeCreatePostModal() { document.getElementById('createPostModal').classList.add('hidden'); }
         function openDmModal() { document.getElementById('dmModal').classList.remove('hidden'); document.getElementById('dmInboxList').innerHTML = `<div class="p-2 bg-gg-900 rounded">@SUPPORT: Welcome to DMs.</div>`; }
         function closeDmModal() { document.getElementById('dmModal').classList.add('hidden'); }
-        function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); document.getElementById('notificationsListBox').innerHTML = `<div class="p-2 bg-gg-900 rounded">Trending active.</div>`; }
+        function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); document.getElementById('notificationsListBox').innerHTML = `<div class="p-2 bg-gg-900 rounded">Market active.</div>`; }
         function closeNotificationsModal() { document.getElementById('notifModal').classList.add('hidden'); }
 
         function submitUniversalPost() {
