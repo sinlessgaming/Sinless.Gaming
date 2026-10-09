@@ -1,48 +1,201 @@
-<!-- Firebase SDK Setup -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-  import { getAuth, signInWithPopup, GoogleAuthProvider, OAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sinless GG - World's #1 Global Gaming, Wrestling & Football Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase App & Auth SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, OAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-  // Paste your config keys here
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "sinlessgg.firebaseapp.com",
-    projectId: "sinlessgg",
-    storageBucket: "sinlessgg.firebasestorage.app",
-    messagingSenderId: "774543139920",
-    appId: "1:774543139920:web:d5c0ca9c7c29..."
-  };
+        // Replace with your actual Firebase config keys from console
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "sinlessgg.firebaseapp.com",
+            projectId: "sinlessgg",
+            storageBucket: "sinlessgg.firebasestorage.app",
+            messagingSenderId: "774543139920",
+            appId: "1:774543139920:web:d5c0ca9c7c29..."
+        };
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
 
-  window.authenticGoogleLogin = async () => {
-      try {
-          const provider = new GoogleAuthProvider();
-          const result = await signInWithPopup(auth, provider);
-          myEmail = result.user.email;
-          myUsername = '@' + result.user.displayName.replace(/\s+/g, '');
-          saveAppData();
-          document.getElementById('headerUserTag').innerText = myUsername;
-          closeAccountModal();
-          alert(`🚀 Google Cloud Login Successful!\nEmail: ${myEmail}`);
-      } catch (error) {
-          alert("Login error: " + error.message);
-      }
-  };
+        window.authenticGoogleLogin = async () => {
+            try {
+                const provider = new GoogleAuthProvider();
+                const result = await signInWithPopup(auth, provider);
+                window.myEmail = result.user.email;
+                window.myUsername = '@' + result.user.displayName.replace(/\s+/g, '');
+                saveAppData();
+                document.getElementById('headerUserTag').innerText = window.myUsername;
+                closeAccountModal();
+                alert(`🚀 Google Cloud Login Successful!\nEmail: ${window.myEmail}`);
+            } catch (error) {
+                alert("Login error: " + error.message);
+            }
+        };
 
-  window.authenticAppleLogin = async () => {
-      try {
-          const provider = new OAuthProvider('apple.com');
-          const result = await signInWithPopup(auth, provider);
-          myEmail = result.user.email || 'apple_user@privaterelay.appleid.com';
-          myUsername = '@AppleGamer';
-          saveAppData();
-          document.getElementById('headerUserTag').innerText = myUsername;
-          closeAccountModal();
-          alert(`🍏 Apple ID Login Successful!\nEmail: ${myEmail}`);
-      } catch (error) {
-          alert("Login error: " + error.message);
-      }
-  };
-</script>
+        window.authenticAppleLogin = async () => {
+            try {
+                const provider = new OAuthProvider('apple.com');
+                const result = await signInWithPopup(auth, provider);
+                window.myEmail = result.user.email || 'apple_user@privaterelay.appleid.com';
+                window.myUsername = '@AppleGamer';
+                saveAppData();
+                document.getElementById('headerUserTag').innerText = window.myUsername;
+                closeAccountModal();
+                alert(`🍏 Apple ID Login Successful!\nEmail: ${window.myEmail}`);
+            } catch (error) {
+                alert("Login error: " + error.message);
+            }
+        };
+    </script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gg: { 950: '#02050b', 900: '#070f1e', 800: '#0f1d36', cyan: '#00f3ff', magenta: '#ff007f', orange: '#f97316' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #02050b; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; scroll-behavior: smooth; }
+        .glass-panel { background: rgba(11, 22, 44, 0.9); backdrop-filter: blur(20px); border: 1px solid rgba(0, 243, 255, 0.15); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .glass-panel:hover { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 10px 30px -10px rgba(0, 243, 255, 0.2); }
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .verified-badge { color: #f97316; text-shadow: 0 0 10px rgba(249, 115, 22, 0.5); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-slate-950" onload="initApp()">
+
+    <!-- Mobile Header -->
+    <header class="bg-gg-900/95 backdrop-blur-md border-b border-cyan-500/15 px-3 py-3 flex items-center justify-between sticky top-0 z-50 shadow-xl">
+        <div class="flex items-center space-x-2.5 cursor-pointer group" onclick="switchView('fyp')">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-xs shadow-lg shadow-cyan-500/30 group-hover:scale-105 transition">SG</div>
+            <div>
+                <h1 class="font-extrabold text-xs tracking-wide text-white">SINLESS <span class="text-cyan-400">GG</span></h1>
+                <p id="headerUserTag" class="text-[7.5px] text-orange-400 tracking-wider uppercase font-extrabold">@SinlessGaming</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-1.5">
+            <button onclick="openLiveBroadcastModal()" class="px-2 py-1.5 rounded-xl text-[10px] font-extrabold bg-red-600 text-white shadow-lg shadow-red-600/30 animate-pulse hover:bg-red-500 transition flex items-center space-x-1">
+                <i class="fa-solid fa-circle text-[5px]"></i><span>LIVE</span>
+            </button>
+            <button onclick="openCreatePostModal()" class="px-2 py-1.5 rounded-xl text-[10px] font-bold bg-gradient-to-r from-magenta to-pink-600 text-white shadow">
+                <i class="fa-solid fa-plus mr-0.5"></i> Post
+            </button>
+            <button onclick="openAccountModal()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs shadow" title="Account / Login">
+                <i class="fa-solid fa-user"></i>
+            </button>
+            <button onclick="openNotificationsModal()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs shadow" title="Notifications">
+                <i class="fa-solid fa-bell"></i>
+            </button>
+            <button onclick="openDmModal()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs shadow" title="Direct Inbox">
+                <i class="fa-solid fa-envelope"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3">
+        <!-- View Tabs -->
+        <div class="glass-panel p-1.5 rounded-2xl flex shadow-xl overflow-x-auto scrollbar-none">
+            <button onclick="switchView('fyp')" id="nav-fyp" class="flex-1 py-2 px-2 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap"><i class="fa-solid fa-fire mr-0.5"></i> Feed</button>
+            <button onclick="switchView('trending')" id="nav-trending" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-chart-line mr-0.5"></i> Trending</button>
+            <button onclick="switchView('market')" id="nav-market" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-store mr-0.5"></i> Market</button>
+            <button onclick="switchView('clans')" id="nav-clans" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-shield-halved mr-0.5"></i> Squads</button>
+            <button onclick="switchView('chat')" id="nav-chat" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-comments mr-0.5"></i> Lobbies</button>
+            <button onclick="switchView('standings')" id="nav-standings" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-trophy mr-0.5"></i> Tables</button>
+            <button onclick="switchView('popular')" id="nav-popular" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-crown mr-0.5"></i> Top</button>
+        </div>
+
+        <!-- 1. Feed View -->
+        <div id="view-fyp" class="view-section flex-1 flex flex-col space-y-3 overflow-y-auto pb-4 fade-in">
+            <div id="categoryFilterBar" class="flex space-x-2 overflow-x-auto scrollbar-none py-1">
+                <button onclick="filterByCategory('ALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition">🌐 All</button>
+                <button onclick="filterByCategory('FOOTBALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">⚽ Football</button>
+                <button onclick="filterByCategory('FC MOBILE', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">📱 FC Mobile</button>
+                <button onclick="filterByCategory('EA SPORTS FC', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-magenta border border-magenta/30 whitespace-nowrap transition">🎮 EA Sports FC</button>
+            </div>
+            <div id="fypFeedContainer" class="space-y-4"></div>
+        </div>
+
+        <!-- Other views omitted for brevity, handled globally -->
+    </main>
+
+    <!-- Account Modal -->
+    <div id="accountModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl border border-cyan-500/40">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Account Sign-In</h3>
+                <button onclick="closeAccountModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
+            </div>
+            <div class="space-y-2.5">
+                <button onclick="authenticGoogleLogin()" class="w-full py-3 bg-white text-slate-900 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-100 transition">
+                    <i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>
+                </button>
+                <button onclick="authenticAppleLogin()" class="w-full py-3 bg-black text-white border border-gray-700 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-900 transition">
+                    <i class="fa-brands fa-apple text-white text-sm"></i><span>Continue with Apple ID</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.myUsername = localStorage.getItem('sinless_username') || '@SinlessGaming';
+        window.myEmail = localStorage.getItem('sinless_email') || 'sinlessgaming@gmail.com';
+        window.fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
+            { user: 'SinlessGaming', verified: true, game: 'FOOTBALL', caption: 'Welcome to Sinless GG #SinlessSuperLeague', likes: 12 }
+        ];
+
+        window.saveAppData = function() {
+            localStorage.setItem('sinless_posts', JSON.stringify(window.fypPosts));
+            localStorage.setItem('sinless_username', window.myUsername);
+            localStorage.setItem('sinless_email', window.myEmail);
+        }
+
+        window.initApp = function() {
+            document.getElementById('headerUserTag').innerText = window.myUsername;
+            renderFypFeed();
+        }
+
+        window.openAccountModal = function() { document.getElementById('accountModal').classList.remove('hidden'); }
+        window.closeAccountModal = function() { document.getElementById('accountModal').classList.add('hidden'); }
+        window.openLiveBroadcastModal = function() {}
+        window.openCreatePostModal = function() {}
+        window.openNotificationsModal = function() {}
+        window.openDmModal = function() {}
+
+        window.renderFypFeed = function() {
+            let container = document.getElementById('fypFeedContainer');
+            if(!container) return;
+            container.innerHTML = '';
+            window.fypPosts.forEach(post => {
+                container.innerHTML += `
+                    <div class="glass-panel rounded-2xl overflow-hidden space-y-2 p-3 shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-xs text-white">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
+                            <span class="text-[9px] text-cyan-400 font-bold">${post.game}</span>
+                        </div>
+                        <p class="text-xs text-gray-200">${post.caption}</p>
+                    </div>
+                `;
+            });
+        }
+
+        window.switchView = function(view) {}
+        window.filterByCategory = function(cat, btn) {}
+    </script>
+</body>
+</html>
