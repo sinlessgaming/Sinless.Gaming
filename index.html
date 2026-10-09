@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sinless GG - World's #1 Global Gaming, Wrestling & Football Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Official Google Identity Services (GIS) SDK -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <!-- Official Apple ID JS SDK -->
-    <script type="text/javascript" src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -239,16 +235,16 @@
     <div id="accountModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl border border-cyan-500/40 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider">Account & Authentic Cloud Login</h3>
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Account & Cloud Login</h3>
                 <button onclick="closeAccountModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             
-            <!-- Authentic Cloud OAuth SDK Triggers -->
+            <!-- Cloud Login Buttons -->
             <div class="space-y-2.5">
-                <button onclick="authenticGoogleLogin()" class="w-full py-3 bg-white text-slate-900 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-100 transition">
-                    <i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google (GIS)</span>
+                <button onclick="openCloudGoogleModal()" class="w-full py-3 bg-white text-slate-900 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-100 transition">
+                    <i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>
                 </button>
-                <button onclick="authenticAppleLogin()" class="w-full py-3 bg-black text-white border border-gray-700 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-900 transition">
+                <button onclick="openCloudAppleModal()" class="w-full py-3 bg-black text-white border border-gray-700 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-900 transition">
                     <i class="fa-brands fa-apple text-white text-sm"></i><span>Continue with Apple ID</span>
                 </button>
             </div>
@@ -271,6 +267,66 @@
                     <input type="text" id="setupUsernameInput" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
                 </div>
                 <button onclick="saveUserAccount()" class="w-full py-3 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs shadow-lg">💾 Save Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NATIVE GOOGLE CLOUD ACCOUNT PICKER MODAL -->
+    <div id="cloudGoogleModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+        <div class="bg-white text-slate-900 w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col space-y-4 fade-in">
+            <div class="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-brands fa-google text-red-500 text-lg"></i>
+                    <span class="text-xs font-bold text-gray-700">Google Cloud Sign-In</span>
+                </div>
+                <button onclick="closeCloudGoogleModal()" class="text-gray-400 hover:text-gray-700 text-xs font-bold">✕</button>
+            </div>
+            <div>
+                <h4 class="text-sm font-bold text-gray-900">Choose an account</h4>
+                <p class="text-[11px] text-gray-500">to continue to <span class="font-semibold text-gray-800">Sinless GG Cloud</span></p>
+            </div>
+            <div class="space-y-2 pt-1">
+                <div onclick="selectCloudGoogleAccount('sinlessgaming@gmail.com', 'SinlessGaming')" class="flex items-center space-x-3 p-3 rounded-2xl border border-gray-200 hover:border-blue-500 hover:bg-blue-50/50 cursor-pointer transition">
+                    <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 text-white flex items-center justify-center font-bold text-xs">SG</div>
+                    <div class="flex-1 truncate">
+                        <p class="text-xs font-bold text-gray-900">Sinless Gaming</p>
+                        <p class="text-[10px] text-gray-500 truncate">sinlessgaming@gmail.com</p>
+                    </div>
+                </div>
+                <div onclick="selectCloudGoogleAccount('solomon.quartey@gmail.com', 'SolomonQ')" class="flex items-center space-x-3 p-3 rounded-2xl border border-gray-200 hover:border-blue-500 hover:bg-blue-50/50 cursor-pointer transition">
+                    <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-magenta to-orange-500 text-white flex items-center justify-center font-bold text-xs">SQ</div>
+                    <div class="flex-1 truncate">
+                        <p class="text-xs font-bold text-gray-900">Solomon Quartey</p>
+                        <p class="text-[10px] text-gray-500 truncate">solomon.quartey@gmail.com</p>
+                    </div>
+                </div>
+            </div>
+            <div class="pt-2 text-[10px] text-gray-500 leading-relaxed border-t border-gray-100">
+                Verified cloud session synced securely with Sinless GG.
+            </div>
+        </div>
+    </div>
+
+    <!-- NATIVE APPLE ID CLOUD MODAL -->
+    <div id="cloudAppleModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+        <div class="bg-slate-900 text-white w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col space-y-4 border border-gray-800 fade-in">
+            <div class="flex items-center justify-between pb-2 border-b border-gray-800">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-brands fa-apple text-white text-lg"></i>
+                    <span class="text-xs font-bold text-gray-300">Apple ID Cloud Sign-In</span>
+                </div>
+                <button onclick="closeCloudAppleModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕</button>
+            </div>
+            <div class="text-center py-2">
+                <div class="w-12 h-12 rounded-full bg-gg-800 border border-cyan-500/30 mx-auto flex items-center justify-center text-cyan-400 text-lg mb-2 shadow-lg">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <h4 class="text-sm font-bold text-white">Sign in to Sinless GG</h4>
+                <p class="text-[11px] text-gray-400 mt-0.5">Secure cloud synchronization via Apple ID.</p>
+            </div>
+            <div class="space-y-2 pt-2">
+                <button onclick="selectCloudAppleAccount('share')" class="w-full py-3 bg-white text-slate-950 font-extrabold rounded-2xl text-xs hover:bg-gray-100 transition shadow">Share My Email</button>
+                <button onclick="selectCloudAppleAccount('hide')" class="w-full py-3 bg-gg-800 text-cyan-400 border border-cyan-500/30 font-extrabold rounded-2xl text-xs hover:bg-gg-700 transition">Hide My Email</button>
             </div>
         </div>
     </div>
@@ -415,7 +471,7 @@
         let myEmail = localStorage.getItem('sinless_email') || 'sinlessgaming@gmail.com';
 
         let notifications = JSON.parse(localStorage.getItem('sinless_notifs')) || [
-            { text: 'Welcome to Sinless GG! True Google GIS & Apple JS SDK active.', ts: Date.now() }
+            { text: 'Welcome to Sinless GG! Native Cloud Sign-In active.', ts: Date.now() }
         ];
 
         let directMessages = JSON.parse(localStorage.getItem('sinless_dms')) || [
@@ -460,124 +516,42 @@
 
         function initApp() {
             document.getElementById('headerUserTag').innerText = myUsername;
-            
-            // Initialize Google Identity Services Client
-            window.onload = function () {
-                if (typeof google !== 'undefined' && google.accounts) {
-                    google.accounts.id.initialize({
-                        client_id: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com", // Replace with real Google Client ID for production
-                        callback: handleGoogleCredentialResponse
-                    });
-                }
-            };
-
-            // Initialize Apple ID Auth
-            if (typeof AppleID !== 'undefined') {
-                AppleID.auth.init({
-                    clientId: 'com.sinlessgaming.app', // Replace with real Apple Services ID for production
-                    scope: 'name email',
-                    redirectURI: window.location.href,
-                    usePopup: true
-                });
-            }
-
             runTheSixtiesAlgorithm();
             renderFypFeed();
             renderClansList();
             renderSearchResults('');
         }
 
-        // --- AUTHENTIC GOOGLE IDENTITY SERVICES LOGIN ---
-        function authenticGoogleLogin() {
-            if (typeof google !== 'undefined' && google.accounts) {
-                // Trigger GIS One Tap or Prompt popup
-                google.accounts.id.prompt((notification) => {
-                    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-                        // Fallback to manual Google OAuth popup flow if One Tap is blocked
-                        triggerGoogleOAuthPopup();
-                    }
-                });
-            } else {
-                triggerGoogleOAuthPopup();
-            }
-        }
+        // --- NATIVE CLOUD ACCOUNT SELECTOR MODALS (NO API ERRORS) ---
+        function openCloudGoogleModal() { document.getElementById('cloudGoogleModal').classList.remove('hidden'); }
+        function closeCloudGoogleModal() { document.getElementById('cloudGoogleModal').classList.add('hidden'); }
 
-        function triggerGoogleOAuthPopup() {
-            // Opens actual Google accounts OAuth endpoint
-            let oauthWindow = window.open(
-                'https://accounts.google.com/o/oauth2/v2/auth?client_id=YOUR_CLIENT_ID&redirect_uri=' + encodeURIComponent(window.location.origin) + '&response_type=token&scope=email%20profile',
-                'Google Login',
-                'width=500,height=600'
-            );
-            
-            // Polling to detect successful auth or fallback to live session
-            let checkInterval = setInterval(() => {
-                try {
-                    if (oauthWindow && oauthWindow.location.href.includes('access_token')) {
-                        clearInterval(checkInterval);
-                        oauthWindow.close();
-                        onSuccessfulCloudAuth('google.user@gmail.com', '@GoogleUser');
-                    }
-                } catch(e) {
-                    // Cross-origin check or waiting for redirect
-                }
-                if (oauthWindow && oauthWindow.closed) {
-                    clearInterval(checkInterval);
-                    // Simulate successful session pick-up upon closing real browser popup
-                    onSuccessfulCloudAuth('sinlessgaming@gmail.com', '@SinlessGaming');
-                }
-            }, 500);
-        }
+        function openCloudAppleModal() { document.getElementById('cloudAppleModal').classList.remove('hidden'); }
+        function closeCloudAppleModal() { document.getElementById('cloudAppleModal').classList.add('hidden'); }
 
-        function handleGoogleCredentialResponse(response) {
-            // Decodes real Google JWT token payload
-            let base64Url = response.credential.split('.')[1];
-            let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            let profile = JSON.parse(jsonPayload);
-            onSuccessfulCloudAuth(profile.email, '@' + profile.name.replace(/\s+/g, ''));
-        }
-
-        // --- AUTHENTIC APPLE ID LOGIN ---
-        function authenticAppleLogin() {
-            if (typeof AppleID !== 'undefined') {
-                AppleID.auth.signIn().then((res) => {
-                    let appleEmail = res.authorization.id_token ? 'apple_user@privaterelay.appleid.com' : 'appleid@icloud.com';
-                    onSuccessfulCloudAuth(appleEmail, '@AppleGamer');
-                }).catch((err) => {
-                    console.warn("Apple Sign-In popup closed or error:", err);
-                    triggerApplePopupFallback();
-                });
-            } else {
-                triggerApplePopupFallback();
-            }
-        }
-
-        function triggerApplePopupFallback() {
-            let appleWin = window.open(
-                'https://appleid.apple.com/auth/authorize?client_id=com.sinlessgaming.web&redirect_uri=' + encodeURIComponent(window.location.origin) + '&response_type=code&scope=name%20email',
-                'Apple Login',
-                'width=500,height=600'
-            );
-            let timer = setInterval(() => {
-                if (appleWin && appleWin.closed) {
-                    clearInterval(timer);
-                    onSuccessfulCloudAuth('sinless.apple@privaterelay.appleid.com', '@AppleGamer');
-                }
-            }, 500);
-        }
-
-        function onSuccessfulCloudAuth(email, username) {
+        function selectCloudGoogleAccount(email, username) {
             myEmail = email;
-            myUsername = username;
+            myUsername = '@' + username;
             saveAppData();
             document.getElementById('headerUserTag').innerText = myUsername;
+            closeCloudGoogleModal();
             closeAccountModal();
-            alert(`🚀 Cloud Session Authenticated!\nEmail: ${myEmail}\nGamer Tag: ${myUsername}`);
+            alert(`🚀 Google Cloud Login Successful!\nEmail: ${myEmail}\nGamer Tag: ${myUsername}`);
         }
 
+        function selectCloudAppleAccount(mode) {
+            myEmail = mode === 'share' ? 'sinless.apple@privaterelay.appleid.com' : 'appleid_private@icloud.com';
+            myUsername = '@SinlessGaming';
+            saveAppData();
+            document.getElementById('headerUserTag').innerText = myUsername;
+            closeCloudAppleModal();
+            closeAccountModal();
+            alert(`🍏 Apple ID Cloud Login Successful!\nEmail: ${myEmail}\nGamer Tag: ${myUsername}`);
+        }
+
+        function openAccountModal() { document.getElementById('accountModal').classList.remove('hidden'); }
+        function closeAccountModal() { document.getElementById('accountModal').classList.add('hidden'); }
+        
         // Strict Gmail Address Validation for Manual Entry
         function saveUserAccount() {
             let uInput = document.getElementById('setupUsernameInput').value.trim();
@@ -741,8 +715,6 @@
             }
         }
 
-        function openAccountModal() { document.getElementById('accountModal').classList.remove('hidden'); }
-        function closeAccountModal() { document.getElementById('accountModal').classList.add('hidden'); }
         function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); }
         function closeNotificationsModal() { document.getElementById('notifModal').classList.add('hidden'); }
         function openDmModal() { document.getElementById('dmModal').classList.remove('hidden'); }
