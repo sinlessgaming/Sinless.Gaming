@@ -129,7 +129,7 @@
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
-        <!-- 2. TRENDING VIEW ("The 60s" AI Summary & Top 10 Interactive Live Matches) -->
+        <!-- 2. TRENDING VIEW (Top 10 Live Matches & Dynamic "The 60s" Algorithm) -->
         <div id="view-trending" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             <div class="glass-panel p-3 rounded-2xl space-y-2.5 shadow-xl">
                 <div class="relative">
@@ -138,43 +138,28 @@
                 </div>
             </div>
 
-            <!-- Top 10 Interactive Live Matches Carousel with Live Countdowns & Ticking Minutes -->
+            <!-- Top 10 World Matches & Live Countdowns Carousel -->
             <div class="space-y-2">
                 <div class="flex items-center justify-between px-1">
-                    <h3 class="text-[10px] font-black text-cyan-400 uppercase tracking-wider"><i class="fa-solid fa-futbol mr-1"></i> Top 10 Live Matches & Fixtures (Tap for Squads & Ratings)</h3>
+                    <h3 class="text-[10px] font-black text-cyan-400 uppercase tracking-wider"><i class="fa-solid fa-futbol mr-1"></i> Top 10 World Matches (Tap for Squads & Ratings)</h3>
                     <span class="text-[9px] text-gray-400">Swipe →</span>
                 </div>
-                <div id="topMatchesCarousel" class="flex space-x-2.5 overflow-x-auto scrollbar-none py-1">
-                    <!-- Dynamically rendered top 10 interactive matches -->
-                </div>
+                <div id="topMatchesCarousel" class="flex space-x-2.5 overflow-x-auto scrollbar-none py-1"></div>
             </div>
 
-            <!-- "THE 60s" AI Trend Summary -->
+            <!-- "THE 60s" Dynamic Algorithmic Trend Summary -->
             <div class="glass-panel p-4 rounded-2xl space-y-3.5 shadow-xl border border-cyan-500/30">
                 <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                     <div class="flex items-center space-x-2">
                         <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-                        <h3 class="text-xs font-black text-white uppercase tracking-wider">🔥 THE 60s: AI TREND BRIEFING</h3>
+                        <h3 class="text-xs font-black text-white uppercase tracking-wider">🔥 THE 60s: DYNAMIC TREND SUMMARY</h3>
                     </div>
-                    <span class="text-[9px] text-cyan-400 font-bold bg-cyan-500/10 px-2 py-0.5 rounded-full">Updated 60s Ago</span>
+                    <span id="sixtiesTimestamp" class="text-[9px] text-cyan-400 font-bold bg-cyan-500/10 px-2 py-0.5 rounded-full">Live Algorithm</span>
                 </div>
-                <p class="text-[11px] text-gray-300 leading-relaxed">
-                    <strong class="text-cyan-400">What's happening right now:</strong> Football discussions are surging with El Clásico live dominance (RMA 2 - 1 BAR) and anticipation building for Man City vs Arsenal. In national trends, legal discussions around <em>Call to the Bar</em> lead with over 4.2K active community posts, while entertainment buzz centers on Shattafest 2026.
+                <p id="sixtiesSummaryText" class="text-[11px] text-gray-300 leading-relaxed">
+                    Analyzing community discussions and live match scorelines...
                 </p>
-                <div class="grid grid-cols-3 gap-2 pt-1 text-center">
-                    <div class="bg-gg-950 p-2 rounded-xl border border-cyan-500/20">
-                        <span class="block text-[8px] text-gray-400 uppercase font-bold">Top Sport</span>
-                        <span class="text-[10px] text-amber-400 font-black">El Clásico Live</span>
-                    </div>
-                    <div class="bg-gg-950 p-2 rounded-xl border border-cyan-500/20">
-                        <span class="block text-[8px] text-gray-400 uppercase font-bold">Trending Law</span>
-                        <span class="text-[10px] text-cyan-400 font-black">Call to Bar</span>
-                    </div>
-                    <div class="bg-gg-950 p-2 rounded-xl border border-cyan-500/20">
-                        <span class="block text-[8px] text-gray-400 uppercase font-bold">Esports Hub</span>
-                        <span class="text-[10px] text-magenta font-black">Sinless League</span>
-                    </div>
-                </div>
+                <div id="sixtiesTagsBox" class="grid grid-cols-3 gap-2 pt-1 text-center"></div>
             </div>
 
             <div id="searchResultsContainer" class="space-y-3"></div>
@@ -264,7 +249,6 @@
                 <button onclick="closeMatchCenterModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             
-            <!-- Scoreboard Box -->
             <div class="bg-gg-950 p-4 rounded-2xl border border-cyan-500/20 text-center space-y-2">
                 <div class="flex items-center justify-between px-4">
                     <div class="text-center flex-1">
@@ -282,13 +266,11 @@
                 <div id="modalMatchMinute" class="text-[10px] text-cyan-400 font-extrabold uppercase">74' In Progress</div>
             </div>
 
-            <!-- Scorers & Events -->
             <div class="space-y-1.5">
                 <h5 class="text-[10px] font-black text-cyan-400 uppercase"><i class="fa-solid fa-futbol mr-1"></i> Goalscorers & Key Events</h5>
                 <div id="modalScorersList" class="bg-gg-900 p-3 rounded-xl text-xs space-y-1 border border-cyan-500/10 text-gray-200"></div>
             </div>
 
-            <!-- Starting Lineups / Squads -->
             <div class="grid grid-cols-2 gap-2">
                 <div class="bg-gg-900 p-3 rounded-xl border border-cyan-500/10 space-y-1">
                     <h5 id="modalHomeLineupTitle" class="text-[10px] font-black text-cyan-400 uppercase">Home Lineup</h5>
@@ -487,7 +469,7 @@
                 awayScore: 1,
                 status: 'LIVE',
                 minute: 74,
-                kickoffTime: null,
+                countdownSeconds: 0,
                 scorers: ['Vinícius Júnior 23\'', 'Lamine Yamal 45+1\'', 'Jude Bellingham 61\''],
                 homeSquad: ['Courtois (8.9)', 'Carvajal (8.2)', 'Rüdiger (8.5)', 'Militão (8.1)', 'Mendy (7.9)', 'Valverde (8.8)', 'Camavinga (8.4)', 'Bellingham (9.2)', 'Rodrygo (8.3)', 'Mbappé (8.8)', 'Vinícius (9.1)'],
                 awaySquad: ['Ter Stegen (8.2)', 'Koundé (8.0)', 'Cubarsí (8.3)', 'Iñigo (8.1)', 'Balde (7.8)', 'Pedri (8.9)', 'Casadó (8.2)', 'Olmo (8.4)', 'Yamal (9.0)', 'Lewandowski (8.5)', 'Raphinha (8.7)']
@@ -533,6 +515,7 @@
                 awayScore: 1,
                 status: 'FT',
                 minute: 90,
+                countdownSeconds: 0,
                 scorers: ['Dembélé 14\'', 'Barcola 38\'', 'Greenwood 52\' (OM)', 'Hakimi 76\''],
                 homeSquad: ['Donnarumma (8.3)', 'Hakimi (8.7)', 'Marquinhos (8.4)', 'Pacho (8.2)', 'Nuno Mendes (8.3)', 'Vitinha (8.9)', 'Neves (8.5)', 'Zaïre-Emery (8.1)', 'Dembélé (8.8)', 'Barcola (8.6)', 'Asensio (8.2)'],
                 awaySquad: ['Rulli (8.0)', 'Murillo (7.8)', 'Balerdi (7.9)', 'Cornelius (7.7)', 'Garcia (7.6)', 'Højbjerg (8.3)', 'Rabiot (8.2)', 'Greenwood (8.7)', 'Harit (8.0)', 'Rowe (7.9)', 'Wahi (7.8)']
@@ -548,6 +531,7 @@
                 awayScore: 1,
                 status: 'FT',
                 minute: 90,
+                countdownSeconds: 0,
                 scorers: ['Pulisic 12\' (ACM)', 'Lautaro Martínez 35\' (INT)'],
                 homeSquad: ['Sommer (8.4)', 'Pavard (8.3)', 'Acerbi (8.1)', 'Bastoni (8.6)', 'Dumfries (8.2)', 'Barella (8.8)', 'Çalhanoğlu (8.9)', 'Mkhitaryan (8.1)', 'Dimarco (8.5)', 'Thuram (8.7)', 'Lautaro (8.8)'],
                 awaySquad: ['Maignan (8.7)', 'Emerson (7.8)', 'Tomori (8.2)', 'Pavlović (8.0)', 'Hernández (8.5)', 'Fofana (8.3)', 'Reijnders (8.4)', 'Pulisic (8.9)', 'Loftus-Cheek (8.1)', 'Leão (8.8)', 'Morata (8.2)']
@@ -579,7 +563,7 @@
                 status: 'COUNTDOWN',
                 countdownSeconds: 112000,
                 scorers: [],
-                homeSquad: ['Oblak (8.6)', 'Llorente (8.4)', 'Le Normand (8.2)', 'Giménez (8.3)', 'Azpilicueta (7.9)', 'Gallagher (8.5)', 'De Paul (8.3)', 'Koke (8.1)', 'Lino (8.2)', 'Griezmann (8.8)', Álvarez (8.6)],
+                homeSquad: ['Oblak (8.6)', 'Llorente (8.4)', 'Le Normand (8.2)', 'Giménez (8.3)', 'Azpilicueta (7.9)', 'Gallagher (8.5)', 'De Paul (8.3)', 'Koke (8.1)', 'Lino (8.2)', 'Griezmann (8.8)', 'Álvarez (8.6)'],
                 awaySquad: ['Conde (8.2)', 'Femenía (7.8)', 'Albiol (7.7)', 'Costa (7.9)', 'Cardona (7.8)', 'Comesaña (8.0)', 'Parejo (8.3)', 'Baena (8.7)', 'Pep Pépé (8.1)', 'Pérez (8.4)', 'Barry (8.2)']
             },
             {
@@ -623,6 +607,7 @@
                 awayScore: 2,
                 status: 'FT',
                 minute: 90,
+                countdownSeconds: 0,
                 scorers: ['Giménez 18\' (FEY)', 'Taylor 42\' (AJX)', 'Timber 65\' (FEY)', 'Brobbey 88\' (AJX)'],
                 homeSquad: ['Pasveer (8.0)', 'Rensch (7.8)', 'Šutalo (8.1)', 'Baas (7.9)', 'Hato (8.2)', 'Henderson (8.3)', 'Taylor (8.5)', 'Klaassen (8.0)', 'Traoré (8.1)', 'Godts (8.2)', 'Brobbey (8.4)'],
                 awaySquad: ['Wellenreuther (8.1)', 'Lotomba (7.8)', 'Beelen (7.9)', 'Hancko (8.5)', 'Smal (7.8)', 'Milambo (8.2)', 'In-beom (8.4)', 'Timber (8.6)', 'Osman (8.0)', 'Paixão (8.1)', 'Giménez (8.5)']
@@ -630,7 +615,7 @@
         ];
 
         let notifications = JSON.parse(localStorage.getItem('sinless_notifs')) || [
-            { text: 'Welcome to Sinless GG! Top 10 interactive live matches & The 60s active.', ts: Date.now() }
+            { text: 'Welcome to Sinless GG! Dynamic trend algorithm & live match ticker active.', ts: Date.now() }
         ];
 
         let directMessages = JSON.parse(localStorage.getItem('sinless_dms')) || [
@@ -686,6 +671,7 @@
             document.getElementById('headerUserTag').innerText = myUsername;
             updateNotifBadge();
             renderTopMatchesCarousel();
+            runTheSixtiesAlgorithm();
             renderLadder('FOOTBALL');
             renderClansList();
             renderFypFeed();
@@ -693,8 +679,48 @@
             renderTopAccounts();
             renderSearchResults('');
             
-            // Start live countdown and timer ticker loop
-            setInterval(tickLiveMatches, 1000);
+            // Start real-time clock & match countdown / live ticker loop
+            setInterval(() => {
+                tickLiveMatches();
+                runTheSixtiesAlgorithm();
+            }, 1000);
+        }
+
+        // Real-Time Algorithmic Summary ("The 60s")
+        function runTheSixtiesAlgorithm() {
+            let totalPosts = fypPosts.length;
+            let totalLikes = fypPosts.reduce((acc, p) => acc + (p.likes || 0), 0);
+            let activeLiveMatch = topMatchesData.find(m => m.status === 'LIVE');
+            let upcomingMatch = topMatchesData.find(m => m.status === 'COUNTDOWN');
+
+            let summaryHtml = `Community activity on Sinless GG is surging with <strong>${totalPosts} active posts</strong> and <strong>${totalLikes} total GGs</strong> recorded across lobbies. `;
+            if(activeLiveMatch) {
+                summaryHtml += `On the pitch, all eyes are locked on <em>${activeLiveMatch.homeTeam} vs ${activeLiveMatch.awayTeam}</em> (${activeLiveMatch.homeScore}-${activeLiveMatch.awayScore}, ${activeLiveMatch.minute}' LIVE). `;
+            }
+            if(upcomingMatch) {
+                summaryHtml += `Anticipation is building for the upcoming clash between <em>${upcomingMatch.homeTeam} and ${upcomingMatch.awayTeam}</em>.`;
+            }
+
+            let summaryEl = document.getElementById('sixtiesSummaryText');
+            if(summaryEl) summaryEl.innerHTML = summaryHtml;
+
+            let tagsBox = document.getElementById('sixtiesTagsBox');
+            if(tagsBox) {
+                tagsBox.innerHTML = `
+                    <div class="bg-gg-950 p-2 rounded-xl border border-cyan-500/20">
+                        <span class="block text-[8px] text-gray-400 uppercase font-bold">Top Match</span>
+                        <span class="text-[10px] text-amber-400 font-black truncate">${activeLiveMatch ? activeLiveMatch.homeTeam + ' vs ' + activeLiveMatch.awayTeam : 'Live Match'}</span>
+                    </div>
+                    <div class="bg-gg-950 p-2 rounded-xl border border-cyan-500/20">
+                        <span class="block text-[8px] text-gray-400 uppercase font-bold">Active Posts</span>
+                        <span class="text-[10px] text-cyan-400 font-black">${totalPosts} Posts</span>
+                    </div>
+                    <div class="bg-gg-950 p-2 rounded-xl border border-cyan-500/20">
+                        <span class="block text-[8px] text-gray-400 uppercase font-bold">Engagement</span>
+                        <span class="text-[10px] text-magenta font-black">${totalLikes} GGs</span>
+                    </div>
+                `;
+            }
         }
 
         // Live Ticker for Countdowns and Live Matches
@@ -703,8 +729,7 @@
                 if(m.status === 'COUNTDOWN' && m.countdownSeconds > 0) {
                     m.countdownSeconds--;
                 } else if(m.status === 'LIVE' && m.minute < 90) {
-                    // Random minute progression simulation
-                    if(Math.random() < 0.1) m.minute++;
+                    if(Math.random() < 0.05) m.minute++;
                 }
             });
             renderTopMatchesCarousel();
@@ -775,7 +800,6 @@
             document.getElementById('modalAwayScore').innerText = match.status === 'COUNTDOWN' ? '-' : match.awayScore;
             document.getElementById('modalMatchMinute').innerText = match.status === 'LIVE' ? `${match.minute}' In Progress` : match.status === 'FT' ? 'Match Finished' : `Kickoff in ${formatCountdown(match.countdownSeconds)}`;
 
-            // Scorers list
             let scorersBox = document.getElementById('modalScorersList');
             scorersBox.innerHTML = '';
             if(match.scorers && match.scorers.length > 0) {
@@ -784,7 +808,6 @@
                 scorersBox.innerHTML = `<div>No goals scored yet / Upcoming fixture.</div>`;
             }
 
-            // Lineups
             document.getElementById('modalHomeLineupTitle').innerText = `${match.homeTeam} Lineup`;
             let homeSquadBox = document.getElementById('modalHomeSquadList');
             homeSquadBox.innerHTML = '';
@@ -918,7 +941,7 @@
                 activeNav.classList.add('bg-magenta', 'text-white', 'font-extrabold', 'shadow-lg');
             }
             if(viewName === 'standings') renderLadder(document.getElementById('ladderGameSelect').value);
-            if(viewName === 'trending') { renderSearchResults(''); renderTopMatchesCarousel(); }
+            if(viewName === 'trending') { renderSearchResults(''); renderTopMatchesCarousel(); runTheSixtiesAlgorithm(); }
             if(viewName === 'market') renderMarketList();
             if(viewName === 'clans') renderClansList();
             if(viewName === 'popular') renderTopAccounts();
@@ -1143,7 +1166,7 @@
             if(!text) return;
             let cleanUser = myUsername.replace('@', '');
             chatMessages[activeChatRoom].push({user: cleanUser, text, time: 'Now'});
-            checkForTags(text, cleanUser); input.value = ''; saveAppData(); renderChatMessages();
+            checkForTags(text, cleanUser); input.value = ''; saveAppData(); renderChatMessages(); runTheSixtiesAlgorithm();
         }
         function renderChatMessages() {
             let box = document.getElementById('chatMessagesBox'); if(!box) return; box.innerHTML = '';
@@ -1157,7 +1180,7 @@
             let title = document.getElementById('liveTitleInput').value.trim(); if(!title) return;
             let cleanUser = myUsername.replace('@', '');
             fypPosts.unshift({user: cleanUser, verified: true, game: 'LIVE STREAM', caption: `🔴 LIVE: ${title}`, likes: 1, comments: [], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: true, ts: Date.now()});
-            saveAppData(); renderFypFeed(); closeLiveBroadcastModal(); alert('Published live!');
+            saveAppData(); renderFypFeed(); closeLiveBroadcastModal(); alert('Published live!'); runTheSixtiesAlgorithm();
         }
 
         function openCreatePostModal() { document.getElementById('createPostModal').classList.remove('hidden'); }
@@ -1173,12 +1196,12 @@
             userProfiles[cleanUser].postsCount = (userProfiles[cleanUser].postsCount || 0) + 1;
 
             fypPosts.unshift({user: cleanUser, verified: true, game: cat, caption: text || 'Post', likes: 1, comments: [], mediaUrl, mediaType: file ? (file.type.startsWith('video') ? 'video' : 'picture') : 'text', ts: Date.now()});
-            checkForTags(text, cleanUser); saveAppData(); renderFypFeed(); closeCreatePostModal(); alert('Published!');
+            checkForTags(text, cleanUser); saveAppData(); renderFypFeed(); closeCreatePostModal(); alert('Published!'); runTheSixtiesAlgorithm();
         }
 
         function toggleGG(i) {
             fypPosts[i].likes = (fypPosts[i].likes || 0) + 1;
-            saveAppData(); renderFypFeed(); renderTopAccounts();
+            saveAppData(); renderFypFeed(); renderTopAccounts(); runTheSixtiesAlgorithm();
         }
 
         function openMediaViewer(url, type) {
