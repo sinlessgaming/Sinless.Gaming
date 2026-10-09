@@ -20,56 +20,65 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #02050b; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
-        .glass-panel { background: rgba(11, 22, 44, 0.9); backdrop-filter: blur(20px); border: 1px solid rgba(0, 243, 255, 0.15); }
+        body { background-color: #02050b; color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; scroll-behavior: smooth; }
+        .glass-panel { background: rgba(11, 22, 44, 0.9); backdrop-filter: blur(20px); border: 1px solid rgba(0, 243, 255, 0.15); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .glass-panel:hover { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 10px 30px -10px rgba(0, 243, 255, 0.2); }
         .scrollbar-none::-webkit-scrollbar { display: none; }
-        .filter-none { filter: none; }
-        .filter-cyber { filter: contrast(125%) saturate(140%) drop-shadow(0 0 10px rgba(0,243,255,0.3)); }
-        .filter-glow { filter: brightness(110%) contrast(110%) drop-shadow(0 0 15px rgba(255,0,127,0.4)); }
-        .filter-smooth { filter: brightness(105%) contrast(95%) blur(0.3px) saturate(120%); }
-
+        
         @keyframes floatUp {
-            0% { transform: translateY(0) scale(0.5); opacity: 1; }
-            100% { transform: translateY(-120px) scale(1.4); opacity: 0; }
+            0% { transform: translateY(0) scale(0.6); opacity: 1; }
+            100% { transform: translateY(-140px) scale(1.5); opacity: 0; }
         }
-        .gg-float { animation: floatUp 0.8s ease-out forwards; pointer-events: none; }
+        .gg-float { animation: floatUp 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards; pointer-events: none; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
 
         .watermark-badge {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(2, 5, 11, 0.35);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-            border: 1px solid rgba(0, 243, 255, 0.15);
-            padding: 3px 8px;
-            border-radius: 6px;
+            top: 12px;
+            right: 12px;
+            background: rgba(2, 5, 11, 0.4);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 8px;
             font-size: 8px;
-            font-weight: 700;
-            color: rgba(0, 243, 255, 0.85);
+            font-weight: 800;
+            color: rgba(0, 243, 255, 0.9);
             letter-spacing: 0.05em;
             pointer-events: none;
             z-index: 10;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col antialiased">
+<body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-slate-950">
 
     <!-- Mobile Header -->
-    <header class="bg-gg-900 border-b border-cyan-500/15 px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-lg">
-        <div class="flex items-center space-x-3 cursor-pointer" onclick="switchView('fyp')">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-sm shadow-md shadow-cyan-500/30">SG</div>
+    <header class="bg-gg-900/95 backdrop-blur-md border-b border-cyan-500/15 px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-xl">
+        <div class="flex items-center space-x-3 cursor-pointer group" onclick="switchView('fyp')">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-sm shadow-lg shadow-cyan-500/30 group-hover:scale-105 transition">SG</div>
             <div>
                 <h1 class="font-extrabold text-sm tracking-wide text-white">SINLESS <span class="text-cyan-400">GG</span></h1>
-                <p class="text-[9px] text-gray-400 tracking-wider uppercase font-semibold">World #1 Gaming & Football Hub</p>
+                <p class="text-[9px] text-gray-400 tracking-wider uppercase font-semibold">Global Gaming & Football Network</p>
             </div>
         </div>
         <div class="flex items-center space-x-2">
+            <select id="globalLangSelect" onchange="changeLanguage(this.value)" class="bg-gg-950 text-cyan-400 text-[10px] font-bold px-2 py-1.5 rounded-xl border border-cyan-500/30 focus:outline-none transition hover:border-cyan-400">
+                <option value="EN">🇬🇧 EN</option>
+                <option value="ZH">🇨🇳 中文</option>
+                <option value="ES">🇪🇸 ES</option>
+                <option value="FR">🇫🇷 FR</option>
+            </select>
             <input type="file" id="directGalleryInput" accept="video/*,image/*" class="hidden" onchange="handleDirectUpload(this)">
-            <button onclick="document.getElementById('directGalleryInput').click()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-magenta to-pink-600 text-white shadow-lg shadow-magenta/30 hover:opacity-90 transition">
+            <button onclick="document.getElementById('directGalleryInput').click()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-magenta to-pink-600 text-white shadow-lg shadow-magenta/30 hover:opacity-90 hover:scale-105 transition">
                 <i class="fa-solid fa-cloud-arrow-up mr-1"></i> Post
             </button>
-            <button onclick="openProfileModal()" class="w-9 h-9 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs font-bold shadow-md">
+            <button onclick="openProfileModal()" class="w-8 h-8 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs font-bold shadow-md hover:border-cyan-400 transition">
                 <i class="fa-solid fa-user"></i>
             </button>
         </div>
@@ -81,74 +90,73 @@
         <!-- View Tabs -->
         <div class="glass-panel p-1.5 rounded-2xl flex shadow-xl">
             <button onclick="switchView('fyp')" id="btnViewFyp" class="flex-1 py-2 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg"><i class="fa-solid fa-fire mr-0.5"></i> Feed</button>
-            <button onclick="switchView('clans')" id="btnViewClans" class="flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition"><i class="fa-solid fa-shield-halved mr-0.5"></i> Squads</button>
-            <button onclick="switchView('chat')" id="btnViewChat" class="flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition"><i class="fa-solid fa-comments mr-0.5"></i> Lobbies</button>
-            <button onclick="switchView('standings')" id="btnViewStandings" class="flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition"><i class="fa-solid fa-trophy mr-0.5"></i> Tables</button>
-            <button onclick="switchView('popular')" id="btnViewPopular" class="flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition"><i class="fa-solid fa-crown mr-0.5"></i> Top</button>
+            <button onclick="switchView('clans')" id="btnViewClans" class="flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white"><i class="fa-solid fa-shield-halved mr-0.5"></i> Squads</button>
+            <button onclick="switchView('chat')" id="btnViewChat" class="flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white"><i class="fa-solid fa-comments mr-0.5"></i> Lobbies</button>
+            <button onclick="switchView('standings')" id="btnViewStandings" class="flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white"><i class="fa-solid fa-trophy mr-0.5"></i> Tables</button>
+            <button onclick="switchView('popular')" id="btnViewPopular" class="flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white"><i class="fa-solid fa-crown mr-0.5"></i> Top</button>
         </div>
 
         <!-- 1. FYP / Feed View -->
-        <div id="viewFyp" class="flex-1 flex flex-col space-y-3 overflow-y-auto pb-4">
+        <div id="viewFyp" class="flex-1 flex flex-col space-y-3 overflow-y-auto pb-4 fade-in">
             <div class="flex items-center justify-between px-1">
-                <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold">🔥 Double-Tap for GGs!</span>
-                <button onclick="promptInstallApp()" class="text-[10px] bg-cyan-500/10 text-cyan-400 px-2.5 py-1 rounded-xl border border-cyan-500/30 font-bold"><i class="fa-solid fa-download mr-1"></i> Get App</button>
+                <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold" id="lblDoubleTap">🔥 Double-Tap for GGs!</span>
+                <button onclick="promptInstallApp()" class="text-[10px] bg-cyan-500/10 text-cyan-400 px-2.5 py-1 rounded-xl border border-cyan-500/30 font-bold hover:bg-cyan-500/20 transition"><i class="fa-solid fa-download mr-1"></i> Get App</button>
             </div>
 
-            <!-- Game & Real Football Category Filter Bar -->
+            <!-- Game & Universal Football Category Filter Bar -->
             <div class="flex space-x-2 overflow-x-auto scrollbar-none py-1">
-                <button onclick="filterByCategory('ALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow">🌐 All</button>
-                <button onclick="filterByCategory('FC MOBILE')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap">⚽ FC Mobile</button>
-                <button onclick="filterByCategory('EFOOTBALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap">🎮 eFootball</button>
-                <button onclick="filterByCategory('REAL FOOTBALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">🏟️ Real Football / EPL</button>
-                <button onclick="filterByCategory('COD')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap">🎯 Call of Duty</button>
-                <button onclick="filterByCategory('VALORANT')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap">🛡️ Valorant</button>
-                <button onclick="filterByCategory('FORTNITE')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap">🏝️ Fortnite</button>
+                <button onclick="filterByCategory('ALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition">🌐 All</button>
+                <button onclick="filterByCategory('FC MOBILE')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition hover:border-cyan-400">⚽ FC Mobile</button>
+                <button onclick="filterByCategory('EFOOTBALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition hover:border-cyan-400">🎮 eFootball</button>
+                <button onclick="filterByCategory('REAL FOOTBALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition hover:border-emerald-400">🏟️ World Football</button>
+                <button onclick="filterByCategory('COD')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition hover:border-cyan-400">🎯 Call of Duty</button>
+                <button onclick="filterByCategory('VALORANT')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition hover:border-cyan-400">🛡️ Valorant</button>
             </div>
 
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
         <!-- 2. Clans & Squads View -->
-        <div id="viewClans" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6">
+        <div id="viewClans" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl">
                 <div class="flex items-center justify-between">
                     <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-shield-halved text-cyan-400 mr-1.5"></i> Global Squads & Clans</h3>
-                    <button onclick="createClanModal()" class="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl text-[10px] font-bold">+ Create Clan</button>
+                    <button onclick="createClanModal()" class="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl text-[10px] font-bold hover:bg-emerald-500/30 transition">+ Create Clan</button>
                 </div>
                 <p class="text-[10px] text-gray-400">Join elite gaming squads or build your own global clan roster.</p>
             </div>
             <div id="clansListContainer" class="space-y-3"></div>
         </div>
 
-        <!-- 3. Global Lobbies / Chat View -->
-        <div id="viewChat" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden h-[480px] shadow-2xl">
+        <!-- 3. Global Lobbies & AI Chat View -->
+        <div id="viewChat" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden h-[480px] shadow-2xl fade-in">
             <div class="p-3 border-b border-cyan-500/15 flex items-center justify-between bg-gg-900/90">
                 <select id="chatRoomSelect" onchange="switchChatRoom(this.value)" class="bg-gg-950 text-cyan-400 text-xs font-bold px-2 py-1 rounded-lg border border-cyan-500/30 focus:outline-none">
                     <option value="global"># global-gaming-chat</option>
+                    <option value="ai-bot">🤖 @GG-Bot (AI Assistant)</option>
                     <option value="efootball"># efootball-mobile-hub</option>
-                    <option value="realfootball"># real-football-banter-epl</option>
+                    <option value="realfootball"># world-football-banter</option>
                     <option value="cod"># cod-mobile-warzone</option>
-                    <option value="fcmobile"># fc-mobile-clutch</option>
                 </select>
-                <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-semibold">● Worldwide</span>
+                <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-semibold animate-pulse">● AI & Live</span>
             </div>
             <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-3.5 space-y-3"></div>
             <div class="p-3 border-t border-cyan-500/15 bg-gg-950 flex items-center space-x-2">
-                <input type="text" id="chatInputMsg" placeholder="Broadcast to world..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400">
-                <button onclick="sendChatMessage()" class="px-4 py-2.5 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs shadow-md"><i class="fa-solid fa-paper-plane"></i></button>
+                <input type="text" id="chatInputMsg" placeholder="Chat with players or ask @GG-Bot..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 transition">
+                <button onclick="sendChatMessage()" class="px-4 py-2.5 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs shadow-md hover:bg-cyan-400 transition"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
 
         <!-- 4. Tables / Standings View -->
-        <div id="viewStandings" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl">
+        <div id="viewStandings" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl fade-in">
             <div class="flex items-center justify-between">
                 <select id="tournamentSelect" onchange="switchTournament(this.value)" class="bg-gg-950 text-cyan-400 text-xs font-bold px-2.5 py-1.5 rounded-xl border border-cyan-500/30 focus:outline-none">
                     <option value="champions-league">FC Mobile Champions League</option>
                     <option value="efootball-cup">eFootball Pro Cup</option>
-                    <option value="real-football-epl">Real Football / EPL Fan Table</option>
+                    <option value="real-football-world">World Football Leagues Table</option>
                     <option value="cod-showdown">COD Mobile Pro League</option>
                 </select>
-                <button onclick="openReportMatchModal()" class="px-3 py-1.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-xl text-[10px] font-bold shadow-md"><i class="fa-solid fa-bolt mr-1"></i> Report Match</button>
+                <button onclick="openReportMatchModal()" class="px-3 py-1.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-xl text-[10px] font-bold shadow-md hover:bg-cyan-500/30 transition"><i class="fa-solid fa-bolt mr-1"></i> Report Match</button>
             </div>
             <div class="overflow-x-auto flex-1">
                 <table class="w-full text-left border-collapse text-xs">
@@ -168,7 +176,7 @@
         </div>
 
         <!-- 5. Profile & Trending Views -->
-        <div id="viewProfile" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6">
+        <div id="viewProfile" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             <div class="glass-panel p-5 rounded-2xl text-center space-y-3 shadow-2xl relative">
                 <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-cyan-400 to-magenta mx-auto flex items-center justify-center font-black text-slate-950 text-2xl shadow-xl shadow-cyan-500/30 border-2 border-cyan-400">SG</div>
                 <div>
@@ -185,7 +193,7 @@
             <div id="userProfileFeed" class="space-y-4"></div>
         </div>
 
-        <div id="viewPopular" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl">
+        <div id="viewPopular" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl fade-in">
             <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-crown text-amber-400 mr-1.5"></i> Global Popularity Chart</h3>
             <div class="overflow-x-auto flex-1">
                 <table class="w-full text-left border-collapse text-xs">
@@ -207,35 +215,43 @@
         let currentTourney = 'champions-league';
         let activeCategoryFilter = 'ALL';
         let activeChatRoom = 'global';
+        let currentLang = localStorage.getItem('sinless_lang') || 'EN';
         let myUsername = localStorage.getItem('sinless_username') || '@DON PRIME';
+
+        const translations = {
+            EN: { doubleTap: "🔥 Double-Tap for GGs!", postBtn: "Post", feed: "Feed", squads: "Squads", lobbies: "Lobbies", tables: "Tables", top: "Top" },
+            ZH: { doubleTap: "🔥 双击送出 GG！", postBtn: "发布", feed: "动态", squads: "战队", lobbies: "大厅", tables: "积分榜", top: "热门" },
+            ES: { doubleTap: "🔥 ¡Doble toque para GGs!", postBtn: "Publicar", feed: "Inicio", squads: "Clanes", lobbies: "Salas", tables: "Tablas", top: "Top" },
+            FR: { doubleTap: "🔥 Double-cliquez pour GGs !", postBtn: "Publier", feed: "Fil", squads: "Clans", lobbies: "Salons", tables: "Classements", top: "Top" }
+        };
 
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
             { type: 'clip', user: 'DON PRIME', game: 'FC MOBILE', caption: 'Insane 90th minute bicycle kick winner! 🚲⚽', likes: 1420, comments: 84, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', pinned: true },
-            { type: 'clip', user: 'BALL_MASTER', game: 'EFOOTBALL', caption: 'Smooth dribbling and curling finish in eFootball mobile! 🎮⚽', likes: 890, comments: 31, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-controller-while-playing-video-games-41583-large.mp4', mediaType: 'video', pinned: false },
-            { type: 'clip', user: 'FAN_ZONE_GH', game: 'REAL FOOTBALL', caption: 'Incredible atmosphere at the stadium today! 🏟️🔥', likes: 1250, comments: 60, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', pinned: false }
+            { type: 'clip', user: 'BALL_MASTER', game: 'REAL FOOTBALL', caption: 'Unbelievable Champions League comeback night! 🏟️🔥', likes: 1250, comments: 60, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', pinned: false }
         ];
 
         let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
             { name: 'SINLESS ELITE', tag: 'SLS', members: 42, leader: 'DON PRIME', game: 'Multi-Gaming' },
-            { name: 'EFOOTBALL KINGS', tag: 'EFK', members: 35, leader: 'BALL_MASTER', game: 'eFootball' }
+            { name: 'WORLD FOOTBALL FANS', tag: 'WFF', members: 112, leader: 'FOOTBALL_GOAT', game: 'Global Football' }
         ];
 
         let chatMessages = JSON.parse(localStorage.getItem('sinless_chat')) || {
             'global': [{ user: 'System', text: 'Welcome to Sinless GG Global Network.', time: 'Now' }],
+            'ai-bot': [{ user: 'GG-Bot', text: 'Hello gamer! I am your AI Assistant. Ask me about game metas, match tactics, or world football news!', time: 'Now' }],
             'efootball': [{ user: 'System', text: 'eFootball mobile arena lobby active.', time: 'Now' }],
-            'realfootball': [{ user: 'System', text: 'Real football & EPL fan banter zone active.', time: 'Now' }],
-            'cod': [{ user: 'System', text: 'Call of Duty global lobby active.', time: 'Now' }],
-            'fcmobile': [{ user: 'System', text: 'FC Mobile head-to-head matchfinder active.', time: 'Now' }]
+            'realfootball': [{ user: 'System', text: 'World Football news & live discussions active.', time: 'Now' }],
+            'cod': [{ user: 'System', text: 'Call of Duty global lobby active.', time: 'Now' }]
         };
 
         let tournamentData = JSON.parse(localStorage.getItem('sinless_tournaments')) || {
             'champions-league': { name: 'FC Mobile Champions League', teams: [{ name: 'DON PRIME', p: 3, w: 2, gd: 6, pts: 12 }, { name: 'MUBARAQ', p: 4, w: 2, gd: 4, pts: 8 }] },
-            'efootball-cup': { name: 'eFootball Pro Cup', teams: [{ name: 'BALL_MASTER', p: 4, w: 3, gd: 7, pts: 10 }, { name: 'KUKU1Z', p: 4, w: 2, gd: 3, pts: 8 }] },
-            'real-football-epl': { name: 'Real Football / EPL Fan Table', teams: [{ name: 'ARSENAL', p: 7, w: 5, gd: 11, pts: 16 }, { name: 'MAN CITY', p: 7, w: 5, gd: 9, pts: 16 }] },
+            'efootball-cup': { name: 'eFootball Pro Cup', teams: [{ name: 'BALL_MASTER', p: 4, w: 3, gd: 7, pts: 10 }] },
+            'real-football-world': { name: 'World Football Leagues Table', teams: [{ name: 'REAL MADRID', p: 8, w: 6, gd: 14, pts: 19 }, { name: 'ARSENAL', p: 8, w: 5, gd: 12, pts: 18 }, { name: 'MAN CITY', p: 8, w: 5, gd: 10, pts: 18 }] },
             'cod-showdown': { name: 'COD Mobile Pro', teams: [{ name: 'GHOST_OPS', p: 5, w: 4, gd: 10, pts: 15 }] }
         };
 
         document.getElementById('profileUsernameDisplay').innerText = myUsername;
+        document.getElementById('globalLangSelect').value = currentLang;
 
         function saveAppData() {
             localStorage.setItem('sinless_posts', JSON.stringify(fypPosts));
@@ -243,6 +259,23 @@
             localStorage.setItem('sinless_chat', JSON.stringify(chatMessages));
             localStorage.setItem('sinless_tournaments', JSON.stringify(tournamentData));
             localStorage.setItem('sinless_username', myUsername);
+            localStorage.setItem('sinless_lang', currentLang);
+        }
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            saveAppData();
+            applyTranslations();
+        }
+
+        function applyTranslations() {
+            let t = translations[currentLang] || translations['EN'];
+            document.getElementById('lblDoubleTap').innerText = t.doubleTap;
+            document.getElementById('btnViewFyp').innerHTML = `<i class="fa-solid fa-fire mr-0.5"></i> ${t.feed}`;
+            document.getElementById('btnViewClans').innerHTML = `<i class="fa-solid fa-shield-halved mr-0.5"></i> ${t.squads}`;
+            document.getElementById('btnViewChat').innerHTML = `<i class="fa-solid fa-comments mr-0.5"></i> ${t.lobbies}`;
+            document.getElementById('btnViewStandings').innerHTML = `<i class="fa-solid fa-trophy mr-0.5"></i> ${t.tables}`;
+            document.getElementById('btnViewPopular').innerHTML = `<i class="fa-solid fa-crown mr-0.5"></i> ${t.top}`;
         }
 
         function editUsername() {
@@ -270,17 +303,44 @@
             let text = input.value.trim();
             if(!text) return;
 
+            // Push User Message
             chatMessages[activeChatRoom].push({ user: myUsername.replace('@',''), text: text, time: 'Just now' });
+            
+            // AI Bot Automated Response Simulation (like Grok / Meta AI)
+            if(activeChatRoom === 'ai-bot') {
+                let botReply = getAiBotResponse(text);
+                setTimeout(() => {
+                    chatMessages['ai-bot'].push({ user: 'GG-Bot', text: botReply, time: 'Just now' });
+                    saveAppData();
+                    renderChatMessages();
+                }, 600);
+            }
+
             saveAppData();
             renderChatMessages();
             input.value = '';
+        }
+
+        function getAiBotResponse(query) {
+            let q = query.toLowerCase();
+            if(q.includes('football') || q.includes('match') || q.includes('goal')) {
+                return "⚽ World Football Update: The European leagues and Champions League are heating up! Real Madrid and Arsenal are leading their tables. Want match predictions?";
+            } else if(q.includes('cod') || q.includes('call of duty')) {
+                return "🎯 COD Mobile Meta: Focus on high mobility SMGs like the CX-9 or switch to ARs with recoil control attachments for ranked search & destroy!";
+            } else if(q.includes('fc mobile') || q.includes('efootball')) {
+                return "🎮 Virtual Football Tip: Master skill moves like lane change and fake shot in the box to easily beat defenders on mobile!";
+            } else {
+                return "🤖 I am GG-Bot, your official AI assistant on Sinless GG! Ask me about game builds, esports tournament rules, or world football fixtures!";
+            }
         }
 
         function renderChatMessages() {
             let box = document.getElementById('chatMessagesBox');
             box.innerHTML = '';
             (chatMessages[activeChatRoom] || []).forEach(m => {
-                box.innerHTML += `<div class="bg-gg-900 p-2.5 rounded-xl border border-cyan-500/10 space-y-1"><div class="flex justify-between text-[10px] text-cyan-400 font-bold"><span>@${m.user}</span><span class="text-gray-500">${m.time}</span></div><p class="text-xs text-gray-200">${m.text}</p></div>`;
+                let isBot = m.user === 'GG-Bot';
+                let bubbleStyle = isBot ? "bg-cyan-500/10 border border-cyan-500/30 text-cyan-200" : "bg-gg-900 border border-cyan-500/10 text-gray-200";
+                box.innerHTML += `<div class="${bubbleStyle} p-2.5 rounded-xl space-y-1 fade-in"><div class="flex justify-between text-[10px] text-cyan-400 font-bold"><span>@${m.user}</span><span class="text-gray-500">${m.time}</span></div><p class="text-xs">${m.text}</p></div>`;
             });
             box.scrollTop = box.scrollHeight;
         }
@@ -288,9 +348,9 @@
         function createClanModal() {
             let cName = prompt("Enter Clan Name:");
             if(!cName) return;
-            let cTag = prompt("Enter Clan Tag (e.g. SLS):", "SLS");
+            let cTag = prompt("Enter Clan Tag (e.g. WFF):", "WFF");
             if(!cTag) return;
-            let game = prompt("Primary Game / Interest (e.g. eFootball / EPL):", "eFootball");
+            let game = prompt("Primary Game / Interest:", "Global Football");
 
             clansData.push({ name: cName.toUpperCase(), tag: cTag.toUpperCase(), members: 1, leader: myUsername.replace('@',''), game: game });
             saveAppData();
@@ -302,7 +362,7 @@
             let container = document.getElementById('clansListContainer');
             container.innerHTML = '';
             clansData.forEach(c => {
-                container.innerHTML += `<div class="glass-panel p-3.5 rounded-xl flex items-center justify-between shadow"><div><h4 class="font-black text-xs text-white">[${c.tag}] ${c.name}</h4><p class="text-[10px] text-cyan-400 font-medium">Leader: @${c.leader} • ${c.game}</p></div><span class="text-xs font-bold bg-cyan-500/10 text-cyan-300 px-2.5 py-1 rounded-lg border border-cyan-500/20">${c.members} Members</span></div>`;
+                container.innerHTML += `<div class="glass-panel p-3.5 rounded-xl flex items-center justify-between shadow fade-in"><div><h4 class="font-black text-xs text-white">[${c.tag}] ${c.name}</h4><p class="text-[10px] text-cyan-400 font-medium">Leader: @${c.leader} • ${c.game}</p></div><span class="text-xs font-bold bg-cyan-500/10 text-cyan-300 px-2.5 py-1 rounded-lg border border-cyan-500/20">${c.members} Members</span></div>`;
             });
         }
 
@@ -312,10 +372,10 @@
                 const fileUrl = URL.createObjectURL(file);
                 const isVideo = file.type.startsWith('video');
                 
-                let gameTag = prompt("Select Category (Type: FC MOBILE, EFOOTBALL, REAL FOOTBALL, COD, VALORANT):", "EFOOTBALL");
+                let gameTag = prompt("Select Category (FC MOBILE, EFOOTBALL, REAL FOOTBALL, COD, VALORANT):", "REAL FOOTBALL");
                 if(!gameTag) return;
                 
-                const caption = prompt("Enter caption or highlight details:", "Epic football moment!");
+                const caption = prompt("Enter caption or highlight details:", "World football highlight!");
                 if (caption !== null) {
                     fypPosts.unshift({
                         type: 'clip',
@@ -380,16 +440,16 @@
                 
                 let mediaContent = '';
                 if(post.mediaType === 'video') {
-                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})"><video src="${post.mediaUrl}" autoplay loop muted playsinline controls class="w-full max-h-[420px] object-cover"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
+                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})"><video src="${post.mediaUrl}" autoplay loop muted playsinline class="w-full max-h-[420px] object-cover pointer-events-none"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
                 } else if(post.mediaType === 'picture') {
-                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})"><img src="${post.mediaUrl}" class="w-full max-h-[420px] object-cover"><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
+                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})"><img src="${post.mediaUrl}" loading="lazy" class="w-full max-h-[420px] object-cover"><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
                 }
 
                 container.innerHTML += `
-                    <div class="glass-panel rounded-2xl overflow-hidden space-y-2.5 pb-3 shadow-xl relative">
+                    <div class="glass-panel rounded-2xl overflow-hidden space-y-2.5 pb-3 shadow-xl relative fade-in">
                         <div class="p-3.5 pb-0 flex items-center justify-between">
                             <div class="flex items-center space-x-2.5">
-                                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-xs">SG</div>
+                                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-xs shadow-md">SG</div>
                                 <div>
                                     <span class="font-bold text-xs text-white block">@${post.user}</span>
                                     <span class="text-[9px] text-cyan-400 font-extrabold tracking-wider">${post.game || 'GENERAL'}</span>
@@ -403,8 +463,8 @@
                         <p class="px-3.5 text-xs text-gray-200">${post.caption}</p>
                         ${mediaContent}
                         <div class="flex items-center justify-end px-3 pt-1 space-x-3">
-                            <button onclick="likePost(${index})" class="px-3 py-1 bg-gg-900 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-400 shadow flex items-center space-x-1.5"><i class="fa-solid fa-bolt text-xs"></i><span>${post.likes} GGs</span></button>
-                            <button onclick="togglePin(${index})" class="px-3 py-1 bg-gg-900 border border-amber-500/30 rounded-xl text-xs font-bold text-amber-400 shadow flex items-center space-x-1.5"><i class="fa-solid fa-thumbtack text-xs"></i><span>Pin</span></button>
+                            <button onclick="likePost(${index})" class="px-3.5 py-1.5 bg-gg-900 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-400 shadow hover:bg-cyan-500/10 transition flex items-center space-x-1.5"><i class="fa-solid fa-bolt text-xs"></i><span>${post.likes} GGs</span></button>
+                            <button onclick="togglePin(${index})" class="px-3.5 py-1.5 bg-gg-900 border border-amber-500/30 rounded-xl text-xs font-bold text-amber-400 shadow hover:bg-amber-500/10 transition flex items-center space-x-1.5"><i class="fa-solid fa-thumbtack text-xs"></i><span>Pin</span></button>
                         </div>
                     </div>
                 `;
@@ -426,7 +486,7 @@
 
             const ggElem = document.createElement('div');
             ggElem.innerText = 'GG 🔥';
-            ggElem.className = 'absolute text-cyan-300 font-black text-3xl drop-shadow-[0_0_10px_rgba(0,243,255,0.8)] gg-float z-30';
+            ggElem.className = 'absolute text-cyan-300 font-black text-3xl drop-shadow-[0_0_12px_rgba(0,243,255,0.9)] gg-float z-30';
             ggElem.style.left = `${x - 20}px`;
             ggElem.style.top = `${y - 20}px`;
             
@@ -479,13 +539,13 @@
                 
                 let mediaContent = '';
                 if(post.mediaType === 'video') {
-                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden"><video src="${post.mediaUrl}" autoplay loop muted playsinline controls class="w-full max-h-[420px] object-cover"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
+                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden"><video src="${post.mediaUrl}" autoplay loop muted playsinline class="w-full max-h-[420px] object-cover pointer-events-none"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
                 } else if(post.mediaType === 'picture') {
-                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden"><img src="${post.mediaUrl}" class="w-full max-h-[420px] object-cover"><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
+                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden"><img src="${post.mediaUrl}" loading="lazy" class="w-full max-h-[420px] object-cover"><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
                 }
 
                 container.innerHTML += `
-                    <div class="glass-panel rounded-2xl overflow-hidden space-y-2 pb-3 shadow-xl">
+                    <div class="glass-panel rounded-2xl overflow-hidden space-y-2 pb-3 shadow-xl fade-in">
                         <div class="p-3 pb-0 flex items-center justify-between">
                             <span class="font-bold text-xs text-white">@${post.user}</span>
                             ${pinBadge}
@@ -532,7 +592,7 @@
                 let el = document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1));
                 if(el) el.classList.add('hidden');
                 let btn = document.getElementById('btnView' + v.charAt(0).toUpperCase() + v.slice(1));
-                if(btn) btn.className = "flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition";
+                if(btn) btn.className = "flex-1 py-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white";
             });
             
             let targetView = document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1));
@@ -557,6 +617,7 @@
             });
         }
 
+        applyTranslations();
         renderFypFeed();
         renderClans();
         renderChatMessages();
