@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sinless GG - World's #1 Global Gaming & Football Hub</title>
+    <title>Sinless GG - World's #1 Global Gaming, Wrestling & Football Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -64,18 +64,21 @@
             <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-sm shadow-lg shadow-cyan-500/30 group-hover:scale-105 transition">SG</div>
             <div>
                 <h1 class="font-extrabold text-sm tracking-wide text-white">SINLESS <span class="text-cyan-400">GG</span></h1>
-                <p class="text-[9px] text-gray-400 tracking-wider uppercase font-semibold">Global Gaming & Football Network</p>
+                <p class="text-[9px] text-gray-400 tracking-wider uppercase font-semibold">Global Gaming & Wrestling Hub</p>
             </div>
         </div>
         <div class="flex items-center space-x-2">
-            <select id="globalLangSelect" onchange="changeLanguage(this.value)" class="bg-gg-950 text-cyan-400 text-[10px] font-bold px-2 py-1.5 rounded-xl border border-cyan-500/30 focus:outline-none transition hover:border-cyan-400">
-                <option value="EN">🇬🇧 EN</option>
-                <option value="ZH">🇨🇳 中文</option>
-                <option value="ES">🇪🇸 ES</option>
-                <option value="FR">🇫🇷 FR</option>
-            </select>
+            <!-- Notification Bell -->
+            <button onclick="openNotificationsModal()" class="relative w-8 h-8 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs shadow hover:border-cyan-400 transition">
+                <i class="fa-solid fa-bell"></i>
+                <span id="notifBadge" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-magenta rounded-full animate-ping"></span>
+            </button>
+            <!-- Direct Messages Button -->
+            <button onclick="openDmModal()" class="w-8 h-8 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs shadow hover:border-cyan-400 transition">
+                <i class="fa-solid fa-envelope"></i>
+            </button>
             <input type="file" id="directGalleryInput" accept="video/*,image/*" class="hidden" onchange="handleDirectUpload(this)">
-            <button onclick="document.getElementById('directGalleryInput').click()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-magenta to-pink-600 text-white shadow-lg shadow-magenta/30 hover:opacity-90 hover:scale-105 transition">
+            <button onclick="document.getElementById('directGalleryInput').click()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-magenta to-pink-600 text-white shadow-lg shadow-magenta/30 hover:opacity-90 transition">
                 <i class="fa-solid fa-cloud-arrow-up mr-1"></i> Post
             </button>
             <button onclick="openProfileModal()" class="w-8 h-8 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs font-bold shadow-md hover:border-cyan-400 transition">
@@ -103,14 +106,14 @@
                 <button onclick="promptInstallApp()" class="text-[10px] bg-cyan-500/10 text-cyan-400 px-2.5 py-1 rounded-xl border border-cyan-500/30 font-bold hover:bg-cyan-500/20 transition"><i class="fa-solid fa-download mr-1"></i> Get App</button>
             </div>
 
-            <!-- Game & Universal Football Category Filter Bar -->
+            <!-- Game, Football & Wrestling Category Filter Bar -->
             <div class="flex space-x-2 overflow-x-auto scrollbar-none py-1">
                 <button onclick="filterByCategory('ALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition">🌐 All</button>
+                <button onclick="filterByCategory('WRESTLING')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-amber-400 border border-amber-500/30 whitespace-nowrap transition hover:border-amber-400">🤼 WWE / AEW</button>
                 <button onclick="filterByCategory('FC MOBILE')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition hover:border-cyan-400">⚽ FC Mobile</button>
                 <button onclick="filterByCategory('EFOOTBALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition hover:border-cyan-400">🎮 eFootball</button>
-                <button onclick="filterByCategory('REAL FOOTBALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition hover:border-emerald-400">🏟️ World Football</button>
+                <button onclick="filterByCategory('WORLD FOOTBALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition hover:border-emerald-400">🏟️ World Football</button>
                 <button onclick="filterByCategory('COD')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition hover:border-cyan-400">🎯 Call of Duty</button>
-                <button onclick="filterByCategory('VALORANT')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition hover:border-cyan-400">🛡️ Valorant</button>
             </div>
 
             <div id="fypFeedContainer" class="space-y-4"></div>
@@ -120,10 +123,10 @@
         <div id="viewClans" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl">
                 <div class="flex items-center justify-between">
-                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-shield-halved text-cyan-400 mr-1.5"></i> Global Squads & Clans</h3>
-                    <button onclick="createClanModal()" class="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl text-[10px] font-bold hover:bg-emerald-500/30 transition">+ Create Clan</button>
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-shield-halved text-cyan-400 mr-1.5"></i> Global Squads & Factions</h3>
+                    <button onclick="createClanModal()" class="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl text-[10px] font-bold hover:bg-emerald-500/30 transition">+ Create Faction</button>
                 </div>
-                <p class="text-[10px] text-gray-400">Join elite gaming squads or build your own global clan roster.</p>
+                <p class="text-[10px] text-gray-400">Join elite gaming squads, wrestling stables, or build your own global clan.</p>
             </div>
             <div id="clansListContainer" class="space-y-3"></div>
         </div>
@@ -133,16 +136,16 @@
             <div class="p-3 border-b border-cyan-500/15 flex items-center justify-between bg-gg-900/90">
                 <select id="chatRoomSelect" onchange="switchChatRoom(this.value)" class="bg-gg-950 text-cyan-400 text-xs font-bold px-2 py-1 rounded-lg border border-cyan-500/30 focus:outline-none">
                     <option value="global"># global-gaming-chat</option>
+                    <option value="wrestling">🤼 #wwe-aew-wrestling-arena</option>
                     <option value="ai-bot">🤖 @GG-Bot (AI Assistant)</option>
-                    <option value="efootball"># efootball-mobile-hub</option>
-                    <option value="realfootball"># world-football-banter</option>
+                    <option value="worldfootball"># world-football-banter</option>
                     <option value="cod"># cod-mobile-warzone</option>
                 </select>
-                <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-semibold animate-pulse">● AI & Live</span>
+                <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-semibold animate-pulse">● Live Lobbies</span>
             </div>
             <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-3.5 space-y-3"></div>
             <div class="p-3 border-t border-cyan-500/15 bg-gg-950 flex items-center space-x-2">
-                <input type="text" id="chatInputMsg" placeholder="Chat with players or ask @GG-Bot..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 transition">
+                <input type="text" id="chatInputMsg" placeholder="Chat in lobby or ask @GG-Bot..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 transition">
                 <button onclick="sendChatMessage()" class="px-4 py-2.5 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs shadow-md hover:bg-cyan-400 transition"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
@@ -152,8 +155,8 @@
             <div class="flex items-center justify-between">
                 <select id="tournamentSelect" onchange="switchTournament(this.value)" class="bg-gg-950 text-cyan-400 text-xs font-bold px-2.5 py-1.5 rounded-xl border border-cyan-500/30 focus:outline-none">
                     <option value="champions-league">FC Mobile Champions League</option>
-                    <option value="efootball-cup">eFootball Pro Cup</option>
-                    <option value="real-football-world">World Football Leagues Table</option>
+                    <option value="wwe-championship">WWE / AEW Fantasy Championship</option>
+                    <option value="world-football">World Football Leagues Table</option>
                     <option value="cod-showdown">COD Mobile Pro League</option>
                 </select>
                 <button onclick="openReportMatchModal()" class="px-3 py-1.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-xl text-[10px] font-bold shadow-md hover:bg-cyan-500/30 transition"><i class="fa-solid fa-bolt mr-1"></i> Report Match</button>
@@ -163,7 +166,7 @@
                     <thead>
                         <tr class="bg-gg-900 text-cyan-400 text-[10px] uppercase border-b border-cyan-500/15">
                             <th class="p-3">Rank</th>
-                            <th class="p-3">Player / Club</th>
+                            <th class="p-3">Contender / Club</th>
                             <th class="p-3 text-center">P</th>
                             <th class="p-3 text-center">W</th>
                             <th class="p-3 text-center">GD</th>
@@ -211,71 +214,83 @@
         </div>
     </main>
 
+    <!-- Direct Messages Modal -->
+    <div id="dmModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col h-[420px] shadow-2xl fade-in space-y-3">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <h3 class="text-xs font-black text-cyan-400 uppercase tracking-wider"><i class="fa-solid fa-envelope mr-1"></i> Direct Messages</h3>
+                <button onclick="closeDmModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
+            </div>
+            <div id="dmInboxList" class="flex-1 overflow-y-auto space-y-2"></div>
+            <div class="flex space-x-2 pt-2 border-t border-cyan-500/15">
+                <input type="text" id="dmInputUser" placeholder="Send to @username..." class="w-1/3 bg-gg-900 border border-cyan-500/25 rounded-xl px-2.5 py-2 text-[10px] text-white focus:outline-none">
+                <input type="text" id="dmInputText" placeholder="Type DM..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-2.5 py-2 text-[10px] text-white focus:outline-none">
+                <button onclick="sendDirectMessage()" class="px-3 py-2 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications Modal -->
+    <div id="notifModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col h-[380px] shadow-2xl fade-in space-y-3">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <h3 class="text-xs font-black text-cyan-400 uppercase tracking-wider"><i class="fa-solid fa-bell mr-1"></i> Activity Notifications</h3>
+                <button onclick="closeNotificationsModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
+            </div>
+            <div id="notificationsListBox" class="flex-1 overflow-y-auto space-y-2"></div>
+        </div>
+    </div>
+
     <script>
         let currentTourney = 'champions-league';
         let activeCategoryFilter = 'ALL';
         let activeChatRoom = 'global';
-        let currentLang = localStorage.getItem('sinless_lang') || 'EN';
         let myUsername = localStorage.getItem('sinless_username') || '@DON PRIME';
 
-        const translations = {
-            EN: { doubleTap: "🔥 Double-Tap for GGs!", postBtn: "Post", feed: "Feed", squads: "Squads", lobbies: "Lobbies", tables: "Tables", top: "Top" },
-            ZH: { doubleTap: "🔥 双击送出 GG！", postBtn: "发布", feed: "动态", squads: "战队", lobbies: "大厅", tables: "积分榜", top: "热门" },
-            ES: { doubleTap: "🔥 ¡Doble toque para GGs!", postBtn: "Publicar", feed: "Inicio", squads: "Clanes", lobbies: "Salas", tables: "Tablas", top: "Top" },
-            FR: { doubleTap: "🔥 Double-cliquez pour GGs !", postBtn: "Publier", feed: "Fil", squads: "Clans", lobbies: "Salons", tables: "Classements", top: "Top" }
-        };
-
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
-            { type: 'clip', user: 'DON PRIME', game: 'FC MOBILE', caption: 'Insane 90th minute bicycle kick winner! 🚲⚽', likes: 1420, comments: 84, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', pinned: true },
-            { type: 'clip', user: 'BALL_MASTER', game: 'REAL FOOTBALL', caption: 'Unbelievable Champions League comeback night! 🏟️🔥', likes: 1250, comments: 60, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', pinned: false }
+            { type: 'clip', user: 'DON PRIME', game: 'WRESTLING', caption: 'Absolute table breaker in WWE 2K! Tables, ladders, and chairs! 🤼🔥', likes: 1650, comments: 92, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', pinned: true },
+            { type: 'clip', user: 'BALL_MASTER', game: 'FC MOBILE', caption: 'Insane 90th minute bicycle kick winner! 🚲⚽', likes: 1420, comments: 84, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-controller-while-playing-video-games-41583-large.mp4', mediaType: 'video', pinned: false }
         ];
 
         let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
             { name: 'SINLESS ELITE', tag: 'SLS', members: 42, leader: 'DON PRIME', game: 'Multi-Gaming' },
-            { name: 'WORLD FOOTBALL FANS', tag: 'WFF', members: 112, leader: 'FOOTBALL_GOAT', game: 'Global Football' }
+            { name: 'UNDERTAKER STABLE', tag: 'DEAD', members: 64, leader: 'WRESTLE_KING', game: 'WWE / AEW' }
         ];
 
         let chatMessages = JSON.parse(localStorage.getItem('sinless_chat')) || {
             'global': [{ user: 'System', text: 'Welcome to Sinless GG Global Network.', time: 'Now' }],
-            'ai-bot': [{ user: 'GG-Bot', text: 'Hello gamer! I am your AI Assistant. Ask me about game metas, match tactics, or world football news!', time: 'Now' }],
-            'efootball': [{ user: 'System', text: 'eFootball mobile arena lobby active.', time: 'Now' }],
-            'realfootball': [{ user: 'System', text: 'World Football news & live discussions active.', time: 'Now' }],
+            'wrestling': [{ user: 'System', text: 'WWE & AEW Championship discussion arena active.', time: 'Now' }],
+            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! I am your AI assistant for gaming, wrestling storyline debates, and football news.', time: 'Now' }],
+            'worldfootball': [{ user: 'System', text: 'World Football news & live discussions active.', time: 'Now' }],
             'cod': [{ user: 'System', text: 'Call of Duty global lobby active.', time: 'Now' }]
         };
 
+        let directMessages = JSON.parse(localStorage.getItem('sinless_dms')) || [
+            { sender: 'WRESTLE_KING', receiver: 'DON PRIME', text: 'Bro did you see that WrestleMania main event booking?!', time: '10m ago' }
+        ];
+
+        let notificationsList = JSON.parse(localStorage.getItem('sinless_notifs')) || [
+            { text: '🔥 WRESTLE_KING gave your post 100 GGs!', time: '1h ago' },
+            { text: '🛡️ New member joined your clan squad.', time: '3h ago' }
+        ];
+
         let tournamentData = JSON.parse(localStorage.getItem('sinless_tournaments')) || {
-            'champions-league': { name: 'FC Mobile Champions League', teams: [{ name: 'DON PRIME', p: 3, w: 2, gd: 6, pts: 12 }, { name: 'MUBARAQ', p: 4, w: 2, gd: 4, pts: 8 }] },
-            'efootball-cup': { name: 'eFootball Pro Cup', teams: [{ name: 'BALL_MASTER', p: 4, w: 3, gd: 7, pts: 10 }] },
-            'real-football-world': { name: 'World Football Leagues Table', teams: [{ name: 'REAL MADRID', p: 8, w: 6, gd: 14, pts: 19 }, { name: 'ARSENAL', p: 8, w: 5, gd: 12, pts: 18 }, { name: 'MAN CITY', p: 8, w: 5, gd: 10, pts: 18 }] },
+            'champions-league': { name: 'FC Mobile Champions League', teams: [{ name: 'DON PRIME', p: 3, w: 2, gd: 6, pts: 12 }] },
+            'wwe-championship': { name: 'WWE / AEW Championship', teams: [{ name: 'ROMAN REIGNS', p: 5, w: 5, gd: 15, pts: 15 }, { name: 'SETH ROLLINS', p: 5, w: 4, gd: 10, pts: 12 }] },
+            'world-football': { name: 'World Football Leagues Table', teams: [{ name: 'REAL MADRID', p: 8, w: 6, gd: 14, pts: 19 }] },
             'cod-showdown': { name: 'COD Mobile Pro', teams: [{ name: 'GHOST_OPS', p: 5, w: 4, gd: 10, pts: 15 }] }
         };
 
         document.getElementById('profileUsernameDisplay').innerText = myUsername;
-        document.getElementById('globalLangSelect').value = currentLang;
 
         function saveAppData() {
             localStorage.setItem('sinless_posts', JSON.stringify(fypPosts));
             localStorage.setItem('sinless_clans', JSON.stringify(clansData));
             localStorage.setItem('sinless_chat', JSON.stringify(chatMessages));
+            localStorage.setItem('sinless_dms', JSON.stringify(directMessages));
+            localStorage.setItem('sinless_notifs', JSON.stringify(notificationsList));
             localStorage.setItem('sinless_tournaments', JSON.stringify(tournamentData));
             localStorage.setItem('sinless_username', myUsername);
-            localStorage.setItem('sinless_lang', currentLang);
-        }
-
-        function changeLanguage(lang) {
-            currentLang = lang;
-            saveAppData();
-            applyTranslations();
-        }
-
-        function applyTranslations() {
-            let t = translations[currentLang] || translations['EN'];
-            document.getElementById('lblDoubleTap').innerText = t.doubleTap;
-            document.getElementById('btnViewFyp').innerHTML = `<i class="fa-solid fa-fire mr-0.5"></i> ${t.feed}`;
-            document.getElementById('btnViewClans').innerHTML = `<i class="fa-solid fa-shield-halved mr-0.5"></i> ${t.squads}`;
-            document.getElementById('btnViewChat').innerHTML = `<i class="fa-solid fa-comments mr-0.5"></i> ${t.lobbies}`;
-            document.getElementById('btnViewStandings').innerHTML = `<i class="fa-solid fa-trophy mr-0.5"></i> ${t.tables}`;
-            document.getElementById('btnViewPopular').innerHTML = `<i class="fa-solid fa-crown mr-0.5"></i> ${t.top}`;
         }
 
         function editUsername() {
@@ -286,6 +301,40 @@
                 saveAppData();
                 alert('🎮 Gamertag updated successfully!');
             }
+        }
+
+        function openDmModal() { document.getElementById('dmModal').classList.remove('hidden'); renderDms(); }
+        function closeDmModal() { document.getElementById('dmModal').classList.add('hidden'); }
+
+        function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); renderNotifications(); }
+        function closeNotificationsModal() { document.getElementById('notifModal').classList.add('hidden'); }
+
+        function sendDirectMessage() {
+            let toUser = document.getElementById('dmInputUser').value.trim();
+            let text = document.getElementById('dmInputText').value.trim();
+            if(!toUser || !text) return;
+
+            directMessages.push({ sender: myUsername.replace('@',''), receiver: toUser.replace('@',''), text: text, time: 'Just now' });
+            saveAppData();
+            renderDms();
+            document.getElementById('dmInputText').value = '';
+            alert('✉️ Direct message sent!');
+        }
+
+        function renderDms() {
+            let box = document.getElementById('dmInboxList');
+            box.innerHTML = '';
+            directMessages.forEach(dm => {
+                box.innerHTML += `<div class="bg-gg-900 p-2.5 rounded-xl border border-cyan-500/10 space-y-1"><div class="flex justify-between text-[10px] text-cyan-400 font-bold"><span>From: @${dm.sender} → @${dm.receiver}</span><span class="text-gray-500">${dm.time}</span></div><p class="text-xs text-gray-200">${dm.text}</p></div>`;
+            });
+        }
+
+        function renderNotifications() {
+            let box = document.getElementById('notificationsListBox');
+            box.innerHTML = '';
+            notificationsList.forEach(n => {
+                box.innerHTML += `<div class="bg-gg-900 p-2.5 rounded-xl border border-magenta/20 text-xs text-gray-200 flex items-center justify-between"><span>${n.text}</span><span class="text-[9px] text-gray-500">${n.time}</span></div>`;
+            });
         }
 
         function filterByCategory(cat) {
@@ -303,10 +352,8 @@
             let text = input.value.trim();
             if(!text) return;
 
-            // Push User Message
             chatMessages[activeChatRoom].push({ user: myUsername.replace('@',''), text: text, time: 'Just now' });
             
-            // AI Bot Automated Response Simulation (like Grok / Meta AI)
             if(activeChatRoom === 'ai-bot') {
                 let botReply = getAiBotResponse(text);
                 setTimeout(() => {
@@ -323,14 +370,12 @@
 
         function getAiBotResponse(query) {
             let q = query.toLowerCase();
-            if(q.includes('football') || q.includes('match') || q.includes('goal')) {
-                return "⚽ World Football Update: The European leagues and Champions League are heating up! Real Madrid and Arsenal are leading their tables. Want match predictions?";
-            } else if(q.includes('cod') || q.includes('call of duty')) {
-                return "🎯 COD Mobile Meta: Focus on high mobility SMGs like the CX-9 or switch to ARs with recoil control attachments for ranked search & destroy!";
-            } else if(q.includes('fc mobile') || q.includes('efootball')) {
-                return "🎮 Virtual Football Tip: Master skill moves like lane change and fake shot in the box to easily beat defenders on mobile!";
+            if(q.includes('wwe') || q.includes('aew') || q.includes('wrestle')) {
+                return "🤼 Wrestling Zone: The championship scene is intense! Whether you are debating Roman Reigns' title reign or AEW dream matches, this arena is ready.";
+            } else if(q.includes('football') || q.includes('goal')) {
+                return "⚽ World Football: European leagues and Champions League action are in full swing!";
             } else {
-                return "🤖 I am GG-Bot, your official AI assistant on Sinless GG! Ask me about game builds, esports tournament rules, or world football fixtures!";
+                return "🤖 I am GG-Bot! Ask me about gaming metas, WWE storyline debates, or football fixtures!";
             }
         }
 
@@ -346,16 +391,16 @@
         }
 
         function createClanModal() {
-            let cName = prompt("Enter Clan Name:");
+            let cName = prompt("Enter Faction / Clan Name:");
             if(!cName) return;
-            let cTag = prompt("Enter Clan Tag (e.g. WFF):", "WFF");
+            let cTag = prompt("Enter Tag (e.g. DEAD):", "DEAD");
             if(!cTag) return;
-            let game = prompt("Primary Game / Interest:", "Global Football");
+            let game = prompt("Primary Interest (e.g. WWE / COD):", "WWE / AEW");
 
             clansData.push({ name: cName.toUpperCase(), tag: cTag.toUpperCase(), members: 1, leader: myUsername.replace('@',''), game: game });
             saveAppData();
             renderClans();
-            alert('🛡️ Clan successfully established on global network!');
+            alert('🛡️ Faction successfully established!');
         }
 
         function renderClans() {
@@ -372,10 +417,10 @@
                 const fileUrl = URL.createObjectURL(file);
                 const isVideo = file.type.startsWith('video');
                 
-                let gameTag = prompt("Select Category (FC MOBILE, EFOOTBALL, REAL FOOTBALL, COD, VALORANT):", "REAL FOOTBALL");
+                let gameTag = prompt("Select Category (WRESTLING, FC MOBILE, EFOOTBALL, WORLD FOOTBALL, COD):", "WRESTLING");
                 if(!gameTag) return;
                 
-                const caption = prompt("Enter caption or highlight details:", "World football highlight!");
+                const caption = prompt("Enter caption or highlight details:", "Epic moment!");
                 if (caption !== null) {
                     fypPosts.unshift({
                         type: 'clip',
@@ -388,20 +433,21 @@
                         mediaType: isVideo ? 'video' : 'picture',
                         pinned: false
                     });
+                    notificationsList.unshift({ text: `🚀 Your post was successfully published!`, time: 'Just now' });
                     saveAppData();
                     renderFypFeed();
                     renderUserProfileFeed();
                     switchView('fyp');
-                    alert('🚀 Successfully uploaded to global network!');
+                    alert('🚀 Successfully uploaded!');
                 }
             }
             input.value = '';
         }
 
         function openReportMatchModal() {
-            let winner = prompt("Enter Winner Name / Club:");
+            let winner = prompt("Enter Winner Contender / Club:");
             if(!winner) return;
-            let loser = prompt("Enter Loser Name / Club:");
+            let loser = prompt("Enter Loser Contender / Club:");
             if(!loser) return;
 
             let tList = tournamentData[currentTourney].teams;
@@ -417,7 +463,7 @@
             tList.sort((a,b) => b.pts - a.pts || b.gd - a.gd);
             saveAppData();
             renderStandings();
-            alert('⚽ Match result reported! Standings updated instantly.');
+            alert('🏆 Match/Championship result reported!');
         }
 
         function promptInstallApp() {
@@ -617,7 +663,6 @@
             });
         }
 
-        applyTranslations();
         renderFypFeed();
         renderClans();
         renderChatMessages();
