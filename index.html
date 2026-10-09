@@ -47,7 +47,6 @@
             </div>
         </div>
         <div class="flex items-center space-x-2">
-            <!-- Hidden file input that opens native gallery directly -->
             <input type="file" id="directGalleryInput" accept="video/*,image/*" class="hidden" onchange="handleDirectUpload(this)">
             <button onclick="document.getElementById('directGalleryInput').click()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-magenta to-pink-600 text-white shadow-lg shadow-magenta/30 hover:opacity-90 transition">
                 <i class="fa-solid fa-cloud-arrow-up mr-1"></i> Post
@@ -75,7 +74,10 @@
 
         <!-- 1. FYP View -->
         <div id="viewFyp" class="flex-1 flex flex-col space-y-4 overflow-y-auto pb-4">
-            <div class="text-center py-0.5"><span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold">🔥 Double-Tap Video for GGs!</span></div>
+            <div class="flex items-center justify-between px-1">
+                <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold">🔥 Double-Tap Video for GGs!</span>
+                <button onclick="promptInstallApp()" class="text-[10px] bg-cyan-500/10 text-cyan-400 px-2.5 py-1 rounded-xl border border-cyan-500/30 font-bold"><i class="fa-solid fa-download mr-1"></i> Get App</button>
+            </div>
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
@@ -84,8 +86,8 @@
             <div class="glass-panel p-5 rounded-2xl text-center space-y-3 shadow-2xl relative">
                 <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-cyan-400 to-magenta mx-auto flex items-center justify-center font-black text-slate-950 text-2xl shadow-xl shadow-cyan-500/30 border-2 border-cyan-400">SG</div>
                 <div>
-                    <h2 id="profileUsername" class="font-extrabold text-base text-white">@You [Creator]</h2>
-                    <p class="text-[11px] text-cyan-400 font-semibold" id="profileRankBadge">Rank #03 • Creator</p>
+                    <h2 id="profileUsernameDisplay" class="font-extrabold text-base text-white">@DON PRIME</h2>
+                    <button onclick="editUsername()" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold underline mt-0.5"><i class="fa-solid fa-pen mr-1"></i> Edit Gamertag</button>
                 </div>
                 <div class="flex justify-center space-x-6 pt-1 text-xs">
                     <div><span class="font-black text-white block text-sm" id="profileLikesCount">1</span><span class="text-gray-400 text-[10px]">Total GGs</span></div>
@@ -163,11 +165,7 @@
             </div>
             <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-3.5 space-y-3"></div>
             <div class="p-3 border-t border-cyan-500/15 bg-gg-950 flex items-center space-x-2">
-                <label class="cursor-pointer text-cyan-400 hover:text-cyan-300 px-2 text-base transition" title="Upload Media">
-                    <i class="fa-solid fa-image"></i>
-                    <input type="file" id="chatMediaInput" accept="image/*,video/*" class="hidden" onchange="handleChatMediaUpload(this)">
-                </label>
-                <input type="text" id="chatInputMsg" placeholder="Type a message or drop media..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400">
+                <input type="text" id="chatInputMsg" placeholder="Type a message..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400">
                 <button onclick="sendChatMessage()" class="px-4 py-2.5 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs shadow-md"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
@@ -176,10 +174,7 @@
         <div id="viewStandings" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl">
             <div class="flex items-center justify-between">
                 <h3 id="standingsTitle" class="text-xs font-black text-white uppercase tracking-wider">Standings</h3>
-                <div class="flex space-x-2">
-                    <button onclick="openAutoScoreModal()" class="px-3 py-1.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-xl text-[10px] font-bold shadow-md"><i class="fa-solid fa-bolt mr-1"></i> Auto-Score</button>
-                    <button onclick="addTeamModal()" class="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl text-[10px] font-bold shadow-md">+ Club</button>
-                </div>
+                <button onclick="openReportMatchModal()" class="px-3 py-1.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-xl text-[10px] font-bold shadow-md"><i class="fa-solid fa-bolt mr-1"></i> Report Match</button>
             </div>
             <div class="overflow-x-auto flex-1">
                 <table class="w-full text-left border-collapse text-xs">
@@ -202,17 +197,37 @@
     <script>
         let currentTourney = 'champions-league';
         let activeMediaStream = null;
+        let myUsername = localStorage.getItem('sinless_username') || '@DON PRIME';
 
-        let fypPosts = [
+        // Load persisted posts if available
+        let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
             { type: 'clip', user: 'DON PRIME', caption: 'Insane 90th minute bicycle kick winner! 🚲⚽ Sinless GG', likes: 1420, comments: 84, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', pinned: true },
             { type: 'clip', user: 'KUKU1Z', caption: 'Clean tiki-taka buildup leading to top corner rocket 🚀', likes: 980, comments: 42, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-controller-while-playing-video-games-41583-large.mp4', mediaType: 'video', pinned: false }
         ];
 
-        const tournamentData = {
-            'champions-league': { name: 'Champions League', isOfficial: true, teams: [{ name: 'DON PRIME', p: 3, w: 2, gd: 6, pts: 12 }, { name: 'MUBARAQ', p: 4, w: 2, gd: 4, pts: 8 }], messages: [{ user: 'System', text: 'Welcome to Champions League channel.', time: 'Just now' }] },
-            'super-league': { name: 'Super League', isOfficial: true, teams: [{ name: 'KUKU1Z', p: 2, w: 2, gd: 5, pts: 6 }], messages: [{ user: 'System', text: 'Welcome to Super League lobby.', time: 'Just now' }] },
-            'open-cup': { name: 'Open Cup', isOfficial: true, teams: [{ name: 'REAL HOME WISER', p: 1, w: 1, gd: 2, pts: 3 }], messages: [{ user: 'System', text: 'Welcome to Open Cup tournament channel.', time: 'Just now' }] }
+        let tournamentData = JSON.parse(localStorage.getItem('sinless_tournaments')) || {
+            'champions-league': { name: 'Champions League', teams: [{ name: 'DON PRIME', p: 3, w: 2, gd: 6, pts: 12 }, { name: 'MUBARAQ', p: 4, w: 2, gd: 4, pts: 8 }] },
+            'super-league': { name: 'Super League', teams: [{ name: 'KUKU1Z', p: 2, w: 2, gd: 5, pts: 6 }] },
+            'open-cup': { name: 'Open Cup', teams: [{ name: 'REAL HOME WISER', p: 1, w: 1, gd: 2, pts: 3 }] }
         };
+
+        document.getElementById('profileUsernameDisplay').innerText = myUsername;
+
+        function saveAppData() {
+            localStorage.setItem('sinless_posts', JSON.stringify(fypPosts));
+            localStorage.setItem('sinless_tournaments', JSON.stringify(tournamentData));
+            localStorage.setItem('sinless_username', myUsername);
+        }
+
+        function editUsername() {
+            let newName = prompt("Enter your custom gamer handle:", myUsername.replace('@', ''));
+            if(newName && newName.trim()) {
+                myUsername = '@' + newName.trim().toUpperCase();
+                document.getElementById('profileUsernameDisplay').innerText = myUsername;
+                saveAppData();
+                alert('🎮 Gamertag updated successfully!');
+            }
+        }
 
         function handleDirectUpload(input) {
             if (input.files && input.files[0]) {
@@ -224,7 +239,7 @@
                 if (caption !== null) {
                     fypPosts.unshift({
                         type: 'clip',
-                        user: 'You [Creator]',
+                        user: myUsername.replace('@', ''),
                         caption: caption.trim() || 'Sinless GG Match Post',
                         likes: 1,
                         comments: 0,
@@ -232,6 +247,7 @@
                         mediaType: isVideo ? 'video' : 'picture',
                         pinned: false
                     });
+                    saveAppData();
                     renderFypFeed();
                     renderUserProfileFeed();
                     switchView('fyp');
@@ -239,6 +255,32 @@
                 }
             }
             input.value = '';
+        }
+
+        function openReportMatchModal() {
+            let winner = prompt("Enter Winner Name (e.g. DON PRIME):");
+            if(!winner) return;
+            let loser = prompt("Enter Loser Name (e.g. MUBARAQ):");
+            if(!loser) return;
+
+            let tList = tournamentData[currentTourney].teams;
+            let winTeam = tList.find(t => t.name.toUpperCase() === winner.toUpperCase());
+            let loseTeam = tList.find(t => t.name.toUpperCase() === loser.toUpperCase());
+
+            if(winTeam) { winTeam.p += 1; winTeam.w += 1; winTeam.gd += 2; winTeam.pts += 3; }
+            else { tList.push({ name: winner.toUpperCase(), p: 1, w: 1, gd: 2, pts: 3 }); }
+
+            if(loseTeam) { loseTeam.p += 1; loseTeam.gd -= 2; }
+            else { tList.push({ name: loser.toUpperCase(), p: 1, w: 0, gd: -2, pts: 0 }); }
+
+            tList.sort((a,b) => b.pts - a.pts || b.gd - a.gd);
+            saveAppData();
+            renderStandings();
+            alert('⚽ Match result reported! Standings updated instantly.');
+        }
+
+        function promptInstallApp() {
+            alert('📲 To install Sinless GG as a native app:\n\n1. Tap your browser menu (three dots in top right).\n2. Select "Add to Home Screen" or "Install App".\n3. Enjoy instant full-screen gaming!');
         }
 
         function renderFypFeed() {
@@ -249,15 +291,9 @@
                 
                 let mediaContent = '';
                 if(post.mediaType === 'video') {
-                    mediaContent = `
-                        <div class="relative aspect-[9/16] bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})">
-                            <video src="${post.mediaUrl}" autoplay loop muted playsinline controls class="w-full h-full object-cover"></video>
-                        </div>`;
+                    mediaContent = `<div class="relative aspect-[9/16] bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})"><video src="${post.mediaUrl}" autoplay loop muted playsinline controls class="w-full h-full object-cover"></video></div>`;
                 } else if(post.mediaType === 'picture') {
-                    mediaContent = `
-                        <div class="relative bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})">
-                            <img src="${post.mediaUrl}" class="w-full max-h-96 object-cover">
-                        </div>`;
+                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})"><img src="${post.mediaUrl}" class="w-full max-h-96 object-cover"></div>`;
                 }
 
                 container.innerHTML += `
@@ -287,8 +323,9 @@
         function triggerDoubleTapGG(e, container, index) {
             if(index !== undefined && fypPosts[index]) {
                 fypPosts[index].likes += 1;
+                saveAppData();
                 renderFypFeed();
-                if(fypPosts[index].user.includes('You')) updateProfileStats();
+                if(fypPosts[index].user.toUpperCase() === myUsername.replace('@','')) updateProfileStats();
             }
 
             const rect = container.getBoundingClientRect();
@@ -307,12 +344,14 @@
 
         function likePost(index) {
             fypPosts[index].likes += 1;
+            saveAppData();
             renderFypFeed();
-            if(fypPosts[index].user.includes('You')) updateProfileStats();
+            if(fypPosts[index].user.toUpperCase() === myUsername.replace('@','')) updateProfileStats();
         }
 
         function togglePin(index) {
             fypPosts[index].pinned = !fypPosts[index].pinned;
+            saveAppData();
             renderFypFeed();
             renderUserProfileFeed();
             alert(fypPosts[index].pinned ? '📌 Post Pinned to your Profile Page!' : '📌 Post unpinned.');
@@ -325,7 +364,8 @@
         }
 
         function updateProfileStats() {
-            let myPosts = fypPosts.filter(p => p.user.includes('You'));
+            let cleanName = myUsername.replace('@','').toUpperCase();
+            let myPosts = fypPosts.filter(p => p.user.toUpperCase() === cleanName);
             let totalLikes = myPosts.reduce((sum, p) => sum + p.likes, 0);
             document.getElementById('profileLikesCount').innerText = totalLikes;
             document.getElementById('profileVideosCount').innerText = myPosts.length;
@@ -334,10 +374,11 @@
         function renderUserProfileFeed() {
             const container = document.getElementById('userProfileFeed');
             container.innerHTML = '';
-            let myPosts = fypPosts.filter(p => p.user.includes('You'));
+            let cleanName = myUsername.replace('@','').toUpperCase();
+            let myPosts = fypPosts.filter(p => p.user.toUpperCase() === cleanName);
             
             if(myPosts.length === 0) {
-                container.innerHTML = `<div class="text-center py-8 text-gray-400 text-xs">No posts yet. Tap "Post" above to select videos or photos directly from your gallery!</div>`;
+                container.innerHTML = `<div class="text-center py-8 text-gray-400 text-xs">No posts yet. Tap "Post" above to upload your gaming clips!</div>`;
                 return;
             }
 
@@ -367,9 +408,10 @@
         function renderPopularCreators() {
             let stats = {};
             fypPosts.forEach(p => {
-                if(!stats[p.user]) stats[p.user] = { clips: 0, likes: 0 };
-                stats[p.user].clips += 1;
-                stats[p.user].likes += p.likes;
+                let u = p.user.toUpperCase();
+                if(!stats[u]) stats[u] = { clips: 0, likes: 0 };
+                stats[u].clips += 1;
+                stats[u].likes += p.likes;
             });
 
             let sortedCreators = Object.keys(stats).map(name => ({
