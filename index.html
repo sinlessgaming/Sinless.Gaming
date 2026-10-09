@@ -241,7 +241,7 @@
             <div class="space-y-3">
                 <div>
                     <label class="block text-[10px] text-cyan-400 font-bold mb-1">Gmail Address</label>
-                    <input type="email" id="setupEmailInput" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
+                    <input type="email" id="setupEmailInput" placeholder="e.g., name@gmail.com" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
                 </div>
                 <div>
                     <label class="block text-[10px] text-cyan-400 font-bold mb-1">Gamer Tag / Handle</label>
@@ -392,7 +392,7 @@
         let myEmail = localStorage.getItem('sinless_email') || 'sinlessgaming@gmail.com';
 
         let notifications = JSON.parse(localStorage.getItem('sinless_notifs')) || [
-            { text: 'Welcome to Sinless GG! Official squads for all categories are ready.', ts: Date.now() }
+            { text: 'Welcome to Sinless GG! All official squads & strict email validation active.', ts: Date.now() }
         ];
 
         let directMessages = JSON.parse(localStorage.getItem('sinless_dms')) || [
@@ -411,7 +411,7 @@
             { user: 'SinlessGaming', verified: true, game: 'FOOTBALL', caption: 'Absolute masterclass in tonight’s fixture! #PremierLeague #Arsenal', likes: 12, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, ts: Date.now() }
         ];
 
-        // Pre-created Official Squads for ALL Categories as requested
+        // Guaranteed Official Squads for ALL Categories
         let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
             { name: 'FOOTBALL OFFICIAL SQUAD', tag: 'FTB', leader: 'Sinless101', members: ['Sinless101', 'SinlessGaming'], requests: [], messages: [{user: 'Sinless101', text: 'Welcome to official Football squad!'}] },
             { name: 'FC MOBILE ELITE SQUAD', tag: 'FCM', leader: 'Sinless101', members: ['SinlessGaming'], requests: [], messages: [{user: 'Sinless101', text: 'Welcome to FC Mobile Elite!'}] },
@@ -503,7 +503,7 @@
             }
         }
 
-        // Clean View Switching (No Double Rendering)
+        // Clean View Switching
         function switchView(viewName) {
             document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
             ['fyp', 'trending', 'market', 'clans', 'chat', 'standings', 'popular'].forEach(v => {
@@ -585,16 +585,28 @@
 
         function openAccountModal() { document.getElementById('accountModal').classList.remove('hidden'); }
         function closeAccountModal() { document.getElementById('accountModal').classList.add('hidden'); }
+        
+        // Strict Email Validation
         function saveUserAccount() {
             let uInput = document.getElementById('setupUsernameInput').value.trim();
             let eInput = document.getElementById('setupEmailInput').value.trim();
-            if(!uInput || !eInput) return;
+            let emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+            if(!uInput || !eInput) {
+                alert('Please enter both your Gmail and Gamer Tag.');
+                return;
+            }
+            if(!emailRegex.test(eInput)) {
+                alert('Please enter a valid email address (e.g. name@gmail.com).');
+                return;
+            }
+
             myUsername = uInput.startsWith('@') ? uInput : '@' + uInput;
             myEmail = eInput;
             saveAppData();
             document.getElementById('headerUserTag').innerText = myUsername;
             closeAccountModal();
-            alert(`🎉 Logged in as ${myUsername}`);
+            alert(`🎉 Logged in as ${myUsername} (${myEmail})`);
         }
 
         function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); }
