@@ -25,12 +25,6 @@
         .glass-panel:hover { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 10px 30px -10px rgba(0, 243, 255, 0.2); }
         .scrollbar-none::-webkit-scrollbar { display: none; }
         
-        @keyframes floatUp {
-            0% { transform: translateY(0) scale(0.6); opacity: 1; }
-            100% { transform: translateY(-140px) scale(1.5); opacity: 0; }
-        }
-        .gg-float { animation: floatUp 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards; pointer-events: none; }
-
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
@@ -107,17 +101,17 @@
                 <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold">🔥 Esports, Sports & Live Feeds</span>
             </div>
 
-            <!-- Restored & Updated Category Filter Bar -->
-            <div class="flex space-x-2 overflow-x-auto scrollbar-none py-1">
-                <button onclick="filterByCategory('ALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition">🌐 All</button>
-                <button onclick="filterByCategory('LIVE STREAM')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-red-400 border border-red-500/30 whitespace-nowrap transition animate-pulse">🔴 Live Broadcasts</button>
-                <button onclick="filterByCategory('EA FC')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">⚽ EA FC</button>
-                <button onclick="filterByCategory('EA SPORTS FC')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">🎮 EA SPORTS FC</button>
-                <button onclick="filterByCategory('EFOOTBALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">⚡ eFootball</button>
-                <button onclick="filterByCategory('DLS')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">🏆 DLS</button>
-                <button onclick="filterByCategory('WORLD FOOTBALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">🏟️ World Football</button>
-                <button onclick="filterByCategory('WRESTLING')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-amber-400 border border-amber-500/30 whitespace-nowrap transition">🤼 WWE / AEW</button>
-                <button onclick="filterByCategory('COD')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">🎯 Call of Duty</button>
+            <!-- Fully Interactive Category Filter Bar -->
+            <div id="categoryFilterBar" class="flex space-x-2 overflow-x-auto scrollbar-none py-1">
+                <button onclick="filterByCategory('ALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition">🌐 All</button>
+                <button onclick="filterByCategory('LIVE STREAM', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-red-400 border border-red-500/30 whitespace-nowrap transition animate-pulse">🔴 Live Broadcasts</button>
+                <button onclick="filterByCategory('EA FC', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">⚽ EA FC</button>
+                <button onclick="filterByCategory('EA SPORTS FC', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">🎮 EA SPORTS FC</button>
+                <button onclick="filterByCategory('EFOOTBALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">⚡ eFootball</button>
+                <button onclick="filterByCategory('DLS', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">🏆 DLS</button>
+                <button onclick="filterByCategory('WORLD FOOTBALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">🏟️ World Football</button>
+                <button onclick="filterByCategory('WRESTLING', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-amber-400 border border-amber-500/30 whitespace-nowrap transition">🤼 WWE / AEW</button>
+                <button onclick="filterByCategory('COD', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">🎯 Call of Duty</button>
             </div>
 
             <div id="fypFeedContainer" class="space-y-4"></div>
@@ -198,7 +192,7 @@
         </div>
     </main>
 
-    <!-- PORTRAIT LIVE STREAM STUDIO MODAL -->
+    <!-- LARGER PORTRAIT LIVE STREAM STUDIO MODAL -->
     <div id="liveBroadcastModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl fade-in border border-red-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -218,8 +212,8 @@
                     <button onclick="startScreenShareStream('camera')" class="flex-1 py-2 bg-gg-900 border border-magenta/40 text-magenta font-bold rounded-xl text-[10px] hover:bg-magenta/10"><i class="fa-solid fa-video mr-1"></i> Camera</button>
                 </div>
 
-                <!-- PORTRAIT PREVIEW FRAME -->
-                <div id="previewContainer" class="hidden relative bg-gg-950 rounded-xl overflow-hidden border border-red-500/50 w-full flex justify-center items-center" style="height: 320px;">
+                <!-- TALLER PORTRAIT PREVIEW FRAME (Expanded height for full face/body capture) -->
+                <div id="previewContainer" class="hidden relative bg-gg-950 rounded-xl overflow-hidden border border-red-500/50 w-full flex justify-center items-center" style="height: 400px;">
                     <video id="activePreviewVideo" autoplay muted playsinline class="w-full h-full object-cover"></video>
                     <span class="absolute top-2 left-2 bg-red-600 text-white px-2 py-0.5 rounded text-[8px] font-black animate-pulse z-10">PORTRAIT LIVE PREVIEW</span>
                 </div>
@@ -291,7 +285,7 @@
 
         let clansData = [{ name: 'SINLESS ELITE', tag: 'SLS', members: 42, leader: 'DON PRIME' }];
         let chatMessages = { 'global': [{ user: 'System', text: 'Welcome to Sinless GG.', time: 'Now' }], 'ai-bot': [{ user: 'GG-Bot', text: 'Esports & Live streaming hub active.', time: 'Now' }] };
-        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Orange verified badge & EA FC / DLS added.', time: 'Now' }];
+        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Portrait camera preview expanded & category filters optimized.', time: 'Now' }];
         let notificationsList = [{ text: '🔴 Esports & Sports categories ready.', time: 'Now' }];
         let tournamentData = { 'champions-league': { teams: [{ name: 'DON PRIME', p: 3, w: 2, pts: 12 }] } };
 
@@ -435,8 +429,20 @@
             });
         }
 
-        function filterByCategory(cat) {
+        function filterByCategory(cat, btnElement) {
             activeCategoryFilter = cat;
+            
+            // Highlight active category tab instantly
+            let buttons = document.querySelectorAll('#categoryFilterBar .cat-btn');
+            buttons.forEach(b => {
+                b.classList.remove('bg-cyan-400', 'text-slate-950', 'font-extrabold');
+                b.classList.add('bg-gg-900', 'text-gray-300', 'font-bold');
+            });
+            if(btnElement) {
+                btnElement.classList.remove('bg-gg-900', 'text-gray-300', 'font-bold');
+                btnElement.classList.add('bg-cyan-400', 'text-slate-950', 'font-extrabold');
+            }
+
             renderFypFeed();
         }
 
