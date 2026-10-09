@@ -123,6 +123,7 @@
                 <button onclick="filterByCategory('EFOOTBALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">⚡ eFootball</button>
                 <button onclick="filterByCategory('DLS', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">🏆 DLS</button>
                 <button onclick="filterByCategory('WRESTLING', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-amber-400 border border-amber-500/30 whitespace-nowrap transition">🤼 Wrestling</button>
+                <button onclick="filterByCategory('CALL OF DUTY', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-orange-400 border border-orange-500/30 whitespace-nowrap transition">🎯 Call of Duty</button>
             </div>
 
             <div id="fypFeedContainer" class="space-y-4"></div>
@@ -171,7 +172,7 @@
         <div id="view-clans" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl">
                 <div class="flex items-center justify-between">
-                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-shield-halved text-cyan-400 mr-1.5"></i> Global Squads</h3>
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-shield-halved text-cyan-400 mr-1.5"></i> Official & Community Squads</h3>
                     <button onclick="openCreateClanModal()" class="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl text-[10px] font-bold">+ Create Squad</button>
                 </div>
             </div>
@@ -203,6 +204,7 @@
                     <option value="FC MOBILE">📱 FC Mobile</option>
                     <option value="EA SPORTS FC">🎮 EA Sports FC (Console)</option>
                     <option value="EFOOTBALL">⚡ eFootball</option>
+                    <option value="CALL OF DUTY">🎯 Call of Duty</option>
                 </select>
             </div>
             <div class="overflow-x-auto flex-1 bg-gg-950 rounded-xl border border-cyan-500/20">
@@ -399,6 +401,7 @@
                     <option value="EFOOTBALL">⚡ eFootball</option>
                     <option value="DLS">🏆 DLS</option>
                     <option value="WRESTLING">🤼 Wrestling</option>
+                    <option value="CALL OF DUTY">🎯 Call of Duty</option>
                 </select>
                 <button onclick="submitUniversalPost()" class="w-full py-3 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs">🚀 Publish</button>
             </div>
@@ -424,7 +427,7 @@
         let activeSquadRoomName = null;
 
         let notifications = JSON.parse(localStorage.getItem('sinless_notifs')) || [
-            { text: 'Welcome to Sinless GG! You will receive tag notifications here.', ts: Date.now() }
+            { text: 'Welcome to Sinless GG! Official category squads are now ready to join.', ts: Date.now() }
         ];
 
         let directMessages = JSON.parse(localStorage.getItem('sinless_dms')) || [
@@ -443,8 +446,15 @@
             { user: 'DON PRIME', verified: true, game: 'FOOTBALL', caption: 'Absolute masterclass in tonight’s fixture! 🔥 #Football', likes: 4, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, givers: {} }
         ];
 
+        // Pre-built official category squads
         let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
-            { name: 'SINLESS ELITE', tag: 'SLS', leader: 'DON PRIME', members: ['DON PRIME', 'BALL_MASTER'], requests: [], messages: [{user: 'DON PRIME', text: 'Welcome to Sinless Elite!'}] }
+            { name: 'FOOTBALL OFFICIAL', tag: 'FTB', leader: 'SYSTEM', members: ['DON PRIME', 'BALL_MASTER'], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to the Official Football Squad!'}] },
+            { name: 'FC MOBILE ELITE', tag: 'FCM', leader: 'SYSTEM', members: ['DON PRIME'], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to Official FC Mobile Squad!'}] },
+            { name: 'EA SPORTS FC CONSOLE', tag: 'EAFC', leader: 'SYSTEM', members: [], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to Official EA Sports FC Console Squad!'}] },
+            { name: 'EFOOTBALL KINGS', tag: 'EFK', leader: 'SYSTEM', members: [], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to Official eFootball Squad!'}] },
+            { name: 'DLS CHAMPIONS', tag: 'DLS', leader: 'SYSTEM', members: [], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to Official DLS Squad!'}] },
+            { name: 'WRESTLING HUB', tag: 'WWF', leader: 'SYSTEM', members: [], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to Official Wrestling Squad!'}] },
+            { name: 'CALL OF DUTY SQUAD', tag: 'COD', leader: 'SYSTEM', members: [], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to Official Call of Duty Squad!'}] }
         ];
 
         let chatMessages = JSON.parse(localStorage.getItem('sinless_chats')) || {
@@ -476,7 +486,6 @@
             renderSearchResults('');
         }
 
-        // Notification & Tagging Engine
         function checkForTags(text, sender) {
             let cleanSender = sender.replace('@', '');
             let regex = /@([a-zA-Z0-9_]+)/g;
@@ -549,7 +558,6 @@
             if(viewName === 'clans') renderClansList();
         }
 
-        // Account Setup
         function openAccountModal() {
             document.getElementById('accountModal').classList.remove('hidden');
             document.getElementById('setupUsernameInput').value = myUsername.replace('@', '');
