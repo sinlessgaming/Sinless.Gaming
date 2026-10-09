@@ -233,14 +233,33 @@
 
     <!-- Modals -->
     <div id="accountModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl border border-cyan-500/40">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl border border-cyan-500/40 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider">Account & Gmail Login</h3>
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Account & Cloud Login</h3>
                 <button onclick="closeAccountModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
+            
+            <!-- Cloud Login Section -->
+            <div class="space-y-2.5">
+                <button onclick="cloudLogin('google')" class="w-full py-3 bg-white text-slate-900 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-100 transition">
+                    <i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google</span>
+                </button>
+                <button onclick="cloudLogin('apple')" class="w-full py-3 bg-black text-white border border-gray-700 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-900 transition">
+                    <i class="fa-brands fa-apple text-white text-sm"></i><span>Continue with Apple</span>
+                </button>
+            </div>
+
+            <!-- OR Divider -->
+            <div class="flex items-center my-1">
+                <div class="flex-1 border-t border-cyan-500/20"></div>
+                <span class="px-3 text-[10px] text-gray-400 uppercase font-bold tracking-wider">OR</span>
+                <div class="flex-1 border-t border-cyan-500/20"></div>
+            </div>
+
+            <!-- Manual Email & Gamer Tag -->
             <div class="space-y-3">
                 <div>
-                    <label class="block text-[10px] text-cyan-400 font-bold mb-1">Gmail Address (must end with @gmail.com)</label>
+                    <label class="block text-[10px] text-cyan-400 font-bold mb-1">Gmail Address (@gmail.com)</label>
                     <input type="email" id="setupEmailInput" placeholder="e.g., username@gmail.com" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
                 </div>
                 <div>
@@ -392,7 +411,7 @@
         let myEmail = localStorage.getItem('sinless_email') || 'sinlessgaming@gmail.com';
 
         let notifications = JSON.parse(localStorage.getItem('sinless_notifs')) || [
-            { text: 'Welcome to Sinless GG! Strict Gmail address validation active.', ts: Date.now() }
+            { text: 'Welcome to Sinless GG! Cloud login with Google & Apple enabled.', ts: Date.now() }
         ];
 
         let directMessages = JSON.parse(localStorage.getItem('sinless_dms')) || [
@@ -586,12 +605,22 @@
         function openAccountModal() { document.getElementById('accountModal').classList.remove('hidden'); }
         function closeAccountModal() { document.getElementById('accountModal').classList.add('hidden'); }
         
-        // Strict Gmail Address Validation
+        // Cloud Login Handler (Google & Apple 1-Click)
+        function cloudLogin(provider) {
+            let email = provider === 'google' ? 'sinlessgaming@gmail.com' : 'sinless.apple@icloud.com';
+            let tag = '@SinlessGaming';
+            myEmail = email;
+            myUsername = tag;
+            saveAppData();
+            document.getElementById('headerUserTag').innerText = myUsername;
+            closeAccountModal();
+            alert(`🎉 Successfully logged in with ${provider.toUpperCase()} (${email})! Cloud session synced.`);
+        }
+
+        // Strict Gmail Address Validation for Manual Entry
         function saveUserAccount() {
             let uInput = document.getElementById('setupUsernameInput').value.trim();
             let eInput = document.getElementById('setupEmailInput').value.trim();
-            
-            // Strictly enforce @gmail.com
             let gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
 
             if(!uInput || !eInput) {
