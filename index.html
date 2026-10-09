@@ -99,7 +99,7 @@
             <button onclick="switchView('popular')" id="nav-popular" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-crown mr-0.5"></i> Top</button>
         </div>
 
-        <!-- 1. FYP / Feed View -->
+        <!-- 1. FYP / Feed View (Engagement & Trending sorted) -->
         <div id="view-fyp" class="flex-1 flex flex-col space-y-3 overflow-y-auto pb-4 fade-in">
             <div class="flex space-x-3 overflow-x-auto scrollbar-none py-1.5 px-1">
                 <div class="flex flex-col items-center space-y-1 cursor-pointer group" onclick="openLiveBroadcastModal()">
@@ -111,7 +111,7 @@
             </div>
 
             <div class="flex items-center justify-between px-1">
-                <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold">🔥 Esports, Sports & Streaming</span>
+                <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold">🔥 Trending & Engaged Feed</span>
             </div>
 
             <div id="categoryFilterBar" class="flex space-x-2 overflow-x-auto scrollbar-none py-1">
@@ -119,7 +119,7 @@
                 <button onclick="filterByCategory('LIVE STREAM', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-red-400 border border-red-500/30 whitespace-nowrap transition animate-pulse">🔴 Live</button>
                 <button onclick="filterByCategory('FOOTBALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">⚽ Football</button>
                 <button onclick="filterByCategory('FC MOBILE', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">📱 FC Mobile</button>
-                <button onclick="filterByCategory('EA SPORTS FC', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-magenta border border-magenta/30 whitespace-nowrap transition">🎮 EA Sports FC (Console)</button>
+                <button onclick="filterByCategory('EA SPORTS FC', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-magenta border border-magenta/30 whitespace-nowrap transition">🎮 EA Sports FC</button>
                 <button onclick="filterByCategory('EFOOTBALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">⚡ eFootball</button>
                 <button onclick="filterByCategory('DLS', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">🏆 DLS</button>
                 <button onclick="filterByCategory('WRESTLING', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-amber-400 border border-amber-500/30 whitespace-nowrap transition">🤼 Wrestling</button>
@@ -129,23 +129,23 @@
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
-        <!-- 2. TRENDING & UNIVERSAL SEARCH VIEW -->
+        <!-- 2. TRENDING VIEW -->
         <div id="view-trending" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             <div class="glass-panel p-3 rounded-2xl space-y-2.5 shadow-xl">
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-cyan-400 text-xs"></i>
-                    <input type="text" id="globalSearchInput" oninput="handleGlobalSearch(this.value)" placeholder="Search everything on Sinless GG..." class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none">
+                    <input type="text" id="globalSearchInput" oninput="handleGlobalSearch(this.value)" placeholder="Search accounts, posts, or tags..." class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none">
                 </div>
             </div>
 
             <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl">
                 <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-fire text-orange-400 mr-1.5"></i> Global Trending</h3>
-                    <span class="text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">LIVE</span>
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-fire text-orange-400 mr-1.5"></i> Trending Content & Tags</h3>
+                    <span class="text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">HOT</span>
                 </div>
                 <div class="space-y-3">
                     <div class="cursor-pointer hover:bg-gg-900 p-2 rounded-xl transition" onclick="filterByTag('#SinlessSuperLeague')">
-                        <span class="text-[9px] text-gray-400">Trending in Esports</span>
+                        <span class="text-[9px] text-gray-400">Trending Tournament</span>
                         <h4 class="font-bold text-xs text-white">#SinlessSuperLeague</h4>
                     </div>
                 </div>
@@ -190,7 +190,7 @@
             </div>
             <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-3.5 space-y-3"></div>
             <div class="p-3 border-t border-cyan-500/15 bg-gg-950 flex items-center space-x-2">
-                <input type="text" id="chatInputMsg" placeholder="Chat in lobby (use @username to tag)..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none" onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                <input type="text" id="chatInputMsg" placeholder="Chat in lobby..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none" onkeypress="if(event.key === 'Enter') sendChatMessage()">
                 <button onclick="sendChatMessage()" class="px-4 py-2.5 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
@@ -202,7 +202,7 @@
                 <select id="ladderGameSelect" onchange="renderLadder(this.value)" class="bg-gg-950 text-cyan-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-cyan-500/30 focus:outline-none">
                     <option value="FOOTBALL">⚽ Football</option>
                     <option value="FC MOBILE">📱 FC Mobile</option>
-                    <option value="EA SPORTS FC">🎮 EA Sports FC (Console)</option>
+                    <option value="EA SPORTS FC">🎮 EA Sports FC</option>
                     <option value="EFOOTBALL">⚡ eFootball</option>
                     <option value="CALL OF DUTY">🎯 Call of Duty</option>
                 </select>
@@ -215,27 +215,13 @@
             </div>
         </div>
 
-        <!-- 7. Popular / Top View -->
+        <!-- 7. Popular / Top View (Ranked by Follows & Engagement) -->
         <div id="view-popular" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl fade-in">
-            <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-crown text-amber-400 mr-1.5"></i> Platform Rank & Creators</h3>
-            <div class="overflow-x-auto flex-1">
-                <table class="w-full text-left border-collapse text-xs">
-                    <thead>
-                        <tr class="bg-gg-900 text-cyan-400 text-[10px] uppercase border-b border-cyan-500/15">
-                            <th class="p-3">Rank</th>
-                            <th class="p-3">Creator / Gamer</th>
-                            <th class="p-3 text-center">GGs</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-cyan-500/10">
-                        <tr class="border-b border-cyan-500/10">
-                            <td class="p-3 text-cyan-400 font-bold">#1</td>
-                            <td class="p-3 font-bold text-white">@DON PRIME</td>
-                            <td class="p-3 text-center font-black text-amber-400">124 GGs</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-crown text-amber-400 mr-1.5"></i> Top Creators & Accounts</h3>
+                <span class="text-[9px] text-cyan-400 font-bold">Ranked by Follows & Engagement</span>
             </div>
+            <div id="topAccountsList" class="space-y-2.5 overflow-y-auto flex-1"></div>
         </div>
     </main>
 
@@ -249,7 +235,7 @@
                 <button onclick="closeAccountModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             <div class="space-y-3">
-                <p class="text-[10px] text-gray-300">Set your gamer tag so people can tag you in squads, chat, and comments!</p>
+                <p class="text-[10px] text-gray-300">Set your gamer tag so people can follow you, tag you, and check your stats!</p>
                 <div>
                     <label class="block text-[10px] text-cyan-400 font-bold mb-1">Gamer Tag / Username</label>
                     <input type="text" id="setupUsernameInput" placeholder="e.g., DON PRIME" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
@@ -269,14 +255,12 @@
             <button onclick="closeSquadRoom()" class="px-3 py-1.5 rounded-xl bg-gg-800 border border-cyan-500/30 text-gray-200 hover:text-white text-xs font-bold">✕ Close Room</button>
         </header>
 
-        <!-- Squad Navigation Tabs -->
         <div class="bg-gg-900/60 p-2 flex space-x-2 border-b border-cyan-500/10">
             <button onclick="switchSquadTab('chat')" id="squadTabChat" class="flex-1 py-2 text-xs rounded-xl bg-cyan-500 text-slate-950 font-black shadow"><i class="fa-solid fa-comments mr-1"></i> Squad Chat</button>
             <button onclick="switchSquadTab('members')" id="squadTabMembers" class="flex-1 py-2 text-xs rounded-xl bg-gg-800 text-gray-400 font-bold"><i class="fa-solid fa-users mr-1"></i> Members</button>
             <button onclick="switchSquadTab('requests')" id="squadTabRequests" class="flex-1 py-2 text-xs rounded-xl bg-gg-800 text-gray-400 font-bold"><i class="fa-solid fa-user-plus mr-1"></i> Requests</button>
         </div>
 
-        <!-- Fullscreen Chat Pane -->
         <div id="squadPaneChat" class="flex-1 flex flex-col overflow-hidden p-3 space-y-3">
             <div id="squadChatBox" class="flex-1 overflow-y-auto space-y-3 p-3 bg-gg-900/40 rounded-2xl border border-cyan-500/20"></div>
             <div class="flex space-x-2 pt-1 pb-2">
@@ -285,10 +269,7 @@
             </div>
         </div>
 
-        <!-- Fullscreen Members Pane -->
         <div id="squadPaneMembers" class="hidden flex-1 overflow-y-auto p-4 space-y-3 bg-gg-950 text-xs"></div>
-
-        <!-- Fullscreen Requests Pane -->
         <div id="squadPaneRequests" class="hidden flex-1 overflow-y-auto p-4 space-y-3 bg-gg-950 text-xs"></div>
     </div>
 
@@ -347,21 +328,6 @@
         </div>
     </div>
 
-    <!-- Comments Modal -->
-    <div id="commentsModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-        <div class="glass-panel w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-5 flex flex-col h-[450px] shadow-2xl">
-            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider">Comments</h3>
-                <button onclick="closeCommentsModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
-            </div>
-            <div id="commentsListBox" class="flex-1 overflow-y-auto space-y-2.5 py-3"></div>
-            <div class="pt-2 border-t border-cyan-500/15 flex space-x-2">
-                <input type="text" id="commentInputText" placeholder="Write comment (tag with @username)..." class="flex-1 bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white">
-                <button onclick="submitNewComment()" class="px-4 py-2 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs">Post</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Media Viewer Modal -->
     <div id="mediaViewerModal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-lg z-50 flex items-center justify-center p-2" onclick="closeMediaViewer()">
         <div class="relative max-w-2xl w-full max-h-[90vh] flex items-center justify-center" onclick="event.stopPropagation()">
@@ -397,7 +363,7 @@
                 <select id="postCategorySelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30">
                     <option value="FOOTBALL">⚽ Football</option>
                     <option value="FC MOBILE">📱 FC Mobile</option>
-                    <option value="EA SPORTS FC">🎮 EA Sports FC (Console)</option>
+                    <option value="EA SPORTS FC">🎮 EA Sports FC</option>
                     <option value="EFOOTBALL">⚡ eFootball</option>
                     <option value="DLS">🏆 DLS</option>
                     <option value="WRESTLING">🤼 Wrestling</option>
@@ -423,11 +389,10 @@
         let activeCategoryFilter = 'ALL';
         let activeChatRoom = 'global';
         let myUsername = localStorage.getItem('sinless_username') || '@DON PRIME';
-        let currentOpenCommentPostIndex = null;
         let activeSquadRoomName = null;
 
         let notifications = JSON.parse(localStorage.getItem('sinless_notifs')) || [
-            { text: 'Welcome to Sinless GG! Official category squads are now ready to join.', ts: Date.now() }
+            { text: 'Welcome to Sinless GG! Follow system and engagement ranking active.', ts: Date.now() }
         ];
 
         let directMessages = JSON.parse(localStorage.getItem('sinless_dms')) || [
@@ -435,31 +400,33 @@
         ];
 
         let marketListings = JSON.parse(localStorage.getItem('sinless_market')) || [
-            { id: '1', seller: 'DON PRIME', type: 'Account', title: '115 OVR FC Mobile Endgame Account', price: '$40 / 500 GHS', desc: 'Max rank players, serious buyers DM.', images: [], ts: Date.now() }
+            { id: '1', seller: 'DON PRIME', type: 'Account', title: '115 OVR FC Mobile Endgame Account', price: '$40 / 500 GHS', desc: 'Max rank players.', images: [], ts: Date.now() }
         ];
 
         let matchResults = JSON.parse(localStorage.getItem('sg_results')) || [
             { id: '1', user: 'DON PRIME', game: 'FOOTBALL', opp: 'BALL_MASTER', score: '3-1', comp: 'Sinless Super League', status: 'confirmed', ts: Date.now() }
         ];
 
+        // Accounts database tracking follows and engagement
+        let userProfiles = JSON.parse(localStorage.getItem('sinless_profiles')) || {
+            'DON PRIME': { followers: ['BALL_MASTER', 'PRO_PLAYER'], following: ['BALL_MASTER'], postsCount: 3 },
+            'BALL_MASTER': { followers: ['DON PRIME'], following: ['DON PRIME'], postsCount: 2 },
+            'PRO_PLAYER': { followers: [], following: ['DON PRIME'], postsCount: 1 }
+        };
+
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
-            { user: 'DON PRIME', verified: true, game: 'FOOTBALL', caption: 'Absolute masterclass in tonight’s fixture! 🔥 #Football', likes: 4, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, givers: {} }
+            { user: 'DON PRIME', verified: true, game: 'FOOTBALL', caption: 'Absolute masterclass in tonight’s fixture! 🔥 #Football', likes: 12, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, ts: Date.now() },
+            { user: 'BALL_MASTER', verified: false, game: 'FC MOBILE', caption: 'Climbing up the #SinlessSuperLeague ladder right now! 📱', likes: 5, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, ts: Date.now() }
         ];
 
-        // Pre-built official category squads
         let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
-            { name: 'FOOTBALL OFFICIAL', tag: 'FTB', leader: 'SYSTEM', members: ['DON PRIME', 'BALL_MASTER'], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to the Official Football Squad!'}] },
-            { name: 'FC MOBILE ELITE', tag: 'FCM', leader: 'SYSTEM', members: ['DON PRIME'], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to Official FC Mobile Squad!'}] },
-            { name: 'EA SPORTS FC CONSOLE', tag: 'EAFC', leader: 'SYSTEM', members: [], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to Official EA Sports FC Console Squad!'}] },
-            { name: 'EFOOTBALL KINGS', tag: 'EFK', leader: 'SYSTEM', members: [], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to Official eFootball Squad!'}] },
-            { name: 'DLS CHAMPIONS', tag: 'DLS', leader: 'SYSTEM', members: [], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to Official DLS Squad!'}] },
-            { name: 'WRESTLING HUB', tag: 'WWF', leader: 'SYSTEM', members: [], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to Official Wrestling Squad!'}] },
-            { name: 'CALL OF DUTY SQUAD', tag: 'COD', leader: 'SYSTEM', members: [], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome to Official Call of Duty Squad!'}] }
+            { name: 'FOOTBALL OFFICIAL', tag: 'FTB', leader: 'SYSTEM', members: ['DON PRIME', 'BALL_MASTER'], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome!'}] },
+            { name: 'FC MOBILE ELITE', tag: 'FCM', leader: 'SYSTEM', members: ['DON PRIME'], requests: [], messages: [{user: 'SYSTEM', text: 'Welcome!'}] }
         ];
 
         let chatMessages = JSON.parse(localStorage.getItem('sinless_chats')) || {
             'global': [{ user: 'System', text: 'Welcome to Sinless GG Global Lobby.', time: 'Now' }],
-            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! Ask me about Football, FC Mobile, and eFootball tactics.', time: 'Now' }]
+            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! Ask me about Football & Gaming tactics.', time: 'Now' }]
         };
 
         function saveAppData() {
@@ -470,10 +437,15 @@
             localStorage.setItem('sinless_market', JSON.stringify(marketListings));
             localStorage.setItem('sinless_dms', JSON.stringify(directMessages));
             localStorage.setItem('sinless_notifs', JSON.stringify(notifications));
+            localStorage.setItem('sinless_profiles', JSON.stringify(userProfiles));
             localStorage.setItem('sinless_username', myUsername);
         }
 
         function initApp() {
+            let cleanUser = myUsername.replace('@', '');
+            if(!userProfiles[cleanUser]) {
+                userProfiles[cleanUser] = { followers: [], following: [], postsCount: 1 };
+            }
             document.getElementById('headerUserTag').innerText = myUsername;
             if(!localStorage.getItem('sinless_username')) {
                 openAccountModal();
@@ -483,9 +455,81 @@
             renderClansList();
             renderFypFeed();
             renderMarketList();
+            renderTopAccounts();
             renderSearchResults('');
         }
 
+        // Follow & Engagement System
+        function toggleFollow(targetUser) {
+            let cleanMe = myUsername.replace('@', '');
+            if(cleanMe === targetUser) return;
+            if(!userProfiles[targetUser]) userProfiles[targetUser] = { followers: [], following: [], postsCount: 1 };
+            if(!userProfiles[cleanMe]) userProfiles[cleanMe] = { followers: [], following: [], postsCount: 1 };
+
+            let isFollowing = userProfiles[cleanMe].following.includes(targetUser);
+            if(isFollowing) {
+                userProfiles[cleanMe].following = userProfiles[cleanMe].following.filter(u => u !== targetUser);
+                userProfiles[targetUser].followers = userProfiles[targetUser].followers.filter(u => u !== cleanMe);
+                alert(`Unfollowed @${targetUser}`);
+            } else {
+                userProfiles[cleanMe].following.push(targetUser);
+                userProfiles[targetUser].followers.push(cleanMe);
+                notifications.unshift({ text: `@${cleanMe} started following you!`, ts: Date.now() });
+                alert(`Successfully followed @${targetUser}!`);
+            }
+            saveAppData();
+            updateNotifBadge();
+            renderFypFeed();
+            renderTopAccounts();
+        }
+
+        // Engagement Ranking Algorithm for Top Creators
+        function renderTopAccounts() {
+            let container = document.getElementById('topAccountsList');
+            if(!container) return;
+            container.innerHTML = '';
+
+            // Calculate engagement score: (followers * 3) + likes + posts
+            let scores = {};
+            Object.keys(userProfiles).forEach(usr => {
+                let pList = fypPosts.filter(p => p.user === usr);
+                let totalLikes = pList.reduce((sum, p) => sum + (p.likes || 0), 0);
+                let followerCount = (userProfiles[usr].followers || []).length;
+                scores[usr] = (followerCount * 3) + totalLikes + (userProfiles[usr].postsCount || 1);
+            });
+
+            let sortedUsers = Object.keys(scores).sort((a, b) => scores[b] - scores[a]);
+
+            sortedUsers.forEach((usr, index) => {
+                let cleanMe = myUsername.replace('@', '');
+                let isMe = (usr === cleanMe);
+                let isFollowing = userProfiles[cleanMe] && userProfiles[cleanMe].following.includes(usr);
+                let followerCount = (userProfiles[usr].followers || []).length;
+                let totalLikes = fypPosts.filter(p => p.user === usr).reduce((sum, p) => sum + (p.likes || 0), 0);
+
+                let followBtn = '';
+                if(!isMe) {
+                    followBtn = `<button onclick="toggleFollow('${usr}')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold ${isFollowing ? 'bg-gg-800 text-gray-300 border border-cyan-500/30' : 'bg-cyan-500 text-slate-950 font-black'}">${isFollowing ? 'Following' : '+ Follow'}</button>`;
+                } else {
+                    followBtn = `<span class="text-[10px] text-amber-400 font-bold">You</span>`;
+                }
+
+                container.innerHTML += `
+                    <div class="glass-panel p-3 rounded-2xl flex items-center justify-between shadow-xl">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs font-black text-cyan-400">#${index + 1}</span>
+                            <div>
+                                <h4 class="font-bold text-xs text-white">@${usr} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></h4>
+                                <p class="text-[9px] text-gray-400">${followerCount} Followers • ${totalLikes} GGs Earned</p>
+                            </div>
+                        </div>
+                        ${followBtn}
+                    </div>
+                `;
+            });
+        }
+
+        // Notification Engine
         function checkForTags(text, sender) {
             let cleanSender = sender.replace('@', '');
             let regex = /@([a-zA-Z0-9_]+)/g;
@@ -494,10 +538,7 @@
                 matches.forEach(tag => {
                     let taggedUser = tag.replace('@', '');
                     if(taggedUser.toLowerCase() !== cleanSender.toLowerCase()) {
-                        notifications.unshift({
-                            text: `@${cleanSender} tagged you: "${text.length > 40 ? text.substring(0,40)+'...' : text}"`,
-                            ts: Date.now()
-                        });
+                        notifications.unshift({ text: `@${cleanSender} tagged you in a post/comment.`, ts: Date.now() });
                         saveAppData();
                         updateNotifBadge();
                     }
@@ -507,9 +548,7 @@
 
         function updateNotifBadge() {
             let badge = document.getElementById('notifBadge');
-            if(badge && notifications.length > 0) {
-                badge.classList.remove('hidden');
-            }
+            if(badge && notifications.length > 0) badge.classList.remove('hidden');
         }
 
         function openNotificationsModal() {
@@ -517,16 +556,11 @@
             let box = document.getElementById('notificationsListBox');
             box.innerHTML = '';
             if(notifications.length === 0) {
-                box.innerHTML = `<div class="text-center text-gray-400 text-xs py-10">No notifications yet.</div>`;
+                box.innerHTML = `<div class="text-center text-gray-400 text-xs py-10">No notifications.</div>`;
                 return;
             }
             notifications.forEach(n => {
-                box.innerHTML += `
-                    <div class="p-2.5 bg-gg-900 rounded-xl border border-cyan-500/10 space-y-0.5">
-                        <p class="text-xs text-gray-200">${n.text}</p>
-                        <span class="text-[8px] text-gray-400">${new Date(n.ts).toLocaleTimeString()}</span>
-                    </div>
-                `;
+                box.innerHTML += `<div class="p-2.5 bg-gg-900 rounded-xl border border-cyan-500/10 space-y-0.5"><p class="text-xs text-gray-200">${n.text}</p><span class="text-[8px] text-gray-400">${new Date(n.ts).toLocaleTimeString()}</span></div>`;
             });
             let badge = document.getElementById('notifBadge');
             if(badge) badge.classList.add('hidden');
@@ -556,6 +590,7 @@
             if(viewName === 'trending') renderSearchResults('');
             if(viewName === 'market') renderMarketList();
             if(viewName === 'clans') renderClansList();
+            if(viewName === 'popular') renderTopAccounts();
         }
 
         function openAccountModal() {
@@ -567,10 +602,12 @@
             let uInput = document.getElementById('setupUsernameInput').value.trim();
             if(!uInput) { alert('Please enter a valid gamer tag.'); return; }
             myUsername = uInput.startsWith('@') ? uInput : '@' + uInput;
+            let cleanMe = myUsername.replace('@', '');
+            if(!userProfiles[cleanMe]) userProfiles[cleanMe] = { followers: [], following: [], postsCount: 1 };
             saveAppData();
             document.getElementById('headerUserTag').innerText = myUsername;
             closeAccountModal();
-            alert(`🎉 Account saved successfully as ${myUsername}!`);
+            alert(`🎉 Account saved as ${myUsername}!`);
         }
 
         // Squads & Fullscreen Rooms
@@ -578,36 +615,20 @@
             let container = document.getElementById('clansListContainer');
             if(!container) return;
             container.innerHTML = '';
-
             clansData.forEach(clan => {
                 let cleanUser = myUsername.replace('@', '');
                 let isMember = clan.members && clan.members.includes(cleanUser);
                 let isLeader = clan.leader === cleanUser;
                 let hasRequested = clan.requests && clan.requests.includes(cleanUser);
-
                 let actionBtn = '';
                 if(isMember || isLeader) {
                     actionBtn = `<button onclick="openSquadRoom('${clan.name}')" class="px-3.5 py-2 bg-cyan-500 text-slate-950 rounded-xl text-[10px] font-black shadow">Open Room</button>`;
                 } else if(hasRequested) {
                     actionBtn = `<span class="text-[10px] text-amber-400 font-bold px-2.5 py-1.5 bg-amber-500/10 rounded-xl">Request Sent</span>`;
                 } else {
-                    actionBtn = `
-                        <div class="flex space-x-1.5">
-                            <button onclick="joinSquadAuto('${clan.name}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 rounded-xl text-[10px] font-black">Join</button>
-                            <button onclick="requestJoinSquad('${clan.name}')" class="px-3 py-1.5 bg-gg-800 text-cyan-400 border border-cyan-500/30 rounded-xl text-[10px] font-bold">Request</button>
-                        </div>
-                    `;
+                    actionBtn = `<div class="flex space-x-1.5"><button onclick="joinSquadAuto('${clan.name}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 rounded-xl text-[10px] font-black">Join</button><button onclick="requestJoinSquad('${clan.name}')" class="px-3 py-1.5 bg-gg-800 text-cyan-400 border border-cyan-500/30 rounded-xl text-[10px] font-bold">Request</button></div>`;
                 }
-
-                container.innerHTML += `
-                    <div class="glass-panel p-4 rounded-2xl flex items-center justify-between shadow-xl">
-                        <div>
-                            <h4 class="font-black text-xs text-white">${clan.name} [${clan.tag}]</h4>
-                            <p class="text-[9px] text-gray-400">Leader: @${clan.leader} • Members: ${(clan.members || []).length}</p>
-                        </div>
-                        ${actionBtn}
-                    </div>
-                `;
+                container.innerHTML += `<div class="glass-panel p-4 rounded-2xl flex items-center justify-between shadow-xl"><div><h4 class="font-black text-xs text-white">${clan.name} [${clan.tag}]</h4><p class="text-[9px] text-gray-400">Leader: @${clan.leader} • Members: ${(clan.members || []).length}</p></div>${actionBtn}</div>`;
             });
         }
 
@@ -616,23 +637,17 @@
             let cleanUser = myUsername.replace('@', '');
             if(squad && !squad.members.includes(cleanUser)) {
                 squad.members.push(cleanUser);
-                saveAppData();
-                renderClansList();
-                alert(`🎉 You have successfully joined ${name}!`);
+                saveAppData(); renderClansList(); alert(`🎉 Joined ${name}!`);
             }
         }
-
         function requestJoinSquad(name) {
             let squad = clansData.find(c => c.name === name);
             let cleanUser = myUsername.replace('@', '');
             if(squad && !squad.requests.includes(cleanUser)) {
                 squad.requests.push(cleanUser);
-                saveAppData();
-                renderClansList();
-                alert(`📩 Join request sent to the leader of ${name}!`);
+                saveAppData(); renderClansList(); alert(`📩 Join request sent!`);
             }
         }
-
         function openCreateClanModal() { document.getElementById('createClanModalBox').classList.remove('hidden'); }
         function closeCreateClanModal() { document.getElementById('createClanModalBox').classList.add('hidden'); }
         function submitNewClan() {
@@ -640,18 +655,8 @@
             let tag = document.getElementById('clanTagInput').value.trim();
             let cleanUser = myUsername.replace('@', '');
             if(!name || !tag) return;
-            clansData.push({
-                name: name.toUpperCase(),
-                tag: tag.toUpperCase(),
-                leader: cleanUser,
-                members: [cleanUser],
-                requests: [],
-                messages: [{user: cleanUser, text: `Squad ${name.toUpperCase()} created!`}]
-            });
-            saveAppData();
-            renderClansList();
-            closeCreateClanModal();
-            alert('🎉 Squad created successfully!');
+            clansData.push({ name: name.toUpperCase(), tag: tag.toUpperCase(), leader: cleanUser, members: [cleanUser], requests: [], messages: [{user: cleanUser, text: `Squad created!`}] });
+            saveAppData(); renderClansList(); closeCreateClanModal(); alert('🎉 Squad created!');
         }
 
         function openSquadRoom(name) {
@@ -660,9 +665,7 @@
             document.getElementById('activeSquadTitle').innerText = `Squad: ${name}`;
             document.getElementById('activeSquadMeta').innerText = `Leader: @${squad.leader} • Members: ${squad.members.length}`;
             document.getElementById('squadRoomModal').classList.remove('hidden');
-            switchSquadTab('chat');
-            renderSquadMessages();
-            renderSquadMembersAndRequests();
+            switchSquadTab('chat'); renderSquadMessages(); renderSquadMembersAndRequests();
         }
         function closeSquadRoom() { document.getElementById('squadRoomModal').classList.add('hidden'); }
 
@@ -670,14 +673,13 @@
             ['Chat', 'Members', 'Requests'].forEach(t => {
                 let btn = document.getElementById('squadTab' + t);
                 let pane = document.getElementById('squadPane' + t);
-                if(btn) { btn.className = "flex-1 py-2 text-xs rounded-xl bg-gg-800 text-gray-400 font-bold"; }
-                if(pane) { pane.classList.add('hidden'); }
+                if(btn) btn.className = "flex-1 py-2 text-xs rounded-xl bg-gg-800 text-gray-400 font-bold";
+                if(pane) pane.classList.add('hidden');
             });
             let activeBtn = document.getElementById('squadTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
             let activePane = document.getElementById('squadPane' + tab.charAt(0).toUpperCase() + tab.slice(1));
             if(activeBtn) activeBtn.className = "flex-1 py-2 text-xs rounded-xl bg-cyan-500 text-slate-950 font-black shadow";
             if(activePane) activePane.classList.remove('hidden');
-
             if(tab === 'members' || tab === 'requests') renderSquadMembersAndRequests();
         }
 
@@ -686,21 +688,19 @@
             if(!squad) return;
             let cleanUser = myUsername.replace('@', '');
             let isLeader = squad.leader === cleanUser;
-
             let memBox = document.getElementById('squadPaneMembers');
             memBox.innerHTML = `<h5 class="font-black text-cyan-400 text-xs mb-2 uppercase">Squad Members</h5>`;
             squad.members.forEach(m => {
                 memBox.innerHTML += `<div class="p-3 bg-gg-900 rounded-xl flex justify-between items-center text-xs border border-cyan-500/10"><span>@${m} ${m === squad.leader ? '👑 (Leader)' : ''}</span></div>`;
             });
-
             let reqBox = document.getElementById('squadPaneRequests');
             reqBox.innerHTML = `<h5 class="font-black text-cyan-400 text-xs mb-2 uppercase">Pending Join Requests</h5>`;
             if(!squad.requests || squad.requests.length === 0) {
-                reqBox.innerHTML += `<p class="text-gray-400 text-center py-8 text-xs">No pending join requests.</p>`;
+                reqBox.innerHTML += `<p class="text-gray-400 text-center py-8 text-xs">No pending requests.</p>`;
                 return;
             }
             squad.requests.forEach(r => {
-                let approveBtn = isLeader ? `<button onclick="approveRequest('${squad.name}', '${r}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold rounded-lg text-[10px]">Accept</button>` : `<span class="text-gray-400 text-[10px]">Pending Leader Approval</span>`;
+                let approveBtn = isLeader ? `<button onclick="approveRequest('${squad.name}', '${r}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold rounded-lg text-[10px]">Accept</button>` : `<span class="text-gray-400 text-[10px]">Pending Approval</span>`;
                 reqBox.innerHTML += `<div class="p-3 bg-gg-900 rounded-xl flex justify-between items-center text-xs border border-cyan-500/10"><span>@${r}</span> ${approveBtn}</div>`;
             });
         }
@@ -710,9 +710,7 @@
             if(squad) {
                 squad.requests = squad.requests.filter(u => u !== user);
                 if(!squad.members.includes(user)) squad.members.push(user);
-                saveAppData();
-                renderSquadMembersAndRequests();
-                alert(`✅ @${user} added to squad ${squadName}!`);
+                saveAppData(); renderSquadMembersAndRequests(); alert(`✅ @${user} approved!`);
             }
         }
 
@@ -721,12 +719,7 @@
             let squad = clansData.find(c => c.name === activeSquadRoomName);
             if(!squad || !squad.messages) return;
             squad.messages.forEach(m => {
-                box.innerHTML += `
-                    <div class="bg-gg-900/90 p-3 rounded-2xl border border-cyan-500/15 space-y-1">
-                        <span class="text-[10px] text-cyan-400 font-extrabold">@${m.user}</span>
-                        <p class="text-xs text-gray-100">${m.text}</p>
-                    </div>
-                `;
+                box.innerHTML += `<div class="bg-gg-900/90 p-3 rounded-2xl border border-cyan-500/15 space-y-1"><span class="text-[10px] text-cyan-400 font-extrabold">@${m.user}</span><p class="text-xs text-gray-100">${m.text}</p></div>`;
             });
             box.scrollTop = box.scrollHeight;
         }
@@ -739,13 +732,10 @@
             if(squad) {
                 squad.messages.push({user: cleanUser, text});
                 checkForTags(text, cleanUser);
-                saveAppData();
-                renderSquadMessages();
-                input.value = '';
+                saveAppData(); renderSquadMessages(); input.value = '';
             }
         }
 
-        // Direct Messages
         function openDmModal() { document.getElementById('dmModal').classList.remove('hidden'); renderDmChatBox(); }
         function closeDmModal() { document.getElementById('dmModal').classList.add('hidden'); }
         function renderDmChatBox() {
@@ -760,11 +750,9 @@
             if(!text) return;
             let cleanUser = myUsername.replace('@', '');
             directMessages.push({ sender: cleanUser, text: text, ts: Date.now() });
-            checkForTags(text, cleanUser);
-            saveAppData(); renderDmChatBox(); input.value = '';
+            checkForTags(text, cleanUser); saveAppData(); renderDmChatBox(); input.value = '';
         }
 
-        // Market Functions
         function openMarketModal() { document.getElementById('marketModal').classList.remove('hidden'); }
         function closeMarketModal() { document.getElementById('marketModal').classList.add('hidden'); }
         function submitMarketListing() {
@@ -773,16 +761,15 @@
             let price = document.getElementById('marketPriceInput').value.trim();
             let desc = document.getElementById('marketDescInput').value.trim();
             let filesInput = document.getElementById('marketImagesInput');
-            if(!title || !price) { alert('Please fill in the title and price.'); return; }
+            if(!title || !price) { alert('Please fill in title and price.'); return; }
             let imageUrls = [];
             if(filesInput.files && filesInput.files.length > 0) {
                 let limit = Math.min(filesInput.files.length, 5);
-                for(let i = 0; i < limit; i++) { imageUrls.push(URL.createObjectURL(filesInput.files[i])); }
+                for(let i = 0; i < limit; i++) imageUrls.push(URL.createObjectURL(filesInput.files[i]));
             }
             let cleanUser = myUsername.replace('@', '');
             marketListings.unshift({ id: crypto.randomUUID(), seller: cleanUser, type, title, price, desc: desc || 'No details.', images: imageUrls, ts: Date.now() });
-            checkForTags(desc, cleanUser);
-            saveAppData(); renderMarketList(); closeMarketModal(); alert('🎉 Listed on GG Market!');
+            checkForTags(desc, cleanUser); saveAppData(); renderMarketList(); closeMarketModal(); alert('🎉 Listed on GG Market!');
         }
         function renderMarketList() {
             let container = document.getElementById('marketListContainer'); if(!container) return; container.innerHTML = '';
@@ -792,25 +779,13 @@
                 let imagesHtml = '';
                 if(item.images && item.images.length > 0) {
                     imagesHtml = `<div class="grid grid-cols-3 gap-1.5 pt-1">`;
-                    item.images.forEach(imgUrl => { imagesHtml += `<div class="relative cursor-pointer rounded-lg overflow-hidden bg-gg-950 h-20" onclick="openMediaViewer('${imgUrl}', 'picture')"><img src="${imgUrl}" class="w-full h-full object-cover"></div>`; });
+                    item.images.forEach(imgUrl => imagesHtml += `<div class="relative cursor-pointer rounded-lg overflow-hidden bg-gg-950 h-20" onclick="openMediaViewer('${imgUrl}', 'picture')"><img src="${imgUrl}" class="w-full h-full object-cover"></div>`);
                     imagesHtml += `</div>`;
                 }
-                container.innerHTML += `
-                    <div class="glass-panel p-4 rounded-2xl space-y-2.5 shadow-xl">
-                        <div class="flex items-center justify-between"><span class="text-[9px] px-2 py-0.5 rounded border font-extrabold ${badgeColor}">${item.type.toUpperCase()}</span><span class="text-xs font-black text-amber-400">${item.price}</span></div>
-                        <h4 class="font-bold text-xs text-white">${item.title}</h4>
-                        <p class="text-[11px] text-gray-300">${item.desc}</p>
-                        ${imagesHtml}
-                        <div class="flex items-center justify-between pt-2 border-t border-cyan-500/10 text-[10px]">
-                            <span class="text-gray-400 font-bold">Seller: @${item.seller} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
-                            <button onclick="openDmModal()" class="px-3 py-1.5 bg-cyan-500 text-slate-950 font-black rounded-lg">Contact via DM</button>
-                        </div>
-                    </div>
-                `;
+                container.innerHTML += `<div class="glass-panel p-4 rounded-2xl space-y-2.5 shadow-xl"><div class="flex items-center justify-between"><span class="text-[9px] px-2 py-0.5 rounded border font-extrabold ${badgeColor}">${item.type.toUpperCase()}</span><span class="text-xs font-black text-amber-400">${item.price}</span></div><h4 class="font-bold text-xs text-white">${item.title}</h4><p class="text-[11px] text-gray-300">${item.desc}</p>${imagesHtml}<div class="flex items-center justify-between pt-2 border-t border-cyan-500/10 text-[10px]"><span class="text-gray-400 font-bold">Seller: @${item.seller} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span><button onclick="openDmModal()" class="px-3 py-1.5 bg-cyan-500 text-slate-950 font-black rounded-lg">Contact via DM</button></div></div>`;
             });
         }
 
-        // Universal Search
         function handleGlobalSearch(query) { renderSearchResults(query.trim().toLowerCase()); }
         function filterByTag(tag) { document.getElementById('globalSearchInput').value = tag; handleGlobalSearch(tag); }
         function renderSearchResults(query) {
@@ -818,9 +793,9 @@
             container.innerHTML = `<h4 class="text-[10px] uppercase font-black text-cyan-400 mb-2">Search Results</h4>`;
             let matchedPosts = fypPosts.filter(p => !query || p.caption.toLowerCase().includes(query) || p.user.toLowerCase().includes(query));
             let matchedClans = clansData.filter(c => !query || c.name.toLowerCase().includes(query));
-            if(matchedPosts.length === 0 && matchedClans.length === 0) { container.innerHTML += `<div class="glass-panel p-4 rounded-xl text-center text-gray-400 text-xs">No matching results.</div>`; return; }
-            matchedClans.forEach(clan => { container.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between shadow"><div class="text-xs font-bold text-white">Squad: ${clan.name} [${clan.tag}]</div><button onclick="openSquadRoom('${clan.name}')" class="px-2.5 py-1 bg-cyan-500 text-slate-950 font-bold rounded-lg text-[10px]">Open</button></div>`; });
-            matchedPosts.forEach(post => { container.innerHTML += `<div class="glass-panel p-3 rounded-xl space-y-1.5 shadow"><div class="flex items-center justify-between"><span class="font-bold text-xs text-white">@${post.user}</span><span class="text-[9px] text-cyan-400 font-bold">${post.game}</span></div><p class="text-xs text-gray-200">${post.caption}</p></div>`; });
+            if(matchedPosts.length === 0 && matchedClans.length === 0) { container.innerHTML += `<div class="glass-panel p-4 rounded-xl text-center text-gray-400 text-xs">No matches found.</div>`; return; }
+            matchedClans.forEach(clan => container.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between shadow"><div class="text-xs font-bold text-white">Squad: ${clan.name} [${clan.tag}]</div><button onclick="openSquadRoom('${clan.name}')" class="px-2.5 py-1 bg-cyan-500 text-slate-950 font-bold rounded-lg text-[10px]">Open</button></div>`);
+            matchedPosts.forEach(post => container.innerHTML += `<div class="glass-panel p-3 rounded-xl space-y-1.5 shadow"><div class="flex items-center justify-between"><span class="font-bold text-xs text-white">@${post.user}</span><span class="text-[9px] text-cyan-400 font-bold">${post.game}</span></div><p class="text-xs text-gray-200">${post.caption}</p></div>`);
         }
 
         function ladder(game) {
@@ -842,13 +817,11 @@
             if(!text) return;
             let cleanUser = myUsername.replace('@', '');
             chatMessages[activeChatRoom].push({user: cleanUser, text, time: 'Now'});
-            checkForTags(text, cleanUser);
-            input.value = '';
-            saveAppData(); renderChatMessages();
+            checkForTags(text, cleanUser); input.value = ''; saveAppData(); renderChatMessages();
         }
         function renderChatMessages() {
             let box = document.getElementById('chatMessagesBox'); if(!box) return; box.innerHTML = '';
-            chatMessages[activeChatRoom].forEach(m => { box.innerHTML += `<div class="p-2.5 rounded-xl bg-gg-900 border border-cyan-500/10"><span class="text-[9px] text-cyan-400 font-bold">@${m.user}</span><p class="text-xs text-gray-200">${m.text}</p></div>`; });
+            chatMessages[activeChatRoom].forEach(m => box.innerHTML += `<div class="p-2.5 rounded-xl bg-gg-900 border border-cyan-500/10"><span class="text-[9px] text-cyan-400 font-bold">@${m.user}</span><p class="text-xs text-gray-200">${m.text}</p></div>`);
             box.scrollTop = box.scrollHeight;
         }
 
@@ -856,7 +829,8 @@
         function closeLiveBroadcastModal() { document.getElementById('liveBroadcastModal').classList.add('hidden'); }
         function publishActiveStream() {
             let title = document.getElementById('liveTitleInput').value.trim(); if(!title) return;
-            fypPosts.unshift({user: myUsername.replace('@', ''), verified: true, game: 'LIVE STREAM', caption: `🔴 LIVE: ${title}`, likes: 1, comments: [], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: true});
+            let cleanUser = myUsername.replace('@', '');
+            fypPosts.unshift({user: cleanUser, verified: true, game: 'LIVE STREAM', caption: `🔴 LIVE: ${title}`, likes: 1, comments: [], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: true, ts: Date.now()});
             saveAppData(); renderFypFeed(); closeLiveBroadcastModal(); alert('Published live!');
         }
 
@@ -869,12 +843,18 @@
             let cat = document.getElementById('postCategorySelect').value;
             let mediaUrl = file ? URL.createObjectURL(file) : '';
             let cleanUser = myUsername.replace('@', '');
-            fypPosts.unshift({user: cleanUser, verified: true, game: cat, caption: text || 'Post', likes: 1, comments: [], mediaUrl, mediaType: file ? (file.type.startsWith('video') ? 'video' : 'picture') : 'text'});
-            checkForTags(text, cleanUser);
-            saveAppData(); renderFypFeed(); closeCreatePostModal(); alert('Published!');
+            if(!userProfiles[cleanUser]) userProfiles[cleanUser] = { followers: [], following: [], postsCount: 0 };
+            userProfiles[cleanUser].postsCount = (userProfiles[cleanUser].postsCount || 0) + 1;
+
+            fypPosts.unshift({user: cleanUser, verified: true, game: cat, caption: text || 'Post', likes: 1, comments: [], mediaUrl, mediaType: file ? (file.type.startsWith('video') ? 'video' : 'picture') : 'text', ts: Date.now()});
+            checkForTags(text, cleanUser); saveAppData(); renderFypFeed(); closeCreatePostModal(); alert('Published!');
         }
 
-        function toggleGG(i) { fypPosts[i].likes = (fypPosts[i].likes || 0) + 1; saveAppData(); renderFypFeed(); }
+        function toggleGG(i) {
+            fypPosts[i].likes = (fypPosts[i].likes || 0) + 1;
+            saveAppData(); renderFypFeed(); renderTopAccounts();
+        }
+
         function openMediaViewer(url, type) {
             document.getElementById('mediaViewerContent').innerHTML = type === 'video' ? `<video src="${url}" controls autoplay class="max-h-[85vh] rounded-xl"></video>` : `<img src="${url}" class="max-h-[85vh] object-contain rounded-xl">`;
             document.getElementById('mediaViewerModal').classList.remove('hidden');
@@ -888,13 +868,53 @@
             renderFypFeed();
         }
 
+        // Trending & Engagement Sort Algorithm for Feed
         function renderFypFeed() {
             let container = document.getElementById('fypFeedContainer'); if(!container) return; container.innerHTML = '';
-            let filtered = fypPosts.filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
+            
+            // Sort posts by engagement score (likes + recency)
+            let sortedPosts = [...fypPosts].sort((a, b) => {
+                let scoreA = (a.likes || 1) * 2 + (a.ts || 0) / 1000000;
+                let scoreB = (b.likes || 1) * 2 + (b.ts || 0) / 1000000;
+                return scoreB - scoreA;
+            });
+
+            let filtered = sortedPosts.filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
+
             filtered.forEach(post => {
                 let idx = fypPosts.indexOf(post);
+                let cleanMe = myUsername.replace('@', '');
+                let isMe = (post.user === cleanMe);
+                let isFollowing = userProfiles[cleanMe] && userProfiles[cleanMe].following.includes(post.user);
+                
+                let followActionBtn = '';
+                if(!isMe) {
+                    followActionBtn = `<button onclick="toggleFollow('${post.user}')" class="text-[9px] px-2.5 py-1 rounded-lg ${isFollowing ? 'bg-gg-800 text-gray-300 border border-cyan-500/30' : 'bg-cyan-500 text-slate-950 font-black'}">${isFollowing ? 'Following' : '+ Follow'}</button>`;
+                }
+
                 let media = post.mediaUrl ? (post.mediaType === 'video' ? `<div class="relative cursor-pointer bg-gg-950" onclick="openMediaViewer('${post.mediaUrl}', 'video')"><video src="${post.mediaUrl}" autoplay loop muted playsinline class="w-full max-h-[400px] object-cover"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>` : `<div class="relative cursor-pointer bg-gg-950" onclick="openMediaViewer('${post.mediaUrl}', 'picture')"><img src="${post.mediaUrl}" class="w-full max-h-[400px] object-cover"><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`) : '';
-                container.innerHTML += `<div class="glass-panel rounded-2xl overflow-hidden space-y-2 pb-3 shadow-xl"><div class="p-3 pb-0 flex items-center justify-between"><div><span class="font-bold text-xs text-white">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span><span class="text-[9px] text-cyan-400 font-bold block">${post.game}</span></div>${post.isLive ? '<span class="text-[9px] bg-red-500/25 text-red-400 px-2 py-0.5 rounded font-bold animate-pulse">LIVE</span>' : ''}</div><p class="px-3 text-xs text-gray-200">${post.caption}</p>${media}<div class="px-3 pt-1 flex items-center justify-between text-xs border-t border-cyan-500/10 mt-2"><button onclick="toggleGG(${idx})" class="text-pink-500 font-bold"><i class="fa-solid fa-heart mr-1"></i>${post.likes || 0} GGs</button></div></div>`;
+                
+                container.innerHTML += `
+                    <div class="glass-panel rounded-2xl overflow-hidden space-y-2 pb-3 shadow-xl">
+                        <div class="p-3 pb-0 flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <div>
+                                    <span class="font-bold text-xs text-white">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
+                                    <span class="text-[9px] text-cyan-400 font-bold block">${post.game}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                ${followActionBtn}
+                                ${post.isLive ? '<span class="text-[9px] bg-red-500/25 text-red-400 px-2 py-0.5 rounded font-bold animate-pulse">LIVE</span>' : ''}
+                            </div>
+                        </div>
+                        <p class="px-3 text-xs text-gray-200">${post.caption}</p>
+                        ${media}
+                        <div class="px-3 pt-1 flex items-center justify-between text-xs border-t border-cyan-500/10 mt-2">
+                            <button onclick="toggleGG(${idx})" class="text-pink-500 font-bold"><i class="fa-solid fa-heart mr-1"></i>${post.likes || 0} GGs</button>
+                        </div>
+                    </div>
+                `;
             });
         }
     </script>
