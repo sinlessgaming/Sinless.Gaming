@@ -25,6 +25,12 @@
         .glass-panel:hover { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 10px 30px -10px rgba(0, 243, 255, 0.2); }
         .scrollbar-none::-webkit-scrollbar { display: none; }
         
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(0.6); opacity: 1; }
+            100% { transform: translateY(-140px) scale(1.5); opacity: 0; }
+        }
+        .gg-float { animation: floatUp 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards; pointer-events: none; }
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
@@ -63,7 +69,6 @@
             <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-xs shadow-lg shadow-cyan-500/30 group-hover:scale-105 transition">SG</div>
             <div>
                 <h1 class="font-extrabold text-xs tracking-wide text-white">SINLESS <span class="text-cyan-400">GG</span></h1>
-                <!-- Shortened Header Subtitle for Clean One-Line Fit -->
                 <p class="text-[7.5px] text-orange-400 tracking-wider uppercase font-extrabold">ESPORTS & STREAMING</p>
             </div>
         </div>
@@ -281,12 +286,13 @@
         let recordedStreamUrl = null;
 
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
-            { user: 'DON PRIME', verified: true, game: 'LIVE STREAM', caption: '🔴 LIVE NOW: Portrait live stream active!', likes: 4120, comments: 310, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: true, pinned: true }
+            { user: 'DON PRIME', verified: true, game: 'EA FC', caption: '😂😂😂😂', likes: 4120, comments: 310, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: false, pinned: true },
+            { user: 'DON PRIME', verified: true, game: 'LIVE STREAM', caption: '🔴 LIVE SCREEN BROADCAST: Let’s go live', likes: 1250, comments: 84, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: true, pinned: false }
         ];
 
         let clansData = [{ name: 'SINLESS ELITE', tag: 'SLS', members: 42, leader: 'DON PRIME' }];
         let chatMessages = { 'global': [{ user: 'System', text: 'Welcome to Sinless GG.', time: 'Now' }], 'ai-bot': [{ user: 'GG-Bot', text: 'Esports & Live streaming hub active.', time: 'Now' }] };
-        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Header subtitle optimized for single line.', time: 'Now' }];
+        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Like and comment interaction buttons fully restored.', time: 'Now' }];
         let notificationsList = [{ text: '🔴 Esports & Sports categories ready.', time: 'Now' }];
         let tournamentData = { 'champions-league': { teams: [{ name: 'DON PRIME', p: 3, w: 2, pts: 12 }] } };
 
@@ -404,6 +410,7 @@
                 game: category,
                 caption: text || 'Post',
                 likes: 1,
+                comments: 0,
                 mediaUrl: mediaUrl,
                 mediaType: fileInput.files[0] ? (fileInput.files[0].type.startsWith('video') ? 'video' : 'picture') : 'text',
                 pinned: false
@@ -412,6 +419,22 @@
             renderFypFeed();
             closeCreatePostModal();
             alert('🚀 Published!');
+        }
+
+        function likePost(index) {
+            fypPosts[index].likes = (fypPosts[index].likes || 0) + 1;
+            saveAppData();
+            renderFypFeed();
+        }
+
+        function commentOnPost(index) {
+            let commentText = prompt("Write a comment for this post:");
+            if(commentText && commentText.trim() !== '') {
+                fypPosts[index].comments = (fypPosts[index].comments || 0) + 1;
+                saveAppData();
+                renderFypFeed();
+                alert('💬 Comment added successfully!');
+            }
         }
 
         function renderDms() {
@@ -452,6 +475,7 @@
             let filtered = fypPosts.filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
 
             filtered.forEach((post, index) => {
+                let actualIndex = fypPosts.indexOf(post);
                 let liveBadge = post.isLive ? `<span class="text-[9px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30 font-bold animate-pulse">🔴 LIVE</span>` : '';
                 
                 let mediaContent = '';
@@ -474,6 +498,20 @@
                         </div>
                         <p class="px-3 text-xs text-gray-200">${post.caption}</p>
                         ${mediaContent}
+                        <!-- Restored Interactive Like, Comment & Share Bar -->
+                        <div class="px-3 pt-1 flex items-center justify-between text-gray-400 text-xs border-t border-cyan-500/10 mt-2">
+                            <button onclick="likePost(${actualIndex})" class="flex items-center space-x-1 hover:text-cyan-400 transition">
+                                <i class="fa-solid fa-heart text-pink-500"></i>
+                                <span class="text-[11px] font-bold text-white">${post.likes || 0} GG Likes</span>
+                            </button>
+                            <button onclick="commentOnPost(${actualIndex})" class="flex items-center space-x-1 hover:text-cyan-400 transition">
+                                <i class="fa-solid fa-comment text-cyan-400"></i>
+                                <span class="text-[11px] font-bold text-white">${post.comments || 0} Comments</span>
+                            </button>
+                            <button onclick="navigator.clipboard.writeText(window.location.href); alert('🔗 Post link copied!');" class="hover:text-cyan-400 transition">
+                                <i class="fa-solid fa-share-nodes"></i>
+                            </button>
+                        </div>
                     </div>
                 `;
             });
