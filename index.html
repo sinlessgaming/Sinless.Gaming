@@ -64,10 +64,17 @@
             <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-sm shadow-lg shadow-cyan-500/30 group-hover:scale-105 transition">SG</div>
             <div>
                 <h1 class="font-extrabold text-sm tracking-wide text-white">SINLESS <span class="text-cyan-400">GG</span></h1>
-                <p class="text-[9px] text-gray-400 tracking-wider uppercase font-semibold">Global Gaming & Wrestling Hub</p>
+                <p class="text-[9px] text-gray-400 tracking-wider uppercase font-semibold">Global Data-Saver Network</p>
             </div>
         </div>
         <div class="flex items-center space-x-2">
+            <!-- Global Language Selector -->
+            <select id="globalLangSelect" onchange="changeLanguage(this.value)" class="bg-gg-950 text-cyan-400 text-[10px] font-bold px-2 py-1.5 rounded-xl border border-cyan-500/30 focus:outline-none transition hover:border-cyan-400">
+                <option value="EN">🇬🇧 EN</option>
+                <option value="ZH">🇨🇳 中文</option>
+                <option value="ES">🇪🇸 ES</option>
+                <option value="FR">🇫🇷 FR</option>
+            </select>
             <!-- Notification Bell -->
             <button onclick="openNotificationsModal()" class="relative w-8 h-8 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs shadow hover:border-cyan-400 transition">
                 <i class="fa-solid fa-bell"></i>
@@ -102,11 +109,11 @@
         <!-- 1. FYP / Feed View -->
         <div id="viewFyp" class="flex-1 flex flex-col space-y-3 overflow-y-auto pb-4 fade-in">
             <div class="flex items-center justify-between px-1">
-                <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold" id="lblDoubleTap">🔥 Double-Tap for GGs!</span>
+                <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold" id="lblDoubleTap">🔥 Double-Tap for GGs! (Data-Saver Active)</span>
                 <button onclick="promptInstallApp()" class="text-[10px] bg-cyan-500/10 text-cyan-400 px-2.5 py-1 rounded-xl border border-cyan-500/30 font-bold hover:bg-cyan-500/20 transition"><i class="fa-solid fa-download mr-1"></i> Get App</button>
             </div>
 
-            <!-- Game, Football & Wrestling Category Filter Bar -->
+            <!-- Category Filter Bar -->
             <div class="flex space-x-2 overflow-x-auto scrollbar-none py-1">
                 <button onclick="filterByCategory('ALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition">🌐 All</button>
                 <button onclick="filterByCategory('WRESTLING')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-amber-400 border border-amber-500/30 whitespace-nowrap transition hover:border-amber-400">🤼 WWE / AEW</button>
@@ -141,7 +148,7 @@
                     <option value="worldfootball"># world-football-banter</option>
                     <option value="cod"># cod-mobile-warzone</option>
                 </select>
-                <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-semibold animate-pulse">● Live Lobbies</span>
+                <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-semibold animate-pulse">● Data-Optimized</span>
             </div>
             <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-3.5 space-y-3"></div>
             <div class="p-3 border-t border-cyan-500/15 bg-gg-950 flex items-center space-x-2">
@@ -245,10 +252,18 @@
         let currentTourney = 'champions-league';
         let activeCategoryFilter = 'ALL';
         let activeChatRoom = 'global';
+        let currentLang = localStorage.getItem('sinless_lang') || 'EN';
         let myUsername = localStorage.getItem('sinless_username') || '@DON PRIME';
 
+        const translations = {
+            EN: { doubleTap: "🔥 Double-Tap for GGs! (Data-Saver Active)", feed: "Feed", squads: "Squads", lobbies: "Lobbies", tables: "Tables", top: "Top" },
+            ZH: { doubleTap: "🔥 双击送出 GG！(省流模式)", feed: "动态", squads: "战队", lobbies: "大厅", tables: "积分榜", top: "热门" },
+            ES: { doubleTap: "🔥 ¡Doble toque para GGs! (Ahorro de datos)", feed: "Inicio", squads: "Clanes", lobbies: "Salas", tables: "Tablas", top: "Top" },
+            FR: { doubleTap: "🔥 Double-cliquez pour GGs ! (Mode éco)", feed: "Fil", squads: "Clans", lobbies: "Salons", tables: "Classements", top: "Top" }
+        };
+
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
-            { type: 'clip', user: 'DON PRIME', game: 'WRESTLING', caption: 'Absolute table breaker in WWE 2K! Tables, ladders, and chairs! 🤼🔥', likes: 1650, comments: 92, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', pinned: true },
+            { type: 'clip', user: 'DON PRIME', game: 'WRESTLING', caption: 'Absolute table breaker in WWE 2K! 🤼🔥', likes: 1650, comments: 92, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', pinned: true },
             { type: 'clip', user: 'BALL_MASTER', game: 'FC MOBILE', caption: 'Insane 90th minute bicycle kick winner! 🚲⚽', likes: 1420, comments: 84, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-controller-while-playing-video-games-41583-large.mp4', mediaType: 'video', pinned: false }
         ];
 
@@ -282,6 +297,7 @@
         };
 
         document.getElementById('profileUsernameDisplay').innerText = myUsername;
+        document.getElementById('globalLangSelect').value = currentLang;
 
         function saveAppData() {
             localStorage.setItem('sinless_posts', JSON.stringify(fypPosts));
@@ -291,6 +307,23 @@
             localStorage.setItem('sinless_notifs', JSON.stringify(notificationsList));
             localStorage.setItem('sinless_tournaments', JSON.stringify(tournamentData));
             localStorage.setItem('sinless_username', myUsername);
+            localStorage.setItem('sinless_lang', currentLang);
+        }
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            saveAppData();
+            applyTranslations();
+        }
+
+        function applyTranslations() {
+            let t = translations[currentLang] || translations['EN'];
+            document.getElementById('lblDoubleTap').innerText = t.doubleTap;
+            document.getElementById('btnViewFyp').innerHTML = `<i class="fa-solid fa-fire mr-0.5"></i> ${t.feed}`;
+            document.getElementById('btnViewClans').innerHTML = `<i class="fa-solid fa-shield-halved mr-0.5"></i> ${t.squads}`;
+            document.getElementById('btnViewChat').innerHTML = `<i class="fa-solid fa-comments mr-0.5"></i> ${t.lobbies}`;
+            document.getElementById('btnViewStandings').innerHTML = `<i class="fa-solid fa-trophy mr-0.5"></i> ${t.tables}`;
+            document.getElementById('btnViewPopular').innerHTML = `<i class="fa-solid fa-crown mr-0.5"></i> ${t.top}`;
         }
 
         function editUsername() {
@@ -371,7 +404,7 @@
         function getAiBotResponse(query) {
             let q = query.toLowerCase();
             if(q.includes('wwe') || q.includes('aew') || q.includes('wrestle')) {
-                return "🤼 Wrestling Zone: The championship scene is intense! Whether you are debating Roman Reigns' title reign or AEW dream matches, this arena is ready.";
+                return "🤼 Wrestling Zone: The championship scene is intense! Whether you are debating Roman Reigns or AEW title pictures, this arena is ready.";
             } else if(q.includes('football') || q.includes('goal')) {
                 return "⚽ World Football: European leagues and Champions League action are in full swing!";
             } else {
@@ -486,8 +519,10 @@
                 
                 let mediaContent = '';
                 if(post.mediaType === 'video') {
-                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})"><video src="${post.mediaUrl}" autoplay loop muted playsinline class="w-full max-h-[420px] object-cover pointer-events-none"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
+                    // Data-saver optimized video attributes (preload="metadata", muted, playsinline)
+                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})"><video src="${post.mediaUrl}" preload="metadata" autoplay loop muted playsinline class="w-full max-h-[420px] object-cover pointer-events-none"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
                 } else if(post.mediaType === 'picture') {
+                    // Data-saver lazy loading image
                     mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})"><img src="${post.mediaUrl}" loading="lazy" class="w-full max-h-[420px] object-cover"><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
                 }
 
@@ -585,7 +620,7 @@
                 
                 let mediaContent = '';
                 if(post.mediaType === 'video') {
-                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden"><video src="${post.mediaUrl}" autoplay loop muted playsinline class="w-full max-h-[420px] object-cover pointer-events-none"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
+                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden"><video src="${post.mediaUrl}" preload="metadata" autoplay loop muted playsinline class="w-full max-h-[420px] object-cover pointer-events-none"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
                 } else if(post.mediaType === 'picture') {
                     mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden"><img src="${post.mediaUrl}" loading="lazy" class="w-full max-h-[420px] object-cover"><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`;
                 }
@@ -663,6 +698,7 @@
             });
         }
 
+        applyTranslations();
         renderFypFeed();
         renderClans();
         renderChatMessages();
