@@ -34,19 +34,20 @@
         }
         .gg-float { animation: floatUp 0.8s ease-out forwards; pointer-events: none; }
 
-        /* Sleek, Compact Watermark */
+        /* Ultra-Slick Semi-Transparent Glass Watermark */
         .watermark-badge {
             position: absolute;
             top: 10px;
             right: 10px;
-            background: rgba(2, 5, 11, 0.6);
-            backdrop-filter: blur(6px);
-            border: 1px solid rgba(0, 243, 255, 0.2);
+            background: rgba(2, 5, 11, 0.35);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            border: 1px solid rgba(0, 243, 255, 0.15);
             padding: 3px 8px;
             border-radius: 6px;
             font-size: 8px;
             font-weight: 700;
-            color: #00f3ff;
+            color: rgba(0, 243, 255, 0.85);
             letter-spacing: 0.05em;
             pointer-events: none;
             z-index: 10;
@@ -269,7 +270,7 @@
                     renderFypFeed();
                     renderUserProfileFeed();
                     switchView('fyp');
-                    alert('🚀 Successfully uploaded with clean watermark!');
+                    alert('🚀 Successfully uploaded with transparent glass watermark!');
                 }
             }
             input.value = '';
