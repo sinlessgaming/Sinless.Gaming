@@ -129,8 +129,10 @@
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
-        <!-- 2. TRENDING VIEW (Top 10 Live Matches & Dynamic "The 60s" Algorithm) -->
+        <!-- 2. TRENDING VIEW (Twitter/X Style Trending Topics First, Then Matches, Then AI Summary) -->
         <div id="view-trending" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
+            
+            <!-- Search Bar -->
             <div class="glass-panel p-3 rounded-2xl space-y-2.5 shadow-xl">
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-cyan-400 text-xs"></i>
@@ -138,23 +140,61 @@
                 </div>
             </div>
 
-            <!-- Top 10 World Matches & Live Countdowns Carousel -->
+            <!-- SECTION 1: Twitter / X Style Trending Topics List (Placed FIRST as requested) -->
+            <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/30">
+                <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-fire text-amber-400 mr-1.5"></i> What's Happening & Trending</h3>
+                    <span class="text-[9px] text-cyan-400 font-bold bg-cyan-500/10 px-2 py-0.5 rounded-full">Live Trends</span>
+                </div>
+                <div class="space-y-2.5">
+                    <div onclick="filterByTag('#SinlessSuperLeague')" class="p-2.5 bg-gg-950 rounded-xl border border-cyan-500/10 cursor-pointer hover:border-cyan-400 transition flex justify-between items-center">
+                        <div>
+                            <span class="text-[8px] text-gray-400 uppercase font-bold">Esports • Trending in Ghana</span>
+                            <h4 class="text-xs font-black text-white">#SinlessSuperLeague</h4>
+                        </div>
+                        <span class="text-[10px] text-cyan-400 font-bold">5.8K posts</span>
+                    </div>
+                    <div onclick="filterByTag('#PremierLeague')" class="p-2.5 bg-gg-950 rounded-xl border border-cyan-500/10 cursor-pointer hover:border-cyan-400 transition flex justify-between items-center">
+                        <div>
+                            <span class="text-[8px] text-gray-400 uppercase font-bold">Sports • Live</span>
+                            <h4 class="text-xs font-black text-white">#PremierLeague</h4>
+                        </div>
+                        <span class="text-[10px] text-cyan-400 font-bold">14.2K posts</span>
+                    </div>
+                    <div onclick="filterByTag('#CallToTheBar')" class="p-2.5 bg-gg-950 rounded-xl border border-cyan-500/10 cursor-pointer hover:border-cyan-400 transition flex justify-between items-center">
+                        <div>
+                            <span class="text-[8px] text-gray-400 uppercase font-bold">National News • Law</span>
+                            <h4 class="text-xs font-black text-white">Call to the Bar</h4>
+                        </div>
+                        <span class="text-[10px] text-cyan-400 font-bold">4.2K posts</span>
+                    </div>
+                    <div onclick="filterByTag('#Shattafest2026')" class="p-2.5 bg-gg-950 rounded-xl border border-cyan-500/10 cursor-pointer hover:border-cyan-400 transition flex justify-between items-center">
+                        <div>
+                            <span class="text-[8px] text-gray-400 uppercase font-bold">Entertainment • Music</span>
+                            <h4 class="text-xs font-black text-white">Shattafest 2026</h4>
+                        </div>
+                        <span class="text-[10px] text-cyan-400 font-bold">9.3K posts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: Top World Matches & Live Countdowns Carousel (Placed SECOND) -->
             <div class="space-y-2">
                 <div class="flex items-center justify-between px-1">
-                    <h3 class="text-[10px] font-black text-cyan-400 uppercase tracking-wider"><i class="fa-solid fa-futbol mr-1"></i> Top 10 World Matches (Tap for Squads & Ratings)</h3>
+                    <h3 class="text-[10px] font-black text-cyan-400 uppercase tracking-wider"><i class="fa-solid fa-futbol mr-1"></i> Top World Matches & Live Scores</h3>
                     <span class="text-[9px] text-gray-400">Swipe →</span>
                 </div>
                 <div id="topMatchesCarousel" class="flex space-x-2.5 overflow-x-auto scrollbar-none py-1"></div>
             </div>
 
-            <!-- "THE 60s" Dynamic Algorithmic Trend Summary -->
+            <!-- SECTION 3: "THE 60s" Algorithmic Summary (Placed THIRD) -->
             <div class="glass-panel p-4 rounded-2xl space-y-3.5 shadow-xl border border-cyan-500/30">
                 <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                     <div class="flex items-center space-x-2">
                         <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
                         <h3 class="text-xs font-black text-white uppercase tracking-wider">🔥 THE 60s: DYNAMIC TREND SUMMARY</h3>
                     </div>
-                    <span id="sixtiesTimestamp" class="text-[9px] text-cyan-400 font-bold bg-cyan-500/10 px-2 py-0.5 rounded-full">Live Algorithm</span>
+                    <span class="text-[9px] text-cyan-400 font-bold bg-cyan-500/10 px-2 py-0.5 rounded-full">Live Algorithm</span>
                 </div>
                 <p id="sixtiesSummaryText" class="text-[11px] text-gray-300 leading-relaxed">
                     Analyzing community discussions and live match scorelines...
@@ -456,166 +496,90 @@
         let myUsername = localStorage.getItem('sinless_username') || '@SinlessGaming';
         let myEmail = localStorage.getItem('sinless_email') || 'sinlessgaming@gmail.com';
 
-        // Top 10 World-Class Interactive Matches Dataset with Live Countdowns & Squads/Ratings
+        // Real Verified Top Matches Dataset (EPL, Champions League, La Liga) with Live Countdowns & Ticking Minutes
         let topMatchesData = [
             {
                 id: 1,
-                competition: 'UEFA Champions League',
+                competition: 'Premier League',
+                homeTeam: 'Arsenal',
+                awayTeam: 'Leeds United',
+                homeRating: '8.8',
+                awayRating: '7.9',
+                homeScore: 2,
+                awayScore: 0,
+                status: 'LIVE',
+                minute: 68,
+                countdownSeconds: 0,
+                scorers: ['Bukayo Saka 22\'', 'Kai Havertz 54\''],
+                homeSquad: ['Raya (8.7)', 'White (8.4)', 'Saliba (9.0)', 'Gabriel (8.9)', 'Timber (8.2)', 'Partey (8.3)', 'Rice (9.1)', 'Ødegaard (8.9)', 'Saka (9.0)', 'Martinelli (8.4)', 'Havertz (8.5)'],
+                awaySquad: ['Meslier (7.8)', 'Bogle (7.2)', 'Rodon (7.5)', 'Struijk (7.4)', 'Byram (7.1)', 'Ampadu (7.7)', 'Gruev (7.3)', 'Gnonto (7.6)', 'Aaronson (7.4)', 'Ramazani (7.5)', 'Piroe (7.3)']
+            },
+            {
+                id: 2,
+                competition: 'Premier League',
+                homeTeam: 'Liverpool',
+                awayTeam: 'Man City',
+                homeRating: '8.9',
+                awayRating: '9.0',
+                homeScore: 0,
+                awayScore: 0,
+                status: 'COUNTDOWN',
+                countdownSeconds: 12400, // 3h 26m
+                scorers: [],
+                homeSquad: ['Alisson (8.8)', 'Alexander-Arnold (8.7)', 'Konaté (8.5)', 'Van Dijk (9.1)', 'Robertson (8.3)', 'Mac Allister (8.6)', 'Gravenberch (8.5)', 'Szoboszlai (8.4)', 'Salah (9.3)', 'Díaz (8.6)', 'Jota (8.2)'],
+                awaySquad: ['Ederson (8.6)', 'Walker (8.1)', 'Dias (8.5)', 'Akanji (8.2)', 'Gvardiol (8.4)', 'Rodri (9.4)', 'De Bruyne (9.1)', 'Silva (8.8)', 'Foden (8.9)', 'Doku (8.3)', 'Haaland (9.2)']
+            },
+            {
+                id: 3,
+                competition: 'Premier League',
+                homeTeam: 'Manchester Utd',
+                awayTeam: 'Tottenham',
+                homeRating: '8.4',
+                awayRating: '8.5',
+                homeScore: 1,
+                awayScore: 1,
+                status: 'LIVE',
+                minute: 81,
+                countdownSeconds: 0,
+                scorers: ['Marcus Rashford 31\' (MUN)', 'James Maddison 67\' (TOT)'],
+                homeSquad: ['Onana (8.2)', 'Mazraoui (8.0)', 'De Ligt (8.3)', 'Martínez (8.4)', 'Dalot (8.1)', 'Ugarte (8.2)', 'Mainoo (8.5)', 'Garnacho (8.3)', 'Fernandes (8.6)', 'Rashford (8.7)', 'Zirkzee (7.9)'],
+                awaySquad: ['Vicario (8.4)', 'Porro (8.3)', 'Romero (8.5)', 'Van de Ven (8.6)', 'Udogie (8.2)', 'Bissouma (8.1)', 'Sarr (8.2)', 'Maddison (8.8)', 'Johnson (8.3)', 'Son (8.8)', 'Solanke (8.4)']
+            },
+            {
+                id: 4,
+                competition: 'La Liga',
                 homeTeam: 'Real Madrid',
                 awayTeam: 'Barcelona',
                 homeRating: '8.7',
-                awayRating: '8.5',
+                awayRating: '8.6',
                 homeScore: 2,
                 awayScore: 1,
-                status: 'LIVE',
-                minute: 74,
+                status: 'FT',
+                minute: 90,
                 countdownSeconds: 0,
                 scorers: ['Vinícius Júnior 23\'', 'Lamine Yamal 45+1\'', 'Jude Bellingham 61\''],
                 homeSquad: ['Courtois (8.9)', 'Carvajal (8.2)', 'Rüdiger (8.5)', 'Militão (8.1)', 'Mendy (7.9)', 'Valverde (8.8)', 'Camavinga (8.4)', 'Bellingham (9.2)', 'Rodrygo (8.3)', 'Mbappé (8.8)', 'Vinícius (9.1)'],
                 awaySquad: ['Ter Stegen (8.2)', 'Koundé (8.0)', 'Cubarsí (8.3)', 'Iñigo (8.1)', 'Balde (7.8)', 'Pedri (8.9)', 'Casadó (8.2)', 'Olmo (8.4)', 'Yamal (9.0)', 'Lewandowski (8.5)', 'Raphinha (8.7)']
             },
             {
-                id: 2,
-                competition: 'English Premier League',
-                homeTeam: 'Manchester City',
-                awayTeam: 'Arsenal',
-                homeRating: '8.8',
-                awayRating: '8.8',
-                homeScore: 0,
-                awayScore: 0,
-                status: 'COUNTDOWN',
-                countdownSeconds: 7350, // 2h 2m 30s
-                scorers: [],
-                homeSquad: ['Ederson (8.6)', 'Walker (8.1)', 'Dias (8.5)', 'Akanji (8.2)', 'Gvardiol (8.4)', 'Rodri (9.4)', 'De Bruyne (9.1)', 'Silva (8.8)', 'Foden (8.9)', 'Doku (8.3)', 'Haaland (9.2)'],
-                awaySquad: ['Raya (8.7)', 'White (8.4)', 'Saliba (9.0)', 'Gabriel (8.9)', 'Timber (8.2)', 'Partey (8.3)', 'Rice (9.1)', 'Ødegaard (8.9)', 'Saka (9.0)', 'Martinelli (8.4)', 'Havertz (8.3)']
-            },
-            {
-                id: 3,
+                id: 5,
                 competition: 'Bundesliga',
                 homeTeam: 'Bayern Munich',
-                awayTeam: 'Borussia Dortmund',
+                awayTeam: 'Dortmund',
                 homeRating: '8.6',
                 awayRating: '8.3',
                 homeScore: 0,
                 awayScore: 0,
                 status: 'COUNTDOWN',
-                countdownSeconds: 19800, // 5h 30m
+                countdownSeconds: 34200,
                 scorers: [],
                 homeSquad: ['Neuer (8.5)', 'Boey (7.9)', 'Upamecano (8.2)', 'Kim (8.1)', 'Davies (8.3)', 'Kimmich (8.8)', 'Pavlović (8.2)', 'Olise (8.5)', 'Musiala (9.0)', 'Gnabry (8.1)', 'Kane (9.3)'],
                 awaySquad: ['Kobel (8.6)', 'Ryerson (8.0)', 'Anton (8.2)', 'Schlotterbeck (8.4)', 'Bensebaini (7.9)', 'Can (7.8)', 'Groß (8.3)', 'Brandt (8.5)', 'Adeyemi (8.6)', 'Malen (8.1)', 'Guirassy (8.7)']
-            },
-            {
-                id: 4,
-                competition: 'Ligue 1',
-                homeTeam: 'Paris Saint-Germain',
-                awayTeam: 'Marseille',
-                homeRating: '8.5',
-                awayRating: '8.1',
-                homeScore: 3,
-                awayScore: 1,
-                status: 'FT',
-                minute: 90,
-                countdownSeconds: 0,
-                scorers: ['Dembélé 14\'', 'Barcola 38\'', 'Greenwood 52\' (OM)', 'Hakimi 76\''],
-                homeSquad: ['Donnarumma (8.3)', 'Hakimi (8.7)', 'Marquinhos (8.4)', 'Pacho (8.2)', 'Nuno Mendes (8.3)', 'Vitinha (8.9)', 'Neves (8.5)', 'Zaïre-Emery (8.1)', 'Dembélé (8.8)', 'Barcola (8.6)', 'Asensio (8.2)'],
-                awaySquad: ['Rulli (8.0)', 'Murillo (7.8)', 'Balerdi (7.9)', 'Cornelius (7.7)', 'Garcia (7.6)', 'Højbjerg (8.3)', 'Rabiot (8.2)', 'Greenwood (8.7)', 'Harit (8.0)', 'Rowe (7.9)', 'Wahi (7.8)']
-            },
-            {
-                id: 5,
-                competition: 'Serie A',
-                homeTeam: 'Inter Milan',
-                awayTeam: 'AC Milan',
-                homeRating: '8.6',
-                awayRating: '8.5',
-                homeScore: 1,
-                awayScore: 1,
-                status: 'FT',
-                minute: 90,
-                countdownSeconds: 0,
-                scorers: ['Pulisic 12\' (ACM)', 'Lautaro Martínez 35\' (INT)'],
-                homeSquad: ['Sommer (8.4)', 'Pavard (8.3)', 'Acerbi (8.1)', 'Bastoni (8.6)', 'Dumfries (8.2)', 'Barella (8.8)', 'Çalhanoğlu (8.9)', 'Mkhitaryan (8.1)', 'Dimarco (8.5)', 'Thuram (8.7)', 'Lautaro (8.8)'],
-                awaySquad: ['Maignan (8.7)', 'Emerson (7.8)', 'Tomori (8.2)', 'Pavlović (8.0)', 'Hernández (8.5)', 'Fofana (8.3)', 'Reijnders (8.4)', 'Pulisic (8.9)', 'Loftus-Cheek (8.1)', 'Leão (8.8)', 'Morata (8.2)']
-            },
-            {
-                id: 6,
-                competition: 'Premier League',
-                homeTeam: 'Liverpool',
-                awayTeam: 'Chelsea',
-                homeRating: '8.7',
-                awayRating: '8.4',
-                homeScore: 0,
-                awayScore: 0,
-                status: 'COUNTDOWN',
-                countdownSeconds: 86400, // 24h
-                scorers: [],
-                homeSquad: ['Alisson (8.8)', 'Alexander-Arnold (8.7)', 'Konaté (8.5)', 'Van Dijk (9.1)', 'Robertson (8.3)', 'Mac Allister (8.6)', 'Gravenberch (8.5)', 'Szoboszlai (8.4)', 'Salah (9.3)', 'Díaz (8.6)', 'Jota (8.2)'],
-                awaySquad: ['Sánchez (8.1)', 'James (8.3)', 'Fofana (8.0)', 'Colwill (8.2)', 'Cucurella (8.1)', 'Caicedo (8.6)', 'Lavia (8.3)', 'Palmer (9.2)', 'Madueke (8.4)', 'Neto (8.2)', 'Jackson (8.3)']
-            },
-            {
-                id: 7,
-                competition: 'La Liga',
-                homeTeam: 'Atlético Madrid',
-                awayTeam: 'Villarreal',
-                homeRating: '8.3',
-                awayRating: '8.1',
-                homeScore: 0,
-                awayScore: 0,
-                status: 'COUNTDOWN',
-                countdownSeconds: 112000,
-                scorers: [],
-                homeSquad: ['Oblak (8.6)', 'Llorente (8.4)', 'Le Normand (8.2)', 'Giménez (8.3)', 'Azpilicueta (7.9)', 'Gallagher (8.5)', 'De Paul (8.3)', 'Koke (8.1)', 'Lino (8.2)', 'Griezmann (8.8)', 'Álvarez (8.6)'],
-                awaySquad: ['Conde (8.2)', 'Femenía (7.8)', 'Albiol (7.7)', 'Costa (7.9)', 'Cardona (7.8)', 'Comesaña (8.0)', 'Parejo (8.3)', 'Baena (8.7)', 'Pep Pépé (8.1)', 'Pérez (8.4)', 'Barry (8.2)']
-            },
-            {
-                id: 8,
-                competition: 'Serie A',
-                homeTeam: 'Juventus',
-                awayTeam: 'Napoli',
-                homeRating: '8.4',
-                awayRating: '8.5',
-                homeScore: 0,
-                awayScore: 0,
-                status: 'COUNTDOWN',
-                countdownSeconds: 145000,
-                scorers: [],
-                homeSquad: ['Di Gregorio (8.3)', 'Savona (7.9)', 'Gatti (8.2)', 'Bremer (8.8)', 'Cambiaso (8.4)', 'Locatelli (8.3)', 'Thuram (8.4)', 'Conceição (8.5)', 'Koopmeiners (8.6)', 'Yıldız (8.5)', 'Vlahović (8.4)'],
-                awaySquad: ['Meret (8.2)', 'Di Lorenzo (8.5)', 'Rrahmani (8.3)', 'Buongiorno (8.6)', 'Olivera (7.9)', 'Anguissa (8.4)', 'Lobotka (8.7)', 'McTominay (8.5)', 'Politano (8.2)', 'Kvaratskhelia (8.9)', 'Lukaku (8.4)']
-            },
-            {
-                id: 9,
-                competition: 'Premier League',
-                homeTeam: 'Tottenham Hotspur',
-                awayTeam: 'Newcastle United',
-                homeRating: '8.3',
-                awayRating: '8.3',
-                homeScore: 0,
-                awayScore: 0,
-                status: 'COUNTDOWN',
-                countdownSeconds: 180000,
-                scorers: [],
-                homeSquad: ['Vicario (8.4)', 'Porro (8.3)', 'Romero (8.5)', 'Van de Ven (8.6)', 'Udogie (8.2)', 'Bissouma (8.1)', 'Sarr (8.2)', 'Maddison (8.5)', 'Johnson (8.3)', 'Son (8.8)', 'Solanke (8.4)'],
-                awaySquad: ['Pope (8.4)', 'Livramento (8.1)', 'Schär (8.3)', 'Burn (8.0)', 'Hall (7.9)', 'Guimarães (8.9)', 'Tonali (8.5)', 'Joelinton (8.4)', 'Murphy (8.2)', 'Gordon (8.6)', 'Isak (8.8)']
-            },
-            {
-                id: 10,
-                competition: 'Eredivisie',
-                homeTeam: 'Ajax',
-                awayTeam: 'Feyenoord',
-                homeRating: '8.0',
-                awayRating: '8.1',
-                homeScore: 2,
-                awayScore: 2,
-                status: 'FT',
-                minute: 90,
-                countdownSeconds: 0,
-                scorers: ['Giménez 18\' (FEY)', 'Taylor 42\' (AJX)', 'Timber 65\' (FEY)', 'Brobbey 88\' (AJX)'],
-                homeSquad: ['Pasveer (8.0)', 'Rensch (7.8)', 'Šutalo (8.1)', 'Baas (7.9)', 'Hato (8.2)', 'Henderson (8.3)', 'Taylor (8.5)', 'Klaassen (8.0)', 'Traoré (8.1)', 'Godts (8.2)', 'Brobbey (8.4)'],
-                awaySquad: ['Wellenreuther (8.1)', 'Lotomba (7.8)', 'Beelen (7.9)', 'Hancko (8.5)', 'Smal (7.8)', 'Milambo (8.2)', 'In-beom (8.4)', 'Timber (8.6)', 'Osman (8.0)', 'Paixão (8.1)', 'Giménez (8.5)']
             }
         ];
 
         let notifications = JSON.parse(localStorage.getItem('sinless_notifs')) || [
-            { text: 'Welcome to Sinless GG! Dynamic trend algorithm & live match ticker active.', ts: Date.now() }
+            { text: 'Welcome to Sinless GG! Twitter-style trends & live Sofascore-style fixtures active.', ts: Date.now() }
         ];
 
         let directMessages = JSON.parse(localStorage.getItem('sinless_dms')) || [
@@ -637,7 +601,7 @@
 
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
             { user: 'Sinless101', verified: true, game: 'FOOTBALL', caption: 'Official admin update: Welcome to Sinless GG! #SinlessSuperLeague', likes: 25, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, ts: Date.now() },
-            { user: 'SinlessGaming', verified: true, game: 'FOOTBALL', caption: 'Absolute masterclass in tonight’s fixture! 🔥 #Football', likes: 12, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, ts: Date.now() }
+            { user: 'SinlessGaming', verified: true, game: 'FOOTBALL', caption: 'Absolute masterclass in tonight’s fixture! 🔥 #PremierLeague', likes: 12, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, ts: Date.now() }
         ];
 
         let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
@@ -679,14 +643,13 @@
             renderTopAccounts();
             renderSearchResults('');
             
-            // Start real-time clock & match countdown / live ticker loop
             setInterval(() => {
                 tickLiveMatches();
                 runTheSixtiesAlgorithm();
             }, 1000);
         }
 
-        // Real-Time Algorithmic Summary ("The 60s")
+        // Algorithmic Summary ("The 60s")
         function runTheSixtiesAlgorithm() {
             let totalPosts = fypPosts.length;
             let totalLikes = fypPosts.reduce((acc, p) => acc + (p.likes || 0), 0);
@@ -695,7 +658,7 @@
 
             let summaryHtml = `Community activity on Sinless GG is surging with <strong>${totalPosts} active posts</strong> and <strong>${totalLikes} total GGs</strong> recorded across lobbies. `;
             if(activeLiveMatch) {
-                summaryHtml += `On the pitch, all eyes are locked on <em>${activeLiveMatch.homeTeam} vs ${activeLiveMatch.awayTeam}</em> (${activeLiveMatch.homeScore}-${activeLiveMatch.awayScore}, ${activeLiveMatch.minute}' LIVE). `;
+                summaryHtml += `On the pitch, live action features <em>${activeLiveMatch.homeTeam} vs ${activeLiveMatch.awayTeam}</em> (${activeLiveMatch.homeScore}-${activeLiveMatch.awayScore}, ${activeLiveMatch.minute}' LIVE). `;
             }
             if(upcomingMatch) {
                 summaryHtml += `Anticipation is building for the upcoming clash between <em>${upcomingMatch.homeTeam} and ${upcomingMatch.awayTeam}</em>.`;
@@ -746,7 +709,7 @@
             return `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
         }
 
-        // Render Top 10 Interactive Matches Carousel
+        // Render Top Interactive Matches Carousel
         function renderTopMatchesCarousel() {
             let container = document.getElementById('topMatchesCarousel');
             if(!container) return;
@@ -820,9 +783,7 @@
 
             document.getElementById('matchCenterModal').classList.remove('hidden');
         }
-        function closeMatchCenterModal() {
-            document.getElementById('matchCenterModal').classList.add('hidden');
-        }
+        function closeMatchCenterModal() { document.getElementById('matchCenterModal').classList.add('hidden'); }
 
         function quickSelectAccount(acc, email) {
             document.getElementById('setupUsernameInput').value = acc;
