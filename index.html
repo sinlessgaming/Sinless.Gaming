@@ -129,7 +129,7 @@
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
-        <!-- 2. TRENDING VIEW -->
+        <!-- 2. TRENDING VIEW ("The 60s" AI Summary & Top 10 Interactive Live Matches) -->
         <div id="view-trending" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             <div class="glass-panel p-3 rounded-2xl space-y-2.5 shadow-xl">
                 <div class="relative">
@@ -138,55 +138,41 @@
                 </div>
             </div>
 
-            <!-- Live Scores & Fixtures Carousel with Real Figures -->
+            <!-- Top 10 Interactive Live Matches Carousel with Live Countdowns & Ticking Minutes -->
             <div class="space-y-2">
                 <div class="flex items-center justify-between px-1">
-                    <h3 class="text-[10px] font-black text-cyan-400 uppercase tracking-wider"><i class="fa-solid fa-futbol mr-1"></i> Live Scores & Fixtures</h3>
+                    <h3 class="text-[10px] font-black text-cyan-400 uppercase tracking-wider"><i class="fa-solid fa-futbol mr-1"></i> Top 10 Live Matches & Fixtures (Tap for Squads & Ratings)</h3>
                     <span class="text-[9px] text-gray-400">Swipe →</span>
                 </div>
-                <div id="liveScoresCarousel" class="flex space-x-2.5 overflow-x-auto scrollbar-none py-1"></div>
+                <div id="topMatchesCarousel" class="flex space-x-2.5 overflow-x-auto scrollbar-none py-1">
+                    <!-- Dynamically rendered top 10 interactive matches -->
+                </div>
             </div>
 
-            <!-- Today's News & Trend Summary -->
-            <div class="glass-panel p-4 rounded-2xl space-y-3.5 shadow-xl">
+            <!-- "THE 60s" AI Trend Summary -->
+            <div class="glass-panel p-4 rounded-2xl space-y-3.5 shadow-xl border border-cyan-500/30">
                 <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-newspaper text-cyan-400 mr-1.5"></i> Today's News & Trend Summary</h3>
-                    <span class="text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">LIVE</span>
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                        <h3 class="text-xs font-black text-white uppercase tracking-wider">🔥 THE 60s: AI TREND BRIEFING</h3>
+                    </div>
+                    <span class="text-[9px] text-cyan-400 font-bold bg-cyan-500/10 px-2 py-0.5 rounded-full">Updated 60s Ago</span>
                 </div>
-                <div class="space-y-3 divide-y divide-cyan-500/10">
-                    <div class="pt-2.5 first:pt-0 space-y-1">
-                        <h4 class="font-bold text-xs text-white hover:text-cyan-400 cursor-pointer">Shatta Wale's Shattafest Accra 2026 Set for October 17 at Accra Sports Stadium</h4>
-                        <p class="text-[9px] text-gray-400">1 day ago • Entertainment • 9.3K posts</p>
+                <p class="text-[11px] text-gray-300 leading-relaxed">
+                    <strong class="text-cyan-400">What's happening right now:</strong> Football discussions are surging with El Clásico live dominance (RMA 2 - 1 BAR) and anticipation building for Man City vs Arsenal. In national trends, legal discussions around <em>Call to the Bar</em> lead with over 4.2K active community posts, while entertainment buzz centers on Shattafest 2026.
+                </p>
+                <div class="grid grid-cols-3 gap-2 pt-1 text-center">
+                    <div class="bg-gg-950 p-2 rounded-xl border border-cyan-500/20">
+                        <span class="block text-[8px] text-gray-400 uppercase font-bold">Top Sport</span>
+                        <span class="text-[10px] text-amber-400 font-black">El Clásico Live</span>
                     </div>
-                    <div class="pt-2.5 space-y-1">
-                        <h4 class="font-bold text-xs text-white hover:text-cyan-400 cursor-pointer">Ghana Task Forces Clear Unauthorized Markets from Key Roundabouts</h4>
-                        <p class="text-[9px] text-gray-400">2 days ago • National News • 7.6K posts</p>
+                    <div class="bg-gg-950 p-2 rounded-xl border border-cyan-500/20">
+                        <span class="block text-[8px] text-gray-400 uppercase font-bold">Trending Law</span>
+                        <span class="text-[10px] text-cyan-400 font-black">Call to Bar</span>
                     </div>
-                    <div class="pt-2.5 space-y-1">
-                        <h4 class="font-bold text-xs text-white hover:text-cyan-400 cursor-pointer">Black Queens Dominate Mauritius 3-0 in Olympic Qualifier First Leg</h4>
-                        <p class="text-[9px] text-gray-400">1 day ago • Sports • 1.4K posts</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Trending Topics with Active Figures -->
-            <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-chart-line text-orange-400 mr-1.5"></i> Trending Topics in Ghana</h3>
-                <div class="space-y-3">
-                    <div class="cursor-pointer hover:bg-gg-900 p-2.5 rounded-xl transition" onclick="filterByTag('#CallToTheBar')">
-                        <span class="text-[9px] text-gray-400">Trending in Ghana • Law</span>
-                        <h4 class="font-bold text-xs text-white">Call to the Bar</h4>
-                        <span class="text-[9px] text-cyan-400 font-bold">4.2K posts • High engagement</span>
-                    </div>
-                    <div class="cursor-pointer hover:bg-gg-900 p-2.5 rounded-xl transition" onclick="filterByTag('#Bellingham')">
-                        <span class="text-[9px] text-gray-400">Trending in Sports • Football</span>
-                        <h4 class="font-bold text-xs text-white">Bellingham</h4>
-                        <span class="text-[9px] text-cyan-400 font-bold">12.8K posts • Trending #1</span>
-                    </div>
-                    <div class="cursor-pointer hover:bg-gg-900 p-2.5 rounded-xl transition" onclick="filterByTag('#SinlessSuperLeague')">
-                        <span class="text-[9px] text-gray-400">Trending in Esports</span>
-                        <h4 class="font-bold text-xs text-white">#SinlessSuperLeague</h4>
-                        <span class="text-[9px] text-cyan-400 font-bold">8.5K posts • Gaming Hub</span>
+                    <div class="bg-gg-950 p-2 rounded-xl border border-cyan-500/20">
+                        <span class="block text-[8px] text-gray-400 uppercase font-bold">Esports Hub</span>
+                        <span class="text-[10px] text-magenta font-black">Sinless League</span>
                     </div>
                 </div>
             </div>
@@ -267,7 +253,56 @@
 
     <!-- Modals & Fullscreen Overlays -->
 
-    <!-- Account / Login Modal with Gmail & Gamer Tag -->
+    <!-- Interactive Match Center Modal (Squads, Ratings, Scorers) -->
+    <div id="matchCenterModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl border border-cyan-500/50 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <div class="flex items-center space-x-2">
+                    <span id="modalMatchCompetition" class="text-[9px] uppercase font-black px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded">Competition</span>
+                    <span id="modalMatchStatus" class="text-[9px] font-bold text-red-400 animate-pulse">LIVE</span>
+                </div>
+                <button onclick="closeMatchCenterModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
+            </div>
+            
+            <!-- Scoreboard Box -->
+            <div class="bg-gg-950 p-4 rounded-2xl border border-cyan-500/20 text-center space-y-2">
+                <div class="flex items-center justify-between px-4">
+                    <div class="text-center flex-1">
+                        <h4 id="modalHomeTeam" class="font-black text-xs text-white">HOME TEAM</h4>
+                        <span id="modalHomeRating" class="text-[9px] text-gray-400">Rating: 8.4</span>
+                    </div>
+                    <div class="px-3 text-lg font-black text-amber-400">
+                        <span id="modalHomeScore">2</span> - <span id="modalAwayScore">1</span>
+                    </div>
+                    <div class="text-center flex-1">
+                        <h4 id="modalAwayTeam" class="font-black text-xs text-white">AWAY TEAM</h4>
+                        <span id="modalAwayRating" class="text-[9px] text-gray-400">Rating: 8.2</span>
+                    </div>
+                </div>
+                <div id="modalMatchMinute" class="text-[10px] text-cyan-400 font-extrabold uppercase">74' In Progress</div>
+            </div>
+
+            <!-- Scorers & Events -->
+            <div class="space-y-1.5">
+                <h5 class="text-[10px] font-black text-cyan-400 uppercase"><i class="fa-solid fa-futbol mr-1"></i> Goalscorers & Key Events</h5>
+                <div id="modalScorersList" class="bg-gg-900 p-3 rounded-xl text-xs space-y-1 border border-cyan-500/10 text-gray-200"></div>
+            </div>
+
+            <!-- Starting Lineups / Squads -->
+            <div class="grid grid-cols-2 gap-2">
+                <div class="bg-gg-900 p-3 rounded-xl border border-cyan-500/10 space-y-1">
+                    <h5 id="modalHomeLineupTitle" class="text-[10px] font-black text-cyan-400 uppercase">Home Lineup</h5>
+                    <div id="modalHomeSquadList" class="text-[10px] text-gray-300 space-y-0.5"></div>
+                </div>
+                <div class="bg-gg-900 p-3 rounded-xl border border-cyan-500/10 space-y-1">
+                    <h5 id="modalAwayLineupTitle" class="text-[10px] font-black text-cyan-400 uppercase">Away Lineup</h5>
+                    <div id="modalAwaySquadList" class="text-[10px] text-gray-300 space-y-0.5"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account / Login Modal -->
     <div id="accountModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -275,29 +310,25 @@
                 <button onclick="closeAccountModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             <div class="space-y-3">
-                <p class="text-[10px] text-gray-300">Sign in securely with your Gmail and Gamer Tag. Switch instantly between your personal account and admin account below:</p>
-                
+                <p class="text-[10px] text-gray-300">Switch instantly between your personal account and admin account:</p>
                 <div>
                     <label class="block text-[10px] text-cyan-400 font-bold mb-1">Gmail Address</label>
-                    <input type="email" id="setupEmailInput" placeholder="e.g., sinlessgaming@gmail.com" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
+                    <input type="email" id="setupEmailInput" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
                 </div>
-
                 <div>
                     <label class="block text-[10px] text-cyan-400 font-bold mb-1">Gamer Tag / Handle</label>
-                    <input type="text" id="setupUsernameInput" placeholder="e.g., @SinlessGaming or @Sinless101" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
+                    <input type="text" id="setupUsernameInput" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
                 </div>
-
                 <div class="grid grid-cols-2 gap-2 pt-1">
                     <button onclick="quickSelectAccount('@SinlessGaming', 'sinlessgaming@gmail.com')" class="py-2 px-1 bg-gg-800 border border-cyan-500/30 text-cyan-400 font-bold rounded-xl text-[9px] text-center truncate">👤 @SinlessGaming</button>
                     <button onclick="quickSelectAccount('@Sinless101', 'sinless101@gmail.com')" class="py-2 px-1 bg-gg-800 border border-cyan-500/30 text-orange-400 font-bold rounded-xl text-[9px] text-center truncate">👑 @Sinless101</button>
                 </div>
-
                 <button onclick="saveUserAccount()" class="w-full py-3 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs shadow-lg">💾 Save Login & Continue</button>
             </div>
         </div>
     </div>
 
-    <!-- FULLSCREEN SQUAD ROOM MODAL -->
+    <!-- SQUAD ROOM MODAL -->
     <div id="squadRoomModal" class="hidden fixed inset-0 bg-gg-950 z-50 flex flex-col w-full h-full fade-in">
         <header class="bg-gg-900 border-b border-cyan-500/20 px-4 py-3 flex items-center justify-between shadow-2xl">
             <div>
@@ -443,15 +474,163 @@
         let myUsername = localStorage.getItem('sinless_username') || '@SinlessGaming';
         let myEmail = localStorage.getItem('sinless_email') || 'sinlessgaming@gmail.com';
 
-        let liveMatchFixtures = [
-            { time: '11:30', status: 'Tomorrow', homeTeam: 'LEEDS (LEE)', awayTeam: 'ARSENAL (ARS)', homeScore: '-', awayScore: '-', isLive: false },
-            { time: '14:00', status: 'Tomorrow', homeTeam: 'BRENTFORD (BRE)', awayTeam: 'ASTON VILLA (AST)', homeScore: '-', awayScore: '-', isLive: false },
-            { time: '78\'', status: 'LIVE', homeTeam: 'REAL MADRID (RMA)', awayTeam: 'BARCELONA (BAR)', homeScore: '2', awayScore: '1', isLive: true },
-            { time: 'FT', status: 'FINISHED', homeTeam: 'MANCHESTER CITY (MCI)', awayTeam: 'LIVERPOOL (LIV)', homeScore: '3', awayScore: '2', isLive: false }
+        // Top 10 World-Class Interactive Matches Dataset with Live Countdowns & Squads/Ratings
+        let topMatchesData = [
+            {
+                id: 1,
+                competition: 'UEFA Champions League',
+                homeTeam: 'Real Madrid',
+                awayTeam: 'Barcelona',
+                homeRating: '8.7',
+                awayRating: '8.5',
+                homeScore: 2,
+                awayScore: 1,
+                status: 'LIVE',
+                minute: 74,
+                kickoffTime: null,
+                scorers: ['Vinícius Júnior 23\'', 'Lamine Yamal 45+1\'', 'Jude Bellingham 61\''],
+                homeSquad: ['Courtois (8.9)', 'Carvajal (8.2)', 'Rüdiger (8.5)', 'Militão (8.1)', 'Mendy (7.9)', 'Valverde (8.8)', 'Camavinga (8.4)', 'Bellingham (9.2)', 'Rodrygo (8.3)', 'Mbappé (8.8)', 'Vinícius (9.1)'],
+                awaySquad: ['Ter Stegen (8.2)', 'Koundé (8.0)', 'Cubarsí (8.3)', 'Iñigo (8.1)', 'Balde (7.8)', 'Pedri (8.9)', 'Casadó (8.2)', 'Olmo (8.4)', 'Yamal (9.0)', 'Lewandowski (8.5)', 'Raphinha (8.7)']
+            },
+            {
+                id: 2,
+                competition: 'English Premier League',
+                homeTeam: 'Manchester City',
+                awayTeam: 'Arsenal',
+                homeRating: '8.8',
+                awayRating: '8.8',
+                homeScore: 0,
+                awayScore: 0,
+                status: 'COUNTDOWN',
+                countdownSeconds: 7350, // 2h 2m 30s
+                scorers: [],
+                homeSquad: ['Ederson (8.6)', 'Walker (8.1)', 'Dias (8.5)', 'Akanji (8.2)', 'Gvardiol (8.4)', 'Rodri (9.4)', 'De Bruyne (9.1)', 'Silva (8.8)', 'Foden (8.9)', 'Doku (8.3)', 'Haaland (9.2)'],
+                awaySquad: ['Raya (8.7)', 'White (8.4)', 'Saliba (9.0)', 'Gabriel (8.9)', 'Timber (8.2)', 'Partey (8.3)', 'Rice (9.1)', 'Ødegaard (8.9)', 'Saka (9.0)', 'Martinelli (8.4)', 'Havertz (8.3)']
+            },
+            {
+                id: 3,
+                competition: 'Bundesliga',
+                homeTeam: 'Bayern Munich',
+                awayTeam: 'Borussia Dortmund',
+                homeRating: '8.6',
+                awayRating: '8.3',
+                homeScore: 0,
+                awayScore: 0,
+                status: 'COUNTDOWN',
+                countdownSeconds: 19800, // 5h 30m
+                scorers: [],
+                homeSquad: ['Neuer (8.5)', 'Boey (7.9)', 'Upamecano (8.2)', 'Kim (8.1)', 'Davies (8.3)', 'Kimmich (8.8)', 'Pavlović (8.2)', 'Olise (8.5)', 'Musiala (9.0)', 'Gnabry (8.1)', 'Kane (9.3)'],
+                awaySquad: ['Kobel (8.6)', 'Ryerson (8.0)', 'Anton (8.2)', 'Schlotterbeck (8.4)', 'Bensebaini (7.9)', 'Can (7.8)', 'Groß (8.3)', 'Brandt (8.5)', 'Adeyemi (8.6)', 'Malen (8.1)', 'Guirassy (8.7)']
+            },
+            {
+                id: 4,
+                competition: 'Ligue 1',
+                homeTeam: 'Paris Saint-Germain',
+                awayTeam: 'Marseille',
+                homeRating: '8.5',
+                awayRating: '8.1',
+                homeScore: 3,
+                awayScore: 1,
+                status: 'FT',
+                minute: 90,
+                scorers: ['Dembélé 14\'', 'Barcola 38\'', 'Greenwood 52\' (OM)', 'Hakimi 76\''],
+                homeSquad: ['Donnarumma (8.3)', 'Hakimi (8.7)', 'Marquinhos (8.4)', 'Pacho (8.2)', 'Nuno Mendes (8.3)', 'Vitinha (8.9)', 'Neves (8.5)', 'Zaïre-Emery (8.1)', 'Dembélé (8.8)', 'Barcola (8.6)', 'Asensio (8.2)'],
+                awaySquad: ['Rulli (8.0)', 'Murillo (7.8)', 'Balerdi (7.9)', 'Cornelius (7.7)', 'Garcia (7.6)', 'Højbjerg (8.3)', 'Rabiot (8.2)', 'Greenwood (8.7)', 'Harit (8.0)', 'Rowe (7.9)', 'Wahi (7.8)']
+            },
+            {
+                id: 5,
+                competition: 'Serie A',
+                homeTeam: 'Inter Milan',
+                awayTeam: 'AC Milan',
+                homeRating: '8.6',
+                awayRating: '8.5',
+                homeScore: 1,
+                awayScore: 1,
+                status: 'FT',
+                minute: 90,
+                scorers: ['Pulisic 12\' (ACM)', 'Lautaro Martínez 35\' (INT)'],
+                homeSquad: ['Sommer (8.4)', 'Pavard (8.3)', 'Acerbi (8.1)', 'Bastoni (8.6)', 'Dumfries (8.2)', 'Barella (8.8)', 'Çalhanoğlu (8.9)', 'Mkhitaryan (8.1)', 'Dimarco (8.5)', 'Thuram (8.7)', 'Lautaro (8.8)'],
+                awaySquad: ['Maignan (8.7)', 'Emerson (7.8)', 'Tomori (8.2)', 'Pavlović (8.0)', 'Hernández (8.5)', 'Fofana (8.3)', 'Reijnders (8.4)', 'Pulisic (8.9)', 'Loftus-Cheek (8.1)', 'Leão (8.8)', 'Morata (8.2)']
+            },
+            {
+                id: 6,
+                competition: 'Premier League',
+                homeTeam: 'Liverpool',
+                awayTeam: 'Chelsea',
+                homeRating: '8.7',
+                awayRating: '8.4',
+                homeScore: 0,
+                awayScore: 0,
+                status: 'COUNTDOWN',
+                countdownSeconds: 86400, // 24h
+                scorers: [],
+                homeSquad: ['Alisson (8.8)', 'Alexander-Arnold (8.7)', 'Konaté (8.5)', 'Van Dijk (9.1)', 'Robertson (8.3)', 'Mac Allister (8.6)', 'Gravenberch (8.5)', 'Szoboszlai (8.4)', 'Salah (9.3)', 'Díaz (8.6)', 'Jota (8.2)'],
+                awaySquad: ['Sánchez (8.1)', 'James (8.3)', 'Fofana (8.0)', 'Colwill (8.2)', 'Cucurella (8.1)', 'Caicedo (8.6)', 'Lavia (8.3)', 'Palmer (9.2)', 'Madueke (8.4)', 'Neto (8.2)', 'Jackson (8.3)']
+            },
+            {
+                id: 7,
+                competition: 'La Liga',
+                homeTeam: 'Atlético Madrid',
+                awayTeam: 'Villarreal',
+                homeRating: '8.3',
+                awayRating: '8.1',
+                homeScore: 0,
+                awayScore: 0,
+                status: 'COUNTDOWN',
+                countdownSeconds: 112000,
+                scorers: [],
+                homeSquad: ['Oblak (8.6)', 'Llorente (8.4)', 'Le Normand (8.2)', 'Giménez (8.3)', 'Azpilicueta (7.9)', 'Gallagher (8.5)', 'De Paul (8.3)', 'Koke (8.1)', 'Lino (8.2)', 'Griezmann (8.8)', Álvarez (8.6)],
+                awaySquad: ['Conde (8.2)', 'Femenía (7.8)', 'Albiol (7.7)', 'Costa (7.9)', 'Cardona (7.8)', 'Comesaña (8.0)', 'Parejo (8.3)', 'Baena (8.7)', 'Pep Pépé (8.1)', 'Pérez (8.4)', 'Barry (8.2)']
+            },
+            {
+                id: 8,
+                competition: 'Serie A',
+                homeTeam: 'Juventus',
+                awayTeam: 'Napoli',
+                homeRating: '8.4',
+                awayRating: '8.5',
+                homeScore: 0,
+                awayScore: 0,
+                status: 'COUNTDOWN',
+                countdownSeconds: 145000,
+                scorers: [],
+                homeSquad: ['Di Gregorio (8.3)', 'Savona (7.9)', 'Gatti (8.2)', 'Bremer (8.8)', 'Cambiaso (8.4)', 'Locatelli (8.3)', 'Thuram (8.4)', 'Conceição (8.5)', 'Koopmeiners (8.6)', 'Yıldız (8.5)', 'Vlahović (8.4)'],
+                awaySquad: ['Meret (8.2)', 'Di Lorenzo (8.5)', 'Rrahmani (8.3)', 'Buongiorno (8.6)', 'Olivera (7.9)', 'Anguissa (8.4)', 'Lobotka (8.7)', 'McTominay (8.5)', 'Politano (8.2)', 'Kvaratskhelia (8.9)', 'Lukaku (8.4)']
+            },
+            {
+                id: 9,
+                competition: 'Premier League',
+                homeTeam: 'Tottenham Hotspur',
+                awayTeam: 'Newcastle United',
+                homeRating: '8.3',
+                awayRating: '8.3',
+                homeScore: 0,
+                awayScore: 0,
+                status: 'COUNTDOWN',
+                countdownSeconds: 180000,
+                scorers: [],
+                homeSquad: ['Vicario (8.4)', 'Porro (8.3)', 'Romero (8.5)', 'Van de Ven (8.6)', 'Udogie (8.2)', 'Bissouma (8.1)', 'Sarr (8.2)', 'Maddison (8.5)', 'Johnson (8.3)', 'Son (8.8)', 'Solanke (8.4)'],
+                awaySquad: ['Pope (8.4)', 'Livramento (8.1)', 'Schär (8.3)', 'Burn (8.0)', 'Hall (7.9)', 'Guimarães (8.9)', 'Tonali (8.5)', 'Joelinton (8.4)', 'Murphy (8.2)', 'Gordon (8.6)', 'Isak (8.8)']
+            },
+            {
+                id: 10,
+                competition: 'Eredivisie',
+                homeTeam: 'Ajax',
+                awayTeam: 'Feyenoord',
+                homeRating: '8.0',
+                awayRating: '8.1',
+                homeScore: 2,
+                awayScore: 2,
+                status: 'FT',
+                minute: 90,
+                scorers: ['Giménez 18\' (FEY)', 'Taylor 42\' (AJX)', 'Timber 65\' (FEY)', 'Brobbey 88\' (AJX)'],
+                homeSquad: ['Pasveer (8.0)', 'Rensch (7.8)', 'Šutalo (8.1)', 'Baas (7.9)', 'Hato (8.2)', 'Henderson (8.3)', 'Taylor (8.5)', 'Klaassen (8.0)', 'Traoré (8.1)', 'Godts (8.2)', 'Brobbey (8.4)'],
+                awaySquad: ['Wellenreuther (8.1)', 'Lotomba (7.8)', 'Beelen (7.9)', 'Hancko (8.5)', 'Smal (7.8)', 'Milambo (8.2)', 'In-beom (8.4)', 'Timber (8.6)', 'Osman (8.0)', 'Paixão (8.1)', 'Giménez (8.5)']
+            }
         ];
 
         let notifications = JSON.parse(localStorage.getItem('sinless_notifs')) || [
-            { text: 'Welcome to Sinless GG! Gmail login & @SinlessGaming active.', ts: Date.now() }
+            { text: 'Welcome to Sinless GG! Top 10 interactive live matches & The 60s active.', ts: Date.now() }
         ];
 
         let directMessages = JSON.parse(localStorage.getItem('sinless_dms')) || [
@@ -506,47 +685,125 @@
             }
             document.getElementById('headerUserTag').innerText = myUsername;
             updateNotifBadge();
-            renderLiveScoresCarousel();
+            renderTopMatchesCarousel();
             renderLadder('FOOTBALL');
             renderClansList();
             renderFypFeed();
             renderMarketList();
             renderTopAccounts();
             renderSearchResults('');
+            
+            // Start live countdown and timer ticker loop
+            setInterval(tickLiveMatches, 1000);
+        }
+
+        // Live Ticker for Countdowns and Live Matches
+        function tickLiveMatches() {
+            topMatchesData.forEach(m => {
+                if(m.status === 'COUNTDOWN' && m.countdownSeconds > 0) {
+                    m.countdownSeconds--;
+                } else if(m.status === 'LIVE' && m.minute < 90) {
+                    // Random minute progression simulation
+                    if(Math.random() < 0.1) m.minute++;
+                }
+            });
+            renderTopMatchesCarousel();
+        }
+
+        function formatCountdown(totalSecs) {
+            let hrs = Math.floor(totalSecs / 3600);
+            let mins = Math.floor((totalSecs % 3600) / 60);
+            let secs = totalSecs % 60;
+            if(hrs > 24) {
+                let days = Math.floor(hrs / 24);
+                return `${days}d ${hrs % 24}h`;
+            }
+            return `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+        }
+
+        // Render Top 10 Interactive Matches Carousel
+        function renderTopMatchesCarousel() {
+            let container = document.getElementById('topMatchesCarousel');
+            if(!container) return;
+            container.innerHTML = '';
+            
+            topMatchesData.forEach(match => {
+                let statusBadge = '';
+                if(match.status === 'LIVE') {
+                    statusBadge = `<span class="text-red-400 animate-pulse font-extrabold flex items-center space-x-1"><i class="fa-solid fa-circle text-[5px]"></i><span>${match.minute}' LIVE</span></span>`;
+                } else if(match.status === 'COUNTDOWN') {
+                    statusBadge = `<span class="text-amber-400 font-extrabold font-mono text-[9px]"><i class="fa-solid fa-clock mr-0.5"></i>${formatCountdown(match.countdownSeconds)}</span>`;
+                } else {
+                    statusBadge = `<span class="text-gray-400 font-extrabold">FT</span>`;
+                }
+
+                container.innerHTML += `
+                    <div onclick="openMatchCenter(${match.id})" class="glass-panel min-w-[160px] p-3 rounded-2xl space-y-2 border border-cyan-500/25 shadow-lg cursor-pointer hover:border-cyan-400 transition transform hover:scale-[1.02]">
+                        <div class="flex justify-between text-[9px] text-gray-400 font-bold truncate">
+                            <span class="truncate pr-1">${match.competition}</span>
+                            ${statusBadge}
+                        </div>
+                        <div class="flex items-center justify-between text-xs font-bold text-white">
+                            <span class="truncate pr-1">${match.homeTeam}</span>
+                            <span class="text-amber-400 font-black">${match.status === 'COUNTDOWN' ? '-' : match.homeScore}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-xs font-bold text-white">
+                            <span class="truncate pr-1">${match.awayTeam}</span>
+                            <span class="text-amber-400 font-black">${match.status === 'COUNTDOWN' ? '-' : match.awayScore}</span>
+                        </div>
+                        <div class="text-[8px] text-cyan-400 font-semibold pt-0.5 border-t border-cyan-500/10 flex justify-between items-center">
+                            <span>Tap for squads & ratings</span>
+                            <i class="fa-solid fa-chevron-right text-[7px]"></i>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Open Interactive Match Center Modal
+        function openMatchCenter(matchId) {
+            let match = topMatchesData.find(m => m.id === matchId);
+            if(!match) return;
+
+            document.getElementById('modalMatchCompetition').innerText = match.competition;
+            document.getElementById('modalMatchStatus').innerText = match.status === 'LIVE' ? `${match.minute}' LIVE` : match.status === 'FT' ? 'FULL TIME' : 'UPCOMING';
+            document.getElementById('modalHomeTeam').innerText = match.homeTeam;
+            document.getElementById('modalAwayTeam').innerText = match.awayTeam;
+            document.getElementById('modalHomeRating').innerText = `Squad Rating: ${match.homeRating}`;
+            document.getElementById('modalAwayRating').innerText = `Squad Rating: ${match.awayRating}`;
+            document.getElementById('modalHomeScore').innerText = match.status === 'COUNTDOWN' ? '-' : match.homeScore;
+            document.getElementById('modalAwayScore').innerText = match.status === 'COUNTDOWN' ? '-' : match.awayScore;
+            document.getElementById('modalMatchMinute').innerText = match.status === 'LIVE' ? `${match.minute}' In Progress` : match.status === 'FT' ? 'Match Finished' : `Kickoff in ${formatCountdown(match.countdownSeconds)}`;
+
+            // Scorers list
+            let scorersBox = document.getElementById('modalScorersList');
+            scorersBox.innerHTML = '';
+            if(match.scorers && match.scorers.length > 0) {
+                match.scorers.forEach(sc => scorersBox.innerHTML += `<div>⚽ ${sc}</div>`);
+            } else {
+                scorersBox.innerHTML = `<div>No goals scored yet / Upcoming fixture.</div>`;
+            }
+
+            // Lineups
+            document.getElementById('modalHomeLineupTitle').innerText = `${match.homeTeam} Lineup`;
+            let homeSquadBox = document.getElementById('modalHomeSquadList');
+            homeSquadBox.innerHTML = '';
+            match.homeSquad.forEach(player => homeSquadBox.innerHTML += `<div>• ${player}</div>`);
+
+            document.getElementById('modalAwayLineupTitle').innerText = `${match.awayTeam} Lineup`;
+            let awaySquadBox = document.getElementById('modalAwaySquadList');
+            awaySquadBox.innerHTML = '';
+            match.awaySquad.forEach(player => awaySquadBox.innerHTML += `<div>• ${player}</div>`);
+
+            document.getElementById('matchCenterModal').classList.remove('hidden');
+        }
+        function closeMatchCenterModal() {
+            document.getElementById('matchCenterModal').classList.add('hidden');
         }
 
         function quickSelectAccount(acc, email) {
             document.getElementById('setupUsernameInput').value = acc;
             document.getElementById('setupEmailInput').value = email;
-        }
-
-        function renderLiveScoresCarousel() {
-            let container = document.getElementById('liveScoresCarousel');
-            if(!container) return;
-            container.innerHTML = '';
-            
-            liveMatchFixtures.forEach(match => {
-                let statusBadge = match.isLive 
-                    ? `<span class="text-red-400 animate-pulse font-extrabold flex items-center space-x-1"><i class="fa-solid fa-circle text-[5px]"></i><span>${match.time} LIVE</span></span>`
-                    : `<span class="text-amber-400 font-extrabold">${match.status}</span>`;
-
-                container.innerHTML += `
-                    <div class="glass-panel min-w-[155px] p-3 rounded-2xl space-y-2 border border-cyan-500/25 shadow-lg">
-                        <div class="flex justify-between text-[9px] text-gray-400 font-bold">
-                            <span>${match.isLive ? 'Live Stream' : match.time}</span>
-                            ${statusBadge}
-                        </div>
-                        <div class="flex items-center justify-between text-xs font-bold text-white">
-                            <span class="truncate pr-1">${match.homeTeam}</span>
-                            <span class="text-amber-400 font-black">${match.homeScore}</span>
-                        </div>
-                        <div class="flex items-center justify-between text-xs font-bold text-white">
-                            <span class="truncate pr-1">${match.awayTeam}</span>
-                            <span class="text-amber-400 font-black">${match.awayScore}</span>
-                        </div>
-                    </div>
-                `;
-            });
         }
 
         function toggleFollow(targetUser) {
@@ -661,7 +918,7 @@
                 activeNav.classList.add('bg-magenta', 'text-white', 'font-extrabold', 'shadow-lg');
             }
             if(viewName === 'standings') renderLadder(document.getElementById('ladderGameSelect').value);
-            if(viewName === 'trending') { renderSearchResults(''); renderLiveScoresCarousel(); }
+            if(viewName === 'trending') { renderSearchResults(''); renderTopMatchesCarousel(); }
             if(viewName === 'market') renderMarketList();
             if(viewName === 'clans') renderClansList();
             if(viewName === 'popular') renderTopAccounts();
