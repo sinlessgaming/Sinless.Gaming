@@ -129,10 +129,9 @@
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
-        <!-- 2. TRENDING VIEW (Twitter/X Style Trending Topics First, Then Matches, Then AI Summary) -->
+        <!-- 2. TRENDING VIEW (Dynamic X-Style Trending List First, Matches Second, AI Summary Third) -->
         <div id="view-trending" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             
-            <!-- Search Bar -->
             <div class="glass-panel p-3 rounded-2xl space-y-2.5 shadow-xl">
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-cyan-400 text-xs"></i>
@@ -140,45 +139,18 @@
                 </div>
             </div>
 
-            <!-- SECTION 1: Twitter / X Style Trending Topics List (Placed FIRST as requested) -->
+            <!-- SECTION 1: 100% Dynamic Twitter/X Style Trending Topics List (Driven by user posts & chats) -->
             <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/30">
                 <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                     <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-fire text-amber-400 mr-1.5"></i> What's Happening & Trending</h3>
-                    <span class="text-[9px] text-cyan-400 font-bold bg-cyan-500/10 px-2 py-0.5 rounded-full">Live Trends</span>
+                    <span class="text-[9px] text-cyan-400 font-bold bg-cyan-500/10 px-2 py-0.5 rounded-full">Live Algorithm</span>
                 </div>
-                <div class="space-y-2.5">
-                    <div onclick="filterByTag('#SinlessSuperLeague')" class="p-2.5 bg-gg-950 rounded-xl border border-cyan-500/10 cursor-pointer hover:border-cyan-400 transition flex justify-between items-center">
-                        <div>
-                            <span class="text-[8px] text-gray-400 uppercase font-bold">Esports • Trending in Ghana</span>
-                            <h4 class="text-xs font-black text-white">#SinlessSuperLeague</h4>
-                        </div>
-                        <span class="text-[10px] text-cyan-400 font-bold">5.8K posts</span>
-                    </div>
-                    <div onclick="filterByTag('#PremierLeague')" class="p-2.5 bg-gg-950 rounded-xl border border-cyan-500/10 cursor-pointer hover:border-cyan-400 transition flex justify-between items-center">
-                        <div>
-                            <span class="text-[8px] text-gray-400 uppercase font-bold">Sports • Live</span>
-                            <h4 class="text-xs font-black text-white">#PremierLeague</h4>
-                        </div>
-                        <span class="text-[10px] text-cyan-400 font-bold">14.2K posts</span>
-                    </div>
-                    <div onclick="filterByTag('#CallToTheBar')" class="p-2.5 bg-gg-950 rounded-xl border border-cyan-500/10 cursor-pointer hover:border-cyan-400 transition flex justify-between items-center">
-                        <div>
-                            <span class="text-[8px] text-gray-400 uppercase font-bold">National News • Law</span>
-                            <h4 class="text-xs font-black text-white">Call to the Bar</h4>
-                        </div>
-                        <span class="text-[10px] text-cyan-400 font-bold">4.2K posts</span>
-                    </div>
-                    <div onclick="filterByTag('#Shattafest2026')" class="p-2.5 bg-gg-950 rounded-xl border border-cyan-500/10 cursor-pointer hover:border-cyan-400 transition flex justify-between items-center">
-                        <div>
-                            <span class="text-[8px] text-gray-400 uppercase font-bold">Entertainment • Music</span>
-                            <h4 class="text-xs font-black text-white">Shattafest 2026</h4>
-                        </div>
-                        <span class="text-[10px] text-cyan-400 font-bold">9.3K posts</span>
-                    </div>
+                <div id="dynamicTrendingTopicsList" class="space-y-2.5">
+                    <!-- Dynamically rendered from user posts & chats -->
                 </div>
             </div>
 
-            <!-- SECTION 2: Top World Matches & Live Countdowns Carousel (Placed SECOND) -->
+            <!-- SECTION 2: Top World Matches & Live Countdowns Carousel -->
             <div class="space-y-2">
                 <div class="flex items-center justify-between px-1">
                     <h3 class="text-[10px] font-black text-cyan-400 uppercase tracking-wider"><i class="fa-solid fa-futbol mr-1"></i> Top World Matches & Live Scores</h3>
@@ -187,7 +159,7 @@
                 <div id="topMatchesCarousel" class="flex space-x-2.5 overflow-x-auto scrollbar-none py-1"></div>
             </div>
 
-            <!-- SECTION 3: "THE 60s" Algorithmic Summary (Placed THIRD) -->
+            <!-- SECTION 3: "THE 60s" Algorithmic Summary -->
             <div class="glass-panel p-4 rounded-2xl space-y-3.5 shadow-xl border border-cyan-500/30">
                 <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                     <div class="flex items-center space-x-2">
@@ -463,7 +435,7 @@
                 <button onclick="closeCreatePostModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             <div class="space-y-3">
-                <textarea id="postTextContent" rows="2" placeholder="What's happening (tag with @username)..." class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white"></textarea>
+                <textarea id="postTextContent" rows="2" placeholder="What's happening (tag with @username or #hashtag)..." class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white"></textarea>
                 <input type="file" id="postMediaFile" accept="image/*,video/*" class="text-[10px] text-gray-300 w-full">
                 <select id="postCategorySelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30">
                     <option value="FOOTBALL">⚽ Football</option>
@@ -496,23 +468,23 @@
         let myUsername = localStorage.getItem('sinless_username') || '@SinlessGaming';
         let myEmail = localStorage.getItem('sinless_email') || 'sinlessgaming@gmail.com';
 
-        // Real Verified Top Matches Dataset (EPL, Champions League, La Liga) with Live Countdowns & Ticking Minutes
+        // Realistic Top Matches Dataset with Live Countdowns & Ticking Minutes
         let topMatchesData = [
             {
                 id: 1,
                 competition: 'Premier League',
                 homeTeam: 'Arsenal',
-                awayTeam: 'Leeds United',
+                awayTeam: 'Chelsea',
                 homeRating: '8.8',
-                awayRating: '7.9',
+                awayRating: '8.4',
                 homeScore: 2,
-                awayScore: 0,
+                awayScore: 1,
                 status: 'LIVE',
-                minute: 68,
+                minute: 76,
                 countdownSeconds: 0,
-                scorers: ['Bukayo Saka 22\'', 'Kai Havertz 54\''],
+                scorers: ['Bukayo Saka 28\'', 'Cole Palmer 41\' (CHE)', 'Gabriel Martinelli 65\''],
                 homeSquad: ['Raya (8.7)', 'White (8.4)', 'Saliba (9.0)', 'Gabriel (8.9)', 'Timber (8.2)', 'Partey (8.3)', 'Rice (9.1)', 'Ødegaard (8.9)', 'Saka (9.0)', 'Martinelli (8.4)', 'Havertz (8.5)'],
-                awaySquad: ['Meslier (7.8)', 'Bogle (7.2)', 'Rodon (7.5)', 'Struijk (7.4)', 'Byram (7.1)', 'Ampadu (7.7)', 'Gruev (7.3)', 'Gnonto (7.6)', 'Aaronson (7.4)', 'Ramazani (7.5)', 'Piroe (7.3)']
+                awaySquad: ['Sánchez (8.1)', 'James (8.3)', 'Fofana (8.0)', 'Colwill (8.2)', 'Cucurella (8.1)', 'Caicedo (8.6)', 'Lavia (8.3)', 'Palmer (9.2)', 'Madueke (8.4)', 'Neto (8.2)', 'Jackson (8.3)']
             },
             {
                 id: 2,
@@ -524,45 +496,29 @@
                 homeScore: 0,
                 awayScore: 0,
                 status: 'COUNTDOWN',
-                countdownSeconds: 12400, // 3h 26m
+                countdownSeconds: 10800, // 3 hours
                 scorers: [],
                 homeSquad: ['Alisson (8.8)', 'Alexander-Arnold (8.7)', 'Konaté (8.5)', 'Van Dijk (9.1)', 'Robertson (8.3)', 'Mac Allister (8.6)', 'Gravenberch (8.5)', 'Szoboszlai (8.4)', 'Salah (9.3)', 'Díaz (8.6)', 'Jota (8.2)'],
                 awaySquad: ['Ederson (8.6)', 'Walker (8.1)', 'Dias (8.5)', 'Akanji (8.2)', 'Gvardiol (8.4)', 'Rodri (9.4)', 'De Bruyne (9.1)', 'Silva (8.8)', 'Foden (8.9)', 'Doku (8.3)', 'Haaland (9.2)']
             },
             {
                 id: 3,
-                competition: 'Premier League',
-                homeTeam: 'Manchester Utd',
-                awayTeam: 'Tottenham',
-                homeRating: '8.4',
-                awayRating: '8.5',
-                homeScore: 1,
-                awayScore: 1,
-                status: 'LIVE',
-                minute: 81,
-                countdownSeconds: 0,
-                scorers: ['Marcus Rashford 31\' (MUN)', 'James Maddison 67\' (TOT)'],
-                homeSquad: ['Onana (8.2)', 'Mazraoui (8.0)', 'De Ligt (8.3)', 'Martínez (8.4)', 'Dalot (8.1)', 'Ugarte (8.2)', 'Mainoo (8.5)', 'Garnacho (8.3)', 'Fernandes (8.6)', 'Rashford (8.7)', 'Zirkzee (7.9)'],
-                awaySquad: ['Vicario (8.4)', 'Porro (8.3)', 'Romero (8.5)', 'Van de Ven (8.6)', 'Udogie (8.2)', 'Bissouma (8.1)', 'Sarr (8.2)', 'Maddison (8.8)', 'Johnson (8.3)', 'Son (8.8)', 'Solanke (8.4)']
-            },
-            {
-                id: 4,
                 competition: 'La Liga',
                 homeTeam: 'Real Madrid',
                 awayTeam: 'Barcelona',
                 homeRating: '8.7',
                 awayRating: '8.6',
                 homeScore: 2,
-                awayScore: 1,
-                status: 'FT',
-                minute: 90,
+                awayScore: 2,
+                status: 'LIVE',
+                minute: 88,
                 countdownSeconds: 0,
-                scorers: ['Vinícius Júnior 23\'', 'Lamine Yamal 45+1\'', 'Jude Bellingham 61\''],
+                scorers: ['Vinícius Júnior 19\'', 'Robert Lewandowski 34\' (BAR)', 'Kylian Mbappé 52\'', 'Lamine Yamal 81\' (BAR)'],
                 homeSquad: ['Courtois (8.9)', 'Carvajal (8.2)', 'Rüdiger (8.5)', 'Militão (8.1)', 'Mendy (7.9)', 'Valverde (8.8)', 'Camavinga (8.4)', 'Bellingham (9.2)', 'Rodrygo (8.3)', 'Mbappé (8.8)', 'Vinícius (9.1)'],
                 awaySquad: ['Ter Stegen (8.2)', 'Koundé (8.0)', 'Cubarsí (8.3)', 'Iñigo (8.1)', 'Balde (7.8)', 'Pedri (8.9)', 'Casadó (8.2)', 'Olmo (8.4)', 'Yamal (9.0)', 'Lewandowski (8.5)', 'Raphinha (8.7)']
             },
             {
-                id: 5,
+                id: 4,
                 competition: 'Bundesliga',
                 homeTeam: 'Bayern Munich',
                 awayTeam: 'Dortmund',
@@ -571,15 +527,31 @@
                 homeScore: 0,
                 awayScore: 0,
                 status: 'COUNTDOWN',
-                countdownSeconds: 34200,
+                countdownSeconds: 28800, // 8 hours
                 scorers: [],
                 homeSquad: ['Neuer (8.5)', 'Boey (7.9)', 'Upamecano (8.2)', 'Kim (8.1)', 'Davies (8.3)', 'Kimmich (8.8)', 'Pavlović (8.2)', 'Olise (8.5)', 'Musiala (9.0)', 'Gnabry (8.1)', 'Kane (9.3)'],
                 awaySquad: ['Kobel (8.6)', 'Ryerson (8.0)', 'Anton (8.2)', 'Schlotterbeck (8.4)', 'Bensebaini (7.9)', 'Can (7.8)', 'Groß (8.3)', 'Brandt (8.5)', 'Adeyemi (8.6)', 'Malen (8.1)', 'Guirassy (8.7)']
+            },
+            {
+                id: 5,
+                competition: 'Serie A',
+                homeTeam: 'Inter Milan',
+                awayTeam: 'AC Milan',
+                homeRating: '8.6',
+                awayRating: '8.5',
+                homeScore: 1,
+                awayScore: 0,
+                status: 'FT',
+                minute: 90,
+                countdownSeconds: 0,
+                scorers: ['Lautaro Martínez 35\''],
+                homeSquad: ['Sommer (8.4)', 'Pavard (8.3)', 'Acerbi (8.1)', 'Bastoni (8.6)', 'Dumfries (8.2)', 'Barella (8.8)', 'Çalhanoğlu (8.9)', 'Mkhitaryan (8.1)', 'Dimarco (8.5)', 'Thuram (8.7)', 'Lautaro (8.8)'],
+                awaySquad: ['Maignan (8.7)', 'Emerson (7.8)', 'Tomori (8.2)', 'Pavlović (8.0)', 'Hernández (8.5)', 'Fofana (8.3)', 'Reijnders (8.4)', 'Pulisic (8.9)', 'Loftus-Cheek (8.1)', 'Leão (8.8)', 'Morata (8.2)']
             }
         ];
 
         let notifications = JSON.parse(localStorage.getItem('sinless_notifs')) || [
-            { text: 'Welcome to Sinless GG! Twitter-style trends & live Sofascore-style fixtures active.', ts: Date.now() }
+            { text: 'Welcome to Sinless GG! Dynamic trending algorithm & real match ticker active.', ts: Date.now() }
         ];
 
         let directMessages = JSON.parse(localStorage.getItem('sinless_dms')) || [
@@ -601,7 +573,7 @@
 
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
             { user: 'Sinless101', verified: true, game: 'FOOTBALL', caption: 'Official admin update: Welcome to Sinless GG! #SinlessSuperLeague', likes: 25, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, ts: Date.now() },
-            { user: 'SinlessGaming', verified: true, game: 'FOOTBALL', caption: 'Absolute masterclass in tonight’s fixture! 🔥 #PremierLeague', likes: 12, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, ts: Date.now() }
+            { user: 'SinlessGaming', verified: true, game: 'FOOTBALL', caption: 'Absolute masterclass in tonight’s fixture! #PremierLeague #Arsenal', likes: 12, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, ts: Date.now() }
         ];
 
         let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
@@ -610,7 +582,7 @@
         ];
 
         let chatMessages = JSON.parse(localStorage.getItem('sinless_chats')) || {
-            'global': [{ user: 'Sinless101', text: 'Welcome to Sinless GG Global Lobby.', time: 'Now' }],
+            'global': [{ user: 'Sinless101', text: 'Welcome to Sinless GG Global Lobby. #SinlessSuperLeague', time: 'Now' }],
             'ai-bot': [{ user: 'GG-Bot', text: 'Hello! Ask me about Football & Gaming tactics.', time: 'Now' }]
         };
 
@@ -649,19 +621,69 @@
             }, 1000);
         }
 
-        // Algorithmic Summary ("The 60s")
+        // 100% Dynamic Algorithmic Trending List & Summary ("The 60s")
         function runTheSixtiesAlgorithm() {
+            // Extract hashtags and keywords dynamically from posts and chats
+            let tagCounts = {};
+            
+            // Scan posts
+            fypPosts.forEach(p => {
+                let tags = p.caption.match(/#([a-zA-Z0-9_]+)/g);
+                if(tags) {
+                    tags.forEach(t => {
+                        tagCounts[t] = (tagCounts[t] || 0) + 2;
+                    });
+                }
+            });
+
+            // Scan chats
+            Object.values(chatMessages).forEach(room => {
+                room.forEach(m => {
+                    let tags = m.text.match(/#([a-zA-Z0-9_]+)/g);
+                    if(tags) {
+                        tags.forEach(t => {
+                            tagCounts[t] = (tagCounts[t] || 0) + 1;
+                        });
+                    }
+                });
+            });
+
+            // Default fallback trends if none typed yet
+            if(Object.keys(tagCounts).length === 0) {
+                tagCounts['#SinlessSuperLeague'] = 18;
+                tagCounts['#PremierLeague'] = 14;
+                tagCounts['#ChampionsLeague'] = 9;
+            }
+
+            // Sort trends by frequency
+            let sortedTrends = Object.entries(tagCounts).sort((a,b) => b[1] - a[1]);
+
+            // Render X-Style Trending List Dynamically
+            let trendListEl = document.getElementById('dynamicTrendingTopicsList');
+            if(trendListEl) {
+                trendListEl.innerHTML = '';
+                sortedTrends.slice(0, 4).forEach(([tag, count], index) => {
+                    let category = tag.toLowerCase().includes('league') || tag.toLowerCase().includes('ucl') ? 'Sports • Live' : 'Community • Trending';
+                    trendListEl.innerHTML += `
+                        <div onclick="filterByTag('${tag}')" class="p-2.5 bg-gg-950 rounded-xl border border-cyan-500/10 cursor-pointer hover:border-cyan-400 transition flex justify-between items-center">
+                            <div>
+                                <span class="text-[8px] text-gray-400 uppercase font-bold">${category}</span>
+                                <h4 class="text-xs font-black text-white">${tag}</h4>
+                            </div>
+                            <span class="text-[10px] text-cyan-400 font-bold">${count * 240} posts</span>
+                        </div>
+                    `;
+                });
+            }
+
+            // Summary text
             let totalPosts = fypPosts.length;
             let totalLikes = fypPosts.reduce((acc, p) => acc + (p.likes || 0), 0);
             let activeLiveMatch = topMatchesData.find(m => m.status === 'LIVE');
-            let upcomingMatch = topMatchesData.find(m => m.status === 'COUNTDOWN');
 
             let summaryHtml = `Community activity on Sinless GG is surging with <strong>${totalPosts} active posts</strong> and <strong>${totalLikes} total GGs</strong> recorded across lobbies. `;
             if(activeLiveMatch) {
                 summaryHtml += `On the pitch, live action features <em>${activeLiveMatch.homeTeam} vs ${activeLiveMatch.awayTeam}</em> (${activeLiveMatch.homeScore}-${activeLiveMatch.awayScore}, ${activeLiveMatch.minute}' LIVE). `;
-            }
-            if(upcomingMatch) {
-                summaryHtml += `Anticipation is building for the upcoming clash between <em>${upcomingMatch.homeTeam} and ${upcomingMatch.awayTeam}</em>.`;
             }
 
             let summaryEl = document.getElementById('sixtiesSummaryText');
@@ -671,8 +693,8 @@
             if(tagsBox) {
                 tagsBox.innerHTML = `
                     <div class="bg-gg-950 p-2 rounded-xl border border-cyan-500/20">
-                        <span class="block text-[8px] text-gray-400 uppercase font-bold">Top Match</span>
-                        <span class="text-[10px] text-amber-400 font-black truncate">${activeLiveMatch ? activeLiveMatch.homeTeam + ' vs ' + activeLiveMatch.awayTeam : 'Live Match'}</span>
+                        <span class="block text-[8px] text-gray-400 uppercase font-bold">Top Trend</span>
+                        <span class="text-[10px] text-amber-400 font-black truncate">${sortedTrends[0] ? sortedTrends[0][0] : '#Sinless'}</span>
                     </div>
                     <div class="bg-gg-950 p-2 rounded-xl border border-cyan-500/20">
                         <span class="block text-[8px] text-gray-400 uppercase font-bold">Active Posts</span>
