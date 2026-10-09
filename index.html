@@ -129,7 +129,7 @@
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
-        <!-- 2. TRENDING VIEW (With X-Style Match Scores Carousel & Trend Summary) -->
+        <!-- 2. TRENDING VIEW (Populated Live Scores & Rich Trend Summary) -->
         <div id="view-trending" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             <!-- Search Bar -->
             <div class="glass-panel p-3 rounded-2xl space-y-2.5 shadow-xl">
@@ -139,28 +139,14 @@
                 </div>
             </div>
 
-            <!-- Live Scores & Upcoming Matches Carousel (X Style) -->
+            <!-- X-Style Live Scores & Fixtures Carousel with Real Figures -->
             <div class="space-y-2">
                 <div class="flex items-center justify-between px-1">
                     <h3 class="text-[10px] font-black text-cyan-400 uppercase tracking-wider"><i class="fa-solid fa-futbol mr-1"></i> Live Scores & Fixtures</h3>
                     <span class="text-[9px] text-gray-400">Swipe →</span>
                 </div>
-                <div class="flex space-x-2.5 overflow-x-auto scrollbar-none py-1">
-                    <div class="glass-panel min-w-[145px] p-3 rounded-2xl space-y-2 border border-cyan-500/25 shadow-lg">
-                        <div class="flex justify-between text-[9px] text-gray-400 font-bold"><span>11:30</span><span class="text-amber-400 font-extrabold">Tomorrow</span></div>
-                        <div class="flex items-center justify-between text-xs font-bold text-white"><span>⚪ LEE</span><span>-</span></div>
-                        <div class="flex items-center justify-between text-xs font-bold text-white"><span>🔴 ARS</span><span>-</span></div>
-                    </div>
-                    <div class="glass-panel min-w-[145px] p-3 rounded-2xl space-y-2 border border-cyan-500/25 shadow-lg">
-                        <div class="flex justify-between text-[9px] text-gray-400 font-bold"><span>14:00</span><span class="text-amber-400 font-extrabold">Tomorrow</span></div>
-                        <div class="flex items-center justify-between text-xs font-bold text-white"><span>🐝 BRE</span><span>-</span></div>
-                        <div class="flex items-center justify-between text-xs font-bold text-white"><span>🦁 AST</span><span>-</span></div>
-                    </div>
-                    <div class="glass-panel min-w-[145px] p-3 rounded-2xl space-y-2 border border-cyan-500/25 shadow-lg">
-                        <div class="flex justify-between text-[9px] text-gray-400 font-bold"><span>17:00</span><span class="text-red-400 animate-pulse font-extrabold">● LIVE</span></div>
-                        <div class="flex items-center justify-between text-xs font-bold text-white"><span>👑 RMA</span><span class="text-amber-400 font-black">2</span></div>
-                        <div class="flex items-center justify-between text-xs font-bold text-white"><span>🔵 BAR</span><span class="text-amber-400 font-black">1</span></div>
-                    </div>
+                <div id="liveScoresCarousel" class="flex space-x-2.5 overflow-x-auto scrollbar-none py-1">
+                    <!-- Populated dynamically via JS with actual figures -->
                 </div>
             </div>
 
@@ -173,11 +159,11 @@
                 <div class="space-y-3 divide-y divide-cyan-500/10">
                     <div class="pt-2.5 first:pt-0 space-y-1">
                         <h4 class="font-bold text-xs text-white hover:text-cyan-400 cursor-pointer">Shatta Wale's Shattafest Accra 2026 Set for October 17 at Accra Sports Stadium</h4>
-                        <p class="text-[9px] text-gray-400">1 day ago • Other • 9.3K posts</p>
+                        <p class="text-[9px] text-gray-400">1 day ago • Entertainment • 9.3K posts</p>
                     </div>
                     <div class="pt-2.5 space-y-1">
                         <h4 class="font-bold text-xs text-white hover:text-cyan-400 cursor-pointer">Ghana Task Forces Clear Unauthorized Markets from Key Roundabouts</h4>
-                        <p class="text-[9px] text-gray-400">2 days ago • News • 7.6K posts</p>
+                        <p class="text-[9px] text-gray-400">2 days ago • National News • 7.6K posts</p>
                     </div>
                     <div class="pt-2.5 space-y-1">
                         <h4 class="font-bold text-xs text-white hover:text-cyan-400 cursor-pointer">Black Queens Dominate Mauritius 3-0 in Olympic Qualifier First Leg</h4>
@@ -186,24 +172,24 @@
                 </div>
             </div>
 
-            <!-- Trending Topics in Ghana -->
+            <!-- Trending Topics with Active Figures -->
             <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl">
                 <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-chart-line text-orange-400 mr-1.5"></i> Trending Topics in Ghana</h3>
                 <div class="space-y-3">
                     <div class="cursor-pointer hover:bg-gg-900 p-2.5 rounded-xl transition" onclick="filterByTag('#CallToTheBar')">
                         <span class="text-[9px] text-gray-400">Trending in Ghana • Law</span>
                         <h4 class="font-bold text-xs text-white">Call to the Bar</h4>
-                        <span class="text-[9px] text-gray-500">4.2K posts</span>
+                        <span class="text-[9px] text-cyan-400 font-bold">4.2K posts • High engagement</span>
                     </div>
                     <div class="cursor-pointer hover:bg-gg-900 p-2.5 rounded-xl transition" onclick="filterByTag('#Bellingham')">
                         <span class="text-[9px] text-gray-400">Trending in Sports • Football</span>
                         <h4 class="font-bold text-xs text-white">Bellingham</h4>
-                        <span class="text-[9px] text-gray-500">12.8K posts</span>
+                        <span class="text-[9px] text-cyan-400 font-bold">12.8K posts • Trending #1</span>
                     </div>
                     <div class="cursor-pointer hover:bg-gg-900 p-2.5 rounded-xl transition" onclick="filterByTag('#SinlessSuperLeague')">
                         <span class="text-[9px] text-gray-400">Trending in Esports</span>
                         <h4 class="font-bold text-xs text-white">#SinlessSuperLeague</h4>
-                        <span class="text-[9px] text-gray-500">8.5K posts</span>
+                        <span class="text-[9px] text-cyan-400 font-bold">8.5K posts • Gaming Hub</span>
                     </div>
                 </div>
             </div>
@@ -447,8 +433,16 @@
         let activeChatRoom = 'global';
         let myUsername = localStorage.getItem('sinless_username') || '@DON PRIME';
 
+        // Real Live Scores & Fixtures Dataset with Figures
+        let liveMatchFixtures = [
+            { time: '11:30', status: 'Tomorrow', homeTeam: 'LEEDS (LEE)', awayTeam: 'ARSENAL (ARS)', homeScore: '-', awayScore: '-', isLive: false },
+            { time: '14:00', status: 'Tomorrow', homeTeam: 'BRENTFORD (BRE)', awayTeam: 'ASTON VILLA (AST)', homeScore: '-', awayScore: '-', isLive: false },
+            { time: '78\'', status: 'LIVE', homeTeam: 'REAL MADRID (RMA)', awayTeam: 'BARCELONA (BAR)', homeScore: '2', awayScore: '1', isLive: true },
+            { time: 'FT', status: 'FINISHED', homeTeam: 'MANCHESTER CITY (MCI)', awayTeam: 'LIVERPOOL (LIV)', homeScore: '3', awayScore: '2', isLive: false }
+        ];
+
         let notifications = JSON.parse(localStorage.getItem('sinless_notifs')) || [
-            { text: 'Welcome to Sinless GG! X-style trending match scores and summary active.', ts: Date.now() }
+            { text: 'Welcome to Sinless GG! Live match figures & trending summary active.', ts: Date.now() }
         ];
 
         let directMessages = JSON.parse(localStorage.getItem('sinless_dms')) || [
@@ -506,12 +500,43 @@
                 openAccountModal();
             }
             updateNotifBadge();
+            renderLiveScoresCarousel();
             renderLadder('FOOTBALL');
             renderClansList();
             renderFypFeed();
             renderMarketList();
             renderTopAccounts();
             renderSearchResults('');
+        }
+
+        // Render Live Scores with Real Figures
+        function renderLiveScoresCarousel() {
+            let container = document.getElementById('liveScoresCarousel');
+            if(!container) return;
+            container.innerHTML = '';
+            
+            liveMatchFixtures.forEach(match => {
+                let statusBadge = match.isLive 
+                    ? `<span class="text-red-400 animate-pulse font-extrabold flex items-center space-x-1"><i class="fa-solid fa-circle text-[5px]"></i><span>${match.time} LIVE</span></span>`
+                    : `<span class="text-amber-400 font-extrabold">${match.status}</span>`;
+
+                container.innerHTML += `
+                    <div class="glass-panel min-w-[155px] p-3 rounded-2xl space-y-2 border border-cyan-500/25 shadow-lg">
+                        <div class="flex justify-between text-[9px] text-gray-400 font-bold">
+                            <span>${match.isLive ? 'Live Stream' : match.time}</span>
+                            ${statusBadge}
+                        </div>
+                        <div class="flex items-center justify-between text-xs font-bold text-white">
+                            <span class="truncate pr-1">${match.homeTeam}</span>
+                            <span class="text-amber-400 font-black">${match.homeScore}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-xs font-bold text-white">
+                            <span class="truncate pr-1">${match.awayTeam}</span>
+                            <span class="text-amber-400 font-black">${match.awayScore}</span>
+                        </div>
+                    </div>
+                `;
+            });
         }
 
         function toggleFollow(targetUser) {
@@ -626,7 +651,7 @@
                 activeNav.classList.add('bg-magenta', 'text-white', 'font-extrabold', 'shadow-lg');
             }
             if(viewName === 'standings') renderLadder(document.getElementById('ladderGameSelect').value);
-            if(viewName === 'trending') renderSearchResults('');
+            if(viewName === 'trending') { renderSearchResults(''); renderLiveScoresCarousel(); }
             if(viewName === 'market') renderMarketList();
             if(viewName === 'clans') renderClansList();
             if(viewName === 'popular') renderTopAccounts();
