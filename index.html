@@ -20,19 +20,20 @@
         console.warn("Firebase init note:", e);
     }
 
-    // Runs when user returns from Google
-    if (auth) {
+    // Wait until the rest of the page scripts have loaded
+    window.addEventListener('load', () => {
+        if (!auth) return;
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 window.myEmail = user.email || '';
                 window.myUsername = '@' + (user.displayName || (user.email ? user.email.split('@')[0] : 'Gamer')).replace(/\s+/g, '');
-                saveAppData();
+                if (typeof saveAppData === 'function') saveAppData();
                 const headerTag = document.getElementById('headerUserTag');
                 if (headerTag) headerTag.innerText = window.myUsername;
-                showToast(`🚀 Logged in as ${window.myUsername}`);
+                if (typeof showToast === 'function') showToast(`🚀 Logged in as ${window.myUsername}`);
             }
         });
-    }
+    });
 
     window.authenticGoogleLogin = async function() {
         try {
@@ -41,7 +42,7 @@
             await signInWithRedirect(auth, provider);
         } catch (error) {
             console.error(error);
-            showToast("Login failed: " + (error.message || "Unknown error"));
+            if (typeof showToast === 'function') showToast("Login failed: " + (error.message || "Unknown error"));
         }
     };
 
@@ -52,7 +53,7 @@
             await signInWithRedirect(auth, provider);
         } catch (error) {
             console.error(error);
-            showToast("Apple login failed: " + (error.message || "Unknown error"));
+            if (typeof showToast === 'function') showToast("Apple login failed: " + (error.message || "Unknown error"));
         }
     };
 </script>
