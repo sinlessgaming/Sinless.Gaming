@@ -84,7 +84,7 @@
     <!-- Main Workspace -->
     <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3">
         
-        <!-- View Tabs (Now Includes Explore / Trending Tab!) -->
+        <!-- View Tabs -->
         <div class="glass-panel p-1.5 rounded-2xl flex shadow-xl overflow-x-auto scrollbar-none">
             <button onclick="switchView('fyp')" id="btnViewFyp" class="flex-1 py-2 px-2 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap"><i class="fa-solid fa-fire mr-0.5"></i> Feed</button>
             <button onclick="switchView('explore')" id="btnViewExplore" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-compass mr-0.5"></i> Explore</button>
@@ -95,7 +95,6 @@
 
         <!-- 1. FYP / Feed View -->
         <div id="viewFyp" class="flex-1 flex flex-col space-y-3 overflow-y-auto pb-4 fade-in">
-            <!-- TikTok / Instagram Style Stories Bar -->
             <div class="flex space-x-3 overflow-x-auto scrollbar-none py-1.5 px-1">
                 <div class="flex flex-col items-center space-y-1 cursor-pointer group" onclick="openLiveBroadcastModal()">
                     <div class="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-red-500 via-magenta to-cyan-400 animate-pulse">
@@ -115,7 +114,6 @@
                 <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold">🔥 Esports, Sports & Streaming</span>
             </div>
 
-            <!-- Category Filter Bar -->
             <div id="categoryFilterBar" class="flex space-x-2 overflow-x-auto scrollbar-none py-1">
                 <button onclick="filterByCategory('ALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition">🌐 All</button>
                 <button onclick="filterByCategory('LIVE STREAM', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-red-400 border border-red-500/30 whitespace-nowrap transition animate-pulse">🔴 Live Broadcasts</button>
@@ -131,9 +129,8 @@
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
-        <!-- 2. EXPLORE & TRENDING VIEW (Inspired by X / Twitter UI) -->
+        <!-- 2. EXPLORE & TRENDING VIEW -->
         <div id="viewExplore" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
-            <!-- Search Bar Header -->
             <div class="glass-panel p-3 rounded-2xl space-y-2.5 shadow-xl">
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-cyan-400 text-xs"></i>
@@ -141,7 +138,6 @@
                 </div>
             </div>
 
-            <!-- Global Trending / Hot Tags Section -->
             <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl">
                 <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                     <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-chart-line text-cyan-400 mr-1.5"></i> Global Trending & Tags</h3>
@@ -171,7 +167,6 @@
                 </div>
             </div>
 
-            <!-- Search Results Container -->
             <div id="searchResultsContainer" class="space-y-3"></div>
         </div>
 
@@ -221,7 +216,7 @@
         </div>
     </main>
 
-    <!-- SQUAD ROOM MODAL -->
+    <!-- Modals -->
     <div id="squadRoomModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col h-[480px] shadow-2xl fade-in border border-cyan-500/40 space-y-3">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -236,7 +231,6 @@
         </div>
     </div>
 
-    <!-- CREATE SQUAD MODAL -->
     <div id="createClanModalBox" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl fade-in border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -251,7 +245,6 @@
         </div>
     </div>
 
-    <!-- COMMENTS MODAL DRAWER -->
     <div id="commentsModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
         <div class="glass-panel w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-5 flex flex-col h-[450px] shadow-2xl fade-in border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -260,13 +253,12 @@
             </div>
             <div id="commentsListBox" class="flex-1 overflow-y-auto space-y-2.5 py-3"></div>
             <div class="pt-2 border-t border-cyan-500/15 flex space-x-2">
-                <input type="text" id="commentInputText" placeholder="Write comment (tag @GG-Bot)..." class="flex-1 bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none" onkeypress="if(event.key === 'Enter') submitNewComment()">
+                <input type="text" id="commentInputText" placeholder="Write comment..." class="flex-1 bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none" onkeypress="if(event.key === 'Enter') submitNewComment()">
                 <button onclick="submitNewComment()" class="px-4 py-2 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs">Post</button>
             </div>
         </div>
     </div>
 
-    <!-- MEDIA ZOOM VIEWER MODAL -->
     <div id="mediaViewerModal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-lg z-50 flex items-center justify-center p-2" onclick="closeMediaViewer()">
         <div class="relative max-w-2xl w-full max-h-[90vh] flex items-center justify-center" onclick="event.stopPropagation()">
             <button onclick="closeMediaViewer()" class="absolute -top-10 right-0 text-white font-black text-sm bg-gg-950/80 px-3 py-1 rounded-xl border border-cyan-500/30">✕ Close</button>
@@ -274,7 +266,6 @@
         </div>
     </div>
 
-    <!-- PORTRAIT LIVE STREAM STUDIO MODAL -->
     <div id="liveBroadcastModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl fade-in border border-red-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -284,27 +275,20 @@
                 </div>
                 <button onclick="closeLiveBroadcastModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
-            <p class="text-[10px] text-gray-300">Broadcast your face or camera in full vertical portrait mode.</p>
-            
             <div class="space-y-3">
-                <input type="text" id="liveTitleInput" placeholder="Stream Title (e.g., EA FC Tournament LIVE!)" class="w-full bg-gg-900 border border-red-500/30 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none">
-                
+                <input type="text" id="liveTitleInput" placeholder="Stream Title..." class="w-full bg-gg-900 border border-red-500/30 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none">
                 <div class="flex space-x-2">
-                    <button id="screenBtn" onclick="startScreenShareStream('screen')" class="flex-1 py-2 bg-gg-900 border border-cyan-500/40 text-cyan-300 font-bold rounded-xl text-[10px] hover:bg-cyan-500/10"><i class="fa-solid fa-desktop mr-1"></i> Screen</button>
-                    <button onclick="startScreenShareStream('camera')" class="flex-1 py-2 bg-gg-900 border border-magenta/40 text-magenta font-bold rounded-xl text-[10px] hover:bg-magenta/10"><i class="fa-solid fa-video mr-1"></i> Camera</button>
+                    <button id="screenBtn" onclick="startScreenShareStream('screen')" class="flex-1 py-2 bg-gg-900 border border-cyan-500/40 text-cyan-300 font-bold rounded-xl text-[10px]">Screen</button>
+                    <button onclick="startScreenShareStream('camera')" class="flex-1 py-2 bg-gg-900 border border-magenta/40 text-magenta font-bold rounded-xl text-[10px]">Camera</button>
                 </div>
-
-                <div id="previewContainer" class="hidden relative bg-gg-950 rounded-xl overflow-hidden border border-red-500/50 w-full flex justify-center items-center" style="height: 320px;">
+                <div id="previewContainer" class="hidden relative bg-gg-950 rounded-xl overflow-hidden border border-red-500/50 w-full flex justify-center items-center" style="height: 300px;">
                     <video id="activePreviewVideo" autoplay muted playsinline class="w-full h-full object-cover"></video>
-                    <span class="absolute top-2 left-2 bg-red-600 text-white px-2 py-0.5 rounded text-[8px] font-black animate-pulse z-10">PORTRAIT LIVE PREVIEW</span>
                 </div>
-
-                <button onclick="publishActiveStream()" class="w-full py-3 bg-red-600 text-white font-black rounded-xl text-xs shadow-lg shadow-red-600/30 hover:bg-red-500 transition">🔴 BROADCAST LIVE TO FEED</button>
+                <button onclick="publishActiveStream()" class="w-full py-3 bg-red-600 text-white font-black rounded-xl text-xs">🔴 BROADCAST LIVE</button>
             </div>
         </div>
     </div>
 
-    <!-- UNIVERSAL CREATE POST MODAL -->
     <div id="createPostModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl fade-in border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -312,19 +296,17 @@
                 <button onclick="closeCreatePostModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             <div class="space-y-3">
-                <textarea id="postTextContent" rows="2" placeholder="What's happening in gaming... Use tags like #SinlessSuperLeague" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white focus:outline-none"></textarea>
+                <textarea id="postTextContent" rows="2" placeholder="What's happening... Use tags like #SinlessSuperLeague" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white focus:outline-none"></textarea>
                 <input type="file" id="postMediaFile" accept="image/*,video/*" class="text-[10px] text-gray-300 w-full">
-                
                 <select id="postCategorySelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30 focus:outline-none">
                     <option value="EA FC">⚽ EA FC</option>
                     <option value="EA SPORTS FC">🎮 EA SPORTS FC</option>
                     <option value="EFOOTBALL">⚡ eFootball</option>
-                    <option value="DLS">🏆 Dream League Soccer (DLS)</option>
+                    <option value="DLS">🏆 DLS</option>
                     <option value="WORLD FOOTBALL">🏟️ World Football</option>
-                    <option value="WRESTLING">🤼 WWE / AEW</option>
+                    <option value="WRESTLING">🤼 Wrestling</option>
                     <option value="COD">🎯 Call of Duty</option>
                 </select>
-
                 <div class="bg-gg-950 p-3 rounded-xl border border-cyan-500/20 space-y-2">
                     <label class="flex items-center gap-2 text-xs text-cyan-300 font-bold cursor-pointer">
                         <input id="isResult" type="checkbox" onchange="toggleResultFields(this)" class="accent-cyan-400 w-4 h-4">
@@ -333,16 +315,14 @@
                     <div id="resultFields" class="hidden grid grid-cols-2 gap-2 pt-1">
                         <input id="oppInput" placeholder="@opponent" class="bg-gg-900 border border-cyan-500/30 rounded-lg px-2.5 py-1.5 text-xs text-white">
                         <input id="scoreInput" placeholder="Score e.g. 2-1" class="bg-gg-900 border border-cyan-500/30 rounded-lg px-2.5 py-1.5 text-xs text-white">
-                        <input id="compInput" placeholder="Tournament / Cup Name" class="col-span-2 bg-gg-900 border border-cyan-500/30 rounded-lg px-2.5 py-1.5 text-xs text-white">
+                        <input id="compInput" placeholder="Cup Name" class="col-span-2 bg-gg-900 border border-cyan-500/30 rounded-lg px-2.5 py-1.5 text-xs text-white">
                     </div>
                 </div>
-
-                <button onclick="submitUniversalPost()" class="w-full py-3 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs shadow-lg">🚀 Publish</button>
+                <button onclick="submitUniversalPost()" class="w-full py-3 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs">🚀 Publish</button>
             </div>
         </div>
     </div>
 
-    <!-- Direct Messages Modal -->
     <div id="dmModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col h-[400px] shadow-2xl fade-in space-y-3">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -353,7 +333,6 @@
         </div>
     </div>
 
-    <!-- Notifications Modal -->
     <div id="notifModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col h-[350px] shadow-2xl fade-in space-y-3">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -374,30 +353,26 @@
         let activeSquadRoomName = null;
 
         let matchResults = JSON.parse(localStorage.getItem('sg_results')) || [
-            { id: '1', user: 'DON PRIME', game: 'EA FC', opp: 'BALL_MASTER', score: '3-1', comp: 'Sinless Super League', status: 'confirmed', ts: Date.now() },
-            { id: '2', user: 'BALL_MASTER', game: 'EA FC', opp: 'DON PRIME', score: '2-1', comp: 'Rising Stars Cup', status: 'confirmed', ts: Date.now() }
+            { id: '1', user: 'DON PRIME', game: 'EA FC', opp: 'BALL_MASTER', score: '3-1', comp: 'Sinless Super League', status: 'confirmed', ts: Date.now() }
         ];
 
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
-            { user: 'DON PRIME', verified: true, game: 'EA FC', caption: 'Excited for the #SinlessSuperLeague finals today! 🔥', likes: 2, comments: [{user: 'BALL_MASTER', text: 'Let’s go! @GG-Bot tactics check.'}], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: false, pinned: true, givers: {} },
-            { user: 'DON PRIME', verified: true, game: 'LIVE STREAM', caption: '🔴 LIVE SCREEN BROADCAST: #EFC27 tournament match', likes: 1, comments: [], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: true, pinned: false, givers: {} }
+            { user: 'DON PRIME', verified: true, game: 'EA FC', caption: 'Excited for the #SinlessSuperLeague finals today! 🔥', likes: 2, comments: [{user: 'BALL_MASTER', text: 'Let’s go! @GG-Bot tactics check.'}], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: false, pinned: true, givers: {} }
         ];
 
         let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
-            { name: 'SINLESS ELITE', tag: 'SLS', members: 42, leader: 'DON PRIME', messages: [{user: 'DON PRIME', text: 'Welcome to Sinless Elite squad room!'}] },
-            { name: 'EFOOTBALL KINGS', tag: 'EFK', members: 35, leader: 'BALL_MASTER', messages: [{user: 'BALL_MASTER', text: 'Squad match starts at 8 PM!'}] },
-            { name: 'HEY', tag: 'DEAD', members: 1, leader: 'DON PRIME', messages: [{user: 'DON PRIME', text: 'Squad testing room.'}] }
+            { name: 'SINLESS ELITE', tag: 'SLS', members: 42, leader: 'DON PRIME', messages: [{user: 'DON PRIME', text: 'Welcome to Sinless Elite!'}] }
         ];
 
         let chatMessages = JSON.parse(localStorage.getItem('sinless_chats')) || {
             'global': [{ user: 'System', text: 'Welcome to Sinless GG Global Lobby.', time: 'Now' }],
-            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! I am your AI tactical assistant for EA FC Mobile and eFootball.', time: 'Now' }]
+            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! Ask me about EA FC Mobile and eFootball tactics.', time: 'Now' }]
         };
 
-        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Explore and Twitter-style trending feed successfully loaded.', time: 'Now' }];
-        let notificationsList = [{ text: '🔍 Explore & Global Trending tags are now active.', time: 'Now' }];
+        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Explore tab online.', time: 'Now' }];
+        let notificationsList = [{ text: '🔍 Explore & Trending tags active.', time: 'Now' }];
 
-        document.getElementById('profileUsernameDisplay').innerHTML = `${myUsername} <span class="verified-badge text-xs ml-1" title="Verified Creator"><i class="fa-solid fa-circle-check"></i></span>`;
+        document.getElementById('profileUsernameDisplay').innerHTML = `${myUsername} <span class="verified-badge text-xs ml-1"><i class="fa-solid fa-circle-check"></i></span>`;
 
         function saveAppData() {
             localStorage.setItem('sinless_posts', JSON.stringify(fypPosts));
@@ -407,30 +382,13 @@
         }
 
         function initApp() {
-            bindStudioMobileGuard();
             renderLadder('EA FC');
             renderClansList();
             renderFypFeed();
             renderSearchResults('');
         }
 
-        function canCaptureScreen() {
-            return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
-        }
-        function bindStudioMobileGuard() {
-            const screenBtn = document.getElementById('screenBtn');
-            if (screenBtn && !canCaptureScreen()) {
-                screenBtn.disabled = true;
-                screenBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                screenBtn.title = 'Screen capture is not supported on mobile. Use Camera mode!';
-            }
-        }
-
-        // Search & Explore Engine
-        function handleGlobalSearch(query) {
-            renderSearchResults(query.trim().toLowerCase());
-        }
-
+        function handleGlobalSearch(query) { renderSearchResults(query.trim().toLowerCase()); }
         function filterByTag(tag) {
             document.getElementById('globalSearchInput').value = tag;
             handleGlobalSearch(tag);
@@ -440,447 +398,170 @@
             const container = document.getElementById('searchResultsContainer');
             if(!container) return;
             container.innerHTML = `<h4 class="text-[10px] uppercase font-black text-cyan-400 mb-2">Search & Tag Results</h4>`;
-
-            let matches = fypPosts.filter(p => {
-                if(!query) return true;
-                return p.caption.toLowerCase().includes(query) || p.user.toLowerCase().includes(query) || p.game.toLowerCase().includes(query);
-            });
-
+            let matches = fypPosts.filter(p => !query || p.caption.toLowerCase().includes(query) || p.user.toLowerCase().includes(query) || p.game.toLowerCase().includes(query));
             if(matches.length === 0) {
-                container.innerHTML += `<div class="glass-panel p-4 rounded-xl text-center text-gray-400 text-xs">No posts matching "${query}" found.</div>`;
+                container.innerHTML += `<div class="glass-panel p-4 rounded-xl text-center text-gray-400 text-xs">No posts matching "${query}".</div>`;
                 return;
             }
-
             matches.forEach(post => {
-                container.innerHTML += `
-                    <div class="glass-panel p-3 rounded-xl space-y-1.5 shadow">
-                        <div class="flex items-center justify-between">
-                            <span class="font-bold text-xs text-white">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
-                            <span class="text-[9px] text-cyan-400 font-bold">${post.game}</span>
-                        </div>
-                        <p class="text-xs text-gray-200">${post.caption}</p>
-                    </div>
-                `;
+                container.innerHTML += `<div class="glass-panel p-3 rounded-xl space-y-1.5 shadow"><div class="flex items-center justify-between"><span class="font-bold text-xs text-white">@${post.user}</span><span class="text-[9px] text-cyan-400 font-bold">${post.game}</span></div><p class="text-xs text-gray-200">${post.caption}</p></div>`;
             });
         }
 
-        // Squads & Rooms
         function openCreateClanModal() { document.getElementById('createClanModalBox').classList.remove('hidden'); }
         function closeCreateClanModal() { document.getElementById('createClanModalBox').classList.add('hidden'); }
-        
         function submitNewClan() {
             let name = document.getElementById('clanNameInput').value.trim();
             let tag = document.getElementById('clanTagInput').value.trim();
-            if(!name || !tag) { alert('Please enter both Squad Name and Tag.'); return; }
-            clansData.push({ name: name.toUpperCase(), tag: tag.toUpperCase(), members: 1, leader: myUsername.replace('@', ''), messages: [{user: 'System', text: `Squad ${name.toUpperCase()} created successfully.`}] });
-            saveAppData();
-            renderClansList();
-            closeCreateClanModal();
-            alert('🛡️ Squad successfully created!');
+            if(!name || !tag) return;
+            clansData.push({ name: name.toUpperCase(), tag: tag.toUpperCase(), members: 1, leader: myUsername.replace('@', ''), messages: [] });
+            saveAppData(); renderClansList(); closeCreateClanModal();
         }
 
-        function openSquadRoom(clanName) {
-            activeSquadRoomName = clanName;
-            document.getElementById('activeSquadTitle').innerText = `Squad Room: ${clanName}`;
+        function openSquadRoom(name) {
+            activeSquadRoomName = name;
+            document.getElementById('activeSquadTitle').innerText = `Squad Room: ${name}`;
             document.getElementById('squadRoomModal').classList.remove('hidden');
             renderSquadMessages();
         }
-        function closeSquadRoom() {
-            document.getElementById('squadRoomModal').classList.add('hidden');
-            activeSquadRoomName = null;
-        }
-
+        function closeSquadRoom() { document.getElementById('squadRoomModal').classList.add('hidden'); }
         function renderSquadMessages() {
-            let box = document.getElementById('squadChatBox');
-            box.innerHTML = '';
+            let box = document.getElementById('squadChatBox'); box.innerHTML = '';
             let squad = clansData.find(c => c.name === activeSquadRoomName);
-            if(!squad || !squad.messages || squad.messages.length === 0) {
-                box.innerHTML = `<div class="text-center text-gray-400 text-xs py-6">No squad messages yet. Say something!</div>`;
-                return;
-            }
-            squad.messages.forEach(m => {
-                box.innerHTML += `<div class="bg-gg-900 p-2 rounded-xl border border-cyan-500/10"><span class="text-[9px] text-cyan-400 font-bold">@${m.user}</span><p class="text-xs text-gray-200">${m.text}</p></div>`;
-            });
-            box.scrollTop = box.scrollHeight;
+            if(!squad || !squad.messages) return;
+            squad.messages.forEach(m => { box.innerHTML += `<div class="bg-gg-900 p-2 rounded-xl"><span class="text-[9px] text-cyan-400">@${m.user}</span><p class="text-xs">${m.text}</p></div>`; });
         }
-
         function sendSquadMessage() {
-            let input = document.getElementById('squadMsgInput');
-            let text = input.value.trim();
+            let input = document.getElementById('squadMsgInput'); let text = input.value.trim();
             if(!text || !activeSquadRoomName) return;
             let squad = clansData.find(c => c.name === activeSquadRoomName);
-            if(squad) {
-                if(!squad.messages) squad.messages = [];
-                squad.messages.push({ user: myUsername.replace('@', ''), text: text });
-                saveAppData();
-                renderSquadMessages();
-                input.value = '';
-            }
+            if(squad) { squad.messages.push({user: myUsername.replace('@', ''), text}); saveAppData(); renderSquadMessages(); input.value = ''; }
         }
 
         function renderClansList() {
-            let container = document.getElementById('clansListContainer');
-            if(!container) return;
-            container.innerHTML = '';
+            let container = document.getElementById('clansListContainer'); if(!container) return; container.innerHTML = '';
             clansData.forEach(clan => {
-                container.innerHTML += `
-                    <div class="glass-panel p-4 rounded-2xl flex items-center justify-between shadow-xl">
-                        <div>
-                            <h4 class="font-black text-xs text-white">${clan.name} <span class="text-cyan-400 text-[10px]">[${clan.tag}]</span></h4>
-                            <p class="text-[10px] text-gray-400">Leader: @${clan.leader} • Members: ${clan.members}</p>
-                        </div>
-                        <div class="flex space-x-1.5">
-                            <button onclick="openSquadRoom('${clan.name}')" class="px-3 py-1.5 bg-cyan-500 text-slate-950 rounded-xl text-[10px] font-black">Open Room</button>
-                        </div>
-                    </div>
-                `;
+                container.innerHTML += `<div class="glass-panel p-4 rounded-2xl flex items-center justify-between shadow-xl"><div><h4 class="font-black text-xs text-white">${clan.name} [${clan.tag}]</h4></div><button onclick="openSquadRoom('${clan.name}')" class="px-3 py-1.5 bg-cyan-500 text-slate-950 rounded-xl text-[10px] font-black">Open Room</button></div>`;
             });
         }
 
-        // Leaderboards
         function ladder(game) {
             const pts = {};
             matchResults.filter(r => r.game === game && r.status === 'confirmed').forEach(r => {
                 const [a, b] = r.score.split('-').map(Number);
-                if (Number.isNaN(a) || Number.isNaN(b)) return;
-                pts[r.user] = (pts[r.user] || 0) + (a > b ? 3 : a === b ? 1 : 0);
+                if (!Number.isNaN(a) && !Number.isNaN(b)) pts[r.user] = (pts[r.user] || 0) + (a > b ? 3 : a === b ? 1 : 0);
             });
             return Object.entries(pts).sort((x, y) => y[1] - x[1]);
         }
 
         function renderLadder(game) {
-            const body = document.getElementById('ladderBody');
-            if (!body) return;
-            let entries = ladder(game);
-            body.innerHTML = entries.map(([name, pts], i) => `
-                <div class="grid grid-cols-3 px-4 py-3 text-xs border-b border-cyan-500/10 items-center">
-                    <span class="font-bold text-cyan-400">#${i + 1}</span>
-                    <span class="font-bold text-white">@${name}</span>
-                    <span class="text-right font-black text-amber-400">${pts} PTS</span>
-                </div>`).join('') || `<div class="p-6 text-center text-gray-400 text-xs">No confirmed matches for ${game} yet.</div>`;
+            const body = document.getElementById('ladderBody'); if (!body) return;
+            body.innerHTML = ladder(game).map(([name, pts], i) => `<div class="grid grid-cols-3 px-4 py-3 text-xs border-b border-cyan-500/10"><span class="text-cyan-400 font-bold">#${i + 1}</span><span class="text-white font-bold">@${name}</span><span class="text-right text-amber-400 font-black">${pts} PTS</span></div>`).join('') || `<div class="p-6 text-center text-gray-400 text-xs">No confirmed matches.</div>`;
         }
 
-        // Chat & AI Bot
-        function switchChatRoom(room) {
-            activeChatRoom = room;
-            renderChatMessages();
-        }
-
-        const TACTICS_DB = {
-            'ea fc': '⚽ EA FC Tactic: 4-2-3-1 holding formation. Keep fullbacks on stay back, set central CAM on free roam.',
-            'efootball': '⚡ eFootball Tactic: 4-3-3 with single defensive pivot and low crosses from byline.'
-        };
-
-        function ggBotReply(text) {
-            const q = text.toLowerCase();
-            const hit = Object.keys(TACTICS_DB).find(k => q.includes(k) || q.includes('tactic'));
-            if (hit) return TACTICS_DB[hit];
-            return 'Post a confirmed match result and I will break down your scoreline! Ask me about EA FC or eFootball tactics.';
-        }
-
+        function switchChatRoom(room) { activeChatRoom = room; renderChatMessages(); }
         function sendChatMessage() {
-            let input = document.getElementById('chatInputMsg');
-            let text = input.value.trim();
+            let input = document.getElementById('chatInputMsg'); let text = input.value.trim();
             if(!text) return;
-            let senderName = myUsername.replace('@', '');
-            if(!chatMessages[activeChatRoom]) chatMessages[activeChatRoom] = [];
-            chatMessages[activeChatRoom].push({ user: senderName, text: text, time: 'Just now' });
+            chatMessages[activeChatRoom].push({user: myUsername.replace('@', ''), text, time: 'Now'});
             input.value = '';
-
             if(activeChatRoom === 'ai-bot' || text.toLowerCase().includes('@gg-bot')) {
-                setTimeout(() => {
-                    let botReply = ggBotReply(text);
-                    chatMessages[activeChatRoom].push({ user: 'GG-Bot', text: botReply, time: 'Just now' });
-                    saveAppData();
-                    renderChatMessages();
-                }, 500);
+                setTimeout(() => { chatMessages[activeChatRoom].push({user: 'GG-Bot', text: '⚽ EA FC Tactic: 4-2-3-1 holding format. Keep fullbacks back!', time: 'Now'}); saveAppData(); renderChatMessages(); }, 400);
             }
-            saveAppData();
-            renderChatMessages();
+            saveAppData(); renderChatMessages();
         }
-
         function renderChatMessages() {
-            let box = document.getElementById('chatMessagesBox');
-            if(!box) return;
-            box.innerHTML = '';
-            let msgs = chatMessages[activeChatRoom] || [];
-            msgs.forEach(m => {
-                let isMe = m.user === myUsername.replace('@', '');
-                let align = isMe ? 'ml-auto bg-cyan-500/20 border-cyan-500/30' : 'mr-auto bg-gg-900 border-cyan-500/10';
-                box.innerHTML += `
-                    <div class="max-w-[85%] p-3 rounded-xl border ${align} space-y-1">
-                        <div class="flex items-center justify-between space-x-2">
-                            <span class="text-[10px] text-cyan-400 font-bold">@${m.user}</span>
-                            <span class="text-[8px] text-gray-400">${m.time}</span>
-                        </div>
-                        <p class="text-xs text-gray-200">${m.text}</p>
-                    </div>
-                `;
+            let box = document.getElementById('chatMessagesBox'); if(!box) return; box.innerHTML = '';
+            chatMessages[activeChatRoom].forEach(m => {
+                box.innerHTML += `<div class="p-2.5 rounded-xl bg-gg-900 border border-cyan-500/10"><span class="text-[9px] text-cyan-400 font-bold">@${m.user}</span><p class="text-xs text-gray-200">${m.text}</p></div>`;
             });
             box.scrollTop = box.scrollHeight;
         }
 
-        // Live Broadcasting Studio
         function openLiveBroadcastModal() { document.getElementById('liveBroadcastModal').classList.remove('hidden'); }
-        function closeLiveBroadcastModal() { 
-            document.getElementById('liveBroadcastModal').classList.add('hidden'); 
-            if(activeStreamObject) {
-                activeStreamObject.getTracks().forEach(track => track.stop());
-                activeStreamObject = null;
-            }
-        }
-
+        function closeLiveBroadcastModal() { document.getElementById('liveBroadcastModal').classList.add('hidden'); }
         async function startScreenShareStream(type) {
             try {
-                if(type === 'screen') {
-                    if(!canCaptureScreen()) { alert('Screen capture not supported on this device.'); return; }
-                    activeStreamObject = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-                } else {
-                    activeStreamObject = await navigator.mediaDevices.getUserMedia({ 
-                        video: { width: { ideal: 720 }, height: { ideal: 1280 }, facingMode: "user" }, 
-                        audio: true 
-                    });
-                }
-                let previewVideo = document.getElementById('activePreviewVideo');
-                previewVideo.srcObject = activeStreamObject;
+                activeStreamObject = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('activePreviewVideo').srcObject = activeStreamObject;
                 document.getElementById('previewContainer').classList.remove('hidden');
-
-                let mediaRecorder = new MediaRecorder(activeStreamObject);
-                let recordedChunks = [];
-                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-                mediaRecorder.onstop = () => {
-                    let blob = new Blob(recordedChunks, { type: 'video/webm' });
-                    recordedStreamUrl = URL.createObjectURL(blob);
-                };
-                mediaRecorder.start(1000);
-                window.currentMediaRecorder = mediaRecorder;
-                alert('🟢 Live camera studio active!');
-            } catch(err) {
-                alert('⚠️ Capture error: ' + err.message);
-            }
+                alert('🟢 Live camera active!');
+            } catch(e) { alert('Camera access required.'); }
         }
-
         function publishActiveStream() {
-            let title = document.getElementById('liveTitleInput').value.trim();
-            if(!title) { alert('Please enter a stream title.'); return; }
-            if(window.currentMediaRecorder && window.currentMediaRecorder.state !== 'inactive') {
-                window.currentMediaRecorder.stop();
-            }
-            setTimeout(() => {
-                let finalStreamUrl = recordedStreamUrl || 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4';
-                fypPosts.unshift({
-                    user: myUsername.replace('@', ''),
-                    verified: true,
-                    game: 'LIVE STREAM',
-                    caption: `🔴 LIVE BROADCAST: ${title}`,
-                    likes: 1,
-                    comments: [],
-                    mediaUrl: finalStreamUrl,
-                    mediaType: 'video',
-                    isLive: true,
-                    pinned: true,
-                    givers: {}
-                });
-                saveAppData();
-                renderFypFeed();
-                closeLiveBroadcastModal();
-                alert('🔴 Broadcast published!');
-            }, 500);
+            let title = document.getElementById('liveTitleInput').value.trim(); if(!title) return;
+            fypPosts.unshift({user: myUsername.replace('@', ''), verified: true, game: 'LIVE STREAM', caption: `🔴 LIVE: ${title}`, likes: 1, comments: [], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: true});
+            saveAppData(); renderFypFeed(); closeLiveBroadcastModal(); alert('Published live!');
         }
 
         function openCreatePostModal() { document.getElementById('createPostModal').classList.remove('hidden'); }
         function closeCreatePostModal() { document.getElementById('createPostModal').classList.add('hidden'); }
-        function openDmModal() { document.getElementById('dmModal').classList.remove('hidden'); renderDms(); }
+        function openDmModal() { document.getElementById('dmModal').classList.remove('hidden'); document.getElementById('dmInboxList').innerHTML = `<div class="p-2 bg-gg-900 rounded">@SUPPORT: Welcome to DMs.</div>`; }
         function closeDmModal() { document.getElementById('dmModal').classList.add('hidden'); }
-        function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); renderNotifications(); }
+        function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); document.getElementById('notificationsListBox').innerHTML = `<div class="p-2 bg-gg-900 rounded">Explore tab active.</div>`; }
         function closeNotificationsModal() { document.getElementById('notifModal').classList.add('hidden'); }
 
-        function toggleResultFields(checkbox) {
-            document.getElementById('resultFields').classList.toggle('hidden', !checkbox.checked);
-        }
-
-        function toggleDmPrivacy(checkbox) {
-            localStorage.setItem('sinless_allow_dms', checkbox.checked);
-        }
+        function toggleResultFields(c) { document.getElementById('resultFields').classList.toggle('hidden', !c.checked); }
 
         function submitUniversalPost() {
             let text = document.getElementById('postTextContent').value.trim();
-            let fileInput = document.getElementById('postMediaFile');
-            let category = document.getElementById('postCategorySelect').value;
-            let isResult = document.getElementById('isResult').checked;
+            let file = document.getElementById('postMediaFile').files[0];
+            let cat = document.getElementById('postCategorySelect').value;
+            let isRes = document.getElementById('isResult').checked;
+            let mediaUrl = file ? URL.createObjectURL(file) : '';
+            let caption = text;
 
-            if(!text && (!fileInput.files || fileInput.files.length === 0) && !isResult) return;
-
-            let mediaUrl = fileInput.files[0] ? URL.createObjectURL(fileInput.files[0]) : '';
-            let captionText = text;
-
-            if(isResult) {
-                let opp = document.getElementById('oppInput').value.trim() || '@opponent';
+            if(isRes) {
+                let opp = document.getElementById('oppInput').value.trim() || '@rival';
                 let score = document.getElementById('scoreInput').value.trim() || '2-1';
-                let comp = document.getElementById('compInput').value.trim() || 'Sinless Cup';
-                captionText = `🏆 Match Result [${comp}]: vs ${opp} — ${score}`;
-                matchResults.unshift({
-                    id: crypto.randomUUID(),
-                    user: myUsername.replace('@', ''),
-                    game: category,
-                    opp: opp,
-                    score: score,
-                    comp: comp,
-                    status: 'confirmed',
-                    ts: Date.now()
-                });
-                saveAppData();
-                renderLadder(category);
+                caption = `🏆 Match Result: vs ${opp} — ${score}`;
+                matchResults.unshift({id: crypto.randomUUID(), user: myUsername.replace('@', ''), game: cat, opp, score, comp: 'Cup', status: 'confirmed', ts: Date.now()});
+                renderLadder(cat);
             }
 
-            fypPosts.unshift({
-                user: myUsername.replace('@', ''),
-                verified: true,
-                game: category,
-                caption: captionText || 'Post',
-                likes: 1,
-                comments: [],
-                mediaUrl: mediaUrl,
-                mediaType: fileInput.files[0] ? (fileInput.files[0].type.startsWith('video') ? 'video' : 'picture') : 'text',
-                pinned: false,
-                givers: {}
-            });
-
-            saveAppData();
-            renderFypFeed();
-            renderSearchResults('');
-            closeCreatePostModal();
-            alert('🚀 Published successfully!');
+            fypPosts.unshift({user: myUsername.replace('@', ''), verified: true, game: cat, caption: caption || 'Post', likes: 1, comments: [], mediaUrl, mediaType: file ? (file.type.startsWith('video') ? 'video' : 'picture') : 'text'});
+            saveAppData(); renderFypFeed(); closeCreatePostModal(); alert('Published!');
         }
 
-        function toggleGG(index) {
-            let post = fypPosts[index];
-            if(!post.givers) post.givers = {};
-            let isOwner = myUsername.toUpperCase().includes('DON PRIME');
-            let hasGiven = post.givers[myUsername];
-
-            if(isOwner) {
-                post.likes = (post.likes || 0) + 1;
-            } else {
-                if(hasGiven) {
-                    post.likes = Math.max(0, (post.likes || 1) - 1);
-                    delete post.givers[myUsername];
-                } else {
-                    post.likes = (post.likes || 0) + 1;
-                    post.givers[myUsername] = true;
-                }
-            }
-            saveAppData();
-            renderFypFeed();
+        function toggleGG(i) {
+            fypPosts[i].likes = (fypPosts[i].likes || 0) + 1;
+            saveAppData(); renderFypFeed();
         }
 
         function openMediaViewer(url, type) {
-            let contentBox = document.getElementById('mediaViewerContent');
-            if(type === 'video') {
-                contentBox.innerHTML = `<video src="${url}" controls autoplay playsinline class="max-w-full max-h-[85vh] rounded-xl shadow-2xl"></video>`;
-            } else {
-                contentBox.innerHTML = `<img src="${url}" class="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl">`;
-            }
+            document.getElementById('mediaViewerContent').innerHTML = type === 'video' ? `<video src="${url}" controls autoplay class="max-h-[85vh] rounded-xl"></video>` : `<img src="${url}" class="max-h-[85vh] object-contain rounded-xl">`;
             document.getElementById('mediaViewerModal').classList.remove('hidden');
         }
         function closeMediaViewer() { document.getElementById('mediaViewerModal').classList.add('hidden'); }
 
-        function openCommentsModal(index) {
-            currentOpenCommentPostIndex = index;
-            document.getElementById('commentsModal').classList.remove('hidden');
-            renderCommentsList();
+        function openCommentsModal(i) {
+            currentOpenCommentPostIndex = i; document.getElementById('commentsModal').classList.remove('hidden');
+            let box = document.getElementById('commentsListBox'); box.innerHTML = '';
+            (fypPosts[i].comments || []).forEach(c => { box.innerHTML += `<div class="p-2 bg-gg-900 rounded"><span class="text-[9px] text-cyan-400">@${c.user}</span><p class="text-xs">${c.text}</p></div>`; });
         }
         function closeCommentsModal() { document.getElementById('commentsModal').classList.add('hidden'); }
-
-        function renderCommentsList() {
-            let box = document.getElementById('commentsListBox');
-            box.innerHTML = '';
-            if(currentOpenCommentPostIndex === null) return;
-            let comments = fypPosts[currentOpenCommentPostIndex].comments || [];
-            comments.forEach(c => {
-                box.innerHTML += `<div class="bg-gg-900 p-2.5 rounded-xl border border-cyan-500/10 space-y-1"><span class="text-[10px] text-cyan-400 font-bold">@${c.user}</span><p class="text-xs text-gray-200">${c.text}</p></div>`;
-            });
-        }
-
         function submitNewComment() {
-            let input = document.getElementById('commentInputText');
-            let text = input.value.trim();
-            if(!text || currentOpenCommentPostIndex === null) return;
-            fypPosts[currentOpenCommentPostIndex].comments.push({ user: myUsername.replace('@', ''), text: text });
-            saveAppData();
-            renderCommentsList();
-            renderFypFeed();
-            input.value = '';
+            let txt = document.getElementById('commentInputText').value.trim();
+            if(!txt || currentOpenCommentPostIndex === null) return;
+            fypPosts[currentOpenCommentPostIndex].comments.push({user: myUsername.replace('@', ''), text: txt});
+            saveAppData(); openCommentsModal(currentOpenCommentPostIndex); document.getElementById('commentInputText').value = '';
         }
 
-        function renderDms() {
-            let box = document.getElementById('dmInboxList');
-            box.innerHTML = '';
-            directMessages.forEach(dm => {
-                box.innerHTML += `<div class="bg-gg-900 p-2.5 rounded-xl border border-cyan-500/10"><p class="text-[10px] text-cyan-400 font-bold">@${dm.sender}</p><p class="text-xs text-gray-200">${dm.text}</p></div>`;
-            });
-        }
-
-        function renderNotifications() {
-            let box = document.getElementById('notificationsListBox');
-            box.innerHTML = '';
-            notificationsList.forEach(n => {
-                box.innerHTML += `<div class="bg-gg-900 p-2.5 rounded-xl border border-magenta/20 text-xs text-gray-200">${n.text}</div>`;
-            });
-        }
-
-        function filterByCategory(cat, btnElement) {
+        function filterByCategory(cat, btn) {
             activeCategoryFilter = cat;
-            let buttons = document.querySelectorAll('#categoryFilterBar .cat-btn');
-            buttons.forEach(b => {
-                b.classList.remove('bg-cyan-400', 'text-slate-950', 'font-extrabold');
-                b.classList.add('bg-gg-900', 'text-gray-300', 'font-bold');
-            });
-            if(btnElement) {
-                btnElement.classList.remove('bg-gg-900', 'text-gray-300', 'font-bold');
-                btnElement.classList.add('bg-cyan-400', 'text-slate-950', 'font-extrabold');
-            }
+            document.querySelectorAll('#categoryFilterBar .cat-btn').forEach(b => b.className = "cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-gray-300 border border-cyan-500/20 whitespace-nowrap transition");
+            if(btn) btn.className = "cat-btn px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition";
             renderFypFeed();
         }
 
         function renderFypFeed() {
-            const container = document.getElementById('fypFeedContainer');
-            container.innerHTML = '';
+            let container = document.getElementById('fypFeedContainer'); if(!container) return; container.innerHTML = '';
             let filtered = fypPosts.filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
 
-            filtered.forEach((post) => {
-                let actualIndex = fypPosts.indexOf(post);
-                let liveBadge = post.isLive ? `<span class="text-[9px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30 font-bold animate-pulse">🔴 LIVE</span>` : '';
-                let mediaContent = post.mediaUrl ? (post.mediaType === 'picture' ? 
-                    `<div class="relative cursor-pointer overflow-hidden bg-gg-950" onclick="openMediaViewer('${post.mediaUrl}', 'picture')"><img src="${post.mediaUrl}" class="w-full max-h-[450px] object-cover"><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>` :
-                    `<div class="relative cursor-pointer overflow-hidden bg-gg-950" onclick="openMediaViewer('${post.mediaUrl}', 'video')"><video src="${post.mediaUrl}" autoplay loop muted playsinline class="w-full max-h-[450px] object-cover"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`) : '';
-
-                container.innerHTML += `
-                    <div class="glass-panel rounded-2xl overflow-hidden space-y-2.5 pb-3 shadow-xl">
-                        <div class="p-3 pb-0 flex items-center justify-between">
-                            <div>
-                                <span class="font-bold text-xs text-white">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
-                                <span class="text-[9px] text-cyan-400 font-bold block">${post.game || 'POST'}</span>
-                            </div>
-                            ${liveBadge}
-                        </div>
-                        <p class="px-3 text-xs text-gray-200 font-semibold">${post.caption}</p>
-                        ${mediaContent}
-                        <div class="px-3 pt-1 flex items-center justify-between text-gray-400 text-xs border-t border-cyan-500/10 mt-2">
-                            <button onclick="toggleGG(${actualIndex})" class="flex items-center space-x-1.5 hover:text-cyan-400 transition">
-                                <i class="fa-solid fa-heart text-pink-500"></i>
-                                <span class="text-[11px] font-bold text-white">${post.likes || 0} GGs</span>
-                            </button>
-                            <button onclick="openCommentsModal(${actualIndex})" class="flex items-center space-x-1.5 hover:text-cyan-400 transition">
-                                <i class="fa-solid fa-comment text-cyan-400"></i>
-                                <span class="text-[11px] font-bold text-white">${(post.comments || []).length} Comments</span>
-                            </button>
-                            <button onclick="navigator.clipboard.writeText(window.location.href); alert('🔗 Copied!');" class="hover:text-cyan-400 transition">
-                                <i class="fa-solid fa-share-nodes"></i>
-                            </button>
-                        </div>
-                    </div>
-                `;
+            filtered.forEach(post => {
+                let idx = fypPosts.indexOf(post);
+                let media = post.mediaUrl ? (post.mediaType === 'video' ? `<div class="relative cursor-pointer bg-gg-950" onclick="openMediaViewer('${post.mediaUrl}', 'video')"><video src="${post.mediaUrl}" autoplay loop muted playsinline class="w-full max-h-[400px] object-cover"></video><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>` : `<div class="relative cursor-pointer bg-gg-950" onclick="openMediaViewer('${post.mediaUrl}', 'picture')"><img src="${post.mediaUrl}" class="w-full max-h-[400px] object-cover"><div class="watermark-badge">@${post.user} • SINLESS GG</div></div>`) : '';
+                container.innerHTML += `<div class="glass-panel rounded-2xl overflow-hidden space-y-2 pb-3 shadow-xl"><div class="p-3 pb-0 flex items-center justify-between"><div><span class="font-bold text-xs text-white">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span><span class="text-[9px] text-cyan-400 font-bold block">${post.game}</span></div>${post.isLive ? '<span class="text-[9px] bg-red-500/25 text-red-400 px-2 py-0.5 rounded font-bold animate-pulse">LIVE</span>' : ''}</div><p class="px-3 text-xs text-gray-200">${post.caption}</p>${media}<div class="px-3 pt-1 flex items-center justify-between text-xs border-t border-cyan-500/10 mt-2"><button onclick="toggleGG(${idx})" class="text-pink-500 font-bold"><i class="fa-solid fa-heart mr-1"></i>${post.likes || 0} GGs</button><button onclick="openCommentsModal(${idx})" class="text-cyan-400 font-bold"><i class="fa-solid fa-comment mr-1"></i>${(post.comments || []).length}</button></div></div>`;
             });
         }
 
@@ -891,7 +572,6 @@
             });
             let target = document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1));
             if(target) target.classList.remove('hidden');
-
             if(view === 'standings') renderLadder(document.getElementById('ladderGameSelect').value);
             if(view === 'explore') renderSearchResults('');
         }
