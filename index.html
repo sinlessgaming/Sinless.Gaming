@@ -153,7 +153,7 @@
             </div>
             <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-3.5 space-y-3"></div>
             <div class="p-3 border-t border-cyan-500/15 bg-gg-950 flex items-center space-x-2">
-                <input type="text" id="chatInputMsg" placeholder="Chat in lobby..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none" onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                <input type="text" id="chatInputMsg" placeholder="Chat in lobby (mention @GG-Bot for AI)..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none" onkeypress="if(event.key === 'Enter') sendChatMessage()">
                 <button onclick="sendChatMessage()" class="px-4 py-2.5 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
@@ -206,6 +206,21 @@
         </div>
     </main>
 
+    <!-- SQUAD ROOM / INTERACTIVE LOBBY VIEW MODAL -->
+    <div id="squadRoomModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col h-[480px] shadow-2xl fade-in border border-cyan-500/40 space-y-3">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <h3 id="activeSquadTitle" class="text-xs font-black text-white uppercase tracking-wider">Squad Room</h3>
+                <button onclick="closeSquadRoom()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
+            </div>
+            <div id="squadChatBox" class="flex-1 overflow-y-auto space-y-2 p-2 bg-gg-950 rounded-xl border border-cyan-500/20"></div>
+            <div class="flex space-x-2">
+                <input type="text" id="squadMsgInput" placeholder="Message squad room..." class="flex-1 bg-gg-900 border border-cyan-500/35 rounded-xl px-3 py-2 text-xs text-white focus:outline-none" onkeypress="if(event.key === 'Enter') sendSquadMessage()">
+                <button onclick="sendSquadMessage()" class="px-4 py-2 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs">Send</button>
+            </div>
+        </div>
+    </div>
+
     <!-- CREATE SQUAD MODAL -->
     <div id="createClanModalBox" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl fade-in border border-cyan-500/40">
@@ -230,7 +245,7 @@
             </div>
             <div id="commentsListBox" class="flex-1 overflow-y-auto space-y-2.5 py-3"></div>
             <div class="pt-2 border-t border-cyan-500/15 flex space-x-2">
-                <input type="text" id="commentInputText" placeholder="Write a comment..." class="flex-1 bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none" onkeypress="if(event.key === 'Enter') submitNewComment()">
+                <input type="text" id="commentInputText" placeholder="Write comment (tag @GG-Bot)..." class="flex-1 bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none" onkeypress="if(event.key === 'Enter') submitNewComment()">
                 <button onclick="submitNewComment()" class="px-4 py-2 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs">Post</button>
             </div>
         </div>
@@ -330,22 +345,25 @@
         let activeStreamObject = null;
         let recordedStreamUrl = null;
         let currentOpenCommentPostIndex = null;
+        let activeSquadRoomName = null;
 
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
-            { user: 'DON PRIME', verified: true, game: 'EA FC', caption: '😂😂😂😂', likes: 2, comments: [{user: 'BALL_MASTER', text: 'Insane match! 🔥'}], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: false, pinned: true, givers: {} },
+            { user: 'DON PRIME', verified: true, game: 'EA FC', caption: '😂😂😂😂', likes: 2, comments: [{user: 'BALL_MASTER', text: 'Insane match! 🔥 @GG-Bot analyze this tactics.'}], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: false, pinned: true, givers: {} },
             { user: 'DON PRIME', verified: true, game: 'LIVE STREAM', caption: '🔴 LIVE SCREEN BROADCAST: Let’s go live', likes: 1, comments: [], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: true, pinned: false, givers: {} }
         ];
 
         let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
-            { name: 'SINLESS ELITE', tag: 'SLS', members: 42, leader: 'DON PRIME' }
+            { name: 'SINLESS ELITE', tag: 'SLS', members: 42, leader: 'DON PRIME', messages: [{user: 'DON PRIME', text: 'Welcome to Sinless Elite squad room!'}] },
+            { name: 'EFOOTBALL KINGS', tag: 'EFK', members: 35, leader: 'BALL_MASTER', messages: [{user: 'BALL_MASTER', text: 'Squad match starts at 8 PM!'}] },
+            { name: 'HEY', tag: 'DEAD', members: 1, leader: 'DON PRIME', messages: [{user: 'DON PRIME', text: 'Squad testing room.'}] }
         ];
 
         let chatMessages = JSON.parse(localStorage.getItem('sinless_chats')) || {
             'global': [{ user: 'System', text: 'Welcome to Sinless GG Global Lobby.', time: 'Now' }],
-            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! I am your AI gaming assistant. Ask me anything about tournaments or esports.', time: 'Now' }]
+            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! I am your AI gaming assistant. Ask me anything about FC mobile tactics, tournaments, or esports.', time: 'Now' }]
         };
 
-        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Squad creation & chat messaging bugs fully fixed.', time: 'Now' }];
+        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Squad room access and smart @GG-Bot tagging fully enabled.', time: 'Now' }];
         let notificationsList = [{ text: '🔴 Esports & Sports categories ready.', time: 'Now' }];
         let tournamentData = { 'champions-league': { teams: [{ name: 'DON PRIME', p: 3, w: 2, pts: 12 }] } };
 
@@ -357,19 +375,62 @@
             localStorage.setItem('sinless_chats', JSON.stringify(chatMessages));
         }
 
-        // Squads / Clans Functions
+        // Squads / Clans Functions with Room Access
         function openCreateClanModal() { document.getElementById('createClanModalBox').classList.remove('hidden'); }
         function closeCreateClanModal() { document.getElementById('createClanModalBox').classList.add('hidden'); }
+        
         function submitNewClan() {
             let name = document.getElementById('clanNameInput').value.trim();
             let tag = document.getElementById('clanTagInput').value.trim();
             if(!name || !tag) { alert('Please enter both Squad Name and Tag.'); return; }
-            clansData.push({ name: name.toUpperCase(), tag: tag.toUpperCase(), members: 1, leader: myUsername.replace('@', '') });
+            clansData.push({ name: name.toUpperCase(), tag: tag.toUpperCase(), members: 1, leader: myUsername.replace('@', ''), messages: [{user: 'System', text: `Squad ${name.toUpperCase()} created successfully.`}] });
             saveAppData();
             renderClansList();
             closeCreateClanModal();
             alert('🛡️ Squad successfully created!');
         }
+
+        function openSquadRoom(clanName) {
+            activeSquadRoomName = clanName;
+            document.getElementById('activeSquadTitle').innerText = `Squad Room: ${clanName}`;
+            document.getElementById('squadRoomModal').classList.remove('hidden');
+            renderSquadMessages();
+        }
+
+        function closeSquadRoom() {
+            document.getElementById('squadRoomModal').classList.add('hidden');
+            activeSquadRoomName = null;
+        }
+
+        function renderSquadMessages() {
+            let box = document.getElementById('squadChatBox');
+            box.innerHTML = '';
+            let squad = clansData.find(c => c.name === activeSquadRoomName);
+            if(!squad || !squad.messages || squad.messages.length === 0) {
+                box.innerHTML = `<div class="text-center text-gray-400 text-xs py-6">No squad messages yet. Say something!</div>`;
+                return;
+            }
+            squad.messages.forEach(m => {
+                box.innerHTML += `<div class="bg-gg-900 p-2 rounded-xl border border-cyan-500/10"><span class="text-[9px] text-cyan-400 font-bold">@${m.user}</span><p class="text-xs text-gray-200">${m.text}</p></div>`;
+            });
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function sendSquadMessage() {
+            let input = document.getElementById('squadMsgInput');
+            let text = input.value.trim();
+            if(!text || !activeSquadRoomName) return;
+
+            let squad = clansData.find(c => c.name === activeSquadRoomName);
+            if(squad) {
+                if(!squad.messages) squad.messages = [];
+                squad.messages.push({ user: myUsername.replace('@', ''), text: text });
+                saveAppData();
+                renderSquadMessages();
+                input.value = '';
+            }
+        }
+
         function renderClansList() {
             let container = document.getElementById('clansListContainer');
             if(!container) return;
@@ -381,18 +442,21 @@
                             <h4 class="font-black text-xs text-white">${clan.name} <span class="text-cyan-400 text-[10px]">[${clan.tag}]</span></h4>
                             <p class="text-[10px] text-gray-400">Leader: @${clan.leader} • Members: ${clan.members}</p>
                         </div>
-                        <button onclick="alert('Joined squad successfully!')" class="px-3 py-1.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-xl text-[10px] font-bold">Join</button>
+                        <div class="flex space-x-1.5">
+                            <button onclick="openSquadRoom('${clan.name}')" class="px-3 py-1.5 bg-cyan-500 text-slate-950 rounded-xl text-[10px] font-black">Open Room</button>
+                        </div>
                     </div>
                 `;
             });
         }
         renderClansList();
 
-        // Chat & Lobbies Functions
+        // Chat & Lobbies Functions with Smart AI Bot Tagging
         function switchChatRoom(room) {
             activeChatRoom = room;
             renderChatMessages();
         }
+
         function sendChatMessage() {
             let input = document.getElementById('chatInputMsg');
             let text = input.value.trim();
@@ -404,10 +468,11 @@
             chatMessages[activeChatRoom].push({ user: senderName, text: text, time: 'Just now' });
             input.value = '';
 
-            // If messaging AI Bot, trigger automated response
-            if(activeChatRoom === 'ai-bot') {
+            // Smart AI Bot Reply / Mention Trigger
+            if(activeChatRoom === 'ai-bot' || text.toLowerCase().includes('@gg-bot')) {
                 setTimeout(() => {
-                    chatMessages['ai-bot'].push({ user: 'GG-Bot', text: `I received your message: "${text}". Let's dominate the esports arena! 🎮`, time: 'Just now' });
+                    let botReply = getSmartBotReply(text);
+                    chatMessages[activeChatRoom].push({ user: 'GG-Bot', text: botReply, time: 'Just now' });
                     saveAppData();
                     renderChatMessages();
                 }, 600);
@@ -416,6 +481,18 @@
             saveAppData();
             renderChatMessages();
         }
+
+        function getSmartBotReply(msg) {
+            let lower = msg.toLowerCase();
+            if(lower.includes('tactic') || lower.includes('fc') || lower.includes('formation')) {
+                return "For EA FC & Mobile, a 4-3-3 holding formation with fast wingers and custom build-up tactics gives you maximum counter-attack dominance! ⚽🎮";
+            } else if(lower.includes('tournament') || lower.includes('league')) {
+                return "You can organize and track your Challonge brackets right here in Sinless GG under the Tables & Squads tabs! 🏆";
+            } else {
+                return `Hey @DON PRIME! I'm @GG-Bot, your esports assistant. You mentioned: "${msg}". Let's crush the competition today! 🚀`;
+            }
+        }
+
         function renderChatMessages() {
             let box = document.getElementById('chatMessagesBox');
             if(!box) return;
@@ -613,6 +690,7 @@
             document.getElementById('commentsModal').classList.add('hidden');
             currentOpenCommentPostIndex = null;
         }
+
         function renderCommentsList() {
             let box = document.getElementById('commentsListBox');
             box.innerHTML = '';
@@ -627,6 +705,7 @@
             });
             box.scrollTop = box.scrollHeight;
         }
+
         function submitNewComment() {
             let input = document.getElementById('commentInputText');
             let text = input.value.trim();
@@ -639,6 +718,15 @@
                 user: myUsername.replace('@', ''),
                 text: text
             });
+
+            // If user tags @GG-Bot in comments, automatically trigger a bot reply comment
+            if(text.toLowerCase().includes('@gg-bot')) {
+                fypPosts[currentOpenCommentPostIndex].comments.push({
+                    user: 'GG-Bot',
+                    text: '🤖 I checked this post! Great gameplay and solid strategy. Keep dominating!'
+                });
+            }
+
             saveAppData();
             renderCommentsList();
             renderFypFeed();
