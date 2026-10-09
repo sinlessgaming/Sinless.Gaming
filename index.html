@@ -240,8 +240,8 @@
             </div>
             <div class="space-y-3">
                 <div>
-                    <label class="block text-[10px] text-cyan-400 font-bold mb-1">Gmail Address</label>
-                    <input type="email" id="setupEmailInput" placeholder="e.g., name@gmail.com" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
+                    <label class="block text-[10px] text-cyan-400 font-bold mb-1">Gmail Address (must end with @gmail.com)</label>
+                    <input type="email" id="setupEmailInput" placeholder="e.g., username@gmail.com" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white">
                 </div>
                 <div>
                     <label class="block text-[10px] text-cyan-400 font-bold mb-1">Gamer Tag / Handle</label>
@@ -392,7 +392,7 @@
         let myEmail = localStorage.getItem('sinless_email') || 'sinlessgaming@gmail.com';
 
         let notifications = JSON.parse(localStorage.getItem('sinless_notifs')) || [
-            { text: 'Welcome to Sinless GG! All official squads & strict email validation active.', ts: Date.now() }
+            { text: 'Welcome to Sinless GG! Strict Gmail address validation active.', ts: Date.now() }
         ];
 
         let directMessages = JSON.parse(localStorage.getItem('sinless_dms')) || [
@@ -586,18 +586,20 @@
         function openAccountModal() { document.getElementById('accountModal').classList.remove('hidden'); }
         function closeAccountModal() { document.getElementById('accountModal').classList.add('hidden'); }
         
-        // Strict Email Validation
+        // Strict Gmail Address Validation
         function saveUserAccount() {
             let uInput = document.getElementById('setupUsernameInput').value.trim();
             let eInput = document.getElementById('setupEmailInput').value.trim();
-            let emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            
+            // Strictly enforce @gmail.com
+            let gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
 
             if(!uInput || !eInput) {
-                alert('Please enter both your Gmail and Gamer Tag.');
+                alert('Please enter both your Gmail Address and Gamer Tag.');
                 return;
             }
-            if(!emailRegex.test(eInput)) {
-                alert('Please enter a valid email address (e.g. name@gmail.com).');
+            if(!gmailRegex.test(eInput)) {
+                alert('Invalid Gmail address! Please enter a valid Gmail address ending in @gmail.com (e.g., yourname@gmail.com).');
                 return;
             }
 
@@ -606,7 +608,7 @@
             saveAppData();
             document.getElementById('headerUserTag').innerText = myUsername;
             closeAccountModal();
-            alert(`🎉 Logged in as ${myUsername} (${myEmail})`);
+            alert(`🎉 Logged in successfully with Gmail: ${myEmail}`);
         }
 
         function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); }
