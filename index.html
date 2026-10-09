@@ -84,13 +84,14 @@
     <!-- Main Workspace -->
     <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3">
         
-        <!-- View Tabs -->
+        <!-- View Tabs (Includes Feed, Trending, Squads, Lobbies, Tables, and Top/Rank) -->
         <div class="glass-panel p-1.5 rounded-2xl flex shadow-xl overflow-x-auto scrollbar-none">
             <button onclick="switchView('fyp')" id="btnViewFyp" class="flex-1 py-2 px-2 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap"><i class="fa-solid fa-fire mr-0.5"></i> Feed</button>
-            <button onclick="switchView('explore')" id="btnViewExplore" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-compass mr-0.5"></i> Explore</button>
+            <button onclick="switchView('trending')" id="btnViewTrending" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-chart-line mr-0.5"></i> Trending</button>
             <button onclick="switchView('clans')" id="btnViewClans" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-shield-halved mr-0.5"></i> Squads</button>
             <button onclick="switchView('chat')" id="btnViewChat" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-comments mr-0.5"></i> Lobbies</button>
             <button onclick="switchView('standings')" id="btnViewStandings" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-trophy mr-0.5"></i> Tables</button>
+            <button onclick="switchView('popular')" id="btnViewPopular" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-crown mr-0.5"></i> Top</button>
         </div>
 
         <!-- 1. FYP / Feed View -->
@@ -116,43 +117,42 @@
 
             <div id="categoryFilterBar" class="flex space-x-2 overflow-x-auto scrollbar-none py-1">
                 <button onclick="filterByCategory('ALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition">🌐 All</button>
-                <button onclick="filterByCategory('LIVE STREAM', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-red-400 border border-red-500/30 whitespace-nowrap transition animate-pulse">🔴 Live Broadcasts</button>
-                <button onclick="filterByCategory('EA FC', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">⚽ EA FC</button>
-                <button onclick="filterByCategory('EA SPORTS FC', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">🎮 EA SPORTS FC</button>
+                <button onclick="filterByCategory('LIVE STREAM', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-red-400 border border-red-500/30 whitespace-nowrap transition animate-pulse">🔴 Live</button>
+                <button onclick="filterByCategory('FC MOBILE', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">⚽ FC Mobile</button>
                 <button onclick="filterByCategory('EFOOTBALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">⚡ eFootball</button>
                 <button onclick="filterByCategory('DLS', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">🏆 DLS</button>
-                <button onclick="filterByCategory('WORLD FOOTBALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">🏟️ World Football</button>
-                <button onclick="filterByCategory('WRESTLING', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-amber-400 border border-amber-500/30 whitespace-nowrap transition">🤼 WWE / AEW</button>
-                <button onclick="filterByCategory('COD', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">🎯 Call of Duty</button>
+                <button onclick="filterByCategory('WORLD FOOTBALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">🏟️ Football</button>
+                <button onclick="filterByCategory('WRESTLING', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-amber-400 border border-amber-500/30 whitespace-nowrap transition">🤼 Wrestling</button>
+                <button onclick="filterByCategory('COD', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">🎯 CoD</button>
             </div>
 
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
 
-        <!-- 2. EXPLORE & TRENDING VIEW -->
-        <div id="viewExplore" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
+        <!-- 2. TRENDING & UNIVERSAL SEARCH VIEW -->
+        <div id="viewTrending" class="hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             <div class="glass-panel p-3 rounded-2xl space-y-2.5 shadow-xl">
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-cyan-400 text-xs"></i>
-                    <input type="text" id="globalSearchInput" oninput="handleGlobalSearch(this.value)" placeholder="Search players, tournaments, or tags..." class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none">
+                    <input type="text" id="globalSearchInput" oninput="handleGlobalSearch(this.value)" placeholder="Search everything on Sinless GG (players, squads, tags)..." class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none">
                 </div>
             </div>
 
             <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl">
                 <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-chart-line text-cyan-400 mr-1.5"></i> Global Trending & Tags</h3>
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-fire text-orange-400 mr-1.5"></i> Global Trending</h3>
                     <span class="text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">LIVE</span>
                 </div>
                 <div id="trendingTagsList" class="space-y-3">
                     <div class="cursor-pointer hover:bg-gg-900 p-2 rounded-xl transition" onclick="filterByTag('#SinlessSuperLeague')">
-                        <span class="text-[9px] text-gray-400">Trending in Esports • Gaming</span>
+                        <span class="text-[9px] text-gray-400">Trending in Esports</span>
                         <h4 class="font-bold text-xs text-white">#SinlessSuperLeague</h4>
                         <span class="text-[9px] text-cyan-400">14.2K posts</span>
                     </div>
-                    <div class="cursor-pointer hover:bg-gg-900 p-2 rounded-xl transition" onclick="filterByTag('#EFC27')">
-                        <span class="text-[9px] text-gray-400">Trending • EA FC</span>
-                        <h4 class="font-bold text-xs text-white">#EFC27</h4>
-                        <span class="text-[9px] text-cyan-400">8.9K posts</span>
+                    <div class="cursor-pointer hover:bg-gg-900 p-2 rounded-xl transition" onclick="filterByTag('#FCMobile')">
+                        <span class="text-[9px] text-gray-400">Trending • FC Mobile</span>
+                        <h4 class="font-bold text-xs text-white">#FCMobile</h4>
+                        <span class="text-[9px] text-cyan-400">18.9K posts</span>
                     </div>
                     <div class="cursor-pointer hover:bg-gg-900 p-2 rounded-xl transition" onclick="filterByTag('#DLS27')">
                         <span class="text-[9px] text-gray-400">Trending • Mobile Football</span>
@@ -192,7 +192,7 @@
             </div>
             <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-3.5 space-y-3"></div>
             <div class="p-3 border-t border-cyan-500/15 bg-gg-950 flex items-center space-x-2">
-                <input type="text" id="chatInputMsg" placeholder="Chat in lobby (mention @GG-Bot for AI)..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none" onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                <input type="text" id="chatInputMsg" placeholder="Chat in lobby (mention @GG-Bot)..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none" onkeypress="if(event.key === 'Enter') sendChatMessage()">
                 <button onclick="sendChatMessage()" class="px-4 py-2.5 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
@@ -202,7 +202,7 @@
             <div class="flex items-center justify-between">
                 <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-trophy text-amber-400 mr-1.5"></i> Weekly Leaderboard</h3>
                 <select id="ladderGameSelect" onchange="renderLadder(this.value)" class="bg-gg-950 text-cyan-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-cyan-500/30 focus:outline-none">
-                    <option value="EA FC">⚽ EA FC</option>
+                    <option value="FC MOBILE">⚽ FC Mobile</option>
                     <option value="EFOOTBALL">⚡ eFootball</option>
                     <option value="DLS">🏆 DLS</option>
                 </select>
@@ -212,6 +212,34 @@
                     <span>Rank</span><span>Contender</span><span class="text-right">PTS</span>
                 </div>
                 <div id="ladderBody" class="divide-y divide-cyan-500/10"></div>
+            </div>
+        </div>
+
+        <!-- 6. Popular / Top Rank View -->
+        <div id="viewPopular" class="hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl fade-in">
+            <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-crown text-amber-400 mr-1.5"></i> Platform Rank & Creators</h3>
+            <div class="overflow-x-auto flex-1">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-gg-900 text-cyan-400 text-[10px] uppercase border-b border-cyan-500/15">
+                            <th class="p-3">Rank</th>
+                            <th class="p-3">Creator / Gamer</th>
+                            <th class="p-3 text-center">GGs</th>
+                        </tr>
+                    </thead>
+                    <tbody id="popularCreatorsTableBody" class="divide-y divide-cyan-500/10">
+                        <tr class="border-b border-cyan-500/10">
+                            <td class="p-3 text-cyan-400 font-bold">#1</td>
+                            <td class="p-3 font-bold text-white">@DON PRIME <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></td>
+                            <td class="p-3 text-center font-black text-amber-400">124 GGs</td>
+                        </tr>
+                        <tr class="border-b border-cyan-500/10">
+                            <td class="p-3 text-cyan-400 font-bold">#2</td>
+                            <td class="p-3 font-bold text-white">@BALL_MASTER</td>
+                            <td class="p-3 text-center font-black text-amber-400">89 GGs</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>
@@ -296,11 +324,10 @@
                 <button onclick="closeCreatePostModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             <div class="space-y-3">
-                <textarea id="postTextContent" rows="2" placeholder="What's happening... Use tags like #SinlessSuperLeague" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white focus:outline-none"></textarea>
+                <textarea id="postTextContent" rows="2" placeholder="What's happening... Use tags like #FCMobile" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white focus:outline-none"></textarea>
                 <input type="file" id="postMediaFile" accept="image/*,video/*" class="text-[10px] text-gray-300 w-full">
                 <select id="postCategorySelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30 focus:outline-none">
-                    <option value="EA FC">⚽ EA FC</option>
-                    <option value="EA SPORTS FC">🎮 EA SPORTS FC</option>
+                    <option value="FC MOBILE">⚽ FC Mobile</option>
                     <option value="EFOOTBALL">⚡ eFootball</option>
                     <option value="DLS">🏆 DLS</option>
                     <option value="WORLD FOOTBALL">🏟️ World Football</option>
@@ -353,11 +380,11 @@
         let activeSquadRoomName = null;
 
         let matchResults = JSON.parse(localStorage.getItem('sg_results')) || [
-            { id: '1', user: 'DON PRIME', game: 'EA FC', opp: 'BALL_MASTER', score: '3-1', comp: 'Sinless Super League', status: 'confirmed', ts: Date.now() }
+            { id: '1', user: 'DON PRIME', game: 'FC MOBILE', opp: 'BALL_MASTER', score: '3-1', comp: 'Sinless Super League', status: 'confirmed', ts: Date.now() }
         ];
 
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
-            { user: 'DON PRIME', verified: true, game: 'EA FC', caption: 'Excited for the #SinlessSuperLeague finals today! 🔥', likes: 2, comments: [{user: 'BALL_MASTER', text: 'Let’s go! @GG-Bot tactics check.'}], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: false, pinned: true, givers: {} }
+            { user: 'DON PRIME', verified: true, game: 'FC MOBILE', caption: 'Excited for the #SinlessSuperLeague finals today! 🔥 #FCMobile', likes: 2, comments: [{user: 'BALL_MASTER', text: 'Let’s go! @GG-Bot tactics check.'}], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: false, pinned: true, givers: {} }
         ];
 
         let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
@@ -366,13 +393,13 @@
 
         let chatMessages = JSON.parse(localStorage.getItem('sinless_chats')) || {
             'global': [{ user: 'System', text: 'Welcome to Sinless GG Global Lobby.', time: 'Now' }],
-            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! Ask me about EA FC Mobile and eFootball tactics.', time: 'Now' }]
+            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! Ask me about FC Mobile and eFootball tactics.', time: 'Now' }]
         };
 
-        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Explore tab online.', time: 'Now' }];
-        let notificationsList = [{ text: '🔍 Explore & Trending tags active.', time: 'Now' }];
+        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Trending tab online.', time: 'Now' }];
+        let notificationsList = [{ text: '🔍 Universal platform search active.', time: 'Now' }];
 
-        document.getElementById('profileUsernameDisplay').innerHTML = `${myUsername} <span class="verified-badge text-xs ml-1"><i class="fa-solid fa-circle-check"></i></span>`;
+        document.getElementById('profileUsernameDisplay')?.innerHTML = `${myUsername} <span class="verified-badge text-xs ml-1"><i class="fa-solid fa-circle-check"></i></span>`;
 
         function saveAppData() {
             localStorage.setItem('sinless_posts', JSON.stringify(fypPosts));
@@ -382,12 +409,13 @@
         }
 
         function initApp() {
-            renderLadder('EA FC');
+            renderLadder('FC MOBILE');
             renderClansList();
             renderFypFeed();
             renderSearchResults('');
         }
 
+        // Universal Platform Search (Searches Posts, Handles, Squads, Categories)
         function handleGlobalSearch(query) { renderSearchResults(query.trim().toLowerCase()); }
         function filterByTag(tag) {
             document.getElementById('globalSearchInput').value = tag;
@@ -397,13 +425,22 @@
         function renderSearchResults(query) {
             const container = document.getElementById('searchResultsContainer');
             if(!container) return;
-            container.innerHTML = `<h4 class="text-[10px] uppercase font-black text-cyan-400 mb-2">Search & Tag Results</h4>`;
-            let matches = fypPosts.filter(p => !query || p.caption.toLowerCase().includes(query) || p.user.toLowerCase().includes(query) || p.game.toLowerCase().includes(query));
-            if(matches.length === 0) {
-                container.innerHTML += `<div class="glass-panel p-4 rounded-xl text-center text-gray-400 text-xs">No posts matching "${query}".</div>`;
+            container.innerHTML = `<h4 class="text-[10px] uppercase font-black text-cyan-400 mb-2">Universal Search Results</h4>`;
+            
+            let matchedPosts = fypPosts.filter(p => !query || p.caption.toLowerCase().includes(query) || p.user.toLowerCase().includes(query) || p.game.toLowerCase().includes(query));
+            let matchedClans = clansData.filter(c => !query || c.name.toLowerCase().includes(query) || c.tag.toLowerCase().includes(query));
+
+            let totalFound = matchedPosts.length + matchedClans.length;
+            if(totalFound === 0) {
+                container.innerHTML += `<div class="glass-panel p-4 rounded-xl text-center text-gray-400 text-xs">No matching results for "${query}".</div>`;
                 return;
             }
-            matches.forEach(post => {
+
+            matchedClans.forEach(clan => {
+                container.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between shadow"><div class="text-xs font-bold text-white"><i class="fa-solid fa-shield-halved text-cyan-400 mr-1"></i> Squad: ${clan.name} [${clan.tag}]</div><button onclick="openSquadRoom('${clan.name}')" class="px-2.5 py-1 bg-cyan-500 text-slate-950 font-bold rounded-lg text-[10px]">Open</button></div>`;
+            });
+
+            matchedPosts.forEach(post => {
                 container.innerHTML += `<div class="glass-panel p-3 rounded-xl space-y-1.5 shadow"><div class="flex items-center justify-between"><span class="font-bold text-xs text-white">@${post.user}</span><span class="text-[9px] text-cyan-400 font-bold">${post.game}</span></div><p class="text-xs text-gray-200">${post.caption}</p></div>`;
             });
         }
@@ -466,7 +503,7 @@
             chatMessages[activeChatRoom].push({user: myUsername.replace('@', ''), text, time: 'Now'});
             input.value = '';
             if(activeChatRoom === 'ai-bot' || text.toLowerCase().includes('@gg-bot')) {
-                setTimeout(() => { chatMessages[activeChatRoom].push({user: 'GG-Bot', text: '⚽ EA FC Tactic: 4-2-3-1 holding format. Keep fullbacks back!', time: 'Now'}); saveAppData(); renderChatMessages(); }, 400);
+                setTimeout(() => { chatMessages[activeChatRoom].push({user: 'GG-Bot', text: '⚽ FC Mobile Tactic: 4-2-3-1 holding format. Keep fullbacks back!', time: 'Now'}); saveAppData(); renderChatMessages(); }, 400);
             }
             saveAppData(); renderChatMessages();
         }
@@ -498,7 +535,7 @@
         function closeCreatePostModal() { document.getElementById('createPostModal').classList.add('hidden'); }
         function openDmModal() { document.getElementById('dmModal').classList.remove('hidden'); document.getElementById('dmInboxList').innerHTML = `<div class="p-2 bg-gg-900 rounded">@SUPPORT: Welcome to DMs.</div>`; }
         function closeDmModal() { document.getElementById('dmModal').classList.add('hidden'); }
-        function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); document.getElementById('notificationsListBox').innerHTML = `<div class="p-2 bg-gg-900 rounded">Explore tab active.</div>`; }
+        function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); document.getElementById('notificationsListBox').innerHTML = `<div class="p-2 bg-gg-900 rounded">Trending tab active.</div>`; }
         function closeNotificationsModal() { document.getElementById('notifModal').classList.add('hidden'); }
 
         function toggleResultFields(c) { document.getElementById('resultFields').classList.toggle('hidden', !c.checked); }
@@ -566,14 +603,14 @@
         }
 
         function switchView(view) {
-            ['fyp', 'explore', 'clans', 'chat', 'standings'].forEach(v => {
+            ['fyp', 'trending', 'clans', 'chat', 'standings', 'popular'].forEach(v => {
                 let el = document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1));
                 if(el) el.classList.add('hidden');
             });
             let target = document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1));
             if(target) target.classList.remove('hidden');
             if(view === 'standings') renderLadder(document.getElementById('ladderGameSelect').value);
-            if(view === 'explore') renderSearchResults('');
+            if(view === 'trending') renderSearchResults('');
         }
     </script>
 </body>
