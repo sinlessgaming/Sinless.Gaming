@@ -110,10 +110,11 @@
                 <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold">🔥 Esports, Sports & Streaming</span>
             </div>
 
-            <!-- Categories including FC Mobile and EA Sports FC Console -->
+            <!-- Categories including Football, FC Mobile, and EA Sports FC Console -->
             <div id="categoryFilterBar" class="flex space-x-2 overflow-x-auto scrollbar-none py-1">
                 <button onclick="filterByCategory('ALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition">🌐 All</button>
                 <button onclick="filterByCategory('LIVE STREAM', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-red-400 border border-red-500/30 whitespace-nowrap transition animate-pulse">🔴 Live</button>
+                <button onclick="filterByCategory('FOOTBALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">⚽ Football</button>
                 <button onclick="filterByCategory('FC MOBILE', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">📱 FC Mobile</button>
                 <button onclick="filterByCategory('EA SPORTS FC', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-magenta border border-magenta/30 whitespace-nowrap transition">🎮 EA Sports FC (Console)</button>
                 <button onclick="filterByCategory('EFOOTBALL', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">⚡ eFootball</button>
@@ -143,9 +144,9 @@
                         <span class="text-[9px] text-gray-400">Trending in Esports</span>
                         <h4 class="font-bold text-xs text-white">#SinlessSuperLeague</h4>
                     </div>
-                    <div class="cursor-pointer hover:bg-gg-900 p-2 rounded-xl transition" onclick="filterByTag('#EASportsFC')">
-                        <span class="text-[9px] text-gray-400">Trending • Console</span>
-                        <h4 class="font-bold text-xs text-white">#EASportsFC</h4>
+                    <div class="cursor-pointer hover:bg-gg-900 p-2 rounded-xl transition" onclick="filterByTag('#Football')">
+                        <span class="text-[9px] text-gray-400">Trending • Football</span>
+                        <h4 class="font-bold text-xs text-white">#Football</h4>
                     </div>
                 </div>
             </div>
@@ -199,6 +200,7 @@
             <div class="flex items-center justify-between">
                 <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-trophy text-amber-400 mr-1.5"></i> Weekly Leaderboard</h3>
                 <select id="ladderGameSelect" onchange="renderLadder(this.value)" class="bg-gg-950 text-cyan-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-cyan-500/30 focus:outline-none">
+                    <option value="FOOTBALL">⚽ Football</option>
                     <option value="FC MOBILE">📱 FC Mobile</option>
                     <option value="EA SPORTS FC">🎮 EA Sports FC (Console)</option>
                     <option value="EFOOTBALL">⚡ eFootball</option>
@@ -237,7 +239,7 @@
     </main>
 
     <!-- Modals -->
-    <!-- Direct Messages Modal (Fully Functional) -->
+    <!-- Direct Messages Modal -->
     <div id="dmModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col h-[460px] shadow-2xl border border-cyan-500/40 space-y-3">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -345,8 +347,9 @@
             <div class="space-y-3">
                 <textarea id="postTextContent" rows="2" placeholder="What's happening..." class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white"></textarea>
                 <input type="file" id="postMediaFile" accept="image/*,video/*" class="text-[10px] text-gray-300 w-full">
-                <!-- Categories including FC Mobile and EA Sports FC Console -->
+                <!-- Categories including Football, FC Mobile, Console, etc. -->
                 <select id="postCategorySelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30">
+                    <option value="FOOTBALL">⚽ Football</option>
                     <option value="FC MOBILE">📱 FC Mobile</option>
                     <option value="EA SPORTS FC">🎮 EA Sports FC (Console)</option>
                     <option value="EFOOTBALL">⚡ eFootball</option>
@@ -384,12 +387,12 @@
         ];
 
         let matchResults = JSON.parse(localStorage.getItem('sg_results')) || [
-            { id: '1', user: 'DON PRIME', game: 'FC MOBILE', opp: 'BALL_MASTER', score: '3-1', comp: 'Sinless Super League', status: 'confirmed', ts: Date.now() }
+            { id: '1', user: 'DON PRIME', game: 'FOOTBALL', opp: 'BALL_MASTER', score: '3-1', comp: 'Sinless Super League', status: 'confirmed', ts: Date.now() }
         ];
 
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
-            { user: 'DON PRIME', verified: true, game: 'FC MOBILE', caption: 'Excited for the #SinlessSuperLeague finals today! 🔥 #FCMobile', likes: 2, comments: [{user: 'BALL_MASTER', text: 'Let’s go! @GG-Bot tactics check.'}], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: false, givers: {} },
-            { user: 'BALL_MASTER', verified: false, game: 'EA SPORTS FC', caption: 'Console tournament brackets are live! 🎮 #EASportsFC', likes: 5, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, givers: {} }
+            { user: 'DON PRIME', verified: true, game: 'FOOTBALL', caption: 'Absolute masterclass in tonight’s fixture! 🔥 #Football', likes: 4, comments: [], mediaUrl: '', mediaType: 'text', isLive: false, givers: {} },
+            { user: 'DON PRIME', verified: true, game: 'FC MOBILE', caption: 'Excited for the #SinlessSuperLeague finals today! 🔥 #FCMobile', likes: 2, comments: [{user: 'BALL_MASTER', text: 'Let’s go! @GG-Bot tactics check.'}], mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: false, givers: {} }
         ];
 
         let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
@@ -398,7 +401,7 @@
 
         let chatMessages = JSON.parse(localStorage.getItem('sinless_chats')) || {
             'global': [{ user: 'System', text: 'Welcome to Sinless GG Global Lobby.', time: 'Now' }],
-            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! Ask me about FC Mobile, EA Sports FC console, and eFootball tactics.', time: 'Now' }]
+            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! Ask me about Football, FC Mobile, and eFootball tactics.', time: 'Now' }]
         };
 
         function saveAppData() {
@@ -411,7 +414,7 @@
         }
 
         function initApp() {
-            renderLadder('FC MOBILE');
+            renderLadder('FOOTBALL');
             renderClansList();
             renderFypFeed();
             renderMarketList();
@@ -634,7 +637,7 @@
             chatMessages[activeChatRoom].push({user: myUsername.replace('@', ''), text, time: 'Now'});
             input.value = '';
             if(activeChatRoom === 'ai-bot' || text.toLowerCase().includes('@gg-bot')) {
-                setTimeout(() => { chatMessages[activeChatRoom].push({user: 'GG-Bot', text: '⚽ Gaming Tactic check active.', time: 'Now'}); saveAppData(); renderChatMessages(); }, 400);
+                setTimeout(() => { chatMessages[activeChatRoom].push({user: 'GG-Bot', text: '⚽ Football & Gaming Tactic check active.', time: 'Now'}); saveAppData(); renderChatMessages(); }, 400);
             }
             saveAppData(); renderChatMessages();
         }
@@ -656,7 +659,7 @@
 
         function openCreatePostModal() { document.getElementById('createPostModal').classList.remove('hidden'); }
         function closeCreatePostModal() { document.getElementById('createPostModal').classList.add('hidden'); }
-        function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); document.getElementById('notificationsListBox').innerHTML = `<div class="p-2 bg-gg-900 rounded">Direct messages and console sports active.</div>`; }
+        function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); document.getElementById('notificationsListBox').innerHTML = `<div class="p-2 bg-gg-900 rounded">Football and DMs active.</div>`; }
         function closeNotificationsModal() { document.getElementById('notifModal').classList.add('hidden'); }
 
         function submitUniversalPost() {
