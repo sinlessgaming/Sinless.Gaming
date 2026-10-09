@@ -33,6 +33,28 @@
             100% { transform: translateY(-120px) scale(1.4); opacity: 0; }
         }
         .gg-float { animation: floatUp 0.8s ease-out forwards; pointer-events: none; }
+
+        /* TikTok Style Watermark Overlay */
+        .watermark-badge {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            background: rgba(2, 5, 11, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 800;
+            color: #00f3ff;
+            letter-spacing: 0.05em;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            z-index: 10;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased">
@@ -132,6 +154,7 @@
 
             <div class="relative aspect-[9/16] bg-gg-950 rounded-2xl flex flex-col items-center justify-center border border-cyan-500/30 overflow-hidden shadow-inner" ondblclick="triggerDoubleTapGG(event, this)">
                 <video id="liveScreenFeed" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover filter-none hidden"></video>
+                <div class="watermark-badge"><i class="fa-solid fa-bolt text-magenta"></i> SINLESS GG</div>
                 <div id="livePlaceholder" class="flex flex-col items-center justify-center p-6 text-center space-y-3">
                     <div class="w-14 h-14 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/30 text-xl animate-pulse">
                         <i class="fa-solid fa-tower-broadcast"></i>
@@ -199,7 +222,6 @@
         let activeMediaStream = null;
         let myUsername = localStorage.getItem('sinless_username') || '@DON PRIME';
 
-        // Load persisted posts if available
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
             { type: 'clip', user: 'DON PRIME', caption: 'Insane 90th minute bicycle kick winner! 🚲⚽ Sinless GG', likes: 1420, comments: 84, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', pinned: true },
             { type: 'clip', user: 'KUKU1Z', caption: 'Clean tiki-taka buildup leading to top corner rocket 🚀', likes: 980, comments: 42, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-controller-while-playing-video-games-41583-large.mp4', mediaType: 'video', pinned: false }
@@ -251,7 +273,7 @@
                     renderFypFeed();
                     renderUserProfileFeed();
                     switchView('fyp');
-                    alert('🚀 Successfully uploaded and published to Sinless GG!');
+                    alert('🚀 Successfully uploaded with Sinless GG Watermark!');
                 }
             }
             input.value = '';
@@ -291,9 +313,17 @@
                 
                 let mediaContent = '';
                 if(post.mediaType === 'video') {
-                    mediaContent = `<div class="relative aspect-[9/16] bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})"><video src="${post.mediaUrl}" autoplay loop muted playsinline controls class="w-full h-full object-cover"></video></div>`;
+                    mediaContent = `
+                        <div class="relative aspect-[9/16] bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})">
+                            <video src="${post.mediaUrl}" autoplay loop muted playsinline controls class="w-full h-full object-cover"></video>
+                            <div class="watermark-badge"><i class="fa-solid fa-bolt text-magenta"></i> @${post.user} • SINLESS GG</div>
+                        </div>`;
                 } else if(post.mediaType === 'picture') {
-                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})"><img src="${post.mediaUrl}" class="w-full max-h-96 object-cover"></div>`;
+                    mediaContent = `
+                        <div class="relative bg-gg-950 flex items-center justify-center overflow-hidden" ondblclick="triggerDoubleTapGG(event, this, ${index})">
+                            <img src="${post.mediaUrl}" class="w-full max-h-96 object-cover">
+                            <div class="watermark-badge"><i class="fa-solid fa-bolt text-magenta"></i> @${post.user} • SINLESS GG</div>
+                        </div>`;
                 }
 
                 container.innerHTML += `
@@ -334,7 +364,7 @@
 
             const ggElem = document.createElement('div');
             ggElem.innerText = 'GG 🔥';
-            ggElem.className = 'absolute text-cyan-300 font-black text-3xl drop-shadow-[0_0_10px_rgba(0,243,255,0.8)] gg-float';
+            ggElem.className = 'absolute text-cyan-300 font-black text-3xl drop-shadow-[0_0_10px_rgba(0,243,255,0.8)] gg-float z-30';
             ggElem.style.left = `${x - 20}px`;
             ggElem.style.top = `${y - 20}px`;
             
@@ -387,9 +417,9 @@
                 
                 let mediaContent = '';
                 if(post.mediaType === 'video') {
-                    mediaContent = `<div class="relative aspect-[9/16] bg-gg-950 flex items-center justify-center overflow-hidden"><video src="${post.mediaUrl}" autoplay loop muted playsinline controls class="w-full h-full object-cover"></video></div>`;
+                    mediaContent = `<div class="relative aspect-[9/16] bg-gg-950 flex items-center justify-center overflow-hidden"><video src="${post.mediaUrl}" autoplay loop muted playsinline controls class="w-full h-full object-cover"></video><div class="watermark-badge"><i class="fa-solid fa-bolt text-magenta"></i> @${post.user} • SINLESS GG</div></div>`;
                 } else if(post.mediaType === 'picture') {
-                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden"><img src="${post.mediaUrl}" class="w-full max-h-96 object-cover"></div>`;
+                    mediaContent = `<div class="relative bg-gg-950 flex items-center justify-center overflow-hidden"><img src="${post.mediaUrl}" class="w-full max-h-96 object-cover"><div class="watermark-badge"><i class="fa-solid fa-bolt text-magenta"></i> @${post.user} • SINLESS GG</div></div>`;
                 }
 
                 container.innerHTML += `
