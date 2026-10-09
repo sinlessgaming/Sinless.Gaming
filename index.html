@@ -102,7 +102,7 @@
                 <span class="text-[10px] uppercase tracking-widest text-cyan-400 font-extrabold">🔥 All Gaming Categories & Live Broadcasts</span>
             </div>
 
-            <!-- Fully Restored Category Filter Bar -->
+            <!-- Category Filter Bar -->
             <div class="flex space-x-2 overflow-x-auto scrollbar-none py-1">
                 <button onclick="filterByCategory('ALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition">🌐 All</button>
                 <button onclick="filterByCategory('LIVE STREAM')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-red-400 border border-red-500/30 whitespace-nowrap transition animate-pulse">🔴 Live Broadcasts</button>
@@ -111,7 +111,6 @@
                 <button onclick="filterByCategory('WORLD FOOTBALL')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">🏟️ World Football</button>
                 <button onclick="filterByCategory('WRESTLING')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-amber-400 border border-amber-500/30 whitespace-nowrap transition">🤼 WWE / AEW</button>
                 <button onclick="filterByCategory('COD')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-cyan-300 border border-cyan-500/20 whitespace-nowrap transition">🎯 Call of Duty</button>
-                <button onclick="filterByCategory('LONG VIDEO')" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-amber-400 border border-amber-500/30 whitespace-nowrap transition">🎥 10h+ VODs</button>
             </div>
 
             <div id="fypFeedContainer" class="space-y-4"></div>
@@ -192,30 +191,30 @@
         </div>
     </main>
 
-    <!-- FIXED LIVE STREAM STUDIO MODAL -->
+    <!-- PORTRAIT-OPTIMIZED LIVE STREAM STUDIO MODAL -->
     <div id="liveBroadcastModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl fade-in border border-red-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                 <div class="flex items-center space-x-2">
                     <span class="w-3 h-3 rounded-full bg-red-600 animate-ping"></span>
-                    <h3 class="text-xs font-black text-white uppercase tracking-wider">Live Screen Share Studio</h3>
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider">Live Portrait Studio</h3>
                 </div>
                 <button onclick="closeLiveBroadcastModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
-            <p class="text-[10px] text-gray-300">Share your screen or camera to broadcast live instantly into the global feed.</p>
+            <p class="text-[10px] text-gray-300">Broadcast your face or screen in full vertical portrait mode.</p>
             
             <div class="space-y-3">
-                <input type="text" id="liveTitleInput" placeholder="Stream Title (e.g., FC Mobile Finals LIVE!)" class="w-full bg-gg-900 border border-red-500/30 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none">
+                <input type="text" id="liveTitleInput" placeholder="Stream Title (e.g., FC Mobile Cup LIVE!)" class="w-full bg-gg-900 border border-red-500/30 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none">
                 
                 <div class="flex space-x-2">
-                    <button onclick="startScreenShareStream('screen')" class="flex-1 py-2.5 bg-gg-900 border border-cyan-500/40 text-cyan-300 font-bold rounded-xl text-xs hover:bg-cyan-500/10"><i class="fa-solid fa-desktop mr-1"></i> Share Screen</button>
-                    <button onclick="startScreenShareStream('camera')" class="flex-1 py-2.5 bg-gg-900 border border-magenta/40 text-magenta font-bold rounded-xl text-xs hover:bg-magenta/10"><i class="fa-solid fa-video mr-1"></i> Use Camera</button>
+                    <button onclick="startScreenShareStream('screen')" class="flex-1 py-2 bg-gg-900 border border-cyan-500/40 text-cyan-300 font-bold rounded-xl text-[10px] hover:bg-cyan-500/10"><i class="fa-solid fa-desktop mr-1"></i> Screen</button>
+                    <button onclick="startScreenShareStream('camera')" class="flex-1 py-2 bg-gg-900 border border-magenta/40 text-magenta font-bold rounded-xl text-[10px] hover:bg-magenta/10"><i class="fa-solid fa-video mr-1"></i> Camera</button>
                 </div>
 
-                <!-- Live Stream Preview Frame -->
-                <div id="previewContainer" class="hidden relative bg-gg-950 rounded-xl overflow-hidden border border-red-500/50">
-                    <video id="activePreviewVideo" autoplay muted playsinline class="w-full h-40 object-cover"></video>
-                    <span class="absolute top-2 left-2 bg-red-600 text-white px-2 py-0.5 rounded text-[8px] font-black animate-pulse">PREVIEWING LIVE</span>
+                <!-- PORTRAIT PREVIEW FRAME (Taller vertical ratio to show full face/body) -->
+                <div id="previewContainer" class="hidden relative bg-gg-950 rounded-xl overflow-hidden border border-red-500/50 w-full flex justify-center items-center" style="height: 320px;">
+                    <video id="activePreviewVideo" autoplay muted playsinline class="w-full h-full object-cover"></video>
+                    <span class="absolute top-2 left-2 bg-red-600 text-white px-2 py-0.5 rounded text-[8px] font-black animate-pulse z-10">PORTRAIT LIVE PREVIEW</span>
                 </div>
 
                 <button onclick="publishActiveStream()" class="w-full py-3 bg-red-600 text-white font-black rounded-xl text-xs shadow-lg shadow-red-600/30 hover:bg-red-500 transition">🔴 BROADCAST LIVE TO FEED</button>
@@ -278,14 +277,13 @@
         let recordedStreamUrl = null;
 
         let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
-            { user: 'DON PRIME', verified: true, game: 'LIVE STREAM', caption: '🔴 LIVE NOW: Screen share broadcasting active!', likes: 4120, comments: 310, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: true, pinned: true },
-            { user: 'BALL_MASTER', verified: true, game: 'FC MOBILE', caption: 'Insane 90th minute bicycle kick winner! 🚲⚽', likes: 1420, comments: 84, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-holding-a-controller-while-playing-video-games-41583-large.mp4', mediaType: 'video', isLive: false, pinned: false }
+            { user: 'DON PRIME', verified: true, game: 'LIVE STREAM', caption: '🔴 LIVE NOW: Portrait live stream active!', likes: 4120, comments: 310, mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-playing-video-games-in-a-room-41584-large.mp4', mediaType: 'video', isLive: true, pinned: true }
         ];
 
         let clansData = [{ name: 'SINLESS ELITE', tag: 'SLS', members: 42, leader: 'DON PRIME' }];
-        let chatMessages = { 'global': [{ user: 'System', text: 'Welcome to Sinless GG.', time: 'Now' }], 'ai-bot': [{ user: 'GG-Bot', text: 'Live stream studio is ready.', time: 'Now' }] };
-        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'All gaming categories and live streaming fixed.', time: 'Now' }];
-        let notificationsList = [{ text: '🔴 Live streaming capture engine ready.', time: 'Now' }];
+        let chatMessages = { 'global': [{ user: 'System', text: 'Welcome to Sinless GG.', time: 'Now' }], 'ai-bot': [{ user: 'GG-Bot', text: 'Portrait live stream studio is ready.', time: 'Now' }] };
+        let directMessages = [{ sender: 'SUPPORT', receiver: 'DON PRIME', text: 'Portrait live streaming fixed.', time: 'Now' }];
+        let notificationsList = [{ text: '🔴 Portrait live stream camera ready.', time: 'Now' }];
         let tournamentData = { 'champions-league': { teams: [{ name: 'DON PRIME', p: 3, w: 2, pts: 12 }] } };
 
         document.getElementById('profileUsernameDisplay').innerHTML = `${myUsername} <span class="text-cyan-400 text-xs ml-1">☑️</span>`;
@@ -308,14 +306,17 @@
                 if(type === 'screen') {
                     activeStreamObject = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
                 } else {
-                    activeStreamObject = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    // Requests ideal vertical portrait dimensions for mobile camera
+                    activeStreamObject = await navigator.mediaDevices.getUserMedia({ 
+                        video: { width: { ideal: 720 }, height: { ideal: 1280 }, facingMode: "user" }, 
+                        audio: true 
+                    });
                 }
                 
                 let previewVideo = document.getElementById('activePreviewVideo');
                 previewVideo.srcObject = activeStreamObject;
                 document.getElementById('previewContainer').classList.remove('hidden');
 
-                // Real-time stream recorder to capture live video blob cleanly for feed playback
                 let options = { mimeType: 'video/webm;codecs=vp9' };
                 if (!MediaRecorder.isTypeSupported(options.mimeType)) {
                     options = { mimeType: 'video/webm' };
@@ -338,7 +339,7 @@
                 mediaRecorder.start(1000);
                 window.currentMediaRecorder = mediaRecorder;
 
-                alert('🟢 Live camera/screen capture active and recording!');
+                alert('🟢 Portrait camera capture active!');
             } catch(err) {
                 alert('⚠️ Permission denied or capture not supported: ' + err.message);
             }
@@ -371,7 +372,7 @@
                 saveAppData();
                 renderFypFeed();
                 closeLiveBroadcastModal();
-                alert('🔴 Broadcast published live to feed successfully!');
+                alert('🔴 Portrait broadcast published live to feed!');
             }, 600);
         }
 
@@ -442,9 +443,9 @@
                 let mediaContent = '';
                 if(post.mediaUrl) {
                     if(post.mediaType === 'picture') {
-                        mediaContent = `<img src="${post.mediaUrl}" loading="lazy" class="w-full max-h-[350px] object-cover">`;
+                        mediaContent = `<img src="${post.mediaUrl}" loading="lazy" class="w-full max-h-[450px] object-cover">`;
                     } else {
-                        mediaContent = `<video src="${post.mediaUrl}" autoplay loop muted playsinline class="w-full max-h-[350px] object-cover"></video>`;
+                        mediaContent = `<video src="${post.mediaUrl}" autoplay loop muted playsinline class="w-full max-h-[450px] object-cover"></video>`;
                     }
                 }
 
