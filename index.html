@@ -1,24 +1,4 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyBDWeHQpmCVfJVXj5Dmu_ZuGmKvlqI4wek",
-  authDomain: "sinlessgg.firebaseapp.com",
-  projectId: "sinlessgg",
-  storageBucket: "sinlessgg.firebasestorage.app",
-  messagingSenderId: "774543139920",
-  appId: "1:774543139920:web:d5c0ca9c7c29de6bc81d55",
-  measurementId: "G-6HJCPD6E5M"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
@@ -33,18 +13,18 @@ const analytics = getAnalytics(app);<!DOCTYPE html>
 
         // Your live Firebase project configuration
         const firebaseConfig = {
-            apiKey: "AIzaSyBDWeHQpmCVfJVXj5Dmu_ZuGm...",
+            apiKey: "AIzaSyBDWeHQpmCVfJVXj5Dmu_ZuGmKvlq4wek",
             authDomain: "sinlessgg.firebaseapp.com",
             projectId: "sinlessgg",
             storageBucket: "sinlessgg.firebasestorage.app",
             messagingSenderId: "774543139920",
-            appId: "1:774543139920:web:d5c0ca9c7c29..."
+            appId: "1:774543139920:web:d5c0ca9c7c29de6bc81d55",
+            measurementId: "G-6HJCPD6E5M"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
-        // Bind Google Cloud Sign-In to window for mobile browser buttons
         window.authenticGoogleLogin = async function() {
             try {
                 const provider = new GoogleAuthProvider();
@@ -60,7 +40,6 @@ const analytics = getAnalytics(app);<!DOCTYPE html>
             }
         };
 
-        // Bind Apple ID Cloud Sign-In to window
         window.authenticAppleLogin = async function() {
             try {
                 const provider = new OAuthProvider('apple.com');
@@ -76,7 +55,6 @@ const analytics = getAnalytics(app);<!DOCTYPE html>
             }
         };
 
-        // Auto-detect active cloud session
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 window.myEmail = user.email;
@@ -264,7 +242,6 @@ const analytics = getAnalytics(app);<!DOCTYPE html>
                 <button onclick="closeAccountModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             
-            <!-- Authentic Firebase Cloud Login Buttons -->
             <div class="space-y-3 py-1">
                 <button onclick="authenticGoogleLogin()" class="w-full py-3 bg-white text-slate-900 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-100 transition">
                     <i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>
