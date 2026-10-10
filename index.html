@@ -366,7 +366,7 @@
         let notifications = [{ text: 'Welcome to Sinless GG hub!' }];
         let directMessages = [{ sender: 'SUPPORT', text: 'Welcome to Direct Messages!' }];
 
-        // DYNAMIC TOP WIDGET LOGIC (Powered by SportScore API)
+        // DYNAMIC TOP WIDGET LOGIC (With CORS Proxy Bypass + Loosened Filters)
         async function fetchDynamicTopWidget() {
             const widget = document.getElementById('DynamicTopWidget');
             const header = document.getElementById('dynamicWidgetHeader');
@@ -376,36 +376,42 @@
             let allMatches = [];
 
             try {
-                const res = await fetch('https://sportscore.com/api/widget/matches/?sport=football&limit=10');
+                // Using allorigins.win proxy to bypass mobile browser blocks
+                const targetUrl = encodeURIComponent('https://sportscore.com/api/widget/matches/?sport=football&limit=10');
+                const res = await fetch('https://api.allorigins.win/raw?url=' + targetUrl);
+                
                 if (res.ok) {
                     const data = await res.json();
                     const matchesData = data.data || data || [];
+                    
+                    // Loosened filter to catch live matches, or simply recent/today's matches if the strict 'live' tag is missing
                     allMatches = matchesData.filter(m => 
-                        m.status === 'live' || m.status === 'inprogress' || m.minute || m.time
+                        m.status === 'live' || m.status === 'inprogress' || 
+                        m.minute || m.time || (m.score && String(m.score).includes('-'))
                     ).slice(0, 10);
                 }
             } catch(e) { 
-                console.warn('SportScore fetch failed:', e); 
+                console.warn('Proxy fetch failed, browser might be strictly locked down:', e); 
             }
 
             if (allMatches.length > 0) {
-                // STATE 1: Real Live Matches are playing
+                // STATE 1: Matches Found!
                 widget.className = "glass-panel rounded-2xl p-4 shadow-xl border border-red-500/30 transition-all duration-500 mb-4";
                 header.className = "flex items-center justify-between mb-3 border-b border-red-500/20 pb-2";
                 header.innerHTML = `
                     <h3 class="text-xs font-black text-white uppercase tracking-wider flex items-center">
                         <i class="fa-solid fa-circle text-red-500 text-[8px] animate-pulse mr-1.5"></i> Live Matches
                     </h3>
-                    <span class="text-[10px] text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded">${allMatches.length} Live</span>
+                    <span class="text-[10px] text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded">${allMatches.length} Found</span>
                 `;
                 
                 body.innerHTML = '';
                 allMatches.forEach(m => {
                     const home = m.home_team || m.homeTeam || m.home || 'Home';
                     const away = m.away_team || m.awayTeam || m.away || 'Away';
-                    const score = m.score || `${m.home_score || 0} - ${m.away_score || 0}`;
+                    const score = m.score || `${m.home_score !== undefined ? m.home_score : '-'} - ${m.away_score !== undefined ? m.away_score : '-'}`;
                     const minute = m.minute || m.time || m.status || 'Live';
-                    const league = m.league || m.competition || '';
+                    const league = m.league || m.competition || 'Football';
 
                     body.innerHTML += `
                         <div class="flex items-center justify-between bg-gg-950 rounded-xl p-2.5 border border-red-500/10">
@@ -421,7 +427,6 @@
                     `;
                 });
                 
-                // SportScore Attribution (Required)
                 body.innerHTML += `
                     <p class="text-[9px] text-gray-500 text-center mt-2">
                         <a href="https://sportscore.com/" rel="dofollow" target="_blank" class="hover:text-cyan-400 transition">Powered by SportScore</a>
@@ -429,7 +434,7 @@
                 `;
 
             } else {
-                // STATE 2: No matches playing -> Smoothly transition to Trending Summary (Top 2)
+                // STATE 2: 0 matches found (due to API delay or proxy failure) -> Fallback to Trending Summary
                 widget.className = "glass-panel rounded-2xl p-4 shadow-xl border border-cyan-500/20 transition-all duration-500 mb-4";
                 header.className = "flex items-center justify-between mb-3 border-b border-cyan-500/10 pb-2";
                 header.innerHTML = `
@@ -501,7 +506,7 @@
             renderDirectMessages();
             renderChatMessages();
             runTrendingTopics();
-            startDynamicWidget(); // Activate Dynamic Top Space
+            startDynamicWidget(); 
         }
 
         function openAccountModal() { document.getElementById('accountModal').classList.remove('hidden'); }
@@ -535,7 +540,6 @@
                 activeNav.classList.add('bg-magenta', 'text-white', 'font-extrabold', 'shadow-lg');
             }
             
-            // Respect widget visibility rule when switching tabs
             if(viewName === 'fyp') {
                 const topWidget = document.getElementById('DynamicTopWidget');
                 if (topWidget) {
@@ -551,7 +555,6 @@
             });
             if(btn) btn.className = "cat-btn px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition";
             
-            // Show dynamic top widget ONLY on 'ALL' filter
             const topWidget = document.getElementById('DynamicTopWidget');
             if (topWidget) {
                 topWidget.style.display = (cat === 'ALL') ? 'block' : 'none';
@@ -669,7 +672,6 @@
 
         function runTrendingTopics() {
             let list = document.getElementById('dynamicTrendingTopicsList'); if(!list) return;
-            // 10 dynamic trending topics for the dedicated Trending Tab
             const trends = [
                 { tag: '#SinlessSuperLeague', count: '4,320', cat: 'Trending in Gaming' },
                 { tag: '#PremierLeague', count: '3,360', cat: 'Football' },
