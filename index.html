@@ -57,7 +57,6 @@
                 const result = await signInWithPopup(auth, provider);
                 window.myUsername = result.user.displayName || 'Anonymous';
                 window.myAvatar = result.user.photoURL || '';
-                saveAppData();
                 closeAccountModal();
                 showToast("🔥 Google Cloud Login Successful!");
             } catch(e) {
@@ -128,7 +127,7 @@
 
             if (allMatches.length > 0) {
                 widget.className = "glass-panel rounded-2xl p-4 shadow-xl mb-4";
-                header.innerHTML = '<h3 id="dynamicWidgetHeaderTitle" class="text-xs font-black text-white uppercase tracking-wider flex items-center space-x-2"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span><span>Live Matches</span></h3>';
+                header.innerHTML = '<h3 class="text-xs font-black text-white uppercase tracking-wider flex items-center space-x-2"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span><span>Live Matches</span></h3>';
                 body.innerHTML = '';
                 
                 allMatches.forEach(m => {
@@ -153,7 +152,7 @@
                 });
             } else {
                 widget.className = "glass-panel rounded-2xl p-4 shadow-xl mb-4";
-                header.innerHTML = '<h3 id="dynamicWidgetHeaderTitle" class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-fire text-orange-500 mr-2"></i>Trending Summary</h3>';
+                header.innerHTML = '<h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-fire text-orange-500 mr-2"></i>Trending Summary</h3>';
                 body.innerHTML = `
                     <div class="flex items-center justify-between bg-gg-900/50 p-2.5 rounded-xl border border-cyan-500/10 mb-2">
                         <div>
@@ -162,10 +161,17 @@
                         </div>
                         <i class="fa-solid fa-arrow-trend-up text-cyan-500"></i>
                     </div>
+                    <div class="flex items-center justify-between bg-gg-900/50 p-2.5 rounded-xl border border-cyan-500/10 mb-2">
+                        <div>
+                            <p class="text-xs font-bold text-white">#EFootball</p>
+                            <p class="text-[9px] text-gray-400">2,150 posts • Mobile & Console</p>
+                        </div>
+                        <i class="fa-solid fa-arrow-trend-up text-cyan-500"></i>
+                    </div>
                     <div class="flex items-center justify-between bg-gg-900/50 p-2.5 rounded-xl border border-cyan-500/10">
                         <div>
-                            <p class="text-xs font-bold text-white">#PremierLeague</p>
-                            <p class="text-[9px] text-gray-400">3,360 posts • Football</p>
+                            <p class="text-xs font-bold text-white">#CallOfDuty</p>
+                            <p class="text-[9px] text-gray-400">1,940 posts • FPS Gaming</p>
                         </div>
                         <i class="fa-solid fa-arrow-trend-up text-cyan-500"></i>
                     </div>
@@ -187,7 +193,10 @@
         <div class="flex items-center space-x-2">
             <h1 class="font-extrabold text-lg tracking-wider text-cyan-400">SINLESS GG</h1>
         </div>
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-2.5">
+            <button onclick="openLiveModal()" class="px-2.5 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-xs font-bold flex items-center space-x-1 animate-pulse"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span><span>LIVE</span></button>
+            <button onclick="openNotificationsModal()" class="text-gray-400 hover:text-white text-xs p-1"><i class="fa-solid fa-bell"></i></button>
+            <button onclick="openMessagesModal()" class="text-gray-400 hover:text-white text-xs p-1"><i class="fa-solid fa-envelope"></i></button>
             <button onclick="openCreatePostModal()" class="px-3 py-1.5 bg-cyan-500 text-slate-950 font-bold rounded-xl text-xs">+ Post</button>
         </div>
     </header>
@@ -202,11 +211,13 @@
 
         <!-- View Navigation -->
         <div class="flex space-x-2 mb-4 overflow-x-auto pb-1 text-xs font-bold">
-            <button onclick="switchView('fyp')" class="px-3 py-1.5 rounded-xl bg-cyan-500 text-slate-950">Feed</button>
-            <button onclick="switchView('trending')" class="px-3 py-1.5 rounded-xl bg-gg-900 text-gray-300">Trending</button>
-            <button onclick="switchView('market')" class="px-3 py-1.5 rounded-xl bg-gg-900 text-gray-300">Market</button>
-            <button onclick="switchView('squads')" class="px-3 py-1.5 rounded-xl bg-gg-900 text-gray-300">Squads</button>
-            <button onclick="switchView('lobbies')" class="px-3 py-1.5 rounded-xl bg-gg-900 text-gray-300">Lobbies</button>
+            <button onclick="switchView('fyp')" class="nav-btn px-3 py-1.5 rounded-xl bg-cyan-500 text-slate-950">Feed</button>
+            <button onclick="switchView('trending')" class="nav-btn px-3 py-1.5 rounded-xl bg-gg-900 text-gray-300">Trending</button>
+            <button onclick="switchView('market')" class="nav-btn px-3 py-1.5 rounded-xl bg-gg-900 text-gray-300">Market</button>
+            <button onclick="switchView('squads')" class="nav-btn px-3 py-1.5 rounded-xl bg-gg-900 text-gray-300">Squads</button>
+            <button onclick="switchView('lobbies')" class="nav-btn px-3 py-1.5 rounded-xl bg-gg-900 text-gray-300">Lobbies</button>
+            <button onclick="switchView('tables')" class="nav-btn px-3 py-1.5 rounded-xl bg-gg-900 text-gray-300">Tables</button>
+            <button onclick="switchView('top')" class="nav-btn px-3 py-1.5 rounded-xl bg-gg-900 text-gray-300">Top</button>
         </div>
 
         <!-- Feed View -->
@@ -219,11 +230,26 @@
             </div>
         </div>
 
+        <!-- Trending View -->
+        <div id="view-trending" class="view-section hidden flex-1 flex flex-col space-y-3">
+            <h3 class="text-xs font-black uppercase text-cyan-400 tracking-wider">Trending Topics</h3>
+            <div class="glass-panel p-3.5 rounded-2xl"><p class="text-xs font-bold text-white">#SinlessSuperLeague</p><p class="text-[9px] text-gray-400">4,320 posts</p></div>
+            <div class="glass-panel p-3.5 rounded-2xl"><p class="text-xs font-bold text-white">#EFootball</p><p class="text-[9px] text-gray-400">2,150 posts</p></div>
+            <div class="glass-panel p-3.5 rounded-2xl"><p class="text-xs font-bold text-white">#CallOfDuty</p><p class="text-[9px] text-gray-400">1,940 posts</p></div>
+        </div>
+
+        <!-- Market View -->
+        <div id="view-market" class="view-section hidden flex-1 flex flex-col space-y-3">
+            <h3 class="text-xs font-black uppercase text-cyan-400 tracking-wider">GG Market</h3>
+            <div class="glass-panel p-3.5 rounded-2xl flex justify-between items-center">
+                <div><p class="text-xs font-bold text-white">115 OVR FC Mobile Account</p><p class="text-[9px] text-cyan-400">$40 / 500 GHS</p></div>
+                <span class="text-xs font-bold text-gray-400">View</span>
+            </div>
+        </div>
+
         <!-- Squads View -->
         <div id="view-squads" class="view-section hidden flex-1 flex flex-col space-y-3">
-            <div class="flex justify-between items-center mb-1">
-                <h3 class="text-xs font-black uppercase text-cyan-400 tracking-wider">Squads</h3>
-            </div>
+            <h3 class="text-xs font-black uppercase text-cyan-400 tracking-wider">Squads</h3>
             <div class="glass-panel p-3.5 rounded-2xl flex items-center justify-between">
                 <div>
                     <p class="text-xs font-bold text-white">SINLESS ELITE [SLS]</p>
@@ -231,6 +257,24 @@
                 </div>
                 <button onclick="switchView('squadLobby')" class="px-3 py-1.5 bg-cyan-500/20 text-cyan-400 text-xs font-bold rounded-xl border border-cyan-500/30">View</button>
             </div>
+        </div>
+
+        <!-- Lobbies View -->
+        <div id="view-lobbies" class="view-section hidden flex-1 flex flex-col space-y-3">
+            <h3 class="text-xs font-black uppercase text-cyan-400 tracking-wider">Global Lobbies</h3>
+            <div class="glass-panel p-3.5 rounded-2xl"><p class="text-xs font-bold text-white">#global-gaming-chat</p><p class="text-[9px] text-gray-400">Active chat channel</p></div>
+        </div>
+
+        <!-- Tables View -->
+        <div id="view-tables" class="view-section hidden flex-1 flex flex-col space-y-3">
+            <h3 class="text-xs font-black uppercase text-cyan-400 tracking-wider">Standings & Tables</h3>
+            <div class="glass-panel p-4 rounded-2xl text-xs text-gray-400 text-center">Tournament standings will appear here.</div>
+        </div>
+
+        <!-- Top View -->
+        <div id="view-top" class="view-section hidden flex-1 flex flex-col space-y-3">
+            <h3 class="text-xs font-black uppercase text-cyan-400 tracking-wider">Top Players</h3>
+            <div class="glass-panel p-4 rounded-2xl text-xs text-gray-400 text-center">Leaderboard rankings will appear here.</div>
         </div>
 
         <!-- Squad Lobby Screen -->
@@ -266,8 +310,23 @@
             <select id="postCategorySelect" class="w-full bg-gg-900 border border-cyan-500/25 rounded-xl p-2.5 text-xs text-white">
                 <option value="FOOTBALL">Football</option>
                 <option value="FC MOBILE">FC Mobile</option>
+                <option value="EFOOTBALL">eFootball</option>
+                <option value="CALL OF DUTY">Call of Duty</option>
             </select>
             <button onclick="submitUniversalPost()" class="w-full py-2.5 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs">Publish</button>
+        </div>
+    </div>
+
+    <!-- Live Studio Modal -->
+    <div id="liveStudioModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-4 space-y-3">
+            <div class="flex justify-between items-center">
+                <h3 class="text-xs font-black uppercase text-red-400 flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span><span>Live Broadcast Studio</span></h3>
+                <button onclick="closeLiveModal()" class="text-gray-400 text-xs">✕ Close</button>
+            </div>
+            <p class="text-xs text-gray-300">Ready to go live on Sinless GG? Start streaming your gameplay or chat session below.</p>
+            <input type="text" id="streamTitleInput" placeholder="Stream Title (e.g. eFootball Ranked Grind)" class="w-full bg-gg-900 border border-cyan-500/25 rounded-xl p-3 text-xs text-white focus:outline-none">
+            <button onclick="startLiveBroadcast()" class="w-full py-2.5 bg-red-500 text-white font-black rounded-xl text-xs">Go Live Now</button>
         </div>
     </div>
 
@@ -279,15 +338,35 @@
             document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
             const target = document.getElementById('view-' + viewId);
             if(target) target.classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-cyan-500', 'text-slate-950');
+                btn.classList.add('bg-gg-900', 'text-gray-300');
+            });
+            event?.currentTarget?.classList?.remove('bg-gg-900', 'text-gray-300');
+            event?.currentTarget?.classList?.add('bg-cyan-500', 'text-slate-950');
         }
         function openCreatePostModal() { document.getElementById('createPostModal').classList.remove('hidden'); }
         function closeCreatePostModal() { document.getElementById('createPostModal').classList.add('hidden'); }
+        function openLiveModal() { document.getElementById('liveStudioModal').classList.remove('hidden'); }
+        function closeLiveModal() { document.getElementById('liveStudioModal').classList.add('hidden'); }
+        function openNotificationsModal() { showToast("No new notifications."); }
+        function openMessagesModal() { showToast("No direct messages."); }
+        
+        function startLiveBroadcast() {
+            const title = document.getElementById('streamTitleInput').value;
+            if(!title) { showToast("Please enter a stream title."); return; }
+            closeLiveModal();
+            showToast("🔴 You are now LIVE!");
+        }
+
         function showToast(msg) {
             const t = document.getElementById('toastBanner');
             t.innerText = msg;
             t.style.opacity = '1';
             setTimeout(() => { t.style.opacity = '0'; }, 3000);
         }
+
         function sendSquadMessage() {
             const input = document.getElementById('lobbyChatInput');
             const box = document.getElementById('lobbyChatMessagesBox');
@@ -296,6 +375,7 @@
             input.value = '';
             box.scrollTop = box.scrollHeight;
         }
+
         window.renderFypFeed = function() {
             const container = document.getElementById('fypPostsContainer');
             if(!window.fypposts || window.fypposts.length === 0) return;
