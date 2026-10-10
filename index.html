@@ -88,13 +88,27 @@
                     window.selectedAudioTrack = null;
                     window.autoCutEnabled = false;
                     closeCreatePostModal();
-                    showToast("Published to Cloud with Media & Audio!");
+                    showToast("Published to Cloud Feed!");
                 } catch(e) {
                     console.error("Firestore Error:", e);
-                    showToast("Cloud sync failed. Check connection.");
+                    showToast("Cloud sync failed. Check rules.");
                 }
             } else {
-                showToast("Database not connected.");
+                // Fallback local append so it updates instantly even offline
+                if(!window.fypposts) window.fypposts = [];
+                window.fypposts.unshift({
+                    user: (window.myUsername || '@SinlessGaming').replace('@',''),
+                    verified: true,
+                    game: cat,
+                    caption: text,
+                    mediaCount: attachedFilesCount,
+                    audioTrack: audioTrack,
+                    autoCut: isAutoCut
+                });
+                window.renderFypFeed();
+                document.getElementById('postTextContent').value = '';
+                closeCreatePostModal();
+                showToast("Published locally (Database offline)");
             }
         };
 
@@ -178,6 +192,9 @@
     <div id="toastBanner" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-cyan-500 text-slate-950 px-4 py-2.5 rounded-2xl font-black text-xs shadow-2xl transition-all duration-300 opacity-0 pointer-events-none text-center">
         Notification message
     </div>
+
+    <!-- Hidden audio element for previewing copyright-free music -->
+    <audio id="previewAudioPlayer" preload="auto"></audio>
 
     <!-- Header -->
     <header class="bg-gg-900/95 backdrop-blur-md border-b border-cyan-500/15 px-3 py-3 flex items-center justify-between sticky top-0 z-50 shadow-xl">
@@ -364,7 +381,7 @@
                 </select>
             </div>
 
-            <!-- Multi-Image / Long Video Upload Picker (Up to 10 images) -->
+            <!-- Multi-Image / Long Video Upload Picker -->
             <div class="p-3 bg-gg-950 rounded-xl border border-cyan-500/20 space-y-2">
                 <div class="flex justify-between items-center text-[10px] text-gray-300 font-bold">
                     <span>🖼️ Attach Media (Max 10 Images or Videos up to 10 Hours)</span>
@@ -374,19 +391,23 @@
                 <div id="mediaPreviewThumbnails" class="flex space-x-2 overflow-x-auto scrollbar-none pt-1"></div>
             </div>
 
-            <!-- Copyright-Free Music Selector -->
+            <!-- Copyright-Free Music Selector with Preview -->
             <div class="p-3 bg-gg-950 rounded-xl border border-cyan-500/20 space-y-2">
                 <div class="flex justify-between items-center text-[10px] text-gray-300 font-bold">
                     <span>🎵 Add Copyright-Free Audio / Music</span>
-                    <span class="text-emerald-400">TikTok Style Library</span>
+                    <span class="text-emerald-400">Tap to Preview</span>
                 </div>
-                <select id="bgMusicSelect" onchange="selectAudioTrack(this.value)" class="w-full bg-gg-900 text-white text-xs font-bold p-2 rounded-xl border border-cyan-500/30 focus:outline-none">
+                <select id="bgMusicSelect" onchange="previewAndSelectAudio(this.value)" class="w-full bg-gg-900 text-white text-xs font-bold p-2 rounded-xl border border-cyan-500/30 focus:outline-none">
                     <option value="">-- No Background Music --</option>
-                    <option value="Electric Stadium Beats (Copyright-Free)">⚡ Electric Stadium Beats</option>
-                    <option value="Sinless Epic Gaming Anthem">🎮 Sinless Epic Gaming Anthem</option>
-                    <option value="Hype Street Football LoFi">⚽ Hype Street Football LoFi</option>
-                    <option value="Championship Trophy Trap">🏆 Championship Trophy Trap</option>
+                    <option value="Electric Stadium Beats" data-url="https://actions.google.com/sounds/v1/ambiences/stadium_ambient.ogg">⚡ Electric Stadium Beats</option>
+                    <option value="Sinless Epic Gaming Anthem" data-url="https://actions.google.com/sounds/v1/science_fiction/sci_fi_hum.ogg">🎮 Sinless Epic Gaming Anthem</option>
+                    <option value="Hype Street Football LoFi" data-url="https://actions.google.com/sounds/v1/weather/rain_heavy.ogg">⚽ Hype Street Football LoFi</option>
+                    <option value="Championship Trophy Trap" data-url="https://actions.google.com/sounds/v1/impacts/crash.ogg">🏆 Championship Trophy Trap</option>
                 </select>
+                <div class="flex justify-between items-center text-[9px] text-gray-400 pt-1">
+                    <span id="audioPlayingStatus">Audio preview stopped</span>
+                    <button type="button" onclick="stopAudioPreview()" class="text-cyan-400 underline font-bold">Stop Audio</button>
+                </div>
             </div>
 
             <!-- Auto-Cut & Montage Options -->
@@ -489,6 +510,7 @@
             renderDirectMessages();
             runTrendingTopics();
             fetchHorizontalLiveMatches();
+            renderFypFeed();
         }
 
         // Media Selector Handler (Up to 10 Images / Long Videos)
@@ -520,9 +542,37 @@
             });
         }
 
-        function selectAudioTrack(trackName) {
+        // Live Audio Preview before selecting
+        function previewAndSelectAudio(trackName) {
             window.selectedAudioTrack = trackName;
-            if(trackName) showToast(`🎵 Audio added: ${trackName}`);
+            const selectEl = document.getElementById('bgMusicSelect');
+            const selectedOpt = selectEl.options[selectEl.selectedIndex];
+            const audioUrl = selectedOpt ? selectedOpt.getAttribute('data-url') : null;
+            const player = document.getElementById('previewAudioPlayer');
+            const statusLabel = document.getElementById('audioPlayingStatus');
+
+            if (!trackName || !audioUrl) {
+                player.pause();
+                player.currentTime = 0;
+                statusLabel.innerText = "Audio preview stopped";
+                return;
+            }
+
+            player.src = audioUrl;
+            player.play().then(() => {
+                statusLabel.innerText = `▶ Playing preview: ${trackName}`;
+            }).catch(err => {
+                console.warn("Audio play blocked/failed:", err);
+                statusLabel.innerText = `Selected: ${trackName} (Tap play again)`;
+            });
+            showToast(`🎵 Audio added: ${trackName}`);
+        }
+
+        function stopAudioPreview() {
+            const player = document.getElementById('previewAudioPlayer');
+            player.pause();
+            player.currentTime = 0;
+            document.getElementById('audioPlayingStatus').innerText = "Audio preview stopped";
         }
 
         function toggleAutoCut() {
@@ -772,7 +822,7 @@
         function handleGlobalSearch(q) {
             let res = document.getElementById('dynamicTrendingTopicsList');
             if(!q) { runTrendingTopics(); return; }
-            res.innerHTML = (window.fyppposts || []).filter(p => p.caption.toLowerCase().includes(q.toLowerCase())).map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white">@${p.user}: ${p.caption}</div>`).join('') || '<p class="text-xs text-gray-400">No results found.</p>';
+            res.innerHTML = (window.fypposts || []).filter(p => p.caption.toLowerCase().includes(q.toLowerCase())).map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white">@${p.user}: ${p.caption}</div>`).join('') || '<p class="text-xs text-gray-400">No results found.</p>';
         }
     </script>
 </body>
