@@ -6,7 +6,7 @@
     <title>Sinless GG - World's #1 Global Gaming, Wrestling & Football Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Firebase SDK (Auth & Firestore Cloud Sync) -->
+    <!-- Real-time Firebase SDK & Firestore Cloud Sync -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -36,13 +36,13 @@
             if (!auth) return;
             onAuthStateChanged(auth, (user) => {
                 if (user) {
-                    window.myEmail = user.email || '';
-                    window.myUsername = '@' + (user.displayName || (user.email ? user.email.split('@')[0] : 'Gamer')).replace(/\s+/g, '');
-                    const headerTag = document.getElementById('headerUserTag');
-                    if (headerTag) headerTag.innerText = window.myUsername;
-                    if (typeof showToast === 'function') showToast(`🚀 Logged in as ${window.myUsername}`);
+                    window.myUsername = '@' + (user.displayName || user.email.split('@')[0]).replace(/\s+/g, '');
+                    document.getElementById('headerUserTag').innerText = window.myUsername;
+                    showToast(`🚀 Logged in as ${window.myUsername}`);
                 }
             });
+            window.listenToFirestorePosts();
+            window.listenToFirestoreMarket();
         });
 
         window.authenticGoogleLogin = async function() {
@@ -50,15 +50,15 @@
                 if (!auth) throw new Error("Firebase auth offline");
                 const provider = new GoogleAuthProvider();
                 await signInWithPopup(auth, provider);
-                if (typeof showToast === 'function') showToast("🔥 Google Cloud Login Successful!");
+                showToast("🔥 Google Cloud Login Successful!");
                 closeAccountModal();
             } catch (error) {
                 console.error(error);
-                if (typeof showToast === 'function') showToast("Login failed: " + (error.message || "Unknown error"));
+                showToast("Login failed: " + (error.message || "Unknown error"));
             }
         };
 
-        // --- CLOUD FIRESTORE POSTS SYNC ---
+        // --- REAL CLOUD FIRESTORE POSTS ---
         window.submitUniversalPost = async function() {
             let text = document.getElementById('postTextContent').value.trim();
             let cat = document.getElementById('postCategorySelect').value;
@@ -67,7 +67,7 @@
             if(window.db) {
                 try {
                     await addDoc(collection(window.db, "posts"), {
-                        user: (window.myUsername || 'SinlessGaming').replace('@',''),
+                        user: (window.myUsername || '@SinlessGaming').replace('@',''),
                         verified: true,
                         game: cat,
                         caption: text,
@@ -79,16 +79,16 @@
                     showToast("Published to Cloud!");
                 } catch(e) {
                     console.error("Firestore Error:", e);
-                    showToast("Cloud sync failed.");
+                    showToast("Cloud sync failed. Check connection.");
                 }
             } else {
-                showToast("Database offline.");
+                showToast("Database not connected.");
             }
         };
 
         window.listenToFirestorePosts = function() {
             if(!window.db) return;
-            const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"), limit(25));
+            const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"), limit(30));
             onSnapshot(q, (snapshot) => {
                 window.fypposts = [];
                 snapshot.forEach((doc) => {
@@ -100,7 +100,7 @@
             });
         };
 
-        // --- CLOUD FIRESTORE MARKET SYNC ---
+        // --- REAL CLOUD FIRESTORE MARKET ---
         window.submitMarketListingToCloud = async function() {
             let title = document.getElementById('marketTitleInput').value.trim();
             let price = document.getElementById('marketPriceInput').value.trim();
@@ -111,13 +111,13 @@
                     await addDoc(collection(window.db, "market"), {
                         title: title,
                         price: price,
-                        user: (window.myUsername || 'SinlessGaming').replace('@',''),
+                        user: (window.myUsername || '@SinlessGaming').replace('@',''),
                         createdAt: serverTimestamp()
                     });
                     document.getElementById('marketTitleInput').value = '';
                     document.getElementById('marketPriceInput').value = '';
                     closeMarketModal();
-                    showToast("Item listed on Cloud Market!");
+                    showToast("Listed on Cloud Market!");
                 } catch(e) {
                     showToast("Market sync failed.");
                 }
@@ -244,7 +244,6 @@
                     <span class="text-[9px] text-cyan-400 font-bold uppercase">Swipe →</span>
                 </div>
                 <div id="horizontalLiveMatchesCarousel" class="flex space-x-3 overflow-x-auto scrollbar-none pb-2">
-                    <!-- Dynamic live cards will be injected here horizontally -->
                     <div class="glass-panel p-4 rounded-2xl min-w-[240px] text-center text-xs text-gray-400">Loading live fixtures...</div>
                 </div>
             </div>
@@ -435,9 +434,6 @@
             renderDirectMessages();
             runTrendingTopics();
             fetchHorizontalLiveMatches();
-            
-            if(window.listenToFirestorePosts) window.listenToFirestorePosts();
-            if(window.listenToFirestoreMarket) window.listenToFirestoreMarket();
         }
 
         // Horizontal Scrolling Live Matches Carousel (X / Twitter Style)
@@ -586,7 +582,7 @@
             if(!title) return;
             if(window.db) {
                 addDoc(collection(window.db, "posts"), {
-                    user: (window.myUsername || 'SinlessGaming').replace('@',''),
+                    user: (window.myUsername || '@SinlessGaming').replace('@',''),
                     verified: true,
                     game: 'LIVE STREAM',
                     caption: title,
