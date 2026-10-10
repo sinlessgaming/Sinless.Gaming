@@ -107,30 +107,31 @@
             });
         };
 
-        // DYNAMIC TOP WIDGET LOGIC (SStats Live Matches API)
+        // DYNAMIC TOP WIDGET LOGIC (Filtered Live Matches API)
         window.fetchDynamicTopWidget = async function() {
             const widget = document.getElementById('DynamicTopWidget');
             const header = document.getElementById('dynamicWidgetHeader');
             const body = document.getElementById('dynamicWidgetBody');
             if (!widget || !header || !body) return;
 
-            let allMatches = [];
+            let activeMatches = [];
             try {
-                const res = await fetch('https://api.sstats.net/games/list?Live=true&Limit=10');
+                const res = await fetch('https://api.sstats.net/games/list?Live=true&Limit=15');
                 if (res.ok) {
                     const data = await res.json();
-                    allMatches = (data.data || []).slice(0, 10);
+                    // Filter out matches past 75' so we don't display matches that are almost over
+                    activeMatches = (data.data || []).filter(m => (m.elapsed || 0) <= 75).slice(0, 5);
                 }
             } catch(e) {
                 console.warn('Live scores failed:', e);
             }
 
-            if (allMatches.length > 0) {
+            if (activeMatches.length > 0) {
                 widget.className = "glass-panel rounded-2xl p-4 shadow-xl mb-4";
                 header.innerHTML = '<h3 class="text-xs font-black text-white uppercase tracking-wider flex items-center space-x-2"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span><span>Live Matches</span></h3>';
                 body.innerHTML = '';
                 
-                allMatches.forEach(m => {
+                activeMatches.forEach(m => {
                     const home = m.homeTeam?.name || 'Home';
                     const away = m.awayTeam?.name || 'Away';
                     const score = `${m.homeResult ?? 0} - ${m.awayResult ?? 0}`;
