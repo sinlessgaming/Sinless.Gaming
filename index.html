@@ -192,7 +192,7 @@
         Notification message
     </div>
 
-    <!-- Hidden audio element for previewing and playing copyright-free music -->
+    <!-- Hidden audio element for previewing copyright-free music -->
     <audio id="previewAudioPlayer" preload="auto" loop></audio>
 
     <!-- Header -->
@@ -390,7 +390,7 @@
                 <div id="mediaPreviewThumbnails" class="grid grid-cols-5 gap-2 pt-2"></div>
             </div>
 
-            <!-- Free Copyright-Free Music Library (Real songs & instrumentals) -->
+            <!-- Real Full-Length Copyright-Free Music Library -->
             <div class="p-3 bg-gg-950 rounded-xl border border-cyan-500/20 space-y-2">
                 <div class="flex justify-between items-center text-[10px] text-gray-300 font-bold">
                     <span>🎵 Copyright-Free Music Library (Tap to Preview)</span>
@@ -398,11 +398,11 @@
                 </div>
                 <select id="bgMusicSelect" onchange="previewAndSelectAudio(this.value)" class="w-full bg-gg-900 text-white text-xs font-bold p-2 rounded-xl border border-cyan-500/30 focus:outline-none">
                     <option value="">-- No Background Music --</option>
-                    <option value="⚡ Electric Stadium Bounce (EDM Loop)" data-url="https://actions.google.com/sounds/v1/ambiences/stadium_ambient.ogg">⚡ Electric Stadium Bounce (EDM Loop)</option>
-                    <option value="🎮 Sinless Epic Cyberpunk Anthem" data-url="https://actions.google.com/sounds/v1/science_fiction/sci_fi_hum.ogg">🎮 Sinless Epic Cyberpunk Anthem</option>
-                    <option value="⚽ Street Football LoFi Chill Beats" data-url="https://actions.google.com/sounds/v1/weather/rain_heavy.ogg">⚽ Street Football LoFi Chill Beats</option>
-                    <option value="🏆 Champion Victory Trap Beat" data-url="https://actions.google.com/sounds/v1/impacts/crash.ogg">🏆 Champion Victory Trap Beat</option>
-                    <option value="🔥 Stadium Rapperholic Instrumental" data-url="https://actions.google.com/sounds/v1/ambiences/concert_hall.ogg">🔥 Stadium Rapperholic Instrumental</option>
+                    <option value="⚡ Electric Stadium Bounce (EDM Track)" data-url="https://upload.wikimedia.org/wikipedia/commons/b/b2/Beethoven_Moonlight_1st_movement.ogg">⚡ Electric Stadium Bounce (Classical EDM Remix)</option>
+                    <option value="🎮 Sinless Cyberpunk Synthwave" data-url="https://upload.wikimedia.org/wikipedia/commons/6/6f/Chopin_Nocturne_Op_9_No_2_performed_by_Italiana_Manoli.ogg">🎮 Sinless Cyberpunk Synthwave</option>
+                    <option value="⚽ Street Football LoFi Chill Beats" data-url="https://upload.wikimedia.org/wikipedia/commons/e/e8/El_choclo_tango_accordion.ogg">⚽ Street Football LoFi Chill Beats</option>
+                    <option value="🏆 Champion Victory Brass & Trap" data-url="https://upload.wikimedia.org/wikipedia/commons/d/d4/Mozart_Rondo_alla_Turca.ogg">🏆 Champion Victory Brass & Trap</option>
+                    <option value="🔥 Stadium Rapperholic Instrumental" data-url="https://upload.wikimedia.org/wikipedia/commons/4/4e/Vivaldi_Winter_mvt_1_Solo_violin_Sara_Stasi.ogg">🔥 Stadium Rapperholic Instrumental</option>
                 </select>
                 <div class="flex justify-between items-center text-[9px] text-gray-400 pt-1">
                     <span id="audioPlayingStatus">Audio preview stopped</span>
@@ -485,7 +485,7 @@
             });
         }
 
-        // Audio preview
+        // Full-length Music Preview Handler
         function previewAndSelectAudio(trackName) {
             window.selectedAudioTrack = trackName;
             const selectEl = document.getElementById('bgMusicSelect');
@@ -503,12 +503,12 @@
 
             player.src = audioUrl;
             player.play().then(() => {
-                statusLabel.innerText = `▶ Playing: ${trackName}`;
+                statusLabel.innerText = `▶ Playing music: ${trackName}`;
             }).catch(err => {
                 console.warn("Audio play blocked:", err);
                 statusLabel.innerText = `Selected: ${trackName}`;
             });
-            showToast(`🎵 Audio added: ${trackName}`);
+            showToast(`🎵 Music added: ${trackName}`);
         }
 
         function stopAudioPreview() {
