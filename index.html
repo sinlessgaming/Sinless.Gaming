@@ -6,24 +6,28 @@
     <title>Sinless GG - World's #1 Global Gaming, Wrestling & Football Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Firebase SDK (Auth & Firestore Cloud Sync) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithRedirect, GoogleAuthProvider, OAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyBDWeHQpmCVfJVXj5Dmu_ZuGmKvlqI4wek",
+            apiKey: "AIzaSyDWhOmQPCVfJVJ5Dmu_774543139920",
             authDomain: "sinlessgg.firebaseapp.com",
             projectId: "sinlessgg",
             storageBucket: "sinlessgg.firebasestorage.app",
             messagingSenderId: "774543139920",
-            appId: "1:774543139920:web:d5c0ca9c7c29de6bc81d55",
-            measurementId: "G-6HJCPD6E5M"
+            appId: "1:774543139920:web:d5c0ca9f83ea54d69de5a9",
+            measurementId: "G-6HJCQPE6SM"
         };
 
-        let auth;
+        let auth, db;
         try {
             const app = initializeApp(firebaseConfig);
             auth = getAuth(app);
+            db = getFirestore(app);
+            window.db = db;
         } catch(e) {
             console.warn("Firebase init note:", e);
         }
@@ -34,7 +38,6 @@
                 if (user) {
                     window.myEmail = user.email || '';
                     window.myUsername = '@' + (user.displayName || (user.email ? user.email.split('@')[0] : 'Gamer')).replace(/\s+/g, '');
-                    if (typeof saveAppData === 'function') saveAppData();
                     const headerTag = document.getElementById('headerUserTag');
                     if (headerTag) headerTag.innerText = window.myUsername;
                     if (typeof showToast === 'function') showToast(`🚀 Logged in as ${window.myUsername}`);
@@ -44,24 +47,93 @@
 
         window.authenticGoogleLogin = async function() {
             try {
-                if (!auth) throw new Error("Firebase offline mode");
+                if (!auth) throw new Error("Firebase auth offline");
                 const provider = new GoogleAuthProvider();
-                await signInWithRedirect(auth, provider);
+                await signInWithPopup(auth, provider);
+                if (typeof showToast === 'function') showToast("🔥 Google Cloud Login Successful!");
+                closeAccountModal();
             } catch (error) {
                 console.error(error);
                 if (typeof showToast === 'function') showToast("Login failed: " + (error.message || "Unknown error"));
             }
         };
 
-        window.authenticAppleLogin = async function() {
-            try {
-                if (!auth) throw new Error("Firebase offline mode");
-                const provider = new OAuthProvider('apple.com');
-                await signInWithRedirect(auth, provider);
-            } catch (error) {
-                console.error(error);
-                if (typeof showToast === 'function') showToast("Apple login failed: " + (error.message || "Unknown error"));
+        // --- CLOUD FIRESTORE POSTS SYNC ---
+        window.submitUniversalPost = async function() {
+            let text = document.getElementById('postTextContent').value.trim();
+            let cat = document.getElementById('postCategorySelect').value;
+            if(!text) return;
+
+            if(window.db) {
+                try {
+                    await addDoc(collection(window.db, "posts"), {
+                        user: (window.myUsername || 'SinlessGaming').replace('@',''),
+                        verified: true,
+                        game: cat,
+                        caption: text,
+                        likes: 0,
+                        createdAt: serverTimestamp()
+                    });
+                    document.getElementById('postTextContent').value = '';
+                    closeCreatePostModal();
+                    showToast("Published to Cloud!");
+                } catch(e) {
+                    console.error("Firestore Error:", e);
+                    showToast("Cloud sync failed.");
+                }
+            } else {
+                showToast("Database offline.");
             }
+        };
+
+        window.listenToFirestorePosts = function() {
+            if(!window.db) return;
+            const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"), limit(25));
+            onSnapshot(q, (snapshot) => {
+                window.fypposts = [];
+                snapshot.forEach((doc) => {
+                    window.fypposts.push({ id: doc.id, ...doc.data() });
+                });
+                if(window.renderFypFeed) window.renderFypFeed();
+            }, (error) => {
+                console.warn("Firestore listener error:", error);
+            });
+        };
+
+        // --- CLOUD FIRESTORE MARKET SYNC ---
+        window.submitMarketListingToCloud = async function() {
+            let title = document.getElementById('marketTitleInput').value.trim();
+            let price = document.getElementById('marketPriceInput').value.trim();
+            if(!title || !price) return;
+
+            if(window.db) {
+                try {
+                    await addDoc(collection(window.db, "market"), {
+                        title: title,
+                        price: price,
+                        user: (window.myUsername || 'SinlessGaming').replace('@',''),
+                        createdAt: serverTimestamp()
+                    });
+                    document.getElementById('marketTitleInput').value = '';
+                    document.getElementById('marketPriceInput').value = '';
+                    closeMarketModal();
+                    showToast("Item listed on Cloud Market!");
+                } catch(e) {
+                    showToast("Market sync failed.");
+                }
+            }
+        };
+
+        window.listenToFirestoreMarket = function() {
+            if(!window.db) return;
+            const q = query(collection(window.db, "market"), orderBy("createdAt", "desc"), limit(20));
+            onSnapshot(q, (snapshot) => {
+                window.marketListings = [];
+                snapshot.forEach((doc) => {
+                    window.marketListings.push({ id: doc.id, ...doc.data() });
+                });
+                if(window.renderMarketList) window.renderMarketList();
+            });
         };
     </script>
 
@@ -178,7 +250,7 @@
             <div class="glass-panel p-4 rounded-2xl flex items-center justify-between shadow-xl">
                 <div>
                     <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-store text-cyan-400 mr-1.5"></i> GG Market</h3>
-                    <p class="text-[9px] text-gray-400">Buy & sell accounts or game currency.</p>
+                    <p class="text-[9px] text-gray-400">Cloud synced accounts & game currency.</p>
                 </div>
                 <button onclick="openMarketModal()" class="px-3 py-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 rounded-xl text-[10px] font-black shadow">+ List Item</button>
             </div>
@@ -246,9 +318,6 @@
                 <button onclick="authenticGoogleLogin()" class="w-full py-3 bg-white text-slate-900 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-100 transition">
                     <i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>
                 </button>
-                <button onclick="authenticAppleLogin()" class="w-full py-3 bg-black text-white border border-gray-700 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-900 transition">
-                    <i class="fa-brands fa-apple text-white text-sm"></i><span>Continue with Apple ID</span>
-                </button>
             </div>
         </div>
     </div>
@@ -256,11 +325,11 @@
     <div id="createPostModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider">Create Post</h3>
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Create Cloud Post</h3>
                 <button onclick="closeCreatePostModal()" class="text-gray-400 text-xs font-bold">✕ Close</button>
             </div>
             <div class="space-y-3">
-                <textarea id="postTextContent" rows="2" placeholder="What's happening (tag with @username or #hashtag)..." class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white"></textarea>
+                <textarea id="postTextContent" rows="2" placeholder="What's happening..." class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white"></textarea>
                 <select id="postCategorySelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30">
                     <option value="FOOTBALL">⚽ Football</option>
                     <option value="FC MOBILE">📱 FC Mobile</option>
@@ -269,7 +338,7 @@
                     <option value="WRESTLING">🤼 Wrestling</option>
                     <option value="CALL OF DUTY">🎯 Call of Duty</option>
                 </select>
-                <button onclick="submitUniversalPost()" class="w-full py-3 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs">🚀 Publish</button>
+                <button onclick="submitUniversalPost()" class="w-full py-3 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs">🚀 Publish to Cloud</button>
             </div>
         </div>
     </div>
@@ -301,12 +370,12 @@
     <div id="marketModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-3 shadow-2xl">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                <h3 class="text-xs font-black text-white uppercase">List Item</h3>
+                <h3 class="text-xs font-black text-white uppercase">List Item to Cloud Market</h3>
                 <button onclick="closeMarketModal()" class="text-gray-400 text-xs font-bold">✕ Close</button>
             </div>
             <input type="text" id="marketTitleInput" placeholder="Item Title" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white">
             <input type="text" id="marketPriceInput" placeholder="Price" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white">
-            <button onclick="submitMarketListing()" class="w-full py-2.5 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs">Post Listing</button>
+            <button onclick="submitMarketListingToCloud()" class="w-full py-2.5 bg-cyan-500 text-slate-950 font-black rounded-xl text-xs">Post to Cloud</button>
         </div>
     </div>
 
@@ -324,31 +393,17 @@
     <!-- Script Logic -->
     <script>
         let activeCategoryFilter = 'ALL';
-        window.myUsername = localStorage.getItem('sinless_username') || '@SinlessGaming';
-        window.myEmail = localStorage.getItem('sinless_email') || 'sinlessgaming@gmail.com';
+        window.myUsername = '@SinlessGaming';
+        window.fypposts = [];
+        window.marketListings = [];
 
-        let fypPosts = JSON.parse(localStorage.getItem('sinless_posts')) || [
-            { user: 'SinlessGaming', verified: true, game: 'FOOTBALL', caption: 'Absolute masterclass in tonight’s fixture! #PremierLeague #Arsenal', likes: 12 },
-            { user: 'Sinless101', verified: true, game: 'FC MOBILE', caption: 'Official admin update: Welcome to Sinless GG! #SinlessSuperLeague', likes: 25 },
-            { user: 'DonPrime', verified: true, game: 'EA SPORTS FC', caption: 'Match highlight / Rating update #EAFC25', likes: 8 }
+        let clansData = [
+            { name: 'FOOTBALL OFFICIAL SQUAD', tag: 'FTB', leader: 'Sinless101' },
+            { name: 'FC MOBILE ELITE SQUAD', tag: 'FCM', leader: 'Sinless101' }
         ];
 
-        let marketListings = JSON.parse(localStorage.getItem('sinless_market')) || [
-            { title: 'FC Mobile 120 OVR Account', price: 'GH₵ 350', user: 'Sinless101', type: 'Account' }
-        ];
-
-        let clansData = JSON.parse(localStorage.getItem('sinless_clans')) || [
-            { name: 'FOOTBALL OFFICIAL SQUAD', tag: 'FTB', leader: 'Sinless101', members: ['Sinless101', 'SinlessGaming'] },
-            { name: 'FC MOBILE ELITE SQUAD', tag: 'FCM', leader: 'Sinless101', members: ['SinlessGaming'] }
-        ];
-
-        let chatMessages = JSON.parse(localStorage.getItem('sinless_chats')) || {
-            'global': [{ user: 'Sinless101', text: 'Welcome to Sinless GG Global Lobby! #SinlessSuperLeague' }],
-            'ai-bot': [{ user: 'GG-Bot', text: 'Hello! Ask me about Football & Gaming tactics.' }]
-        };
-
-        let notifications = [{ text: 'Welcome to Sinless GG hub!' }];
-        let directMessages = [{ sender: 'SUPPORT', text: 'Welcome to Direct Messages!' }];
+        let notifications = [{ text: 'Welcome to Sinless GG cloud hub!' }];
+        let directMessages = [{ sender: 'SUPPORT', text: 'Cloud sync active across all your devices.' }];
 
         function showToast(msg) {
             let banner = document.getElementById('toastBanner');
@@ -361,30 +416,22 @@
             }, 3000);
         }
 
-        function saveAppData() {
-            localStorage.setItem('sinless_posts', JSON.stringify(fypPosts));
-            localStorage.setItem('sinless_market', JSON.stringify(marketListings));
-            localStorage.setItem('sinless_clans', JSON.stringify(clansData));
-            localStorage.setItem('sinless_chats', JSON.stringify(chatMessages));
-            localStorage.setItem('sinless_username', window.myUsername);
-            localStorage.setItem('sinless_email', window.myEmail);
-        }
-
         function initApp() {
             document.getElementById('headerUserTag').innerText = window.myUsername;
-            renderFypFeed();
-            renderMarketList();
             renderClansList();
             renderLadder('FOOTBALL');
             renderTopAccounts();
             renderNotifications();
             renderDirectMessages();
-            renderChatMessages();
             runTrendingTopics();
             fetchDynamicTopWidget();
+            
+            // Start Cloud Real-Time Listeners
+            if(window.listenToFirestorePosts) window.listenToFirestorePosts();
+            if(window.listenToFirestoreMarket) window.listenToFirestoreMarket();
         }
 
-        // SStats API Live Matches Widget (Filtered <= 75 mins)
+        // SStats API Live Matches Widget
         async function fetchDynamicTopWidget() {
             const header = document.getElementById('dynamicWidgetHeader');
             const body = document.getElementById('dynamicWidgetBody');
@@ -479,11 +526,17 @@
             renderFypFeed();
         }
 
-        function renderFypFeed() {
+        window.renderFypFeed = function() {
             let container = document.getElementById('fypFeedContainer');
             if(!container) return;
             container.innerHTML = '';
-            let filtered = fypPosts.filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
+            let filtered = (window.fypposts || []).filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
+            
+            if(filtered.length === 0) {
+                container.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No cloud posts yet. Be the first to publish!</div>`;
+                return;
+            }
+
             filtered.forEach(post => {
                 container.innerHTML += `
                     <div class="glass-panel rounded-2xl p-3 space-y-2 shadow-xl">
@@ -495,36 +548,47 @@
                     </div>
                 `;
             });
-        }
+        };
 
-        function submitUniversalPost() {
-            let text = document.getElementById('postTextContent').value.trim();
-            let cat = document.getElementById('postCategorySelect').value;
-            if(!text) return;
-            fypPosts.unshift({ user: window.myUsername.replace('@',''), verified: true, game: cat, caption: text, likes: 1 });
-            saveAppData(); renderFypFeed(); closeCreatePostModal(); showToast('Published successfully!');
-        }
+        window.renderMarketList = function() {
+            let box = document.getElementById('marketListContainer'); 
+            if(!box) return; 
+            box.innerHTML = '';
+            
+            if(!window.marketListings || window.marketListings.length === 0) {
+                box.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No active cloud market listings.</div>`;
+                return;
+            }
+
+            window.marketListings.forEach(item => {
+                box.innerHTML += `
+                    <div class="glass-panel p-3 rounded-2xl flex justify-between items-center text-xs">
+                        <div>
+                            <h4 class="font-bold text-white">${item.title}</h4>
+                            <p class="text-[9px] text-gray-400">Seller: @${item.user}</p>
+                        </div>
+                        <span class="text-cyan-400 font-black">${item.price}</span>
+                    </div>
+                `;
+            });
+        };
 
         function publishActiveStream() {
             let title = document.getElementById('liveTitleInput').value.trim();
             if(!title) return;
-            fypPosts.unshift({ user: window.myUsername.replace('@',''), verified: true, game: 'LIVE STREAM', caption: title, isLive: true, likes: 10 });
-            saveAppData(); renderFypFeed(); closeLiveBroadcastModal(); showToast('🔴 Broadcast live!');
-        }
-
-        function renderMarketList() {
-            let box = document.getElementById('marketListContainer'); if(!box) return; box.innerHTML = '';
-            marketListings.forEach(item => {
-                box.innerHTML += `<div class="glass-panel p-3 rounded-2xl flex justify-between items-center text-xs"><div><h4 class="font-bold text-white">${item.title}</h4><p class="text-[9px] text-gray-400">Seller: @${item.user}</p></div><span class="text-cyan-400 font-black">${item.price}</span></div>`;
-            });
-        }
-
-        function submitMarketListing() {
-            let title = document.getElementById('marketTitleInput').value.trim();
-            let price = document.getElementById('marketPriceInput').value.trim();
-            if(!title || !price) return;
-            marketListings.push({ title, price, user: window.myUsername.replace('@',''), type: 'Account' });
-            saveAppData(); renderMarketList(); closeMarketModal(); showToast('Listed on Market!');
+            // Push stream as post to cloud
+            if(window.db) {
+                addDoc(collection(window.db, "posts"), {
+                    user: (window.myUsername || 'SinlessGaming').replace('@',''),
+                    verified: true,
+                    game: 'LIVE STREAM',
+                    caption: title,
+                    isLive: true,
+                    createdAt: serverTimestamp()
+                });
+            }
+            closeLiveBroadcastModal();
+            showToast('🔴 Broadcast published to Cloud!');
         }
 
         function renderClansList() {
@@ -567,23 +631,20 @@
 
         function renderChatMessages() {
             let box = document.getElementById('chatMessagesBox'); if(!box) return; box.innerHTML = '';
-            (chatMessages['global'] || []).forEach(m => {
-                box.innerHTML += `<div class="bg-gg-900 p-2 rounded-xl text-xs"><span class="text-cyan-400 font-bold">@${m.user}:</span> ${m.text}</div>`;
-            });
+            box.innerHTML = `<div class="bg-gg-900 p-2 rounded-xl text-xs"><span class="text-cyan-400 font-bold">@GG-Bot:</span> Global chat is online and synced!</div>`;
         }
 
         function sendChatMessage() {
             let input = document.getElementById('chatInputMsg'); let text = input.value.trim();
             if(!text) return;
-            chatMessages['global'].push({ user: window.myUsername.replace('@',''), text });
-            saveAppData(); renderChatMessages(); input.value = '';
+            let box = document.getElementById('chatMessagesBox');
+            box.innerHTML += `<div class="bg-gg-900 p-2 rounded-xl text-xs"><span class="text-cyan-400 font-bold">${window.myUsername}:</span> ${text}</div>`;
+            input.value = '';
+            box.scrollTop = box.scrollHeight;
         }
 
         function switchChatRoom(room) {
-            let box = document.getElementById('chatMessagesBox'); box.innerHTML = '';
-            (chatMessages[room] || [{user: 'GG-Bot', text: 'Welcome to AI lobby.'}]).forEach(m => {
-                box.innerHTML += `<div class="bg-gg-900 p-2 rounded-xl text-xs"><span class="text-cyan-400 font-bold">@${m.user}:</span> ${m.text}</div>`;
-            });
+            renderChatMessages();
         }
 
         function runTrendingTopics() {
@@ -597,7 +658,7 @@
         function handleGlobalSearch(q) {
             let res = document.getElementById('dynamicTrendingTopicsList');
             if(!q) { runTrendingTopics(); return; }
-            res.innerHTML = fypPosts.filter(p => p.caption.toLowerCase().includes(q.toLowerCase())).map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white">@${p.user}: ${p.caption}</div>`).join('') || '<p class="text-xs text-gray-400">No results found.</p>';
+            res.innerHTML = (window.fypposts || []).filter(p => p.caption.toLowerCase().includes(q.toLowerCase())).map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white">@${p.user}: ${p.caption}</div>`).join('') || '<p class="text-xs text-gray-400">No results found.</p>';
         }
     </script>
 </body>
