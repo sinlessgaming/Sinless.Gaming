@@ -161,7 +161,7 @@
                 <button onclick="filterByCategory('CALL OF DUTY', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-orange-400 border border-orange-500/30 whitespace-nowrap transition">🎯 Call of Duty</button>
             </div>
 
-            <!-- DYNAMIC TOP WIDGET (Only visible when "ALL" is selected) -->
+            <!-- DYNAMIC TOP WIDGET (SStats.net Integration) -->
             <div id="DynamicTopWidget" style="display: none;" class="transition-all duration-500 ease-in-out">
                 <div class="flex items-center justify-between mb-3 border-b pb-2" id="dynamicWidgetHeader"></div>
                 <div id="dynamicWidgetBody" class="space-y-2.5"></div>
@@ -228,7 +228,7 @@
                 <select id="ladderGameSelect" onchange="renderLadder(this.value)" class="bg-gg-950 text-cyan-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-cyan-500/30 focus:outline-none">
                     <option value="FOOTBALL">⚽ Football</option>
                     <option value="FC MOBILE">📱 FC Mobile</option>
-                    <option value="EA SPORTS FC">🎮 EA Sports FC</option>
+                    <option value="EA SPORTS FC">🎮 EA SPORTS FC</option>
                 </select>
             </div>
             <div class="overflow-x-auto flex-1 bg-gg-950 rounded-xl border border-cyan-500/20">
@@ -366,7 +366,7 @@
         let notifications = [{ text: 'Welcome to Sinless GG hub!' }];
         let directMessages = [{ sender: 'SUPPORT', text: 'Welcome to Direct Messages!' }];
 
-        // DYNAMIC TOP WIDGET LOGIC (With CORS Proxy Bypass + Loosened Filters)
+        // DYNAMIC TOP WIDGET LOGIC (Powered by SStats.net)
         async function fetchDynamicTopWidget() {
             const widget = document.getElementById('DynamicTopWidget');
             const header = document.getElementById('dynamicWidgetHeader');
@@ -376,22 +376,14 @@
             let allMatches = [];
 
             try {
-                // Using allorigins.win proxy to bypass mobile browser blocks
-                const targetUrl = encodeURIComponent('https://sportscore.com/api/widget/matches/?sport=football&limit=10');
-                const res = await fetch('https://api.allorigins.win/raw?url=' + targetUrl);
-                
+                // SStats API endpoint for live matches
+                const res = await fetch('https://api.sstats.net/games?status=live');
                 if (res.ok) {
                     const data = await res.json();
-                    const matchesData = data.data || data || [];
-                    
-                    // Loosened filter to catch live matches, or simply recent/today's matches if the strict 'live' tag is missing
-                    allMatches = matchesData.filter(m => 
-                        m.status === 'live' || m.status === 'inprogress' || 
-                        m.minute || m.time || (m.score && String(m.score).includes('-'))
-                    ).slice(0, 10);
+                    allMatches = (data.games || data || []).slice(0, 10);
                 }
             } catch(e) { 
-                console.warn('Proxy fetch failed, browser might be strictly locked down:', e); 
+                console.warn('SStats fetch failed:', e); 
             }
 
             if (allMatches.length > 0) {
@@ -402,16 +394,20 @@
                     <h3 class="text-xs font-black text-white uppercase tracking-wider flex items-center">
                         <i class="fa-solid fa-circle text-red-500 text-[8px] animate-pulse mr-1.5"></i> Live Matches
                     </h3>
-                    <span class="text-[10px] text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded">${allMatches.length} Found</span>
+                    <span class="text-[10px] text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded">${allMatches.length} Live</span>
                 `;
                 
                 body.innerHTML = '';
                 allMatches.forEach(m => {
-                    const home = m.home_team || m.homeTeam || m.home || 'Home';
-                    const away = m.away_team || m.awayTeam || m.away || 'Away';
-                    const score = m.score || `${m.home_score !== undefined ? m.home_score : '-'} - ${m.away_score !== undefined ? m.away_score : '-'}`;
+                    const home = (m.homeTeam && m.homeTeam.name) ? m.homeTeam.name : (m.homeTeam || m.home || 'Home');
+                    const away = (m.awayTeam && m.awayTeam.name) ? m.awayTeam.name : (m.awayTeam || m.away || 'Away');
+                    
+                    const homeScore = m.homeScore !== undefined ? m.homeScore : (m.home_score !== undefined ? m.home_score : 0);
+                    const awayScore = m.awayScore !== undefined ? m.awayScore : (m.away_score !== undefined ? m.away_score : 0);
+                    const score = `${homeScore} - ${awayScore}`;
+                    
                     const minute = m.minute || m.time || m.status || 'Live';
-                    const league = m.league || m.competition || 'Football';
+                    const league = (m.league && m.league.name) ? m.league.name : (m.league || m.competition || '');
 
                     body.innerHTML += `
                         <div class="flex items-center justify-between bg-gg-950 rounded-xl p-2.5 border border-red-500/10">
@@ -426,15 +422,9 @@
                         </div>
                     `;
                 });
-                
-                body.innerHTML += `
-                    <p class="text-[9px] text-gray-500 text-center mt-2">
-                        <a href="https://sportscore.com/" rel="dofollow" target="_blank" class="hover:text-cyan-400 transition">Powered by SportScore</a>
-                    </p>
-                `;
 
             } else {
-                // STATE 2: 0 matches found (due to API delay or proxy failure) -> Fallback to Trending Summary
+                // STATE 2: 0 matches found -> Fallback to Trending Summary
                 widget.className = "glass-panel rounded-2xl p-4 shadow-xl border border-cyan-500/20 transition-all duration-500 mb-4";
                 header.className = "flex items-center justify-between mb-3 border-b border-cyan-500/10 pb-2";
                 header.innerHTML = `
