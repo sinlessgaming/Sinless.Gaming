@@ -15,6 +15,7 @@
             collection, 
             addDoc, 
             doc,
+            deleteDoc,
             updateDoc,
             arrayUnion,
             arrayRemove,
@@ -57,6 +58,7 @@
         window.collection = collection;
         window.addDoc = addDoc;
         window.doc = doc;
+        window.deleteDoc = deleteDoc;
         window.updateDoc = updateDoc;
         window.arrayUnion = arrayUnion;
         window.arrayRemove = arrayRemove;
@@ -148,6 +150,17 @@
                 store.add(post);
             } catch(e) {
                 console.error("IndexedDB save failed:", e);
+            }
+        }
+
+        async function removePostFromIndexedDB(id) {
+            try {
+                let db = await openPostDB();
+                let tx = db.transaction("local_posts", "readwrite");
+                let store = tx.objectStore("local_posts");
+                store.delete(id);
+            } catch(e) {
+                console.error("IndexedDB delete failed:", e);
             }
         }
 
@@ -243,6 +256,89 @@
             stopAudioPreview();
             closeCreatePostModal();
         }
+
+        // --- DELETE POST FUNCTIONALITY ---
+        window.deletePost = async function(postId) {
+            if (!confirm("Are you sure you want to delete this post?")) return;
+
+            window.fypposts = (window.fypposts || []).filter(p => p.id !== postId && p.docId !== postId);
+            window.renderFypFeed();
+
+            try {
+                await removePostFromIndexedDB(postId);
+                if (window.db && !postId.startsWith('local_')) {
+                    await deleteDoc(doc(window.db, "posts", postId));
+                }
+                showToast("Post deleted successfully!");
+            } catch(e) {
+                console.error("Delete post error:", e);
+                showToast("Post removed.");
+            }
+        };
+
+        // --- EDIT POST FUNCTIONALITY ---
+        window.editingPostId = null;
+        window.openEditPostModal = function(postId) {
+            const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
+            if (!post) return;
+
+            window.editingPostId = postId;
+            document.getElementById('editPostCaptionInput').value = post.caption || '';
+            document.getElementById('editPostCategorySelect').value = post.game || 'FOOTBALL';
+            document.getElementById('editPostModal').classList.remove('hidden');
+        };
+
+        window.closeEditPostModal = function() {
+            document.getElementById('editPostModal').classList.add('hidden');
+            window.editingPostId = null;
+        };
+
+        window.submitEditPost = async function() {
+            const postId = window.editingPostId;
+            if (!postId) return;
+
+            const newCaption = document.getElementById('editPostCaptionInput').value.trim();
+            const newGame = document.getElementById('editPostCategorySelect').value;
+
+            const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
+            if (post) {
+                post.caption = newCaption;
+                post.game = newGame;
+            }
+
+            window.renderFypFeed();
+            closeEditPostModal();
+
+            if (window.db && !postId.startsWith('local_')) {
+                try {
+                    await updateDoc(doc(window.db, "posts", postId), {
+                        caption: newCaption,
+                        game: newGame
+                    });
+                } catch(e) {
+                    console.error("Edit post cloud sync error:", e);
+                }
+            }
+            showToast("Post updated!");
+        };
+
+        // --- NATIVE SOCIAL MEDIA SHARE FUNCTIONALITY ---
+        window.shareContent = function(title, text, url) {
+            const shareData = {
+                title: title || 'Sinless GG Gaming',
+                text: text || 'Check this out on Sinless GG!',
+                url: url || window.location.href
+            };
+
+            if (navigator.share) {
+                navigator.share(shareData).catch((err) => {
+                    console.log('Share canceled or failed:', err);
+                });
+            } else {
+                navigator.clipboard.writeText(`${shareData.text} - ${shareData.url}`);
+                showToast("📋 Link copied to clipboard!");
+            }
+        };
 
         // --- REAL-TIME GGs TOGGLE SYSTEM ---
         window.toggleGGPost = async function(postId) {
@@ -587,6 +683,25 @@
             openUserProfileModal(cleanUser);
         };
 
+        // --- ACCOUNT DELETION SYSTEM ---
+        window.deleteAccountData = async function() {
+            if (!confirm("⚠️ PERMANENT DELETION: Are you sure you want to delete your account data and reset your profile?")) return;
+
+            const cleanUser = (window.myUsername || '@SinlessGaming').replace('@','').toLowerCase();
+            delete window.userProfiles[cleanUser];
+            localStorage.setItem('sinless_user_profiles', JSON.stringify(window.userProfiles));
+
+            if (window.currentUser) {
+                try {
+                    await signOut(auth);
+                } catch(e) {}
+            }
+
+            showToast("Account data reset.");
+            closeAccountModal();
+            location.reload();
+        };
+
         window.toggleFollowUser = function(cleanUser) {
             let key = cleanUser.toLowerCase();
             window.userFollowsState[key] = !window.userFollowsState[key];
@@ -641,6 +756,20 @@
 
         window.closeCreateTournamentModal = function() {
             document.getElementById('createTournamentModal').classList.add('hidden');
+        };
+
+        window.deleteTournament = function(tournId) {
+            if (!confirm("Are you sure you want to delete this tournament?")) return;
+
+            window.tournamentsList = window.tournamentsList.filter(t => t.id !== tournId);
+            localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
+
+            if (window.activeTournament && window.activeTournament.id === tournId) {
+                window.activeTournament = window.tournamentsList[0] || null;
+            }
+
+            showToast("Tournament deleted.");
+            renderTournamentsTab();
         };
 
         window.submitNewTournament = function() {
@@ -793,6 +922,7 @@
             const current = window.activeTournament || window.tournamentsList[0];
             const me = (window.myUsername || '@SinlessGaming').replace('@', '');
             const isJoined = current.players.includes(me);
+            const isHost = current.host.toLowerCase() === me.toLowerCase();
 
             let formatBadge = current.format === 'WORLD_CUP' ? '🌍 World Cup Style' : (current.format === 'CHAMPIONS_LEAGUE' ? '🏆 Champions League Swiss' : '⚡ Single Elimination');
 
@@ -804,7 +934,10 @@
                             <p class="text-[9px] text-cyan-400">Host: @${current.host} • ${current.game} • ${current.players.length}/${current.maxPlayers} Registered</p>
                             <span class="inline-block text-[8px] bg-magenta/20 text-magenta font-extrabold px-2 py-0.5 rounded-md mt-1">${formatBadge}</span>
                         </div>
-                        ${!isJoined ? `<button onclick="joinActiveTournament('${current.id}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Join League</button>` : `<span class="text-[9px] bg-cyan-500/10 text-cyan-400 font-extrabold px-2.5 py-1 rounded-full">✓ Registered</span>`}
+                        <div class="flex items-center space-x-1.5">
+                            ${isHost ? `<button onclick="deleteTournament('${current.id}')" class="px-2 py-1 bg-red-600/20 text-red-400 border border-red-500/30 text-[9px] font-bold rounded-lg"><i class="fa-solid fa-trash mr-1"></i>Delete</button>` : ''}
+                            ${!isJoined ? `<button onclick="joinActiveTournament('${current.id}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Join League</button>` : `<span class="text-[9px] bg-cyan-500/10 text-cyan-400 font-extrabold px-2.5 py-1 rounded-full">✓ Registered</span>`}
+                        </div>
                     </div>
 
                     <div class="space-y-2 pt-1">
@@ -1141,6 +1274,32 @@
         </div>
     </div>
 
+    <!-- EDIT POST MODAL -->
+    <div id="editPostModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[175] flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Edit Post</h3>
+                <button onclick="closeEditPostModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
+            </div>
+
+            <div class="space-y-2">
+                <textarea id="editPostCaptionInput" rows="3" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white focus:outline-none"></textarea>
+                <select id="editPostCategorySelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2 rounded-xl border border-cyan-500/30 focus:outline-none">
+                    <option value="FOOTBALL">⚽ Football</option>
+                    <option value="FC MOBILE">📱 FC Mobile</option>
+                    <option value="EA SPORTS FC">🎮 EA Sports FC</option>
+                    <option value="EFOOTBALL">⚡ eFootball</option>
+                    <option value="WRESTLING">🤼 Wrestling</option>
+                    <option value="CALL OF DUTY">🎯 Call of Duty</option>
+                </select>
+            </div>
+
+            <button onclick="submitEditPost()" class="w-full py-2.5 bg-cyan-400 text-slate-950 font-black rounded-xl text-xs shadow-lg uppercase tracking-wider">
+                ✓ Save Changes
+            </button>
+        </div>
+    </div>
+
     <!-- CREATE TOURNAMENT MODAL (SUPPORTING 64 TEAMS, WORLD CUP & CHAMPIONS LEAGUE FORMATS) -->
     <div id="createTournamentModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[170] flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
@@ -1377,7 +1536,7 @@
     <div id="accountModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider">Cloud Account Sign-In</h3>
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Cloud Account & Settings</h3>
                 <button onclick="closeAccountModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             <div class="space-y-3 py-1">
@@ -1385,6 +1544,13 @@
                 <button id="googleAuthBtn" onclick="window.loginWithGoogle()" class="w-full py-3 bg-white text-slate-900 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-100 transition">
                     <i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>
                 </button>
+                
+                <div class="pt-3 border-t border-red-500/20 space-y-2">
+                    <span class="text-[10px] font-extrabold text-red-400 uppercase block">Danger Zone</span>
+                    <button onclick="deleteAccountData()" class="w-full py-2 bg-red-600/20 text-red-400 border border-red-500/40 rounded-xl text-xs font-bold flex items-center justify-center space-x-1 hover:bg-red-600/30">
+                        <i class="fa-solid fa-trash-can text-xs"></i><span>Delete Account & Reset Local Data</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1851,6 +2017,9 @@
                 let normalizedId = post.docId || post.id || ('post_fallback_' + index);
                 post.id = normalizedId;
 
+                const cleanMe = (window.myUsername || '@SinlessGaming').replace('@','').toLowerCase();
+                const isMyPost = post.user && post.user.toLowerCase() === cleanMe;
+
                 let audioBadge = post.audioTrack ? `<p class="text-[9px] text-cyan-400 font-bold mt-1.5 flex items-center"><i class="fa-solid fa-music mr-1.5"></i> ${post.audioTrack}</p>` : '';
                 
                 let mediaHtml = '';
@@ -1879,16 +2048,22 @@
                 let commentsNum = post.commentsCount || 0;
 
                 container.innerHTML += `
-                    <div class="glass-panel rounded-2xl p-3 space-y-2 shadow-xl">
+                    <div class="glass-panel rounded-2xl p-3 space-y-2 shadow-xl relative">
                         <div class="flex items-center justify-between">
                             <span class="font-bold text-xs text-white cursor-pointer" onclick="openUserProfileModal('${post.user}')">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
-                            <span class="text-[9px] text-cyan-400 font-bold">${post.game || 'GAMING'}</span>
+                            <div class="flex items-center space-x-1.5">
+                                <span class="text-[9px] text-cyan-400 font-bold mr-1">${post.game || 'GAMING'}</span>
+                                ${isMyPost ? `
+                                    <button onclick="event.stopPropagation(); openEditPostModal('${normalizedId}')" class="text-gray-400 hover:text-cyan-400 text-xs px-1" title="Edit Post"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button onclick="event.stopPropagation(); deletePost('${normalizedId}')" class="text-gray-400 hover:text-red-400 text-xs px-1" title="Delete Post"><i class="fa-solid fa-trash"></i></button>
+                                ` : ''}
+                            </div>
                         </div>
                         ${captionHtml}
                         ${mediaHtml}
                         ${audioBadge}
                         
-                        <!-- GGs & Replies Action Bar -->
+                        <!-- GGs, Replies & Native Share Action Bar -->
                         <div class="flex items-center justify-between pt-2 border-t border-cyan-500/10 text-xs">
                             <button onclick="event.stopPropagation(); toggleGGPost('${normalizedId}')" class="flex items-center space-x-1.5 ${hasGGed ? 'text-cyan-400 font-black' : 'text-gray-400 font-bold'} hover:text-cyan-400 transition">
                                 <i class="${hasGGed ? 'fa-solid' : 'fa-regular'} fa-thumbs-up"></i>
@@ -1897,6 +2072,10 @@
                             <button onclick="event.stopPropagation(); openCommentsModal('${normalizedId}')" class="flex items-center space-x-1.5 text-gray-400 font-bold hover:text-cyan-400 transition">
                                 <i class="fa-regular fa-comment"></i>
                                 <span>${commentsNum} Replies</span>
+                            </button>
+                            <button onclick="event.stopPropagation(); shareContent('Sinless GG Post', '${(post.caption || 'Check out this clip on Sinless GG!').replace(/'/g, "\\'")}', window.location.href)" class="flex items-center space-x-1.5 text-gray-400 font-bold hover:text-cyan-400 transition">
+                                <i class="fa-solid fa-share-nodes"></i>
+                                <span>Share</span>
                             </button>
                         </div>
                     </div>
