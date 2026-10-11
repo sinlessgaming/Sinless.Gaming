@@ -96,18 +96,19 @@
         }
 
         window.listenToFirestorePosts = function() {
-            if(!window.db) return;
-            const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"), limit(30));
-            onSnapshot(q, (snapshot) => {
-                window.fypposts = [];
-                snapshot.forEach((doc) => {
-                    window.fypposts.push({ id: doc.id, ...doc.data() });
-                });
-                if(window.renderFypFeed) window.renderFypFeed();
-            }, (error) => {
-                console.warn("Firestore listener error:", error);
-            });
-        };
+    if(!window.db) return;
+    const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"), limit(30));
+    onSnapshot(q, (snapshot) => {
+        window.fypposts = [];
+        snapshot.forEach((doc) => {
+            window.fypposts.push({ id: doc.id, ...doc.data() });
+        });
+        if(window.renderFypFeed) window.renderFypFeed();
+    }, (error) => {
+        console.warn("Firestore listener error:", error);
+    });
+};
+
 
         // --- REAL CLOUD FIRESTORE MARKET ---
         window.submitMarketListingToCloud = async function() {
@@ -597,45 +598,46 @@
         }
 
         window.renderFypFeed = function() {
-            let container = document.getElementById('fypFeedContainer');
-            if(!container) return;
-            container.innerHTML = '';
-            let filtered = (window.fypposts || []).filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
-            
-            if(filtered.length === 0) {
-                container.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No cloud posts yet. Be the first to publish!</div>`;
-                return;
-            }
+    let container = document.getElementById('fypFeedContainer');
+    if(!container) return;
+    container.innerHTML = '';
+    let filtered = (window.fypposts || []).filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
+    
+    if(filtered.length === 0) {
+        container.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No cloud posts yet. Be the first to publish!</div>`;
+        return;
+    }
 
-            filtered.forEach(post => {
-                let audioBadge = post.audioTrack ? `<p class="text-[9px] text-cyan-400 font-bold mt-1.5 flex items-center"><i class="fa-solid fa-music mr-1.5"></i> ${post.audioTrack}</p>` : '';
-                
-                let mediaHtml = '';
-                if (post.mediaList && post.mediaList.length > 0) {
-                    mediaHtml = `<div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-cyan-500/10">`;
-                    post.mediaList.forEach(m => {
-                        if (m.type === 'video') {
-                            mediaHtml += `<video src="${m.url}" controls class="w-full h-36 rounded-xl object-cover bg-black"></video>`;
-                        } else {
-                            mediaHtml += `<img src="${m.url}" class="w-full h-36 rounded-xl object-cover">`;
-                        }
-                    });
-                    mediaHtml += `</div>`;
+    filtered.forEach(post => {
+        let audioBadge = post.audioTrack ? `<p class="text-[9px] text-cyan-400 font-bold mt-1.5 flex items-center"><i class="fa-solid fa-music mr-1.5"></i> ${post.audioTrack}</p>` : '';
+        
+        let mediaHtml = '';
+        if (post.mediaList && post.mediaList.length > 0) {
+            mediaHtml = `<div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-cyan-500/10">`;
+            post.mediaList.forEach(m => {
+                if (m.type === 'video') {
+                    mediaHtml += `<video src="${m.url}" controls class="w-full h-36 rounded-xl object-cover bg-black"></video>`;
+                } else {
+                    mediaHtml += `<img src="${m.url}" class="w-full h-36 rounded-xl object-cover">`;
                 }
-
-                container.innerHTML += `
-                    <div class="glass-panel rounded-2xl p-3 space-y-2 shadow-xl">
-                        <div class="flex items-center justify-between">
-                            <span class="font-bold text-xs text-white">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
-                            <span class="text-[9px] text-cyan-400 font-bold">${post.game || 'GAMING'}</span>
-                        </div>
-                        <p class="text-xs text-gray-200">${post.caption || ''}</p>
-                        ${mediaHtml}
-                        ${audioBadge}
-                    </div>
-                `;
             });
-        };
+            mediaHtml += `</div>`;
+        }
+
+        container.innerHTML += `
+            <div class="glass-panel rounded-2xl p-3 space-y-2 shadow-xl">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-xs text-white">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
+                    <span class="text-[9px] text-cyan-400 font-bold">${post.game || 'GAMING'}</span>
+                </div>
+                <p class="text-xs text-gray-200">${post.caption || ''}</p>
+                ${mediaHtml}
+                ${audioBadge}
+            </div>
+        `;
+    });
+};
+
 
         window.renderMarketList = function() {
             let box = document.getElementById('marketListContainer'); 
