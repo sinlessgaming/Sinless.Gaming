@@ -185,6 +185,7 @@
             }
 
             let postPayload = {
+                id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
                 user: (window.myUsername || '@SinlessGaming').replace('@',''),
                 displayName: window.myDisplayName || 'Sinless Gaming',
                 uid: window.currentUser ? window.currentUser.uid : 'guest',
@@ -201,7 +202,8 @@
 
             try {
                 if(window.db && typeof addDoc === 'function' && typeof collection === 'function') {
-                    await addDoc(collection(window.db, "posts"), postPayload);
+                    const docRef = await addDoc(collection(window.db, "posts"), postPayload);
+                    postPayload.id = docRef.id;
                     showToast("Published to Cloud Feed!");
                 } else {
                     await publishLocallyFallback(postPayload);
@@ -250,8 +252,11 @@
                 return;
             }
 
-            const post = (window.fypposts || []).find(p => p.id === postId);
-            if (!post) return;
+            const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
+            if (!post) {
+                showToast("⚠️ Unable to interact with this post.");
+                return;
+            }
 
             const uid = window.currentUser.uid;
             if (!post.ggsBy) post.ggsBy = [];
@@ -267,16 +272,16 @@
             window.renderFypFeed();
             if(window.renderLadder) window.renderLadder();
 
-            if (window.db && postId && !post.isLocalFallback) {
+            const targetId = post.docId || post.id;
+            if (window.db && targetId && !post.isLocalFallback && !targetId.startsWith('local_')) {
                 try {
-                    const postRef = doc(window.db, "posts", postId);
+                    const postRef = doc(window.db, "posts", targetId);
                     await updateDoc(postRef, {
                         ggsCount: increment(hasGGed ? -1 : 1),
                         ggsBy: hasGGed ? arrayRemove(uid) : arrayUnion(uid)
                     });
                 } catch (error) {
                     console.error("Error updating GGs:", error);
-                    showToast("Failed to sync GGs to cloud.");
                 }
             }
         };
@@ -290,7 +295,7 @@
             const modal = document.getElementById('commentsModal');
             modal.classList.remove('hidden');
 
-            const post = (window.fypposts || []).find(p => p.id === postId);
+            const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
             document.getElementById('commentsPostUser').innerText = post ? `@${post.user}` : '';
 
             loadCommentsForPost(postId);
@@ -313,7 +318,7 @@
                 window.unsubscribeCommentsListener();
             }
 
-            if (window.db && postId) {
+            if (window.db && postId && !postId.startsWith('local_')) {
                 const commentsRef = collection(window.db, "posts", postId, "comments");
                 const q = query(commentsRef, orderBy("createdAt", "asc"), limit(50));
 
@@ -339,7 +344,7 @@
                     container.scrollTop = container.scrollHeight;
                 });
             } else {
-                container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">Offline mode - local replies ready.</p>`;
+                container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">Local mode replies active.</p>`;
             }
         }
 
@@ -366,7 +371,7 @@
             input.value = '';
 
             try {
-                if (window.db) {
+                if (window.db && !postId.startsWith('local_')) {
                     const commentsRef = collection(window.db, "posts", postId, "comments");
                     await addDoc(commentsRef, payload);
 
@@ -382,8 +387,9 @@
             }
         };
 
-        // --- GAMERTAG PROFILES, FOLLOWERS & DYNAMIC RANK SYSTEM ---
+        // --- GAMERTAG PROFILES, PROFILE EDITS, FOLLOWERS & DYNAMIC RANK SYSTEM ---
         window.userFollowsState = window.userFollowsState || {};
+        window.userProfiles = JSON.parse(localStorage.getItem('sinless_user_profiles') || '{}');
 
         function calculateGlobalRanks() {
             let statsMap = {};
@@ -403,9 +409,22 @@
             return { rankMap, sortedCreators };
         }
 
-        // FULL-SCREEN TIKTOK/X-STYLE PROFILE PAGE WITH BANNER, AVATAR, BIO & LINK
+        window.activeProfileUser = null;
+
         window.openUserProfileModal = function(username) {
             const cleanUser = username.replace('@', '');
+            window.activeProfileUser = cleanUser;
+
+            const profileData = window.userProfiles[cleanUser.toLowerCase()] || {
+                displayName: cleanUser === 'SinlessGaming' ? 'Sinless Gaming' : cleanUser,
+                bio: cleanUser === 'SinlessGaming' 
+                    ? '🎮 Official Creator & Esports Hub | EA Sports FC, Football, Wrestling & Gaming Leagues 🔥' 
+                    : 'Passionate gamer & competitive creator on Sinless GG!',
+                website: 'https://sinlessgg.com',
+                pfp: null,
+                cover: null
+            };
+
             const userPosts = (window.fypposts || []).filter(p => p.user && p.user.toLowerCase() === cleanUser.toLowerCase());
 
             let totalGGs = 0;
@@ -414,36 +433,27 @@
             const { rankMap } = calculateGlobalRanks();
             const userRank = rankMap[cleanUser.toLowerCase()] || '--';
 
-            // Profile details setup
-            let displayName = cleanUser === 'SinlessGaming' ? 'Sinless Gaming' : cleanUser;
-            let bioText = cleanUser === 'SinlessGaming' 
-                ? '🎮 Official Creator & Esports Hub | EA Sports FC, Football, Wrestling & Gaming Leagues 🔥' 
-                : 'Passionate gamer & competitive creator on Sinless GG!';
-            let websiteUrl = 'https://sinlessgg.com';
-            let pfpUrl = null;
-            let bannerUrl = null;
-
-            document.getElementById('profileDisplayName').innerText = displayName;
+            document.getElementById('profileDisplayName').innerText = profileData.displayName;
             document.getElementById('profileGamertag').innerText = `@${cleanUser}`;
-            document.getElementById('profileBioText').innerText = bioText;
+            document.getElementById('profileBioText').innerText = profileData.bio;
             
             const linkElem = document.getElementById('profileLinkUrl');
-            linkElem.innerText = websiteUrl.replace('https://', '');
-            linkElem.href = websiteUrl;
+            linkElem.innerText = (profileData.website || 'sinlessgg.com').replace(/^https?:\/\//, '');
+            linkElem.href = profileData.website && profileData.website.startsWith('http') ? profileData.website : `https://${profileData.website || 'sinlessgg.com'}`;
 
             // Profile Picture Setup
             const pfpContainer = document.getElementById('profileAvatarBox');
-            if (pfpUrl) {
-                pfpContainer.innerHTML = `<img src="${pfpUrl}" class="w-full h-full object-cover">`;
+            if (profileData.pfp) {
+                pfpContainer.innerHTML = `<img src="${profileData.pfp}" class="w-full h-full object-cover">`;
             } else {
                 const initials = cleanUser.substring(0, 2).toUpperCase();
                 pfpContainer.innerHTML = `<div class="w-full h-full bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-2xl">${initials}</div>`;
             }
 
-            // Banner Image Setup
+            // Cover Banner Setup
             const bannerContainer = document.getElementById('profileBannerHeader');
-            if (bannerUrl) {
-                bannerContainer.style.backgroundImage = `url('${bannerUrl}')`;
+            if (profileData.cover) {
+                bannerContainer.style.backgroundImage = `url('${profileData.cover}')`;
             } else {
                 bannerContainer.style.backgroundImage = `linear-gradient(135deg, #070f1e 0%, #00f3ff 50%, #ff007f 100%)`;
             }
@@ -458,12 +468,23 @@
 
             document.getElementById('profileFollowersCount').innerText = baseFollowers;
 
+            // Show / Hide Edit Profile Button vs Follow Button
+            const isMyOwnProfile = window.currentUser && (window.myUsername.replace('@','').toLowerCase() === cleanUser.toLowerCase());
             const followBtn = document.getElementById('profileFollowBtn');
-            if (followBtn) {
-                followBtn.innerHTML = isFollowing 
-                    ? `<i class="fa-solid fa-user-check mr-1"></i> Following` 
-                    : `<i class="fa-solid fa-user-plus mr-1"></i> Follow`;
-                followBtn.onclick = () => window.toggleFollowUser(cleanUser);
+            const editBtn = document.getElementById('profileEditBtn');
+
+            if (isMyOwnProfile || cleanUser.toLowerCase() === 'sinlessgaming') {
+                if (followBtn) followBtn.classList.add('hidden');
+                if (editBtn) editBtn.classList.remove('hidden');
+            } else {
+                if (editBtn) editBtn.classList.add('hidden');
+                if (followBtn) {
+                    followBtn.classList.remove('hidden');
+                    followBtn.innerHTML = isFollowing 
+                        ? `<i class="fa-solid fa-user-check mr-1"></i> Following` 
+                        : `<i class="fa-solid fa-user-plus mr-1"></i> Follow`;
+                    followBtn.onclick = () => window.toggleFollowUser(cleanUser);
+                }
             }
 
             // 3-Column horizontal media grid
@@ -505,6 +526,67 @@
             document.getElementById('userProfileModal').classList.remove('hidden');
         };
 
+        // --- EDIT PROFILE SYSTEM ---
+        window.tempProfilePfp = null;
+        window.tempProfileCover = null;
+
+        window.openEditProfileModal = function() {
+            const cleanUser = window.activeProfileUser || (window.myUsername || '@SinlessGaming').replace('@','');
+            const data = window.userProfiles[cleanUser.toLowerCase()] || {
+                displayName: cleanUser === 'SinlessGaming' ? 'Sinless Gaming' : cleanUser,
+                bio: 'Passionate gamer & competitive creator on Sinless GG!',
+                website: 'https://sinlessgg.com'
+            };
+
+            document.getElementById('editDisplayNameInput').value = data.displayName || '';
+            document.getElementById('editBioInput').value = data.bio || '';
+            document.getElementById('editWebsiteInput').value = data.website || '';
+            window.tempProfilePfp = data.pfp || null;
+            window.tempProfileCover = data.cover || null;
+
+            document.getElementById('editProfileModal').classList.remove('hidden');
+        };
+
+        window.closeEditProfileModal = function() {
+            document.getElementById('editProfileModal').classList.add('hidden');
+        };
+
+        window.handlePfpUpload = async function(input) {
+            if (input.files && input.files[0]) {
+                const compressed = await compressImage(input.files[0], 500, 500, 0.85);
+                window.tempProfilePfp = compressed;
+                showToast("Profile Picture Selected!");
+            }
+        };
+
+        window.handleCoverUpload = async function(input) {
+            if (input.files && input.files[0]) {
+                const compressed = await compressImage(input.files[0], 1200, 600, 0.85);
+                window.tempProfileCover = compressed;
+                showToast("Cover Photo Selected!");
+            }
+        };
+
+        window.saveUserProfileChanges = function() {
+            const cleanUser = window.activeProfileUser || (window.myUsername || '@SinlessGaming').replace('@','');
+            const key = cleanUser.toLowerCase();
+
+            const updated = {
+                displayName: document.getElementById('editDisplayNameInput').value.trim() || cleanUser,
+                bio: document.getElementById('editBioInput').value.trim(),
+                website: document.getElementById('editWebsiteInput').value.trim(),
+                pfp: window.tempProfilePfp,
+                cover: window.tempProfileCover
+            };
+
+            window.userProfiles[key] = updated;
+            localStorage.setItem('sinless_user_profiles', JSON.stringify(window.userProfiles));
+
+            showToast("Profile Saved!");
+            closeEditProfileModal();
+            openUserProfileModal(cleanUser);
+        };
+
         window.toggleFollowUser = function(cleanUser) {
             let key = cleanUser.toLowerCase();
             window.userFollowsState[key] = !window.userFollowsState[key];
@@ -525,8 +607,8 @@
             const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"), limit(30));
             onSnapshot(q, (snapshot) => {
                 let cloudPosts = [];
-                snapshot.forEach((doc) => {
-                    cloudPosts.push({ id: doc.id, ...doc.data() });
+                snapshot.forEach((docSnap) => {
+                    cloudPosts.push({ id: docSnap.id, docId: docSnap.id, ...docSnap.data() });
                 });
                 let localPosts = (window.fypposts || []).filter(p => p.isLocalFallback);
                 window.fypposts = [...localPosts, ...cloudPosts];
@@ -767,18 +849,20 @@
         </div>
     </main>
 
-    <!-- FULL-SCREEN PROFILE PAGE WITH TOP COVER BANNER, PROFILE NAME, AVATAR, BIO & LINK -->
+    <!-- FULL-SCREEN PROFILE PAGE WITH BANNER, AVATAR, BIO, EDIT MODAL & LINK -->
     <div id="userProfileModal" class="hidden fixed inset-0 bg-slate-950 z-[160] flex flex-col overflow-y-auto">
         
-        <!-- Top Cover Banner Header (X / Facebook Style) -->
+        <!-- Top Cover Banner Header -->
         <div id="profileBannerHeader" class="relative w-full h-36 bg-cover bg-center border-b border-cyan-500/20 shrink-0">
-            <!-- Navigation Action Buttons Over Banner -->
             <div class="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
                 <button onclick="closeUserProfileModal()" class="w-9 h-9 rounded-full bg-slate-950/80 text-white flex items-center justify-center font-extrabold text-sm border border-cyan-500/30 backdrop-blur-md shadow-lg">
                     <i class="fa-solid fa-arrow-left"></i>
                 </button>
                 <button id="profileFollowBtn" class="px-4 py-2 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 rounded-xl font-black text-xs shadow-lg uppercase tracking-wider">
                     <i class="fa-solid fa-user-plus mr-1"></i> Follow
+                </button>
+                <button id="profileEditBtn" onclick="openEditProfileModal()" class="hidden px-4 py-2 bg-slate-900 text-cyan-400 border border-cyan-500/40 rounded-xl font-black text-xs shadow-lg uppercase tracking-wider">
+                    <i class="fa-solid fa-pen-to-square mr-1"></i> Edit Profile
                 </button>
             </div>
         </div>
@@ -844,6 +928,47 @@
                 <span>Published Clips & Posts</span>
             </div>
             <div id="profileUserPostsList" class="grid grid-cols-3 gap-2"></div>
+        </div>
+    </div>
+
+    <!-- EDIT PROFILE MODAL -->
+    <div id="editProfileModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[170] flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Edit Gamer Profile</h3>
+                <button onclick="closeEditProfileModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Display Name</label>
+                    <input type="text" id="editDisplayNameInput" placeholder="Display Name" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-2.5 text-xs text-white focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Custom Bio</label>
+                    <textarea id="editBioInput" rows="2" placeholder="Tell gamers about your setup, favorite titles..." class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-2.5 text-xs text-white focus:outline-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Custom Link (YouTube/Twitch/Site)</label>
+                    <input type="text" id="editWebsiteInput" placeholder="https://youtube.com/@channel" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-2.5 text-xs text-white focus:outline-none">
+                </div>
+
+                <div class="p-3 bg-gg-950 rounded-xl border border-cyan-500/20 space-y-2">
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block">🖼️ Upload Profile Picture (PFP)</label>
+                    <input type="file" accept="image/*" onchange="handlePfpUpload(this)" class="w-full text-[10px] text-gray-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-cyan-500 file:text-slate-950 hover:file:bg-cyan-400 cursor-pointer">
+                </div>
+
+                <div class="p-3 bg-gg-950 rounded-xl border border-cyan-500/20 space-y-2">
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block">🎨 Upload Cover Banner Photo</label>
+                    <input type="file" accept="image/*" onchange="handleCoverUpload(this)" class="w-full text-[10px] text-gray-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-magenta file:text-white hover:file:bg-pink-600 cursor-pointer">
+                </div>
+            </div>
+
+            <button onclick="saveUserProfileChanges()" class="w-full py-3 bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 font-black rounded-xl text-xs shadow-lg uppercase tracking-wider mt-2">
+                Save Profile Updates
+            </button>
         </div>
     </div>
 
@@ -1351,7 +1476,10 @@
                 return;
             }
 
-            filtered.forEach(post => {
+            filtered.forEach((post, index) => {
+                let normalizedId = post.docId || post.id || ('post_fallback_' + index);
+                post.id = normalizedId;
+
                 let audioBadge = post.audioTrack ? `<p class="text-[9px] text-cyan-400 font-bold mt-1.5 flex items-center"><i class="fa-solid fa-music mr-1.5"></i> ${post.audioTrack}</p>` : '';
                 
                 let mediaHtml = '';
@@ -1359,12 +1487,12 @@
                     mediaHtml = `<div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-cyan-500/10">`;
                     post.mediaList.forEach(m => {
                         if (m.type === 'video') {
-                            mediaHtml += `<div class="relative cursor-pointer" onclick="openMediaZoomModal('video', '${m.url}')">
+                            mediaHtml += `<div class="relative cursor-pointer" onclick="event.stopPropagation(); openMediaZoomModal('video', '${m.url}')">
                                 <video src="${m.url}" class="w-full h-36 rounded-xl object-cover bg-black pointer-events-none"></video>
                                 <i class="fa-solid fa-expand absolute top-2 right-2 text-xs text-white bg-slate-900/80 p-1 rounded-lg"></i>
                             </div>`;
                         } else {
-                            mediaHtml += `<div class="relative cursor-pointer" onclick="openMediaZoomModal('image', '${m.url}')">
+                            mediaHtml += `<div class="relative cursor-pointer" onclick="event.stopPropagation(); openMediaZoomModal('image', '${m.url}')">
                                 <img src="${m.url}" class="w-full h-36 rounded-xl object-cover">
                                 <i class="fa-solid fa-expand absolute top-2 right-2 text-xs text-white bg-slate-900/80 p-1 rounded-lg"></i>
                             </div>`;
@@ -1391,11 +1519,11 @@
                         
                         <!-- GGs & Replies Action Bar -->
                         <div class="flex items-center justify-between pt-2 border-t border-cyan-500/10 text-xs">
-                            <button onclick="toggleGGPost('${post.id}')" class="flex items-center space-x-1.5 ${hasGGed ? 'text-cyan-400 font-black' : 'text-gray-400 font-bold'} hover:text-cyan-400 transition">
+                            <button onclick="event.stopPropagation(); toggleGGPost('${normalizedId}')" class="flex items-center space-x-1.5 ${hasGGed ? 'text-cyan-400 font-black' : 'text-gray-400 font-bold'} hover:text-cyan-400 transition">
                                 <i class="${hasGGed ? 'fa-solid' : 'fa-regular'} fa-thumbs-up"></i>
                                 <span>${currentGGs} GGs</span>
                             </button>
-                            <button onclick="openCommentsModal('${post.id}')" class="flex items-center space-x-1.5 text-gray-400 font-bold hover:text-cyan-400 transition">
+                            <button onclick="event.stopPropagation(); openCommentsModal('${normalizedId}')" class="flex items-center space-x-1.5 text-gray-400 font-bold hover:text-cyan-400 transition">
                                 <i class="fa-regular fa-comment"></i>
                                 <span>${commentsNum} Replies</span>
                             </button>
