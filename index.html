@@ -405,14 +405,23 @@ if (backgroundMusicSelect) {
                     <span>🎵 Copyright-Free Music Library (Tap to Preview)</span>
                     <span class="text-emerald-400">TikTok Style</span>
                 </div>
-                <select id="bgMusicSelect" onchange="previewAndSelectAudio(this.value)" class="w-full bg-gg-900 text-white text-xs font-bold p-2 rounded-xl border border-cyan-500/30 focus:outline-none">
-                    <option value="">-- No Background Music --</option>
-                    <option value="⚡ Electric Stadium Bounce (EDM Track)" data-url="https://upload.wikimedia.org/wikipedia/commons/b/b2/Beethoven_Moonlight_1st_movement.ogg">⚡ Electric Stadium Bounce (Classical EDM Remix)</option>
-                    <option value="🎮 Sinless Cyberpunk Synthwave" data-url="https://upload.wikimedia.org/wikipedia/commons/6/6f/Chopin_Nocturne_Op_9_No_2_performed_by_Italiana_Manoli.ogg">🎮 Sinless Cyberpunk Synthwave</option>
-                    <option value="⚽ Street Football LoFi Chill Beats" data-url="https://upload.wikimedia.org/wikipedia/commons/e/e8/El_choclo_tango_accordion.ogg">⚽ Street Football LoFi Chill Beats</option>
-                    <option value="🏆 Champion Victory Brass & Trap" data-url="https://upload.wikimedia.org/wikipedia/commons/d/d4/Mozart_Rondo_alla_Turca.ogg">🏆 Champion Victory Brass & Trap</option>
-                    <option value="🔥 Stadium Rapperholic Instrumental" data-url="https://upload.wikimedia.org/wikipedia/commons/4/4e/Vivaldi_Winter_mvt_1_Solo_violin_Sara_Stasi.ogg">🔥 Stadium Rapperholic Instrumental</option>
-                </select>
+              <select id="bgMusicSelect" onchange="previewAndSelectAudio(this.value)">
+  <option value="">-- No Background Music --</option>
+
+  <!-- EDM & Synthwave -->
+  <option value="https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3">⚡ Electric Stadium Bounce (EDM Track)</option>
+  <option value="https://assets.mixkit.co/music/preview/mixkit-game-level-music-689.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-game-level-music-689.mp3">🎮 Sinless Cyberpunk Synthwave</option>
+  <option value="https://assets.mixkit.co/music/preview/mixkit-chill-bro-494.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-chill-bro-494.mp3">⚽ Street Football LoFi Chill Beats</option>
+  <option value="https://assets.mixkit.co/music/preview/mixkit-raising-me-higher-34.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-raising-me-higher-34.mp3">🏆 Champion Victory Brass & Trap</option>
+  <option value="https://assets.mixkit.co/music/preview/mixkit-driving-ambition-32.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-driving-ambition-32.mp3">🔥 Stadium Rapperholic Instrumental</option>
+
+  <!-- Hip Hop, R&B, Pop, Dancehall & Reggae -->
+  <option value="https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3">🎤 Hip Hop Street Beat</option>
+  <option value="https://assets.mixkit.co/music/preview/mixkit-cbpd-400.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-cbpd-400.mp3">🎷 Smooth R&B Groove</option>
+  <option value="https://assets.mixkit.co/music/preview/mixkit-pop-05-692.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-pop-05-692.mp3">✨ Upbeat Pop Party</option>
+  <option value="https://assets.mixkit.co/music/preview/mixkit-latin-lovers-108.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-latin-lovers-108.mp3">🌴 Dancehall / Reggae Riddim</option>
+</select>
+
                 <div class="flex justify-between items-center text-[9px] text-gray-400 pt-1">
                     <span id="audioPlayingStatus">Audio preview stopped</span>
                     <button type="button" onclick="stopAudioPreview()" class="text-cyan-400 underline font-bold">Stop Preview</button>
