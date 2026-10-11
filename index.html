@@ -6,7 +6,7 @@
     <title>Sinless GG - World's #1 Global Gaming, Wrestling & Football Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Real-time Firebase SDK & Firestore Cloud Sync with IndexedDB Local Backup -->
+    <!-- Real-time Firebase SDK, Firestore Cloud Sync & Google Auth -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
@@ -20,6 +20,13 @@
             onSnapshot, 
             serverTimestamp 
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { 
+            getAuth, 
+            GoogleAuthProvider, 
+            signInWithPopup, 
+            signOut, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         // Your web app's Firebase configuration
         const firebaseConfig = {
@@ -32,13 +39,16 @@
           measurementId: "G-T1ENJX4SFY"
         };
 
-        // Initialize Firebase & Firestore
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const analytics = getAnalytics(app);
         const db = getFirestore(app);
+        const auth = getAuth(app);
+        const googleProvider = new GoogleAuthProvider();
 
-        // Expose Firebase tools to window scope for global app functions
+        // Expose Firebase tools to window scope
         window.db = db;
+        window.auth = auth;
         window.collection = collection;
         window.addDoc = addDoc;
         window.query = query;
@@ -46,6 +56,65 @@
         window.limit = limit;
         window.onSnapshot = onSnapshot;
         window.serverTimestamp = serverTimestamp;
+
+        // --- AUTHENTICATION FUNCTIONS ---
+        window.loginWithGoogle = async function() {
+            try {
+                const result = await signInWithPopup(auth, googleProvider);
+                const user = result.user;
+                showToast(`Welcome, ${user.displayName || 'Gamer'}!`);
+                closeAccountModal();
+            } catch (error) {
+                console.error("Auth error:", error);
+                showToast("Sign-in failed. Please try again.");
+            }
+        };
+
+        window.logoutUser = async function() {
+            try {
+                await signOut(auth);
+                showToast("Signed out successfully.");
+                closeAccountModal();
+            } catch (error) {
+                console.error("Sign-out error:", error);
+            }
+        };
+
+        // Auth state listener
+        onAuthStateChanged(auth, (user) => {
+            const authModalBtn = document.getElementById('googleAuthBtn');
+            const authModalStatus = document.getElementById('accountModalStatusText');
+
+            if (user) {
+                // User is signed in
+                const displayName = user.displayName || user.email.split('@')[0];
+                window.myUsername = `@${displayName.replace(/\s+/g, '')}`;
+                window.currentUser = user;
+
+                // Update UI elements
+                const headerTag = document.getElementById('headerUserTag');
+                if (headerTag) headerTag.innerText = window.myUsername;
+
+                if (authModalStatus) authModalStatus.innerText = `Logged in as ${displayName}`;
+                if (authModalBtn) {
+                    authModalBtn.innerHTML = `<i class="fa-solid fa-right-from-bracket text-red-500 text-sm"></i><span>Sign Out</span>`;
+                    authModalBtn.onclick = window.logoutUser;
+                }
+            } else {
+                // User is signed out
+                window.myUsername = '@SinlessGaming';
+                window.currentUser = null;
+
+                const headerTag = document.getElementById('headerUserTag');
+                if (headerTag) headerTag.innerText = '@SinlessGaming';
+
+                if (authModalStatus) authModalStatus.innerText = 'Connect with your Google account to post under your real username.';
+                if (authModalBtn) {
+                    authModalBtn.innerHTML = `<i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>`;
+                    authModalBtn.onclick = window.loginWithGoogle;
+                }
+            }
+        });
 
         // --- INDEXEDDB FOR LARGE LOCAL MEDIA STORAGE ---
         function openPostDB() {
@@ -95,7 +164,6 @@
             let audioTrack = window.selectedAudioTrack || null;
             let mediaDataURLs = window.uploadedMediaDataURLs || [];
 
-            // Allow submission if ANY of text or media is provided
             if(!text && mediaDataURLs.length === 0) {
                 showToast("⚠️ Write a caption or select media to post!");
                 return;
@@ -103,7 +171,8 @@
 
             let postPayload = {
                 user: (window.myUsername || '@SinlessGaming').replace('@',''),
-                verified: true,
+                uid: window.currentUser ? window.currentUser.uid : 'guest',
+                verified: !!window.currentUser,
                 game: cat,
                 caption: text,
                 mediaList: mediaDataURLs,
@@ -114,7 +183,6 @@
 
             if(window.db && typeof addDoc === 'function' && typeof collection === 'function') {
                 try {
-                    // Saves permanently to Google Firebase Cloud Firestore
                     await addDoc(collection(window.db, "posts"), postPayload);
                     resetPostForm();
                     showToast("Published to Cloud Feed!");
@@ -131,10 +199,7 @@
             if(!window.fypposts) window.fypposts = [];
             payload.isLocalFallback = true;
             window.fypposts.unshift(payload);
-            
-            // Persist to IndexedDB so large video/image posts survive page refreshes
             await savePostToIndexedDB(payload);
-
             window.renderFypFeed();
             resetPostForm();
             showToast("Published to Feed!");
@@ -160,11 +225,8 @@
                 snapshot.forEach((doc) => {
                     cloudPosts.push({ id: doc.id, ...doc.data() });
                 });
-
-                // Preserve local fallback posts alongside Firestore posts
                 let localPosts = (window.fypposts || []).filter(p => p.isLocalFallback);
                 window.fypposts = [...localPosts, ...cloudPosts];
-
                 if(window.renderFypFeed) window.renderFypFeed();
             }, (error) => {
                 console.warn("Firestore listener error:", error);
@@ -183,6 +245,7 @@
                         title: title,
                         price: price,
                         user: (window.myUsername || '@SinlessGaming').replace('@',''),
+                        uid: window.currentUser ? window.currentUser.uid : 'guest',
                         createdAt: typeof serverTimestamp === 'function' ? serverTimestamp() : new Date().toISOString()
                     });
                     document.getElementById('marketTitleInput').value = '';
@@ -207,7 +270,6 @@
             });
         };
 
-        // Initialize Firestore real-time listeners once app is loaded
         window.addEventListener('load', () => {
             if(window.listenToFirestorePosts) window.listenToFirestorePosts();
             if(window.listenToFirestoreMarket) window.listenToFirestoreMarket();
@@ -404,7 +466,8 @@
                 <button onclick="closeAccountModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             <div class="space-y-3 py-1">
-                <button onclick="showToast('Authenticating with Google Cloud...')" class="w-full py-3 bg-white text-slate-900 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-100 transition">
+                <p id="accountModalStatusText" class="text-xs text-gray-300">Connect with your Google account to post under your real username.</p>
+                <button id="googleAuthBtn" onclick="window.loginWithGoogle()" class="w-full py-3 bg-white text-slate-900 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-100 transition">
                     <i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>
                 </button>
             </div>
