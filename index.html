@@ -1005,9 +1005,17 @@
             }
         };
 
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
         window.formatMentions = function(text) {
             if (!text) return '';
-            return text.replace(/(@[a-zA-Z0-9_]+)/g, '<span class="text-cyan-400 font-extrabold cursor-pointer hover:underline" onclick="openUserProfileModal(\'$1\', event)">$1</span>');
+            let escaped = escapeHTML(text);
+            return escaped.replace(/(@[a-zA-Z0-9_]+)/g, '<span class="text-cyan-400 font-extrabold cursor-pointer hover:underline" onclick="openUserProfileModal(\'$1\', event)">$1</span>');
         };
 
         window.activeDmUser = null;
