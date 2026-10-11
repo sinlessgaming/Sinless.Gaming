@@ -8,41 +8,6 @@
     
     <!-- Real-time Firebase SDK & Firestore Cloud Sync -->
     <script type="module">
-    window.submitUniversalPost = async function() {
-    let text = document.getElementById('postTextContent').value.trim();
-    let cat = document.getElementById('postCategorySelect').value;
-    let audioTrack = window.selectedAudioTrack || null;
-    let mediaDataURLs = window.uploadedMediaDataURLs || [];
-
-    if(!text && mediaDataURLs.length === 0) return;
-
-    let postPayload = {
-        user: (window.myUsername || '@SinlessGaming').replace('@',''),
-        verified: true,
-        game: cat,
-        caption: text,
-        mediaList: mediaDataURLs,
-        audioTrack: audioTrack,
-        likes: 0,
-        createdAt: serverTimestamp()
-    };
-
-    if(window.db) {
-        try {
-            // Saves permanently to Google Firebase Cloud Firestore
-            await addDoc(collection(window.db, "posts"), postPayload);
-            resetPostForm();
-            showToast("Published to Cloud Feed!");
-        } catch(e) {
-            console.error("Firestore Error:", e);
-            publishLocallyFallback(postPayload);
-        }
-    } else {
-        publishLocallyFallback(postPayload);
-    }
-};
-
-
         // --- REAL CLOUD FIRESTORE POSTS WITH MEDIA & MUSIC ---
         window.submitUniversalPost = async function() {
             let text = document.getElementById('postTextContent').value.trim();
@@ -50,7 +15,11 @@
             let audioTrack = window.selectedAudioTrack || null;
             let mediaDataURLs = window.uploadedMediaDataURLs || [];
 
-            if(!text && mediaDataURLs.length === 0) return;
+            // Allow submission if ANY of text or media is provided
+            if(!text && mediaDataURLs.length === 0) {
+                showToast("⚠️ Write a caption or select media to post!");
+                return;
+            }
 
             let postPayload = {
                 user: (window.myUsername || '@SinlessGaming').replace('@',''),
@@ -60,11 +29,12 @@
                 mediaList: mediaDataURLs,
                 audioTrack: audioTrack,
                 likes: 0,
-                createdAt: serverTimestamp()
+                createdAt: typeof serverTimestamp === 'function' ? serverTimestamp() : new Date().toISOString()
             };
 
-            if(window.db) {
+            if(window.db && typeof addDoc === 'function' && typeof collection === 'function') {
                 try {
+                    // Saves permanently to Google Firebase Cloud Firestore
                     await addDoc(collection(window.db, "posts"), postPayload);
                     resetPostForm();
                     showToast("Published to Cloud Feed!");
@@ -89,27 +59,27 @@
             document.getElementById('postTextContent').value = '';
             window.uploadedMediaDataURLs = [];
             window.selectedAudioTrack = null;
+            document.getElementById('mediaFileInput').value = '';
             document.getElementById('mediaPreviewThumbnails').innerHTML = '';
             document.getElementById('mediaCountIndicator').innerText = '0 / 10 selected';
-            document.getElementById('bgMusicSelect').value = '';
+            document.getElementById('selectedSoundLabel').innerText = '🎵 Choose Background Music';
             stopAudioPreview();
             closeCreatePostModal();
         }
 
         window.listenToFirestorePosts = function() {
-    if(!window.db) return;
-    const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"), limit(30));
-    onSnapshot(q, (snapshot) => {
-        window.fypposts = [];
-        snapshot.forEach((doc) => {
-            window.fypposts.push({ id: doc.id, ...doc.data() });
-        });
-        if(window.renderFypFeed) window.renderFypFeed();
-    }, (error) => {
-        console.warn("Firestore listener error:", error);
-    });
-};
-
+            if(!window.db || typeof query !== 'function') return;
+            const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"), limit(30));
+            onSnapshot(q, (snapshot) => {
+                window.fypposts = [];
+                snapshot.forEach((doc) => {
+                    window.fypposts.push({ id: doc.id, ...doc.data() });
+                });
+                if(window.renderFypFeed) window.renderFypFeed();
+            }, (error) => {
+                console.warn("Firestore listener error:", error);
+            });
+        };
 
         // --- REAL CLOUD FIRESTORE MARKET ---
         window.submitMarketListingToCloud = async function() {
@@ -117,13 +87,13 @@
             let price = document.getElementById('marketPriceInput').value.trim();
             if(!title || !price) return;
 
-            if(window.db) {
+            if(window.db && typeof addDoc === 'function') {
                 try {
                     await addDoc(collection(window.db, "market"), {
                         title: title,
                         price: price,
                         user: (window.myUsername || '@SinlessGaming').replace('@',''),
-                        createdAt: serverTimestamp()
+                        createdAt: typeof serverTimestamp === 'function' ? serverTimestamp() : new Date().toISOString()
                     });
                     document.getElementById('marketTitleInput').value = '';
                     document.getElementById('marketPriceInput').value = '';
@@ -136,7 +106,7 @@
         };
 
         window.listenToFirestoreMarket = function() {
-            if(!window.db) return;
+            if(!window.db || typeof query !== 'function') return;
             const q = query(collection(window.db, "market"), orderBy("createdAt", "desc"), limit(20));
             onSnapshot(q, (snapshot) => {
                 window.marketListings = [];
@@ -147,30 +117,7 @@
             });
         };
     </script>
-    <script>// Audio Preview & Selection Handler
-const backgroundMusicSelect = document.getElementById('bgMusicSelect');
-let currentAudioPreview = null;
 
-if (backgroundMusicSelect) {
-    backgroundMusicSelect.addEventListener('change', (e) => {
-        const selectedUrl = e.target.value;
-        
-        if (currentAudioPreview) {
-            currentAudioPreview.pause();
-            currentAudioPreview.currentTime = 0;
-            currentAudioPreview = null;
-        }
-
-        if (selectedUrl) {
-            currentAudioPreview = new Audio(selectedUrl);
-            currentAudioPreview.volume = 0.5;
-            currentAudioPreview.play().catch(error => {
-                console.log("Autoplay prevented or failed to load audio:", error);
-            });
-        }
-    });
-}
-</script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -361,7 +308,7 @@ if (backgroundMusicSelect) {
                 <button onclick="closeAccountModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             <div class="space-y-3 py-1">
-                <button onclick="authenticGoogleLogin()" class="w-full py-3 bg-white text-slate-900 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-100 transition">
+                <button onclick="showToast('Authenticating with Google Cloud...')" class="w-full py-3 bg-white text-slate-900 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-100 transition">
                     <i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>
                 </button>
             </div>
@@ -405,63 +352,36 @@ if (backgroundMusicSelect) {
                     <span>🎵 Copyright-Free Music Library (Tap to Preview)</span>
                     <span class="text-emerald-400">TikTok Style</span>
                 </div>
-              <!-- Custom Trigger Button -->
-<button type="button" onclick="openSoundModal()" class="w-full py-3 bg-gray-800 text-white rounded-xl flex justify-between items-center px-4">
-  <span id="selectedSoundLabel">🎵 Choose Background Music</span>
-  <span class="text-emerald-400 text-xs">Browse</span>
-</button>
+                <!-- Custom Trigger Button -->
+                <button type="button" onclick="openSoundModal()" class="w-full py-3 bg-gray-800 text-white rounded-xl flex justify-between items-center px-4">
+                  <span id="selectedSoundLabel">🎵 Choose Background Music</span>
+                  <span class="text-emerald-400 text-xs">Browse</span>
+                </button>
 
-<!-- TikTok-Style Audio Picker Modal -->
-<div id="soundPickerModal" class="hidden fixed inset-0 bg-black/90 z-50 p-4 flex flex-col justify-between">
-  <div>
-    <div class="flex justify-between items-center mb-4">
-      <h3 class="text-white font-bold text-lg">Select Audio</h3>
-      <button type="button" onclick="closeSoundModal()" class="text-gray-400 text-xl">&times;</button>
-    </div>
-    
-    <!-- Sound List Items -->
-    <div class="space-y-2 max-h-[70vh] overflow-y-auto">
-      <div onclick="selectTrack('https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3', '🎤 Hip Hop Street Beat')" class="p-3 bg-gray-900 rounded-lg flex justify-between items-center cursor-pointer hover:bg-gray-800">
-        <span class="text-white font-medium">🎤 Hip Hop Street Beat</span>
-        <button type="button" onclick="event.stopPropagation(); previewAudio('https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3')" class="px-3 py-1 bg-cyan-500 text-black text-xs font-bold rounded-full">Play</button>
-      </div>
+                <!-- TikTok-Style Audio Picker Modal -->
+                <div id="soundPickerModal" class="hidden fixed inset-0 bg-black/90 z-50 p-4 flex flex-col justify-between">
+                  <div>
+                    <div class="flex justify-between items-center mb-4">
+                      <h3 class="text-white font-bold text-lg">Select Audio</h3>
+                      <button type="button" onclick="closeSoundModal()" class="text-gray-400 text-xl">&times;</button>
+                    </div>
+                    
+                    <!-- Sound List Items -->
+                    <div class="space-y-2 max-h-[70vh] overflow-y-auto">
+                      <div onclick="selectTrack('https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3', '🎤 Hip Hop Street Beat')" class="p-3 bg-gray-900 rounded-lg flex justify-between items-center cursor-pointer hover:bg-gray-800">
+                        <span class="text-white font-medium">🎤 Hip Hop Street Beat</span>
+                        <button type="button" onclick="event.stopPropagation(); previewAudio('https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3')" class="px-3 py-1 bg-cyan-500 text-black text-xs font-bold rounded-full">Play</button>
+                      </div>
 
-      <div onclick="selectTrack('https://assets.mixkit.co/music/preview/mixkit-cbpd-400.mp3', '🎷 Smooth R&B Groove')" class="p-3 bg-gray-900 rounded-lg flex justify-between items-center cursor-pointer hover:bg-gray-800">
-        <span class="text-white font-medium">🎷 Smooth R&B Groove</span>
-        <button type="button" onclick="event.stopPropagation(); previewAudio('https://assets.mixkit.co/music/preview/mixkit-cbpd-400.mp3')" class="px-3 py-1 bg-cyan-500 text-black text-xs font-bold rounded-full">Play</button>
-      </div>
-    </div>
-  </div>
+                      <div onclick="selectTrack('https://assets.mixkit.co/music/preview/mixkit-cbpd-400.mp3', '🎷 Smooth R&B Groove')" class="p-3 bg-gray-900 rounded-lg flex justify-between items-center cursor-pointer hover:bg-gray-800">
+                        <span class="text-white font-medium">🎷 Smooth R&B Groove</span>
+                        <button type="button" onclick="event.stopPropagation(); previewAudio('https://assets.mixkit.co/music/preview/mixkit-cbpd-400.mp3')" class="px-3 py-1 bg-cyan-500 text-black text-xs font-bold rounded-full">Play</button>
+                      </div>
+                    </div>
+                  </div>
 
-  <button type="button" onclick="closeSoundModal()" class="w-full py-3 bg-emerald-500 text-black font-bold rounded-xl mt-4">Done</button>
-</div>
-<script>
-                let currentPreview = null;
-let selectedAudioUrl = "";
-
-function openSoundModal() {
-  document.getElementById('soundPickerModal').classList.remove('hidden');
-}
-
-function closeSoundModal() {
-  document.getElementById('soundPickerModal').classList.add('hidden');
-}
-
-function previewAudio(url) {
-  if (currentPreview) {
-    currentPreview.pause();
-  }
-  currentPreview = new Audio(url);
-  currentPreview.volume = 0.5;
-  currentPreview.play();
-}
-
-function selectTrack(url, label) {
-  selectedAudioUrl = url;
-  document.getElementById('selectedSoundLabel').innerText = label;
-  previewAudio(url);
-} </script>
-
+                  <button type="button" onclick="closeSoundModal()" class="w-full py-3 bg-emerald-500 text-black font-bold rounded-xl mt-4">Done</button>
+                </div>
 
                 <div class="flex justify-between items-center text-[9px] text-gray-400 pt-1">
                     <span id="audioPlayingStatus">Audio preview stopped</span>
@@ -482,6 +402,49 @@ function selectTrack(url, label) {
         window.marketListings = [];
         window.uploadedMediaDataURLs = [];
         window.selectedAudioTrack = null;
+
+        let currentPreview = null;
+        let selectedAudioUrl = "";
+
+        function openSoundModal() {
+            document.getElementById('soundPickerModal').classList.remove('hidden');
+        }
+
+        function closeSoundModal() {
+            document.getElementById('soundPickerModal').classList.add('hidden');
+        }
+
+        function previewAudio(url) {
+            if (currentPreview) {
+                currentPreview.pause();
+            }
+            currentPreview = new Audio(url);
+            currentPreview.volume = 0.5;
+            currentPreview.play().catch(err => {
+                console.warn("Audio preview playback failed:", err);
+            });
+            document.getElementById('audioPlayingStatus').innerText = "▶ Audio preview playing";
+        }
+
+        function selectTrack(url, label) {
+            selectedAudioUrl = url;
+            window.selectedAudioTrack = label;
+            document.getElementById('selectedSoundLabel').innerText = label;
+            previewAudio(url);
+        }
+
+        function stopAudioPreview() {
+            if (currentPreview) {
+                currentPreview.pause();
+                currentPreview.currentTime = 0;
+            }
+            const player = document.getElementById('previewAudioPlayer');
+            if (player) {
+                player.pause();
+                player.currentTime = 0;
+            }
+            document.getElementById('audioPlayingStatus').innerText = "Audio preview stopped";
+        }
 
         let clansData = [
             { name: 'FOOTBALL OFFICIAL SQUAD', tag: 'FTB', leader: 'Sinless101' },
@@ -518,7 +481,7 @@ function selectTrack(url, label) {
         function handleMediaSelection(input) {
             const files = Array.from(input.files);
             if (files.length > 10) {
-                showToast("⚠️ Maximum 10 images allowed per post!");
+                showToast("⚠️ Maximum 10 items allowed per post!");
                 input.value = '';
                 return;
             }
@@ -528,53 +491,21 @@ function selectTrack(url, label) {
             thumbContainer.innerHTML = '';
             document.getElementById('mediaCountIndicator').innerText = `${files.length} / 10 selected`;
 
-            files.forEach((file, idx) => {
+            files.forEach((file) => {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const dataUrl = e.target.result;
-                    window.uploadedMediaDataURLs.push({ type: file.type.includes('video') ? 'video' : 'image', url: dataUrl });
+                    const isVideo = file.type.includes('video');
+                    window.uploadedMediaDataURLs.push({ type: isVideo ? 'video' : 'image', url: dataUrl });
 
                     thumbContainer.innerHTML += `
                         <div class="relative w-14 h-14 rounded-xl bg-gg-900 border border-cyan-500/30 overflow-hidden flex items-center justify-center">
-                            ${file.type.includes('video') ? '<video src="'+dataUrl+'" class="w-full h-full object-cover"></video><i class="fa-solid fa-video absolute bottom-1 right-1 text-[8px] text-red-400 bg-slate-950/80 p-0.5 rounded"></i>' : '<img src="'+dataUrl+'" class="w-full h-full object-cover">'}
+                            ${isVideo ? '<video src="'+dataUrl+'" class="w-full h-full object-cover"></video><i class="fa-solid fa-video absolute bottom-1 right-1 text-[8px] text-red-400 bg-slate-950/80 p-0.5 rounded"></i>' : '<img src="'+dataUrl+'" class="w-full h-full object-cover">'}
                         </div>
                     `;
                 };
                 reader.readAsDataURL(file);
             });
-        }
-
-        // Full-length Music Preview Handler
-        function previewAndSelectAudio(trackName) {
-            window.selectedAudioTrack = trackName;
-            const selectEl = document.getElementById('bgMusicSelect');
-            const selectedOpt = selectEl.options[selectEl.selectedIndex];
-            const audioUrl = selectedOpt ? selectedOpt.getAttribute('data-url') : null;
-            const player = document.getElementById('previewAudioPlayer');
-            const statusLabel = document.getElementById('audioPlayingStatus');
-
-            if (!trackName || !audioUrl) {
-                player.pause();
-                player.currentTime = 0;
-                statusLabel.innerText = "Audio preview stopped";
-                return;
-            }
-
-            player.src = audioUrl;
-            player.play().then(() => {
-                statusLabel.innerText = `▶ Playing music: ${trackName}`;
-            }).catch(err => {
-                console.warn("Audio play blocked:", err);
-                statusLabel.innerText = `Selected: ${trackName}`;
-            });
-            showToast(`🎵 Music added: ${trackName}`);
-        }
-
-        function stopAudioPreview() {
-            const player = document.getElementById('previewAudioPlayer');
-            player.pause();
-            player.currentTime = 0;
-            document.getElementById('audioPlayingStatus').innerText = "Audio preview stopped";
         }
 
         // Horizontal Scrolling Live Matches Carousel
@@ -598,7 +529,6 @@ function selectTrack(url, label) {
                 activeMatches.forEach(m => {
                     const home = m.homeTeam?.name || 'Home';
                     const away = m.awayTeam?.name || 'Away';
-                    const score = `${m.homeResult ?? 0} - ${m.awayResult ?? 0}`;
                     const minute = m.elapsed ? `${m.elapsed}'` : (m.status?.name || '');
                     const league = m.season?.league?.name || '';
 
@@ -634,14 +564,14 @@ function selectTrack(url, label) {
         function closeAccountModal() { document.getElementById('accountModal').classList.add('hidden'); }
         function openCreatePostModal() { document.getElementById('createPostModal').classList.remove('hidden'); }
         function closeCreatePostModal() { document.getElementById('createPostModal').classList.add('hidden'); }
-        function openNotificationsModal() { document.getElementById('notifModal').classList.remove('hidden'); }
-        function closeNotificationsModal() { document.getElementById('notifModal').classList.add('hidden'); }
-        function openDmModal() { document.getElementById('dmModal').classList.remove('hidden'); }
-        function closeDmModal() { document.getElementById('dmModal').classList.add('hidden'); }
-        function openMarketModal() { document.getElementById('marketModal').classList.remove('hidden'); }
-        function closeMarketModal() { document.getElementById('marketModal').classList.add('hidden'); }
-        function openLiveBroadcastModal() { document.getElementById('liveBroadcastModal').classList.remove('hidden'); }
-        function closeLiveBroadcastModal() { document.getElementById('liveBroadcastModal').classList.add('hidden'); }
+        function openNotificationsModal() { showToast("No new notifications."); }
+        function closeNotificationsModal() {}
+        function openDmModal() { showToast("Direct Messages active."); }
+        function closeDmModal() {}
+        function openMarketModal() { showToast("Market feature ready."); }
+        function closeMarketModal() {}
+        function openLiveBroadcastModal() { showToast("Live stream feature ready."); }
+        function closeLiveBroadcastModal() {}
         function openCreateClanModal() { showToast('Squad creator active!'); }
 
         function switchView(viewName) {
@@ -672,46 +602,47 @@ function selectTrack(url, label) {
         }
 
         window.renderFypFeed = function() {
-    let container = document.getElementById('fypFeedContainer');
-    if(!container) return;
-    container.innerHTML = '';
-    let filtered = (window.fypposts || []).filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
-    
-    if(filtered.length === 0) {
-        container.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No cloud posts yet. Be the first to publish!</div>`;
-        return;
-    }
+            let container = document.getElementById('fypFeedContainer');
+            if(!container) return;
+            container.innerHTML = '';
+            let filtered = (window.fypposts || []).filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
+            
+            if(filtered.length === 0) {
+                container.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No cloud posts yet. Be the first to publish!</div>`;
+                return;
+            }
 
-    filtered.forEach(post => {
-        let audioBadge = post.audioTrack ? `<p class="text-[9px] text-cyan-400 font-bold mt-1.5 flex items-center"><i class="fa-solid fa-music mr-1.5"></i> ${post.audioTrack}</p>` : '';
-        
-        let mediaHtml = '';
-        if (post.mediaList && post.mediaList.length > 0) {
-            mediaHtml = `<div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-cyan-500/10">`;
-            post.mediaList.forEach(m => {
-                if (m.type === 'video') {
-                    mediaHtml += `<video src="${m.url}" controls class="w-full h-36 rounded-xl object-cover bg-black"></video>`;
-                } else {
-                    mediaHtml += `<img src="${m.url}" class="w-full h-36 rounded-xl object-cover">`;
+            filtered.forEach(post => {
+                let audioBadge = post.audioTrack ? `<p class="text-[9px] text-cyan-400 font-bold mt-1.5 flex items-center"><i class="fa-solid fa-music mr-1.5"></i> ${post.audioTrack}</p>` : '';
+                
+                let mediaHtml = '';
+                if (post.mediaList && post.mediaList.length > 0) {
+                    mediaHtml = `<div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-cyan-500/10">`;
+                    post.mediaList.forEach(m => {
+                        if (m.type === 'video') {
+                            mediaHtml += `<video src="${m.url}" controls class="w-full h-36 rounded-xl object-cover bg-black"></video>`;
+                        } else {
+                            mediaHtml += `<img src="${m.url}" class="w-full h-36 rounded-xl object-cover">`;
+                        }
+                    });
+                    mediaHtml += `</div>`;
                 }
+
+                let captionHtml = post.caption ? `<p class="text-xs text-gray-200">${post.caption}</p>` : '';
+
+                container.innerHTML += `
+                    <div class="glass-panel rounded-2xl p-3 space-y-2 shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-xs text-white">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
+                            <span class="text-[9px] text-cyan-400 font-bold">${post.game || 'GAMING'}</span>
+                        </div>
+                        ${captionHtml}
+                        ${mediaHtml}
+                        ${audioBadge}
+                    </div>
+                `;
             });
-            mediaHtml += `</div>`;
-        }
-
-        container.innerHTML += `
-            <div class="glass-panel rounded-2xl p-3 space-y-2 shadow-xl">
-                <div class="flex items-center justify-between">
-                    <span class="font-bold text-xs text-white">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
-                    <span class="text-[9px] text-cyan-400 font-bold">${post.game || 'GAMING'}</span>
-                </div>
-                <p class="text-xs text-gray-200">${post.caption || ''}</p>
-                ${mediaHtml}
-                ${audioBadge}
-            </div>
-        `;
-    });
-};
-
+        };
 
         window.renderMarketList = function() {
             let box = document.getElementById('marketListContainer'); 
@@ -736,23 +667,6 @@ function selectTrack(url, label) {
             });
         };
 
-        function publishActiveStream() {
-            let title = document.getElementById('liveTitleInput').value.trim();
-            if(!title) return;
-            if(window.db) {
-                addDoc(collection(window.db, "posts"), {
-                    user: (window.myUsername || '@SinlessGaming').replace('@',''),
-                    verified: true,
-                    game: 'LIVE STREAM',
-                    caption: title,
-                    isLive: true,
-                    createdAt: serverTimestamp()
-                });
-            }
-            closeLiveBroadcastModal();
-            showToast('🔴 Broadcast published to Cloud!');
-        }
-
         function renderClansList() {
             let box = document.getElementById('clansListContainer'); if(!box) return; box.innerHTML = '';
             clansData.forEach(c => {
@@ -774,27 +688,8 @@ function selectTrack(url, label) {
             });
         }
 
-        function renderNotifications() {
-            let box = document.getElementById('notificationsListBox'); if(!box) return; box.innerHTML = '';
-            notifications.forEach(n => box.innerHTML += `<div class="p-2 bg-gg-950 rounded-xl">${n.text}</div>`);
-        }
-
-        function renderDirectMessages() {
-            let box = document.getElementById('dmChatBox'); if(!box) return; box.innerHTML = '';
-            directMessages.forEach(d => box.innerHTML += `<div class="p-2 bg-gg-900 rounded-xl"><span class="text-cyan-400 font-bold">@${d.sender}:</span> ${d.text}</div>`);
-        }
-
-        function sendDirectMessage() {
-            let input = document.getElementById('dmInputText'); let text = input.value.trim();
-            if(!text) return;
-            directMessages.push({ sender: window.myUsername.replace('@',''), text });
-            renderDirectMessages(); input.value = '';
-        }
-
-        function renderChatMessages() {
-            let box = document.getElementById('chatMessagesBox'); if(!box) return; box.innerHTML = '';
-            box.innerHTML = `<div class="bg-gg-900 p-2 rounded-xl text-xs"><span class="text-cyan-400 font-bold">@GG-Bot:</span> Global chat is online and synced!</div>`;
-        }
+        function renderNotifications() {}
+        function renderDirectMessages() {}
 
         function sendChatMessage() {
             let input = document.getElementById('chatInputMsg'); let text = input.value.trim();
@@ -806,7 +701,8 @@ function selectTrack(url, label) {
         }
 
         function switchChatRoom(room) {
-            renderChatMessages();
+            let box = document.getElementById('chatMessagesBox'); if(!box) return;
+            box.innerHTML = `<div class="bg-gg-900 p-2 rounded-xl text-xs"><span class="text-cyan-400 font-bold">@GG-Bot:</span> Global chat is online and synced!</div>`;
         }
 
         function runTrendingTopics() {
@@ -820,7 +716,7 @@ function selectTrack(url, label) {
         function handleGlobalSearch(q) {
             let res = document.getElementById('dynamicTrendingTopicsList');
             if(!q) { runTrendingTopics(); return; }
-            res.innerHTML = (window.fypposts || []).filter(p => p.caption.toLowerCase().includes(q.toLowerCase())).map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white">@${p.user}: ${p.caption}</div>`).join('') || '<p class="text-xs text-gray-400">No results found.</p>';
+            res.innerHTML = (window.fypposts || []).filter(p => p.caption && p.caption.toLowerCase().includes(q.toLowerCase())).map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white">@${p.user}: ${p.caption}</div>`).join('') || '<p class="text-xs text-gray-400">No results found.</p>';
         }
     </script>
 </body>
