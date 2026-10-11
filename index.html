@@ -147,6 +147,29 @@
             });
         };
     </script>
+// Audio Preview & Selection Handler
+const backgroundMusicSelect = document.getElementById('bgMusicSelect');
+let currentAudioPreview = null;
+
+if (backgroundMusicSelect) {
+    backgroundMusicSelect.addEventListener('change', (e) => {
+        const selectedUrl = e.target.value;
+        
+        if (currentAudioPreview) {
+            currentAudioPreview.pause();
+            currentAudioPreview.currentTime = 0;
+            currentAudioPreview = null;
+        }
+
+        if (selectedUrl) {
+            currentAudioPreview = new Audio(selectedUrl);
+            currentAudioPreview.volume = 0.5;
+            currentAudioPreview.play().catch(error => {
+                console.log("Autoplay prevented or failed to load audio:", error);
+            });
+        }
+    });
+}
 
     <script>
         tailwind.config = {
