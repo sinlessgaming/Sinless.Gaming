@@ -405,22 +405,63 @@ if (backgroundMusicSelect) {
                     <span>🎵 Copyright-Free Music Library (Tap to Preview)</span>
                     <span class="text-emerald-400">TikTok Style</span>
                 </div>
-              <select id="bgMusicSelect" onchange="previewAndSelectAudio(this.value)">
-  <option value="">-- No Background Music --</option>
+              <!-- Custom Trigger Button -->
+<button type="button" onclick="openSoundModal()" class="w-full py-3 bg-gray-800 text-white rounded-xl flex justify-between items-center px-4">
+  <span id="selectedSoundLabel">🎵 Choose Background Music</span>
+  <span class="text-emerald-400 text-xs">Browse</span>
+</button>
 
-  <!-- EDM & Synthwave -->
-  <option value="https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3">⚡ Electric Stadium Bounce (EDM Track)</option>
-  <option value="https://assets.mixkit.co/music/preview/mixkit-game-level-music-689.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-game-level-music-689.mp3">🎮 Sinless Cyberpunk Synthwave</option>
-  <option value="https://assets.mixkit.co/music/preview/mixkit-chill-bro-494.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-chill-bro-494.mp3">⚽ Street Football LoFi Chill Beats</option>
-  <option value="https://assets.mixkit.co/music/preview/mixkit-raising-me-higher-34.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-raising-me-higher-34.mp3">🏆 Champion Victory Brass & Trap</option>
-  <option value="https://assets.mixkit.co/music/preview/mixkit-driving-ambition-32.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-driving-ambition-32.mp3">🔥 Stadium Rapperholic Instrumental</option>
+<!-- TikTok-Style Audio Picker Modal -->
+<div id="soundPickerModal" class="hidden fixed inset-0 bg-black/90 z-50 p-4 flex flex-col justify-between">
+  <div>
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-white font-bold text-lg">Select Audio</h3>
+      <button type="button" onclick="closeSoundModal()" class="text-gray-400 text-xl">&times;</button>
+    </div>
+    
+    <!-- Sound List Items -->
+    <div class="space-y-2 max-h-[70vh] overflow-y-auto">
+      <div onclick="selectTrack('https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3', '🎤 Hip Hop Street Beat')" class="p-3 bg-gray-900 rounded-lg flex justify-between items-center cursor-pointer hover:bg-gray-800">
+        <span class="text-white font-medium">🎤 Hip Hop Street Beat</span>
+        <button type="button" onclick="event.stopPropagation(); previewAudio('https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3')" class="px-3 py-1 bg-cyan-500 text-black text-xs font-bold rounded-full">Play</button>
+      </div>
 
-  <!-- Hip Hop, R&B, Pop, Dancehall & Reggae -->
-  <option value="https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3">🎤 Hip Hop Street Beat</option>
-  <option value="https://assets.mixkit.co/music/preview/mixkit-cbpd-400.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-cbpd-400.mp3">🎷 Smooth R&B Groove</option>
-  <option value="https://assets.mixkit.co/music/preview/mixkit-pop-05-692.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-pop-05-692.mp3">✨ Upbeat Pop Party</option>
-  <option value="https://assets.mixkit.co/music/preview/mixkit-latin-lovers-108.mp3" data-url="https://assets.mixkit.co/music/preview/mixkit-latin-lovers-108.mp3">🌴 Dancehall / Reggae Riddim</option>
-</select>
+      <div onclick="selectTrack('https://assets.mixkit.co/music/preview/mixkit-cbpd-400.mp3', '🎷 Smooth R&B Groove')" class="p-3 bg-gray-900 rounded-lg flex justify-between items-center cursor-pointer hover:bg-gray-800">
+        <span class="text-white font-medium">🎷 Smooth R&B Groove</span>
+        <button type="button" onclick="event.stopPropagation(); previewAudio('https://assets.mixkit.co/music/preview/mixkit-cbpd-400.mp3')" class="px-3 py-1 bg-cyan-500 text-black text-xs font-bold rounded-full">Play</button>
+      </div>
+    </div>
+  </div>
+
+  <button type="button" onclick="closeSoundModal()" class="w-full py-3 bg-emerald-500 text-black font-bold rounded-xl mt-4">Done</button>
+</div>
+<script>
+                let currentPreview = null;
+let selectedAudioUrl = "";
+
+function openSoundModal() {
+  document.getElementById('soundPickerModal').classList.remove('hidden');
+}
+
+function closeSoundModal() {
+  document.getElementById('soundPickerModal').classList.add('hidden');
+}
+
+function previewAudio(url) {
+  if (currentPreview) {
+    currentPreview.pause();
+  }
+  currentPreview = new Audio(url);
+  currentPreview.volume = 0.5;
+  currentPreview.play();
+}
+
+function selectTrack(url, label) {
+  selectedAudioUrl = url;
+  document.getElementById('selectedSoundLabel').innerText = label;
+  previewAudio(url);
+} </script>
+
 
                 <div class="flex justify-between items-center text-[9px] text-gray-400 pt-1">
                     <span id="audioPlayingStatus">Audio preview stopped</span>
