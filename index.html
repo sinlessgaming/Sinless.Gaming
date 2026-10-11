@@ -98,6 +98,7 @@
             if (user) {
                 const displayName = user.displayName || user.email.split('@')[0];
                 window.myUsername = `@${displayName.replace(/\s+/g, '')}`;
+                window.myDisplayName = displayName;
                 window.currentUser = user;
 
                 const headerTag = document.getElementById('headerUserTag');
@@ -110,6 +111,7 @@
                 }
             } else {
                 window.myUsername = '@SinlessGaming';
+                window.myDisplayName = 'Sinless Gaming';
                 window.currentUser = null;
 
                 const headerTag = document.getElementById('headerUserTag');
@@ -184,6 +186,7 @@
 
             let postPayload = {
                 user: (window.myUsername || '@SinlessGaming').replace('@',''),
+                displayName: window.myDisplayName || 'Sinless Gaming',
                 uid: window.currentUser ? window.currentUser.uid : 'guest',
                 verified: !!window.currentUser,
                 game: cat,
@@ -400,7 +403,7 @@
             return { rankMap, sortedCreators };
         }
 
-        // FULL-SCREEN TIKTOK-STYLE PROFILE SHEET
+        // FULL-SCREEN TIKTOK/X-STYLE PROFILE PAGE WITH BANNER, AVATAR, BIO & LINK
         window.openUserProfileModal = function(username) {
             const cleanUser = username.replace('@', '');
             const userPosts = (window.fypposts || []).filter(p => p.user && p.user.toLowerCase() === cleanUser.toLowerCase());
@@ -411,7 +414,40 @@
             const { rankMap } = calculateGlobalRanks();
             const userRank = rankMap[cleanUser.toLowerCase()] || '--';
 
+            // Profile details setup
+            let displayName = cleanUser === 'SinlessGaming' ? 'Sinless Gaming' : cleanUser;
+            let bioText = cleanUser === 'SinlessGaming' 
+                ? '🎮 Official Creator & Esports Hub | EA Sports FC, Football, Wrestling & Gaming Leagues 🔥' 
+                : 'Passionate gamer & competitive creator on Sinless GG!';
+            let websiteUrl = 'https://sinlessgg.com';
+            let pfpUrl = null;
+            let bannerUrl = null;
+
+            document.getElementById('profileDisplayName').innerText = displayName;
             document.getElementById('profileGamertag').innerText = `@${cleanUser}`;
+            document.getElementById('profileBioText').innerText = bioText;
+            
+            const linkElem = document.getElementById('profileLinkUrl');
+            linkElem.innerText = websiteUrl.replace('https://', '');
+            linkElem.href = websiteUrl;
+
+            // Profile Picture Setup
+            const pfpContainer = document.getElementById('profileAvatarBox');
+            if (pfpUrl) {
+                pfpContainer.innerHTML = `<img src="${pfpUrl}" class="w-full h-full object-cover">`;
+            } else {
+                const initials = cleanUser.substring(0, 2).toUpperCase();
+                pfpContainer.innerHTML = `<div class="w-full h-full bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-2xl">${initials}</div>`;
+            }
+
+            // Banner Image Setup
+            const bannerContainer = document.getElementById('profileBannerHeader');
+            if (bannerUrl) {
+                bannerContainer.style.backgroundImage = `url('${bannerUrl}')`;
+            } else {
+                bannerContainer.style.backgroundImage = `linear-gradient(135deg, #070f1e 0%, #00f3ff 50%, #ff007f 100%)`;
+            }
+
             document.getElementById('profilePostCount').innerText = userPosts.length;
             document.getElementById('profileGGsCount').innerText = totalGGs;
             document.getElementById('profileRankBadge').innerText = `#${userRank}`;
@@ -430,7 +466,7 @@
                 followBtn.onclick = () => window.toggleFollowUser(cleanUser);
             }
 
-            // TikTok-style 3-column horizontal media grid
+            // 3-Column horizontal media grid
             const postsContainer = document.getElementById('profileUserPostsList');
             postsContainer.innerHTML = '';
 
@@ -731,32 +767,57 @@
         </div>
     </main>
 
-    <!-- FULL-SCREEN TIKTOK-STYLE GAMERTAG PROFILE PAGE -->
+    <!-- FULL-SCREEN PROFILE PAGE WITH TOP COVER BANNER, PROFILE NAME, AVATAR, BIO & LINK -->
     <div id="userProfileModal" class="hidden fixed inset-0 bg-slate-950 z-[160] flex flex-col overflow-y-auto">
-        <!-- Top Profile Header & Navigation -->
-        <div class="sticky top-0 bg-gg-900/90 backdrop-blur-md p-3 border-b border-cyan-500/20 flex items-center justify-between z-10">
-            <button onclick="closeUserProfileModal()" class="w-8 h-8 rounded-full bg-gg-950 text-white flex items-center justify-center font-extrabold text-sm border border-cyan-500/30">
-                <i class="fa-solid fa-arrow-left"></i>
-            </button>
-            <span class="text-xs font-black text-white uppercase tracking-wider">Creator Profile</span>
-            <button id="profileFollowBtn" class="px-3 py-1.5 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 rounded-xl font-black text-[10px] shadow uppercase">
-                <i class="fa-solid fa-user-plus mr-1"></i> Follow
-            </button>
+        
+        <!-- Top Cover Banner Header (X / Facebook Style) -->
+        <div id="profileBannerHeader" class="relative w-full h-36 bg-cover bg-center border-b border-cyan-500/20 shrink-0">
+            <!-- Navigation Action Buttons Over Banner -->
+            <div class="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
+                <button onclick="closeUserProfileModal()" class="w-9 h-9 rounded-full bg-slate-950/80 text-white flex items-center justify-center font-extrabold text-sm border border-cyan-500/30 backdrop-blur-md shadow-lg">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <button id="profileFollowBtn" class="px-4 py-2 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 rounded-xl font-black text-xs shadow-lg uppercase tracking-wider">
+                    <i class="fa-solid fa-user-plus mr-1"></i> Follow
+                </button>
+            </div>
         </div>
 
-        <!-- Profile Hero Banner -->
-        <div class="p-5 flex flex-col items-center space-y-3 bg-gradient-to-b from-gg-900 to-slate-950 border-b border-cyan-500/15">
-            <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-2xl shadow-xl shadow-cyan-500/20">SG</div>
-            <div class="text-center">
-                <h3 id="profileGamertag" class="text-base font-black text-white uppercase tracking-wider flex items-center justify-center space-x-1">
-                    <span>@Gamertag</span>
+        <!-- Profile Details Section -->
+        <div class="px-4 pb-4 flex flex-col space-y-3 bg-slate-950 border-b border-cyan-500/15 relative">
+            
+            <!-- Avatar overlapping banner -->
+            <div class="-mt-12 flex justify-between items-end">
+                <div id="profileAvatarBox" class="w-24 h-24 rounded-3xl overflow-hidden border-4 border-slate-950 shadow-2xl bg-gg-900 flex items-center justify-center shrink-0">
+                    <!-- Dynamic avatar image or initials -->
+                </div>
+            </div>
+
+            <!-- Profile Name & Gamertag -->
+            <div>
+                <h2 id="profileDisplayName" class="text-lg font-black text-white tracking-wide">Sinless Gaming</h2>
+                <div class="flex items-center space-x-1">
+                    <span id="profileGamertag" class="text-xs font-bold text-cyan-400">@SinlessGaming</span>
                     <span class="verified-badge text-xs"><i class="fa-solid fa-circle-check"></i></span>
-                </h3>
-                <p class="text-[10px] text-orange-400 font-extrabold uppercase tracking-widest mt-0.5">Sinless GG Creator</p>
+                </div>
+                <p class="text-[9px] text-orange-400 font-extrabold uppercase tracking-widest mt-0.5">Sinless GG Official Creator</p>
+            </div>
+
+            <!-- Profile Bio -->
+            <p id="profileBioText" class="text-xs text-gray-300 leading-relaxed font-medium">
+                🎮 Official Creator & Esports Hub | EA Sports FC, Football, Wrestling & Gaming Leagues 🔥
+            </p>
+
+            <!-- Custom Profile Link -->
+            <div id="profileLinkContainer" class="flex items-center space-x-1.5 text-xs">
+                <i class="fa-solid fa-link text-cyan-400 text-[10px]"></i>
+                <a id="profileLinkUrl" href="https://sinlessgg.com" target="_blank" rel="noopener" class="text-cyan-400 font-bold hover:underline truncate">
+                    sinlessgg.com
+                </a>
             </div>
 
             <!-- Stats Bar -->
-            <div class="grid grid-cols-4 gap-2 w-full max-w-sm bg-gg-900/80 p-3 rounded-2xl border border-cyan-500/20 text-center shadow-lg">
+            <div class="grid grid-cols-4 gap-2 w-full bg-gg-900/80 p-3 rounded-2xl border border-cyan-500/20 text-center shadow-lg mt-1">
                 <div>
                     <span id="profileRankBadge" class="block text-sm font-black text-amber-400">#--</span>
                     <span class="text-[8px] text-gray-400 uppercase font-bold">Rank</span>
@@ -776,7 +837,7 @@
             </div>
         </div>
 
-        <!-- TikTok-Style Content Horizontal Media Grid -->
+        <!-- TikTok-Style Media Grid -->
         <div class="p-3 flex-1 flex flex-col space-y-2">
             <div class="flex items-center space-x-2 border-b border-cyan-500/20 pb-2 px-1 text-cyan-400 font-bold text-xs uppercase tracking-wider">
                 <i class="fa-solid fa-border-all"></i>
@@ -922,6 +983,7 @@
     <script>
         let activeCategoryFilter = 'ALL';
         window.myUsername = '@SinlessGaming';
+        window.myDisplayName = 'Sinless Gaming';
         window.fypposts = [];
         window.marketListings = [];
         window.uploadedMediaBlobs = [];
@@ -1388,14 +1450,12 @@
                 statsMap[u].totalGGs += (p.ggsCount || 0);
             });
 
-            // Sort primary by most posts, secondary by total GGs
             let viralCreators = Object.values(statsMap).sort((a, b) => {
                 if (b.postsCount !== a.postsCount) return b.postsCount - a.postsCount;
                 return b.totalGGs - a.totalGGs;
             });
 
             if (viralCreators.length === 0) {
-                // Fallback default creators if no live data
                 viralCreators = [
                     { gamertag: 'SinlessGaming', postsCount: 14, totalGGs: 180 },
                     { gamertag: 'Sinless101', postsCount: 9, totalGGs: 110 },
