@@ -6,9 +6,50 @@
     <title>Sinless GG - World's #1 Global Gaming, Wrestling & Football Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Real-time Firebase SDK & Firestore Cloud Sync -->
+    <!-- Real-time Firebase SDK & Firestore Cloud Sync with IndexedDB Local Backup -->
     <script type="module">
-        // --- REAL CLOUD FIRESTORE POSTS WITH MEDIA & MUSIC ---
+        // --- INDEXEDDB FOR LARGE LOCAL MEDIA STORAGE ---
+        function openPostDB() {
+            return new Promise((resolve, reject) => {
+                let request = indexedDB.open("SinlessPostDB", 1);
+                request.onupgradeneeded = (e) => {
+                    let db = e.target.result;
+                    if (!db.objectStoreNames.contains("local_posts")) {
+                        db.createObjectStore("local_posts", { keyPath: "id", autoIncrement: true });
+                    }
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        async function savePostToIndexedDB(post) {
+            try {
+                let db = await openPostDB();
+                let tx = db.transaction("local_posts", "readwrite");
+                let store = tx.objectStore("local_posts");
+                store.add(post);
+            } catch(e) {
+                console.error("IndexedDB save failed:", e);
+            }
+        }
+
+        window.loadLocalPostsFromDB = async function() {
+            try {
+                let db = await openPostDB();
+                let tx = db.transaction("local_posts", "readonly");
+                let store = tx.objectStore("local_posts");
+                let request = store.getAll();
+                return new Promise((resolve) => {
+                    request.onsuccess = () => resolve(request.result || []);
+                    request.onerror = () => resolve([]);
+                });
+            } catch(e) {
+                return [];
+            }
+        };
+
+        // --- SUBMIT POST HANDLER ---
         window.submitUniversalPost = async function() {
             let text = document.getElementById('postTextContent').value.trim();
             let cat = document.getElementById('postCategorySelect').value;
@@ -40,25 +81,20 @@
                     showToast("Published to Cloud Feed!");
                 } catch(e) {
                     console.error("Firestore Error:", e);
-                    publishLocallyFallback(postPayload);
+                    await publishLocallyFallback(postPayload);
                 }
             } else {
-                publishLocallyFallback(postPayload);
+                await publishLocallyFallback(postPayload);
             }
         };
 
-        function publishLocallyFallback(payload) {
+        async function publishLocallyFallback(payload) {
             if(!window.fypposts) window.fypposts = [];
             payload.isLocalFallback = true;
             window.fypposts.unshift(payload);
             
-            // Persist to local storage
-            try {
-                let localOnly = window.fypposts.filter(p => p.isLocalFallback);
-                localStorage.setItem('sinless_local_posts', JSON.stringify(localOnly));
-            } catch(e) {
-                console.warn("LocalStorage save error:", e);
-            }
+            // Persist to IndexedDB so large video/image posts survive page refreshes
+            await savePostToIndexedDB(payload);
 
             window.renderFypFeed();
             resetPostForm();
@@ -86,7 +122,7 @@
                     cloudPosts.push({ id: doc.id, ...doc.data() });
                 });
 
-                // Preserve local posts alongside Firestore posts
+                // Preserve local fallback posts alongside Firestore posts
                 let localPosts = (window.fypposts || []).filter(p => p.isLocalFallback);
                 window.fypposts = [...localPosts, ...cloudPosts];
 
@@ -480,17 +516,15 @@
             }, 3000);
         }
 
-        function initApp() {
+        async function initApp() {
             document.getElementById('headerUserTag').innerText = window.myUsername;
 
-            // Restore locally saved posts on app start
-            try {
-                const stored = localStorage.getItem('sinless_local_posts');
-                if (stored) {
-                    window.fypposts = JSON.parse(stored);
+            // Load stored offline posts from IndexedDB
+            if (window.loadLocalPostsFromDB) {
+                let storedPosts = await window.loadLocalPostsFromDB();
+                if (storedPosts.length > 0) {
+                    window.fypposts = storedPosts.reverse();
                 }
-            } catch(e) {
-                console.warn("LocalStorage load error:", e);
             }
 
             renderClansList();
