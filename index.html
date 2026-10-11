@@ -7,56 +7,40 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Real-time Firebase SDK & Firestore Cloud Sync -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    window.submitUniversalPost = async function() {
+    let text = document.getElementById('postTextContent').value.trim();
+    let cat = document.getElementById('postCategorySelect').value;
+    let audioTrack = window.selectedAudioTrack || null;
+    let mediaDataURLs = window.uploadedMediaDataURLs || [];
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDWhOmQPCVfJVJ5Dmu_774543139920",
-            authDomain: "sinlessgg.firebaseapp.com",
-            projectId: "sinlessgg",
-            storageBucket: "sinlessgg.firebasestorage.app",
-            messagingSenderId: "774543139920",
-            appId: "1:774543139920:web:d5c0ca9f83ea54d69de5a9",
-            measurementId: "G-6HJCQPE6SM"
-        };
+    if(!text && mediaDataURLs.length === 0) return;
 
-        let auth, db;
+    let postPayload = {
+        user: (window.myUsername || '@SinlessGaming').replace('@',''),
+        verified: true,
+        game: cat,
+        caption: text,
+        mediaList: mediaDataURLs,
+        audioTrack: audioTrack,
+        likes: 0,
+        createdAt: serverTimestamp()
+    };
+
+    if(window.db) {
         try {
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-            window.db = db;
+            // Saves permanently to Google Firebase Cloud Firestore
+            await addDoc(collection(window.db, "posts"), postPayload);
+            resetPostForm();
+            showToast("Published to Cloud Feed!");
         } catch(e) {
-            console.warn("Firebase init note:", e);
+            console.error("Firestore Error:", e);
+            publishLocallyFallback(postPayload);
         }
+    } else {
+        publishLocallyFallback(postPayload);
+    }
+};
 
-        window.addEventListener('load', () => {
-            if (!auth) return;
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    window.myUsername = '@' + (user.displayName || user.email.split('@')[0]).replace(/\s+/g, '');
-                    document.getElementById('headerUserTag').innerText = window.myUsername;
-                    showToast(`🚀 Logged in as ${window.myUsername}`);
-                }
-            });
-            window.listenToFirestorePosts();
-            window.listenToFirestoreMarket();
-        });
-
-        window.authenticGoogleLogin = async function() {
-            try {
-                if (!auth) throw new Error("Firebase auth offline");
-                const provider = new GoogleAuthProvider();
-                await signInWithPopup(auth, provider);
-                showToast("🔥 Google Cloud Login Successful!");
-                closeAccountModal();
-            } catch (error) {
-                console.error(error);
-                showToast("Login failed: " + (error.message || "Unknown error"));
-            }
-        };
 
         // --- REAL CLOUD FIRESTORE POSTS WITH MEDIA & MUSIC ---
         window.submitUniversalPost = async function() {
