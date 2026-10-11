@@ -222,6 +222,7 @@
             window.fypposts.unshift(payload);
             await savePostToIndexedDB(payload);
             window.renderFypFeed();
+            if(window.renderLadder) window.renderLadder();
             resetPostForm();
             showToast("Published to Feed!");
         }
@@ -261,6 +262,7 @@
                 post.ggsBy.push(uid);
             }
             window.renderFypFeed();
+            if(window.renderLadder) window.renderLadder();
 
             if (window.db && postId && !post.isLocalFallback) {
                 try {
@@ -398,6 +400,7 @@
             return { rankMap, sortedCreators };
         }
 
+        // FULL-SCREEN TIKTOK-STYLE PROFILE SHEET
         window.openUserProfileModal = function(username) {
             const cleanUser = username.replace('@', '');
             const userPosts = (window.fypposts || []).filter(p => p.user && p.user.toLowerCase() === cleanUser.toLowerCase());
@@ -427,30 +430,37 @@
                 followBtn.onclick = () => window.toggleFollowUser(cleanUser);
             }
 
+            // TikTok-style 3-column horizontal media grid
             const postsContainer = document.getElementById('profileUserPostsList');
             postsContainer.innerHTML = '';
 
             if (userPosts.length === 0) {
-                postsContainer.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No published posts yet.</p>`;
+                postsContainer.innerHTML = `<div class="col-span-3 text-xs text-gray-400 text-center py-10">No clips or posts published yet.</div>`;
             } else {
                 userPosts.forEach(p => {
-                    let thumbHtml = '';
+                    let mediaThumbnail = '';
                     if (p.mediaList && p.mediaList.length > 0) {
-                        thumbHtml = p.mediaList[0].type === 'video' 
-                            ? `<video src="${p.mediaList[0].url}" class="w-12 h-12 rounded-lg object-cover bg-black"></video>`
-                            : `<img src="${p.mediaList[0].url}" class="w-12 h-12 rounded-lg object-cover">`;
+                        const m = p.mediaList[0];
+                        if (m.type === 'video') {
+                            mediaThumbnail = `<video src="${m.url}" class="w-full h-full object-cover pointer-events-none"></video>`;
+                        } else {
+                            mediaThumbnail = `<img src="${m.url}" class="w-full h-full object-cover">`;
+                        }
+                    } else {
+                        mediaThumbnail = `<div class="w-full h-full bg-gg-900 border border-cyan-500/20 flex flex-col items-center justify-center p-2 text-center">
+                            <span class="text-[8px] text-cyan-400 font-bold uppercase truncate">${p.game || 'GAMING'}</span>
+                            <p class="text-[9px] text-gray-300 line-clamp-2 mt-1">${p.caption || ''}</p>
+                        </div>`;
                     }
 
                     postsContainer.innerHTML += `
-                        <div class="glass-panel p-2.5 rounded-xl flex items-center justify-between space-x-3 text-xs border border-cyan-500/15">
-                            <div class="flex items-center space-x-2.5 min-w-0">
-                                ${thumbHtml}
-                                <div class="truncate">
-                                    <span class="text-[9px] text-cyan-400 font-bold uppercase">${p.game || 'GAMING'}</span>
-                                    <p class="text-xs text-gray-200 truncate">${p.caption || 'Media post'}</p>
-                                </div>
+                        <div class="relative aspect-[3/4] rounded-xl overflow-hidden bg-gg-950 border border-cyan-500/20 group cursor-pointer" onclick="closeUserProfileModal(); openCommentsModal('${p.id}')">
+                            ${mediaThumbnail}
+                            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent opacity-90"></div>
+                            <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between text-[10px] text-white font-extrabold">
+                                <span class="flex items-center text-cyan-400"><i class="fa-solid fa-thumbs-up mr-1 text-[8px]"></i>${p.ggsCount || 0}</span>
+                                <span class="text-[8px] text-gray-300 uppercase">${p.game || 'POST'}</span>
                             </div>
-                            <span class="text-cyan-400 font-bold text-[10px] shrink-0">${p.ggsCount || 0} GGs</span>
                         </div>
                     `;
                 });
@@ -486,6 +496,7 @@
                 window.fypposts = [...localPosts, ...cloudPosts];
                 if(window.renderFypFeed) window.renderFypFeed();
                 if(window.renderTopAccounts) window.renderTopAccounts();
+                if(window.renderLadder) window.renderLadder();
             }, (error) => {
                 console.warn("Firestore listener error:", error);
             });
@@ -691,19 +702,23 @@
             </div>
         </div>
 
-        <!-- Tables View -->
+        <!-- Tables View (VIRAL & MOST POSTS OF THE WEEK LEADERBOARD) -->
         <div id="view-standings" class="view-section hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl fade-in">
             <div class="flex items-center justify-between">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-trophy text-amber-400 mr-1.5"></i> Weekly Leaderboard</h3>
+                <div>
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider flex items-center"><i class="fa-solid fa-fire text-amber-400 mr-1.5"></i> Viral Creators of the Week</h3>
+                    <p class="text-[9px] text-gray-400">Rankings based on most posts & overall engagement</p>
+                </div>
                 <select id="ladderGameSelect" onchange="renderLadder(this.value)" class="bg-gg-950 text-cyan-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-cyan-500/30 focus:outline-none">
+                    <option value="ALL">🌐 All Categories</option>
                     <option value="FOOTBALL">⚽ Football</option>
                     <option value="FC MOBILE">📱 FC Mobile</option>
                     <option value="EA SPORTS FC">🎮 EA Sports FC</option>
                 </select>
             </div>
             <div class="overflow-x-auto flex-1 bg-gg-950 rounded-xl border border-cyan-500/20">
-                <div class="grid grid-cols-3 px-4 py-2.5 bg-gg-900 text-cyan-400 text-[10px] uppercase font-extrabold border-b border-cyan-500/15">
-                    <span>Rank</span><span>Contender</span><span class="text-right">PTS</span>
+                <div class="grid grid-cols-4 px-3 py-2.5 bg-gg-900 text-cyan-400 text-[9px] uppercase font-extrabold border-b border-cyan-500/15">
+                    <span>Rank</span><span>Creator</span><span class="text-center">Posts</span><span class="text-right">GGs</span>
                 </div>
                 <div id="ladderBody" class="divide-y divide-cyan-500/10"></div>
             </div>
@@ -716,50 +731,58 @@
         </div>
     </main>
 
-    <!-- GAMERTAG PROFILES, FOLLOWERS & DYNAMIC RANK MODAL -->
-    <div id="userProfileModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[160] flex flex-col justify-end">
-        <div class="glass-panel w-full max-w-md mx-auto rounded-t-3xl p-5 flex flex-col space-y-4 max-h-[85vh] shadow-2xl border-t border-cyan-500/40">
-            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                <div class="flex items-center space-x-2.5">
-                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-sm shadow">SG</div>
-                    <div>
-                        <h3 id="profileGamertag" class="text-xs font-black text-white uppercase tracking-wider">@Gamertag</h3>
-                        <p class="text-[9px] text-orange-400 font-bold uppercase">Sinless GG Creator</p>
-                    </div>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <button id="profileFollowBtn" class="px-3 py-1 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 rounded-xl font-black text-[10px] shadow uppercase">
-                        <i class="fa-solid fa-user-plus mr-1"></i> Follow
-                    </button>
-                    <button onclick="closeUserProfileModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕</button>
-                </div>
+    <!-- FULL-SCREEN TIKTOK-STYLE GAMERTAG PROFILE PAGE -->
+    <div id="userProfileModal" class="hidden fixed inset-0 bg-slate-950 z-[160] flex flex-col overflow-y-auto">
+        <!-- Top Profile Header & Navigation -->
+        <div class="sticky top-0 bg-gg-900/90 backdrop-blur-md p-3 border-b border-cyan-500/20 flex items-center justify-between z-10">
+            <button onclick="closeUserProfileModal()" class="w-8 h-8 rounded-full bg-gg-950 text-white flex items-center justify-center font-extrabold text-sm border border-cyan-500/30">
+                <i class="fa-solid fa-arrow-left"></i>
+            </button>
+            <span class="text-xs font-black text-white uppercase tracking-wider">Creator Profile</span>
+            <button id="profileFollowBtn" class="px-3 py-1.5 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 rounded-xl font-black text-[10px] shadow uppercase">
+                <i class="fa-solid fa-user-plus mr-1"></i> Follow
+            </button>
+        </div>
+
+        <!-- Profile Hero Banner -->
+        <div class="p-5 flex flex-col items-center space-y-3 bg-gradient-to-b from-gg-900 to-slate-950 border-b border-cyan-500/15">
+            <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-2xl shadow-xl shadow-cyan-500/20">SG</div>
+            <div class="text-center">
+                <h3 id="profileGamertag" class="text-base font-black text-white uppercase tracking-wider flex items-center justify-center space-x-1">
+                    <span>@Gamertag</span>
+                    <span class="verified-badge text-xs"><i class="fa-solid fa-circle-check"></i></span>
+                </h3>
+                <p class="text-[10px] text-orange-400 font-extrabold uppercase tracking-widest mt-0.5">Sinless GG Creator</p>
             </div>
 
-            <!-- Enhanced Stats Bar (Rank, Published Posts, Followers, Total GGs) -->
-            <div class="grid grid-cols-4 gap-1.5 bg-gg-950 p-2.5 rounded-2xl border border-cyan-500/15 text-center">
+            <!-- Stats Bar -->
+            <div class="grid grid-cols-4 gap-2 w-full max-w-sm bg-gg-900/80 p-3 rounded-2xl border border-cyan-500/20 text-center shadow-lg">
                 <div>
-                    <span id="profileRankBadge" class="block text-xs font-black text-amber-400">#--</span>
+                    <span id="profileRankBadge" class="block text-sm font-black text-amber-400">#--</span>
                     <span class="text-[8px] text-gray-400 uppercase font-bold">Rank</span>
                 </div>
                 <div>
-                    <span id="profilePostCount" class="block text-xs font-black text-white">0</span>
-                    <span class="text-[8px] text-gray-400 uppercase font-bold">Published</span>
+                    <span id="profilePostCount" class="block text-sm font-black text-white">0</span>
+                    <span class="text-[8px] text-gray-400 uppercase font-bold">Posts</span>
                 </div>
                 <div>
-                    <span id="profileFollowersCount" class="block text-xs font-black text-emerald-400">0</span>
+                    <span id="profileFollowersCount" class="block text-sm font-black text-emerald-400">0</span>
                     <span class="text-[8px] text-gray-400 uppercase font-bold">Followers</span>
                 </div>
                 <div>
-                    <span id="profileGGsCount" class="block text-xs font-black text-cyan-400">0</span>
+                    <span id="profileGGsCount" class="block text-sm font-black text-cyan-400">0</span>
                     <span class="text-[8px] text-gray-400 uppercase font-bold">Total GGs</span>
                 </div>
             </div>
+        </div>
 
-            <!-- Published Posts List -->
-            <div class="space-y-2 flex-1 overflow-y-auto pr-1">
-                <h4 class="text-[10px] font-extrabold text-gray-300 uppercase tracking-wider">Published Clips & Posts</h4>
-                <div id="profileUserPostsList" class="space-y-2"></div>
+        <!-- TikTok-Style Content Horizontal Media Grid -->
+        <div class="p-3 flex-1 flex flex-col space-y-2">
+            <div class="flex items-center space-x-2 border-b border-cyan-500/20 pb-2 px-1 text-cyan-400 font-bold text-xs uppercase tracking-wider">
+                <i class="fa-solid fa-border-all"></i>
+                <span>Published Clips & Posts</span>
             </div>
+            <div id="profileUserPostsList" class="grid grid-cols-3 gap-2"></div>
         </div>
     </div>
 
@@ -974,7 +997,7 @@
             }
 
             renderClansList();
-            renderLadder('FOOTBALL');
+            renderLadder('ALL');
             renderTopAccounts();
             runTrendingTopics();
             fetchHorizontalLiveMatches();
@@ -1350,10 +1373,45 @@
             });
         }
 
-        function renderLadder(game) {
+        // DYNAMIC WEEKLY VIRAL CREATORS LEADERBOARD TABLE
+        window.renderLadder = function(selectedGame = 'ALL') {
             let body = document.getElementById('ladderBody'); if(!body) return; body.innerHTML = '';
-            ['SinlessGaming', 'DonPrime', 'Sinless101'].forEach((user, idx) => {
-                body.innerHTML += `<div class="grid grid-cols-3 px-4 py-2.5 text-xs text-gray-200"><span>#${idx+1}</span><span class="font-bold cursor-pointer" onclick="openUserProfileModal('${user}')">@${user}</span><span class="text-right text-cyan-400 font-black">${120 - (idx*15)} PTS</span></div>`;
+            
+            let statsMap = {};
+            (window.fypposts || []).forEach(p => {
+                let categoryMatch = (selectedGame === 'ALL' || p.game === selectedGame);
+                if (!categoryMatch) return;
+
+                let u = (p.user || 'Unknown').toLowerCase();
+                if (!statsMap[u]) statsMap[u] = { gamertag: p.user, postsCount: 0, totalGGs: 0 };
+                statsMap[u].postsCount += 1;
+                statsMap[u].totalGGs += (p.ggsCount || 0);
+            });
+
+            // Sort primary by most posts, secondary by total GGs
+            let viralCreators = Object.values(statsMap).sort((a, b) => {
+                if (b.postsCount !== a.postsCount) return b.postsCount - a.postsCount;
+                return b.totalGGs - a.totalGGs;
+            });
+
+            if (viralCreators.length === 0) {
+                // Fallback default creators if no live data
+                viralCreators = [
+                    { gamertag: 'SinlessGaming', postsCount: 14, totalGGs: 180 },
+                    { gamertag: 'Sinless101', postsCount: 9, totalGGs: 110 },
+                    { gamertag: 'DonPrime', postsCount: 6, totalGGs: 75 }
+                ];
+            }
+
+            viralCreators.forEach((creator, idx) => {
+                body.innerHTML += `
+                    <div class="grid grid-cols-4 px-3 py-2.5 text-xs text-gray-200 items-center">
+                        <span class="font-extrabold text-amber-400">#${idx+1}</span>
+                        <span class="font-bold cursor-pointer text-white truncate" onclick="openUserProfileModal('${creator.gamertag}')">@${creator.gamertag}</span>
+                        <span class="text-center font-extrabold text-emerald-400 bg-emerald-500/10 py-0.5 rounded-lg text-[10px]">${creator.postsCount} posts</span>
+                        <span class="text-right text-cyan-400 font-black">${creator.totalGGs}</span>
+                    </div>
+                `;
             });
         }
 
