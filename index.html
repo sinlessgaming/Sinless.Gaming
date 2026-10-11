@@ -602,24 +602,22 @@
             document.getElementById('userProfileModal').classList.add('hidden');
         };
 
-        // --- DECENTRALIZED TOURNAMENTS & MATCH REPORTING SYSTEM ---
+        // --- DECENTRALIZED 64-TEAM, WORLD CUP & CHAMPIONS LEAGUE TOURNAMENTS ENGINE ---
         window.tournamentsList = JSON.parse(localStorage.getItem('sinless_tournaments_list') || 'null') || [
             {
                 id: 'tourn_1',
                 title: 'Sinless Super League - Season 1',
                 host: 'SinlessGaming',
                 game: 'FC MOBILE',
-                format: 'KNOCKOUT',
-                maxPlayers: 8,
+                format: 'WORLD_CUP',
+                maxPlayers: 32,
                 players: ['SinlessGaming', 'AceKhyd', 'DonPrime', 'Kumi_FC', 'Richard_GG', 'Messiah_X', 'Gloria_Gamer', 'Kwame_Pro'],
                 matches: [
-                    { id: 'm1', round: 1, p1: 'SinlessGaming', p2: 'AceKhyd', s1: 3, s2: 1, winner: 'SinlessGaming' },
-                    { id: 'm2', round: 1, p1: 'DonPrime', p2: 'Kumi_FC', s1: 2, s2: 0, winner: 'DonPrime' },
-                    { id: 'm3', round: 1, p1: 'Richard_GG', p2: 'Messiah_X', s1: 1, s2: 2, winner: 'Messiah_X' },
-                    { id: 'm4', round: 1, p1: 'Gloria_Gamer', p2: 'Kwame_Pro', s1: 0, s2: 1, winner: 'Kwame_Pro' },
-                    { id: 'm5', round: 2, p1: 'SinlessGaming', p2: 'DonPrime', s1: null, s2: null, winner: null },
-                    { id: 'm6', round: 2, p1: 'Messiah_X', p2: 'Kwame_Pro', s1: null, s2: null, winner: null },
-                    { id: 'm7', round: 3, p1: 'TBD', p2: 'TBD', s1: null, s2: null, winner: null }
+                    { id: 'm1', round: 1, p1: 'SinlessGaming', p2: 'AceKhyd', s1: 3, s2: 1, winner: 'SinlessGaming', stage: 'Group A' },
+                    { id: 'm2', round: 1, p1: 'DonPrime', p2: 'Kumi_FC', s1: 2, s2: 0, winner: 'DonPrime', stage: 'Group A' },
+                    { id: 'm3', round: 1, p1: 'Richard_GG', p2: 'Messiah_X', s1: 1, s2: 2, winner: 'Messiah_X', stage: 'Group B' },
+                    { id: 'm4', round: 1, p1: 'Gloria_Gamer', p2: 'Kwame_Pro', s1: 0, s2: 1, winner: 'Kwame_Pro', stage: 'Group B' },
+                    { id: 'm5', round: 2, p1: 'SinlessGaming', p2: 'Messiah_X', s1: null, s2: null, winner: null, stage: 'Knockout Bracket' }
                 ]
             }
         ];
@@ -627,7 +625,17 @@
         window.activeTournament = window.tournamentsList[0];
         window.activeMatchForReporting = null;
 
+        // Universal Navigation Hub Modal Handlers
+        window.openUniversalCreateModal = function() {
+            document.getElementById('universalCreateModal').classList.remove('hidden');
+        };
+
+        window.closeUniversalCreateModal = function() {
+            document.getElementById('universalCreateModal').classList.add('hidden');
+        };
+
         window.openCreateTournamentModal = function() {
+            closeUniversalCreateModal();
             document.getElementById('createTournamentModal').classList.remove('hidden');
         };
 
@@ -638,6 +646,7 @@
         window.submitNewTournament = function() {
             const title = document.getElementById('tournTitleInput').value.trim();
             const game = document.getElementById('tournGameSelect').value;
+            const format = document.getElementById('tournFormatSelect').value;
             const maxPlayers = parseInt(document.getElementById('tournSizeSelect').value);
             const hostUser = (window.myUsername || '@SinlessGaming').replace('@', '');
 
@@ -651,13 +660,14 @@
                 title: title,
                 host: hostUser,
                 game: game,
-                format: 'KNOCKOUT',
+                format: format,
                 maxPlayers: maxPlayers,
                 players: [hostUser],
                 matches: []
             };
 
-            for (let i = 0; i < maxPlayers / 2; i++) {
+            const numInitialMatches = format === 'KNOCKOUT' ? maxPlayers / 2 : (format === 'WORLD_CUP' ? 8 : 12);
+            for (let i = 0; i < numInitialMatches; i++) {
                 newTourn.matches.push({
                     id: `m_${Date.now()}_${i}`,
                     round: 1,
@@ -665,7 +675,8 @@
                     p2: 'Open Spot',
                     s1: null,
                     s2: null,
-                    winner: null
+                    winner: null,
+                    stage: format === 'WORLD_CUP' ? `Group ${String.fromCharCode(65 + (i % 4))}` : (format === 'CHAMPIONS_LEAGUE' ? 'Swiss Phase' : 'Round 1')
                 });
             }
 
@@ -673,8 +684,9 @@
             localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
             window.activeTournament = newTourn;
 
-            showToast("Tournament Created Successfully!");
+            showToast("Tournament Launched Successfully!");
             closeCreateTournamentModal();
+            switchView('standings');
             renderTournamentsTab();
         };
 
@@ -754,7 +766,7 @@
             let nextMatch = tourn.matches.find(m => m.round === nextRound && (m.p1 === 'TBD' || m.p2 === 'TBD' || !m.p1 || !m.p2));
 
             if (!nextMatch) {
-                nextMatch = { id: `m_${Date.now()}_next`, round: nextRound, p1: completedMatch.winner, p2: 'TBD', s1: null, s2: null, winner: null };
+                nextMatch = { id: `m_${Date.now()}_next`, round: nextRound, p1: completedMatch.winner, p2: 'TBD', s1: null, s2: null, winner: null, stage: 'Knockout Bracket' };
                 tourn.matches.push(nextMatch);
             } else {
                 if (nextMatch.p1 === 'TBD' || !nextMatch.p1) nextMatch.p1 = completedMatch.winner;
@@ -782,19 +794,25 @@
             const me = (window.myUsername || '@SinlessGaming').replace('@', '');
             const isJoined = current.players.includes(me);
 
+            let formatBadge = current.format === 'WORLD_CUP' ? '🌍 World Cup Style' : (current.format === 'CHAMPIONS_LEAGUE' ? '🏆 Champions League Swiss' : '⚡ Single Elimination');
+
             let bodyHtml = `
                 <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/30">
                     <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                         <div>
                             <h3 class="text-xs font-black text-white uppercase tracking-wider">${current.title}</h3>
                             <p class="text-[9px] text-cyan-400">Host: @${current.host} • ${current.game} • ${current.players.length}/${current.maxPlayers} Registered</p>
+                            <span class="inline-block text-[8px] bg-magenta/20 text-magenta font-extrabold px-2 py-0.5 rounded-md mt-1">${formatBadge}</span>
                         </div>
                         ${!isJoined ? `<button onclick="joinActiveTournament('${current.id}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Join League</button>` : `<span class="text-[9px] bg-cyan-500/10 text-cyan-400 font-extrabold px-2.5 py-1 rounded-full">✓ Registered</span>`}
                     </div>
 
                     <div class="space-y-2 pt-1">
-                        <h4 class="text-[10px] font-black text-gray-300 uppercase tracking-wider"><i class="fa-solid fa-sitemap text-cyan-400 mr-1"></i> Interactive Bracket & Match Center</h4>
-                        <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                        <h4 class="text-[10px] font-black text-gray-300 uppercase tracking-wider flex justify-between items-center">
+                            <span><i class="fa-solid fa-sitemap text-cyan-400 mr-1"></i> Matches & Brackets</span>
+                            <span class="text-[9px] text-gray-400 font-normal">Tap node to report scores</span>
+                        </h4>
+                        <div class="space-y-2 max-h-[340px] overflow-y-auto pr-1">
             `;
 
             if (!current.matches || current.matches.length === 0) {
@@ -814,9 +832,9 @@
                                     <span class="font-extrabold ${m.winner === m.p2 ? 'text-cyan-400' : 'text-gray-400'}">${m.s2 !== null ? m.s2 : '-'}</span>
                                 </div>
                             </div>
-                            <div class="text-right shrink-0">
+                            <div class="text-right shrink-0 border-l border-cyan-500/10 pl-2.5">
                                 <span class="text-[8px] uppercase block font-bold ${isCompleted ? 'text-emerald-400' : 'text-amber-400'}">${isCompleted ? '✓ Final' : '⚡ Report Score'}</span>
-                                <span class="text-[8px] text-gray-500">Round ${m.round}</span>
+                                <span class="text-[8px] text-cyan-400 block truncate max-w-[70px]">${m.stage || 'Bracket'}</span>
                             </div>
                         </div>
                     `;
@@ -939,7 +957,7 @@
             <button onclick="openLiveBroadcastModal()" class="px-2 py-1.5 rounded-xl text-[10px] font-extrabold bg-red-600 text-white shadow-lg shadow-red-600/30 animate-pulse hover:bg-red-500 transition flex items-center space-x-1">
                 <i class="fa-solid fa-circle text-[5px]"></i><span>LIVE</span>
             </button>
-            <button onclick="openCreatePostModal()" class="px-2 py-1.5 rounded-xl text-[10px] font-bold bg-gradient-to-r from-magenta to-pink-600 text-white shadow">
+            <button onclick="openUniversalCreateModal()" class="px-2 py-1.5 rounded-xl text-[10px] font-bold bg-gradient-to-r from-magenta to-pink-600 text-white shadow">
                 <i class="fa-solid fa-plus mr-0.5"></i> Post
             </button>
             <button onclick="openAccountModal()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs shadow" title="Cloud Account Login">
@@ -1095,18 +1113,46 @@
         </div>
     </main>
 
-    <!-- CREATE TOURNAMENT MODAL -->
+    <!-- UNIVERSAL ACTION HUB MODAL -->
+    <div id="universalCreateModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[160] flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-xs rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40 text-center">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Create Hub</h3>
+                <button onclick="closeUniversalCreateModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕</button>
+            </div>
+            
+            <p class="text-[10px] text-gray-300">Choose what you want to create on Sinless GG:</p>
+
+            <button onclick="closeUniversalCreateModal(); openCreatePostModal()" class="p-3 bg-gg-900 hover:bg-gg-800 rounded-xl border border-cyan-500/30 flex items-center space-x-3 text-left transition group">
+                <div class="w-9 h-9 rounded-lg bg-magenta flex items-center justify-center text-white font-black shrink-0"><i class="fa-solid fa-pen-to-square"></i></div>
+                <div>
+                    <h4 class="text-xs font-bold text-white group-hover:text-cyan-400">Media Post / Clip</h4>
+                    <p class="text-[9px] text-gray-400">Share videos, pictures, or music clips</p>
+                </div>
+            </button>
+
+            <button onclick="openCreateTournamentModal()" class="p-3 bg-gg-900 hover:bg-gg-800 rounded-xl border border-cyan-500/30 flex items-center space-x-3 text-left transition group">
+                <div class="w-9 h-9 rounded-lg bg-cyan-400 flex items-center justify-center text-slate-950 font-black shrink-0"><i class="fa-solid fa-trophy"></i></div>
+                <div>
+                    <h4 class="text-xs font-bold text-white group-hover:text-cyan-400">Host Tournament</h4>
+                    <p class="text-[9px] text-gray-400">Knockout, World Cup, or Champions League</p>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- CREATE TOURNAMENT MODAL (SUPPORTING 64 TEAMS, WORLD CUP & CHAMPIONS LEAGUE FORMATS) -->
     <div id="createTournamentModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[170] flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider">Host New Tournament</h3>
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Host Tournament / League</h3>
                 <button onclick="closeCreateTournamentModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
 
             <div class="space-y-2.5">
                 <div>
                     <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Tournament Title</label>
-                    <input type="text" id="tournTitleInput" placeholder="e.g. Sinless Open Cup Vol. 3" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-2.5 text-xs text-white focus:outline-none">
+                    <input type="text" id="tournTitleInput" placeholder="e.g. Sinless Champions Cup 2026" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-2.5 text-xs text-white focus:outline-none">
                 </div>
 
                 <div>
@@ -1121,16 +1167,28 @@
                 </div>
 
                 <div>
-                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Bracket Size (Max Players)</label>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Tournament Format</label>
+                    <select id="tournFormatSelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30 focus:outline-none">
+                        <option value="KNOCKOUT">⚡ Single Elimination Bracket</option>
+                        <option value="WORLD_CUP">🌍 World Cup Style (Groups + Bracket)</option>
+                        <option value="CHAMPIONS_LEAGUE">🏆 Champions League (Swiss Phase + Bracket)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Maximum Teams</label>
                     <select id="tournSizeSelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30 focus:outline-none">
-                        <option value="8">8 Players (Quarter-Finals)</option>
-                        <option value="16">16 Players (Round of 16)</option>
+                        <option value="64">64 Teams (Mega Tournament)</option>
+                        <option value="36">36 Teams (Champions League Standard)</option>
+                        <option value="32">32 Teams (World Cup Standard)</option>
+                        <option value="16">16 Teams (Classic Cup)</option>
+                        <option value="8">8 Teams (Mini Bracket)</option>
                     </select>
                 </div>
             </div>
 
             <button onclick="submitNewTournament()" class="w-full py-3 bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 font-black rounded-xl text-xs shadow-lg uppercase tracking-wider mt-2">
-                🚀 Launch & Publish Tournament
+                🚀 Launch Tournament
             </button>
         </div>
     </div>
@@ -1139,7 +1197,7 @@
     <div id="matchReportModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[180] flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider">Report Match Final Score</h3>
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Report Match Score</h3>
                 <button onclick="closeMatchReportModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
 
@@ -1156,7 +1214,7 @@
             </div>
 
             <button onclick="submitMatchScoreReport()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black rounded-xl text-xs shadow-lg uppercase tracking-wider mt-1">
-                ✓ Confirm Final Result & Advance
+                ✓ Save Score & Advance Bracket
             </button>
         </div>
     </div>
