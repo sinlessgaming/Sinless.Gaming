@@ -32,6 +32,11 @@
             signOut, 
             onAuthStateChanged 
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { 
+            getMessaging, 
+            getToken, 
+            onMessage 
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
         // Firebase Configuration
         const firebaseConfig = {
@@ -50,6 +55,13 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
         const googleProvider = new GoogleAuthProvider();
+        
+        let messaging = null;
+        try {
+            messaging = getMessaging(app);
+        } catch (e) {
+            console.warn("FCM Messaging unsupported in this context.");
+        }
 
         // Expose tools to global scope
         window.db = db;
@@ -67,6 +79,39 @@
         window.limit = limit;
         window.onSnapshot = onSnapshot;
         window.serverTimestamp = serverTimestamp;
+
+        // --- Push Notification Registration ---
+        window.setupPushNotifications = async function() {
+            if (!messaging) {
+                showToast("Push notifications not supported on this device.");
+                return;
+            }
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    const token = await getToken(messaging, { vapidKey: 'YOUR_PUBLIC_VAPID_KEY_HERE' }).catch(() => null);
+                    if (token) {
+                        console.log("FCM Device Token:", token);
+                        showToast("🔔 Push Notifications Enabled!");
+                        if (window.currentUser && window.db) {
+                            await updateDoc(doc(window.db, "users", window.currentUser.uid), { fcmToken: token });
+                        }
+                    } else {
+                        showToast("🔔 Notifications Permission Granted!");
+                    }
+                } else {
+                    showToast("⚠️ Notification permission denied.");
+                }
+            } catch (err) {
+                console.error("FCM Token Error:", err);
+            }
+        };
+
+        if (messaging) {
+            onMessage(messaging, (payload) => {
+                showToast(`💬 ${payload.notification?.title || 'New Alert'}: ${payload.notification?.body || ''}`);
+            });
+        }
 
         window.loginWithGoogle = async function() {
             try {
@@ -403,10 +448,14 @@
 
                     snapshot.forEach(docSnap => {
                         const c = docSnap.data();
+                        const badgesHtml = getProfileBadges(c.user);
                         container.innerHTML += `
                             <div class="bg-gg-900/80 p-2.5 rounded-xl space-y-1 border border-cyan-500/10">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-xs font-bold text-cyan-400 cursor-pointer" onclick="openUserProfileModal('${c.user}', event)">@${c.user}</span>
+                                    <div class="flex items-center space-x-1">
+                                        <span class="text-xs font-bold text-cyan-400 cursor-pointer" onclick="openUserProfileModal('${c.user}', event)">@${c.user}</span>
+                                        ${badgesHtml}
+                                    </div>
                                     <span class="text-[9px] text-gray-400">Reply</span>
                                 </div>
                                 <p class="text-xs text-gray-200">${formatMentions(c.text)}</p>
@@ -453,6 +502,30 @@
 
         window.userFollowsState = window.userFollowsState || {};
         window.userProfiles = JSON.parse(localStorage.getItem('sinless_user_profiles') || '{}');
+
+        // Dynamic Badge System Calculation
+        window.getProfileBadges = function(username) {
+            const clean = (username || '').replace('@','').toLowerCase();
+            const userPosts = (window.fypposts || []).filter(p => p.user && p.user.toLowerCase() === clean);
+            let totalGGs = 0;
+            userPosts.forEach(p => totalGGs += (p.ggsCount || 0));
+
+            let badges = [];
+            if (clean === 'sinlessgaming') badges.push('<span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1.5 py-0.5 rounded font-black" title="Verified League Host">⭐ Verified Legend</span>');
+            if (userPosts.length >= 5) badges.push('<span class="text-[8px] bg-magenta/20 text-magenta border border-magenta/40 px-1.5 py-0.5 rounded font-black" title="Published over 5 clips">🔥 Top Creator</span>');
+            if (totalGGs >= 20) badges.push('<span class="text-[8px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 px-1.5 py-0.5 rounded font-black" title="Community Favorite">⚡ Viral Streak</span>');
+            
+            // Tournament Winner check
+            let isChamp = false;
+            (window.tournamentsList || []).forEach(t => {
+                (t.matches || []).forEach(m => {
+                    if (m.round >= 2 && m.winner && m.winner.toLowerCase() === clean) isChamp = true;
+                });
+            });
+            if (isChamp) badges.push('<span class="text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-1.5 py-0.5 rounded font-black" title="Tournament Winner">🏆 Champion</span>');
+
+            return badges.join(' ');
+        };
 
         function calculateGlobalRanks() {
             let statsMap = {};
@@ -506,10 +579,9 @@
             document.getElementById('profileGamertag').innerText = `@${cleanUser}`;
             document.getElementById('profileBioText').innerText = profileData.bio;
 
-            const badgeElem = document.getElementById('profileVerifiedBadge');
-            if (badgeElem) {
-                if (isVerifiedUser) badgeElem.classList.remove('hidden');
-                else badgeElem.classList.add('hidden');
+            const badgeContainer = document.getElementById('profileDynamicBadgesBox');
+            if (badgeContainer) {
+                badgeContainer.innerHTML = getProfileBadges(cleanUser);
             }
 
             const linkElem = document.getElementById('profileLinkUrl');
@@ -702,11 +774,11 @@
                 maxPlayers: 32,
                 players: ['SinlessGaming', 'AceKhyd', 'DonPrime', 'Kumi_FC', 'Richard_GG', 'Messiah_X', 'Gloria_Gamer', 'Kwame_Pro'],
                 matches: [
-                    { id: 'm1', round: 1, p1: 'SinlessGaming', p2: 'AceKhyd', s1: 3, s2: 1, winner: 'SinlessGaming', stage: 'Group A' },
-                    { id: 'm2', round: 1, p1: 'DonPrime', p2: 'Kumi_FC', s1: 2, s2: 0, winner: 'DonPrime', stage: 'Group A' },
-                    { id: 'm3', round: 1, p1: 'Richard_GG', p2: 'Messiah_X', s1: 1, s2: 2, winner: 'Messiah_X', stage: 'Group B' },
-                    { id: 'm4', round: 1, p1: 'Gloria_Gamer', p2: 'Kwame_Pro', s1: 0, s2: 1, winner: 'Kwame_Pro', stage: 'Group B' },
-                    { id: 'm5', round: 2, p1: 'SinlessGaming', p2: 'Messiah_X', s1: null, s2: null, winner: null, stage: 'Knockout Bracket' }
+                    { id: 'm1', round: 1, p1: 'SinlessGaming', p2: 'AceKhyd', s1: 3, s2: 1, winner: 'SinlessGaming', stage: 'Group A', streamUrl: '' },
+                    { id: 'm2', round: 1, p1: 'DonPrime', p2: 'Kumi_FC', s1: 2, s2: 0, winner: 'DonPrime', stage: 'Group A', streamUrl: '' },
+                    { id: 'm3', round: 1, p1: 'Richard_GG', p2: 'Messiah_X', s1: 1, s2: 2, winner: 'Messiah_X', stage: 'Group B', streamUrl: '' },
+                    { id: 'm4', round: 1, p1: 'Gloria_Gamer', p2: 'Kwame_Pro', s1: 0, s2: 1, winner: 'Kwame_Pro', stage: 'Group B', streamUrl: '' },
+                    { id: 'm5', round: 2, p1: 'SinlessGaming', p2: 'Messiah_X', s1: null, s2: null, winner: null, stage: 'Knockout Semi-Final', streamUrl: 'https://youtube.com/embed/live_stream' }
                 ]
             }
         ];
@@ -779,7 +851,8 @@
                     s1: null,
                     s2: null,
                     winner: null,
-                    stage: format === 'WORLD_CUP' ? `Group ${String.fromCharCode(65 + (i % 4))}` : (format === 'CHAMPIONS_LEAGUE' ? 'Swiss Phase' : 'Round 1')
+                    stage: format === 'WORLD_CUP' ? `Group ${String.fromCharCode(65 + (i % 4))}` : (format === 'CHAMPIONS_LEAGUE' ? 'Swiss Phase' : 'Round 1'),
+                    streamUrl: ''
                 });
             }
 
@@ -830,6 +903,17 @@
             document.getElementById('reportMatchP2Label').innerText = `@${match.p2}`;
             document.getElementById('reportP1ScoreInput').value = match.s1 !== null ? match.s1 : '';
             document.getElementById('reportP2ScoreInput').value = match.s2 !== null ? match.s2 : '';
+            document.getElementById('reportMatchStreamInput').value = match.streamUrl || '';
+
+            const iframe = document.getElementById('matchLiveStreamFrame');
+            if (match.streamUrl) {
+                let streamEmbed = match.streamUrl.replace('watch?v=', 'embed/');
+                iframe.src = streamEmbed;
+                iframe.classList.remove('hidden');
+            } else {
+                iframe.src = '';
+                iframe.classList.add('hidden');
+            }
 
             document.getElementById('matchReportModal').classList.remove('hidden');
         };
@@ -839,12 +923,14 @@
             window.activeMatchForReporting = null;
         };
 
+        // Automatic Tournament progression & Score Reporting
         window.submitMatchScoreReport = function() {
             const match = window.activeMatchForReporting;
             if (!match) return;
 
             const s1 = parseInt(document.getElementById('reportP1ScoreInput').value);
             const s2 = parseInt(document.getElementById('reportP2ScoreInput').value);
+            const streamUrl = document.getElementById('reportMatchStreamInput').value.trim();
 
             if (isNaN(s1) || isNaN(s2)) {
                 showToast("⚠️ Enter valid scores for both players!");
@@ -853,6 +939,7 @@
 
             match.s1 = s1;
             match.s2 = s2;
+            match.streamUrl = streamUrl;
             match.winner = s1 > s2 ? match.p1 : (s2 > s1 ? match.p2 : 'DRAW');
 
             advanceWinnerInBracket(window.activeTournament, match);
@@ -871,7 +958,17 @@
             let nextMatch = tourn.matches.find(m => m.round === nextRound && (m.p1 === 'TBD' || m.p2 === 'TBD' || !m.p1 || !m.p2));
 
             if (!nextMatch) {
-                nextMatch = { id: `m_${Date.now()}_next`, round: nextRound, p1: completedMatch.winner, p2: 'TBD', s1: null, s2: null, winner: null, stage: 'Knockout Bracket' };
+                nextMatch = { 
+                    id: `m_${Date.now()}_next`, 
+                    round: nextRound, 
+                    p1: completedMatch.winner, 
+                    p2: 'TBD', 
+                    s1: null, 
+                    s2: null, 
+                    winner: null, 
+                    stage: `Knockout Round ${nextRound}`,
+                    streamUrl: ''
+                };
                 tourn.matches.push(nextMatch);
             } else {
                 if (nextMatch.p1 === 'TBD' || !nextMatch.p1) nextMatch.p1 = completedMatch.winner;
@@ -927,7 +1024,7 @@
                     <div class="space-y-2 pt-1">
                         <h4 class="text-[10px] font-black text-gray-300 uppercase tracking-wider flex justify-between items-center">
                             <span><i class="fa-solid fa-sitemap text-cyan-400 mr-1"></i> Matches & Brackets</span>
-                            <span class="text-[9px] text-gray-400 font-normal">Tap node to report scores</span>
+                            <span class="text-[9px] text-gray-400 font-normal">Tap node to watch/report</span>
                         </h4>
                         <div class="space-y-2 max-h-[340px] overflow-y-auto pr-1">
             `;
@@ -937,6 +1034,7 @@
             } else {
                 current.matches.forEach(m => {
                     const isCompleted = m.winner !== null;
+                    const hasStream = !!m.streamUrl;
                     bodyHtml += `
                         <div class="bg-gg-950 p-2.5 rounded-xl border border-cyan-500/15 flex items-center justify-between text-xs cursor-pointer hover:border-cyan-400 transition" onclick="openMatchReportModal('${m.id}')">
                             <div class="flex-1 space-y-1">
@@ -949,8 +1047,9 @@
                                     <span class="font-extrabold ${m.winner === m.p2 ? 'text-cyan-400' : 'text-gray-400'}">${m.s2 !== null ? m.s2 : '-'}</span>
                                 </div>
                             </div>
-                            <div class="text-right shrink-0 border-l border-cyan-500/10 pl-2.5">
-                                <span class="text-[8px] uppercase block font-bold ${isCompleted ? 'text-emerald-400' : 'text-amber-400'}">${isCompleted ? '✓ Final' : '⚡ Report Score'}</span>
+                            <div class="text-right shrink-0 border-l border-cyan-500/10 pl-2.5 space-y-0.5">
+                                ${hasStream ? `<span class="inline-block text-[8px] bg-red-600/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded font-black animate-pulse"><i class="fa-solid fa-play mr-1"></i>STREAM</span>` : ''}
+                                <span class="text-[8px] uppercase block font-bold ${isCompleted ? 'text-emerald-400' : 'text-amber-400'}">${isCompleted ? '✓ Final' : '⚡ Report'}</span>
                                 <span class="text-[8px] text-cyan-400 block truncate max-w-[70px]">${m.stage || 'Bracket'}</span>
                             </div>
                         </div>
@@ -1413,7 +1512,7 @@
             <button onclick="openAccountModal()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs shadow" title="Cloud Account Login">
                 <i class="fa-solid fa-user"></i>
             </button>
-            <button onclick="openNotificationsModal()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs shadow" title="Notifications">
+            <button onclick="window.setupPushNotifications()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs shadow" title="Enable Notifications">
                 <i class="fa-solid fa-bell"></i>
             </button>
             <button onclick="openDmModal()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs shadow" title="Direct Inbox">
@@ -1766,13 +1865,16 @@
         </div>
     </div>
 
-    <!-- MATCH SCORE REPORT MODAL -->
+    <!-- MATCH SCORE REPORT & STREAM MODAL -->
     <div id="matchReportModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[180] flex items-center justify-center p-4">
-        <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider">Report Match Score</h3>
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Report Match & Live Stream</h3>
                 <button onclick="closeMatchReportModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
+
+            <!-- Embedded Live Stream Frame -->
+            <iframe id="matchLiveStreamFrame" class="hidden w-full h-44 rounded-xl border border-cyan-500/30 shadow-lg" allowfullscreen allow="autoplay"></iframe>
 
             <div class="space-y-3">
                 <div class="flex items-center justify-between bg-gg-950 p-3 rounded-xl border border-cyan-500/20">
@@ -1783,6 +1885,11 @@
                 <div class="flex items-center justify-between bg-gg-950 p-3 rounded-xl border border-cyan-500/20">
                     <span id="reportMatchP2Label" class="text-xs font-bold text-white">@Player2</span>
                     <input type="number" id="reportP2ScoreInput" min="0" placeholder="0" class="w-14 bg-gg-900 border border-cyan-500/40 rounded-lg p-1.5 text-center text-xs text-cyan-400 font-extrabold focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="text-[9px] font-extrabold text-gray-400 uppercase block mb-1">Optional Live Stream Link (YouTube/Twitch)</label>
+                    <input type="text" id="reportMatchStreamInput" placeholder="https://youtube.com/watch?v=..." class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl p-2 text-xs text-white focus:outline-none">
                 </div>
             </div>
 
@@ -1822,8 +1929,9 @@
                 <h2 id="profileDisplayName" class="text-lg font-black text-white tracking-wide">Sinless Gaming</h2>
                 <div class="flex items-center space-x-1">
                     <span id="profileGamertag" class="text-xs font-bold text-cyan-400">@SinlessGaming</span>
-                    <span id="profileVerifiedBadge" class="verified-badge text-xs hidden"><i class="fa-solid fa-circle-check"></i></span>
                 </div>
+                <!-- Dynamic Achievement Badges -->
+                <div id="profileDynamicBadgesBox" class="flex flex-wrap gap-1 mt-1.5"></div>
             </div>
 
             <p id="profileBioText" class="text-xs text-gray-300 leading-relaxed font-medium"></p>
@@ -2312,6 +2420,7 @@
                 const cleanMe = (window.myUsername || '@SinlessGaming').replace('@','').toLowerCase();
                 const isMyPost = post.user && post.user.toLowerCase() === cleanMe;
                 const isVerified = post.verified || (post.user && post.user.toLowerCase() === 'sinlessgaming');
+                const badgesHtml = getProfileBadges(post.user);
 
                 let audioBadge = post.audioTrack ? `<p class="text-[9px] text-cyan-400 font-bold mt-1.5 flex items-center"><i class="fa-solid fa-music mr-1.5"></i> ${post.audioTrack}</p>` : '';
                 
@@ -2345,7 +2454,10 @@
                 container.innerHTML += `
                     <div class="glass-panel rounded-2xl p-3.5 space-y-2.5 shadow-xl relative post-card-item hover:-translate-y-0.5 transition-all duration-200" data-post-id="${normalizedId}">
                         <div class="flex items-center justify-between border-b border-cyan-500/10 pb-1.5">
-                            <span class="font-bold text-xs text-white cursor-pointer hover:text-cyan-400 transition" onclick="openUserProfileModal('${post.user}', event)">@${post.user} ${isVerified ? '<span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span>' : ''}</span>
+                            <div class="flex items-center space-x-1">
+                                <span class="font-bold text-xs text-white cursor-pointer hover:text-cyan-400 transition" onclick="openUserProfileModal('${post.user}', event)">@${post.user} ${isVerified ? '<span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span>' : ''}</span>
+                                ${badgesHtml}
+                            </div>
                             <div class="flex items-center space-x-1.5">
                                 <span class="text-[9px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-full font-extrabold uppercase">${post.game || 'GAMING'}</span>
                                 ${isMyPost ? `
@@ -2423,10 +2535,11 @@
             }
 
             viralCreators.forEach((creator, idx) => {
+                const badges = getProfileBadges(creator.gamertag);
                 body.innerHTML += `
                     <div class="grid grid-cols-4 px-3 py-2.5 text-xs text-gray-200 items-center">
                         <span class="font-extrabold text-amber-400">#${idx+1}</span>
-                        <span class="font-bold cursor-pointer text-white truncate" onclick="openUserProfileModal('${creator.gamertag}', event)">@${creator.gamertag}</span>
+                        <div class="truncate"><span class="font-bold cursor-pointer text-white truncate" onclick="openUserProfileModal('${creator.gamertag}', event)">@${creator.gamertag}</span> ${badges}</div>
                         <span class="text-center font-extrabold text-emerald-400 bg-emerald-500/10 py-0.5 rounded-lg text-[10px]">${creator.postsCount} posts</span>
                         <span class="text-right text-cyan-400 font-black">${creator.totalGGs}</span>
                     </div>`;
@@ -2443,7 +2556,8 @@
                 return;
             }
             sortedCreators.forEach((creator, i) => {
-                list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs cursor-pointer" onclick="openUserProfileModal('${creator.gamertag}', event)"><span class="font-bold text-white">#${i+1} @${creator.gamertag}</span><span class="text-cyan-400 font-bold">${creator.totalGGs} GGs</span></div>`;
+                const badges = getProfileBadges(creator.gamertag);
+                list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs cursor-pointer" onclick="openUserProfileModal('${creator.gamertag}', event)"><div class="flex items-center space-x-1.5"><span class="font-bold text-white">#${i+1} @${creator.gamertag}</span> ${badges}</div><span class="text-cyan-400 font-bold">${creator.totalGGs} GGs</span></div>`;
             });
         }
 
