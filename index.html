@@ -8,6 +8,45 @@
     
     <!-- Real-time Firebase SDK & Firestore Cloud Sync with IndexedDB Local Backup -->
     <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            query, 
+            orderBy, 
+            limit, 
+            onSnapshot, 
+            serverTimestamp 
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyBDWeHQpmCVfJVXj5Dmu_ZuGmKvlqI4wek",
+          authDomain: "sinlessgg.firebaseapp.com",
+          projectId: "sinlessgg",
+          storageBucket: "sinlessgg.firebasestorage.app",
+          messagingSenderId: "774543139920",
+          appId: "1:774543139920:web:b17fb4caa96a555dc81d55",
+          measurementId: "G-T1ENJX4SFY"
+        };
+
+        // Initialize Firebase & Firestore
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
+
+        // Expose Firebase tools to window scope for global app functions
+        window.db = db;
+        window.collection = collection;
+        window.addDoc = addDoc;
+        window.query = query;
+        window.orderBy = orderBy;
+        window.limit = limit;
+        window.onSnapshot = onSnapshot;
+        window.serverTimestamp = serverTimestamp;
+
         // --- INDEXEDDB FOR LARGE LOCAL MEDIA STORAGE ---
         function openPostDB() {
             return new Promise((resolve, reject) => {
@@ -167,6 +206,12 @@
                 if(window.renderMarketList) window.renderMarketList();
             });
         };
+
+        // Initialize Firestore real-time listeners once app is loaded
+        window.addEventListener('load', () => {
+            if(window.listenToFirestorePosts) window.listenToFirestorePosts();
+            if(window.listenToFirestoreMarket) window.listenToFirestoreMarket();
+        });
     </script>
 
     <script>
