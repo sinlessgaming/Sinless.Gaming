@@ -80,7 +80,7 @@
         window.onSnapshot = onSnapshot;
         window.serverTimestamp = serverTimestamp;
 
-        // --- Push Notification Registration ---
+        // Push Notification Registration
         window.setupPushNotifications = async function() {
             if (!messaging) {
                 showToast("Push notifications not supported on this device.");
@@ -503,7 +503,7 @@
         window.userFollowsState = window.userFollowsState || {};
         window.userProfiles = JSON.parse(localStorage.getItem('sinless_user_profiles') || '{}');
 
-        // Dynamic Badge System Calculation
+        // Dynamic Badge System
         window.getProfileBadges = function(username) {
             const clean = (username || '').replace('@','').toLowerCase();
             const userPosts = (window.fypposts || []).filter(p => p.user && p.user.toLowerCase() === clean);
@@ -515,7 +515,6 @@
             if (userPosts.length >= 5) badges.push('<span class="text-[8px] bg-magenta/20 text-magenta border border-magenta/40 px-1.5 py-0.5 rounded font-black" title="Published over 5 clips">🔥 Top Creator</span>');
             if (totalGGs >= 20) badges.push('<span class="text-[8px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 px-1.5 py-0.5 rounded font-black" title="Community Favorite">⚡ Viral Streak</span>');
             
-            // Tournament Winner check
             let isChamp = false;
             (window.tournamentsList || []).forEach(t => {
                 (t.matches || []).forEach(m => {
@@ -923,7 +922,6 @@
             window.activeMatchForReporting = null;
         };
 
-        // Automatic Tournament progression & Score Reporting
         window.submitMatchScoreReport = function() {
             const match = window.activeMatchForReporting;
             if (!match) return;
@@ -1231,7 +1229,7 @@
             }
         }
 
-        // Live Broadcast Center - Camera, Embed Streams, Controls & Filters
+        // Live Broadcast Center
         window.currentBroadcastStream = null;
         window.currentFacingMode = 'user';
         window.isStreamPaused = false;
@@ -1522,7 +1520,6 @@
     </header>
 
     <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3">
-        
         <!-- Navigation Tabs -->
         <div class="glass-panel p-1.5 rounded-2xl flex shadow-xl overflow-x-auto scrollbar-none">
             <button onclick="switchView('fyp')" id="nav-fyp" class="flex-1 py-2 px-2 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap"><i class="fa-solid fa-fire mr-0.5"></i> Feed</button>
@@ -1665,7 +1662,6 @@
 
     <!-- LIVE STREAM BROADCAST MODAL -->
     <div id="liveStreamModal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-2xl z-[190] flex flex-col justify-between p-3">
-        <!-- Header -->
         <div class="flex justify-between items-center p-2 z-10 border-b border-cyan-500/20">
             <div class="flex items-center space-x-2">
                 <span id="liveStreamStatusLabel" class="text-xs font-black text-red-500">● LIVE BROADCAST CENTER</span>
@@ -1676,26 +1672,18 @@
             <button onclick="closeLiveBroadcastModal()" class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm border border-cyan-500/40">✕</button>
         </div>
 
-        <!-- Video Stream Preview Frame -->
         <div class="flex-1 relative w-full h-full flex items-center justify-center overflow-hidden my-2">
-            <!-- Idle Placeholder -->
             <div id="streamPlaceholder" class="flex flex-col items-center justify-center text-center p-6 bg-gg-900/60 rounded-2xl border border-cyan-500/20 space-y-2">
                 <i class="fa-solid fa-video-slash text-3xl text-cyan-400 opacity-60"></i>
                 <p class="text-xs font-bold text-gray-300">Broadcast Offline</p>
                 <p class="text-[10px] text-gray-500 max-w-xs">Start Camera Stream or embed a YouTube/Twitch live link below.</p>
             </div>
 
-            <!-- Video element -->
             <video id="liveStreamPreviewVideo" autoplay playsinline muted class="hidden w-full max-h-full object-contain rounded-2xl bg-gg-950 border border-cyan-500/30 shadow-2xl transition-all duration-300"></video>
-            
-            <!-- Embedded Iframe Stream -->
             <iframe id="liveStreamEmbedIframe" class="hidden w-full h-full rounded-2xl border border-cyan-500/30 shadow-2xl" allowfullscreen allow="autoplay"></iframe>
         </div>
 
-        <!-- Broadcast Control Center Overlay -->
         <div class="p-3 bg-gg-900 rounded-2xl border border-cyan-500/30 space-y-3 z-10">
-            
-            <!-- Action Controls: Flip, Mute, Pause & End -->
             <div class="grid grid-cols-4 gap-1.5">
                 <button onclick="flipCamera()" class="py-2 bg-gg-800 border border-cyan-500/30 text-cyan-400 rounded-xl text-[10px] font-bold flex items-center justify-center space-x-1 hover:bg-cyan-500/20">
                     <i class="fa-solid fa-rotate"></i><span>Flip</span>
@@ -1711,13 +1699,11 @@
                 </button>
             </div>
 
-            <!-- External Stream Link Input -->
             <div class="flex items-center space-x-1.5">
                 <input type="text" id="streamUrlInput" placeholder="Paste YouTube, Twitch, or stream URL..." class="flex-1 bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-1.5 text-[10px] text-white focus:outline-none">
                 <button onclick="embedExternalStreamLink()" class="px-3 py-1.5 bg-cyan-400 text-slate-950 font-extrabold text-[10px] rounded-xl uppercase shrink-0">Embed</button>
             </div>
 
-            <!-- Real-Time Visual Filters -->
             <div class="flex items-center justify-between text-[10px] text-gray-300">
                 <span class="font-bold">Filters:</span>
                 <div class="flex space-x-1">
@@ -1728,7 +1714,6 @@
                 </div>
             </div>
 
-            <!-- Broadcast Source Chooser -->
             <div class="grid grid-cols-1 gap-2 pt-1 border-t border-cyan-500/10">
                 <button onclick="startLiveStream('camera')" class="py-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl text-xs font-black flex items-center justify-center space-x-1 shadow">
                     <i class="fa-solid fa-video"></i><span>Start Camera Stream</span>
@@ -1873,7 +1858,6 @@
                 <button onclick="closeMatchReportModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
 
-            <!-- Embedded Live Stream Frame -->
             <iframe id="matchLiveStreamFrame" class="hidden w-full h-44 rounded-xl border border-cyan-500/30 shadow-lg" allowfullscreen allow="autoplay"></iframe>
 
             <div class="space-y-3">
@@ -1930,7 +1914,6 @@
                 <div class="flex items-center space-x-1">
                     <span id="profileGamertag" class="text-xs font-bold text-cyan-400">@SinlessGaming</span>
                 </div>
-                <!-- Dynamic Achievement Badges -->
                 <div id="profileDynamicBadgesBox" class="flex flex-wrap gap-1 mt-1.5"></div>
             </div>
 
