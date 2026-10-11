@@ -186,18 +186,22 @@
                 publishBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Publishing...`;
             }
 
+            const meClean = (window.myUsername || '@SinlessGaming').replace('@','');
+            const isVerifiedUser = meClean.toLowerCase() === 'sinlessgaming';
+
             let postPayload = {
                 id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                user: (window.myUsername || '@SinlessGaming').replace('@',''),
+                user: meClean,
                 displayName: window.myDisplayName || 'Sinless Gaming',
                 uid: window.currentUser ? window.currentUser.uid : 'guest',
-                verified: !!window.currentUser,
+                verified: isVerifiedUser,
                 game: cat,
                 caption: text,
                 mediaList: mediaList,
                 audioTrack: audioTrack,
                 ggsCount: 0,
                 ggsBy: [],
+                viewsCount: 1,
                 commentsCount: 0,
                 createdAt: typeof serverTimestamp === 'function' ? serverTimestamp() : new Date().toISOString()
             };
@@ -407,7 +411,7 @@
                         container.innerHTML += `
                             <div class="bg-gg-900/80 p-2.5 rounded-xl space-y-1 border border-cyan-500/10">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-xs font-bold text-cyan-400 cursor-pointer" onclick="openUserProfileModal('${c.user}')">@${c.user}</span>
+                                    <span class="text-xs font-bold text-cyan-400 cursor-pointer" onclick="openUserProfileModal('${c.user}', event)">@${c.user}</span>
                                     <span class="text-[9px] text-gray-400">Reply</span>
                                 </div>
                                 <p class="text-xs text-gray-200">${formatMentions(c.text)}</p>
@@ -481,9 +485,16 @@
 
         window.activeProfileUser = null;
 
-        window.openUserProfileModal = function(username) {
+        window.openUserProfileModal = function(username, e = null) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
             const cleanUser = username.replace('@', '');
             window.activeProfileUser = cleanUser;
+
+            const isVerifiedUser = cleanUser.toLowerCase() === 'sinlessgaming';
 
             const profileData = window.userProfiles[cleanUser.toLowerCase()] || {
                 displayName: cleanUser === 'SinlessGaming' ? 'Sinless Gaming' : cleanUser,
@@ -505,7 +516,13 @@
             document.getElementById('profileDisplayName').innerText = profileData.displayName;
             document.getElementById('profileGamertag').innerText = `@${cleanUser}`;
             document.getElementById('profileBioText').innerText = profileData.bio;
-            
+
+            const badgeElem = document.getElementById('profileVerifiedBadge');
+            if (badgeElem) {
+                if (isVerifiedUser) badgeElem.classList.remove('hidden');
+                else badgeElem.classList.add('hidden');
+            }
+
             const linkElem = document.getElementById('profileLinkUrl');
             linkElem.innerText = (profileData.website || 'sinlessgg.com').replace(/^https?:\/\//, '');
             linkElem.href = profileData.website && profileData.website.startsWith('http') ? profileData.website : `https://${profileData.website || 'sinlessgg.com'}`;
@@ -678,7 +695,11 @@
             openUserProfileModal(cleanUser);
         };
 
-        window.closeUserProfileModal = function() {
+        window.closeUserProfileModal = function(e = null) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
             document.getElementById('userProfileModal').classList.add('hidden');
         };
 
@@ -986,13 +1007,17 @@
 
         window.formatMentions = function(text) {
             if (!text) return '';
-            return text.replace(/(@[a-zA-Z0-9_]+)/g, '<span class="text-cyan-400 font-extrabold cursor-pointer hover:underline" onclick="openUserProfileModal(\'$1\')">$1</span>');
+            return text.replace(/(@[a-zA-Z0-9_]+)/g, '<span class="text-cyan-400 font-extrabold cursor-pointer hover:underline" onclick="openUserProfileModal(\'$1\', event)">$1</span>');
         };
 
         window.activeDmUser = null;
         window.dmMessagesList = JSON.parse(localStorage.getItem('sinless_dm_messages') || '{}');
 
-        window.openDmModal = function(targetUser = null) {
+        window.openDmModal = function(targetUser = null, e = null) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
             document.getElementById('dmModal').classList.remove('hidden');
             if (targetUser) {
                 window.selectDmTarget(targetUser);
@@ -1060,6 +1085,90 @@
             localStorage.setItem('sinless_dm_messages', JSON.stringify(window.dmMessagesList));
             input.value = '';
             window.renderDmThread();
+        };
+
+        window.activeViewObservers = {};
+
+        function initViewTracker() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const postId = entry.target.getAttribute('data-post-id');
+                    if (!postId) return;
+
+                    if (entry.isIntersecting) {
+                        if (!window.activeViewObservers[postId]) {
+                            window.activeViewObservers[postId] = setTimeout(() => {
+                                incrementPostView(postId);
+                            }, 5000);
+                        }
+                    } else {
+                        if (window.activeViewObservers[postId]) {
+                            clearTimeout(window.activeViewObservers[postId]);
+                            delete window.activeViewObservers[postId];
+                        }
+                    }
+                });
+            }, { threshold: 0.6 });
+
+            document.querySelectorAll('.post-card-item').forEach(card => {
+                observer.observe(card);
+            });
+        }
+
+        async function incrementPostView(postId) {
+            const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
+            if (!post) return;
+
+            post.viewsCount = (post.viewsCount || 0) + 1;
+            
+            const badge = document.getElementById(`viewsCounterBadge_${postId}`);
+            if (badge) badge.innerText = `${post.viewsCount} Views`;
+
+            const targetId = post.docId || post.id;
+            if (window.db && targetId && !post.isLocalFallback && !targetId.startsWith('local_')) {
+                try {
+                    const postRef = doc(window.db, "posts", targetId);
+                    await updateDoc(postRef, {
+                        viewsCount: increment(1)
+                    });
+                } catch(e) {}
+            }
+        }
+
+        window.currentBroadcastStream = null;
+
+        window.openLiveBroadcastModal = function() {
+            document.getElementById('liveStreamModal').classList.remove('hidden');
+        };
+
+        window.closeLiveBroadcastModal = function() {
+            if (window.currentBroadcastStream) {
+                window.currentBroadcastStream.getTracks().forEach(t => t.stop());
+                window.currentBroadcastStream = null;
+            }
+            document.getElementById('liveStreamModal').classList.add('hidden');
+        };
+
+        window.startLiveStream = async function(mode) {
+            const previewVideo = document.getElementById('liveStreamPreviewVideo');
+            const statusLabel = document.getElementById('liveStreamStatusLabel');
+
+            try {
+                if (mode === 'screen') {
+                    window.currentBroadcastStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                } else {
+                    window.currentBroadcastStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                }
+
+                previewVideo.srcObject = window.currentBroadcastStream;
+                statusLabel.innerText = `● LIVE BROADCASTING (${mode.toUpperCase()})`;
+                statusLabel.className = 'text-xs font-black text-red-500 animate-pulse';
+
+                showToast(`🔴 Live Broadcast Started via ${mode === 'screen' ? 'Screen Share' : 'Camera'}!`);
+            } catch(e) {
+                console.error("Streaming error:", e);
+                showToast("⚠️ Could not access stream source.");
+            }
         };
 
         window.listenToFirestorePosts = function() {
@@ -1181,7 +1290,7 @@
 
     <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3">
         
-        <!-- Navigation Tabs (With Dedicated Tournaments Section) -->
+        <!-- Navigation Tabs -->
         <div class="glass-panel p-1.5 rounded-2xl flex shadow-xl overflow-x-auto scrollbar-none">
             <button onclick="switchView('fyp')" id="nav-fyp" class="flex-1 py-2 px-2 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap"><i class="fa-solid fa-fire mr-0.5"></i> Feed</button>
             <button onclick="switchView('trending')" id="nav-trending" class="flex-1 py-2 px-2 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-chart-line mr-0.5"></i> Trending</button>
@@ -1321,6 +1430,31 @@
         </div>
     </main>
 
+    <!-- LIVE STREAM BROADCAST MODAL -->
+    <div id="liveStreamModal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-2xl z-[190] flex flex-col justify-between p-3">
+        <div class="flex justify-between items-center p-2 z-10 border-b border-cyan-500/20">
+            <span id="liveStreamStatusLabel" class="text-xs font-black text-red-500">● LIVE BROADCAST CENTER</span>
+            <button onclick="closeLiveBroadcastModal()" class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm border border-cyan-500/40">✕</button>
+        </div>
+
+        <div class="flex-1 relative w-full h-full flex items-center justify-center overflow-hidden my-2">
+            <video id="liveStreamPreviewVideo" autoplay playsinline muted class="w-full max-h-full object-contain rounded-2xl bg-gg-950 border border-cyan-500/30 shadow-2xl"></video>
+        </div>
+
+        <div class="p-3 bg-gg-900 rounded-2xl border border-cyan-500/30 space-y-2 z-10">
+            <p class="text-[10px] text-gray-300 text-center font-semibold">Choose Broadcast Stream Source:</p>
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="startLiveStream('camera')" class="py-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl text-xs font-black flex items-center justify-center space-x-1 shadow">
+                    <i class="fa-solid fa-video"></i><span>Camera Stream</span>
+                </button>
+                <button onclick="startLiveStream('screen')" class="py-2.5 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 rounded-xl text-xs font-black flex items-center justify-center space-x-1 shadow">
+                    <i class="fa-solid fa-desktop"></i><span>Share Screen</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DIRECT MESSAGING MODAL -->
     <div id="dmModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[150] flex flex-col justify-end">
         <div class="glass-panel w-full max-w-md mx-auto rounded-t-3xl p-4 flex flex-col space-y-3 h-[80vh] shadow-2xl border-t border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -1342,6 +1476,7 @@
         </div>
     </div>
 
+    <!-- UNIVERSAL ACTION HUB MODAL -->
     <div id="universalCreateModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[160] flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-xs rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40 text-center">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -1369,6 +1504,7 @@
         </div>
     </div>
 
+    <!-- EDIT POST MODAL -->
     <div id="editPostModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[175] flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -1394,6 +1530,7 @@
         </div>
     </div>
 
+    <!-- CREATE TOURNAMENT MODAL -->
     <div id="createTournamentModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[170] flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -1445,6 +1582,7 @@
         </div>
     </div>
 
+    <!-- MATCH SCORE REPORT MODAL -->
     <div id="matchReportModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[180] flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -1470,14 +1608,15 @@
         </div>
     </div>
 
+    <!-- USER PROFILE MODAL -->
     <div id="userProfileModal" class="hidden fixed inset-0 bg-slate-950 z-[160] flex flex-col overflow-y-auto">
         <div id="profileBannerHeader" class="relative w-full h-36 bg-cover bg-center border-b border-cyan-500/20 shrink-0">
             <div class="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-                <button onclick="closeUserProfileModal()" class="w-9 h-9 rounded-full bg-slate-950/80 text-white flex items-center justify-center font-extrabold text-sm border border-cyan-500/30 backdrop-blur-md shadow-lg">
+                <button onclick="closeUserProfileModal(event)" class="w-9 h-9 rounded-full bg-slate-950/80 text-white flex items-center justify-center font-extrabold text-sm border border-cyan-500/30 backdrop-blur-md shadow-lg cursor-pointer">
                     <i class="fa-solid fa-arrow-left"></i>
                 </button>
                 <div class="flex space-x-2">
-                    <button onclick="openDmModal(window.activeProfileUser)" class="px-3 py-2 bg-gg-900 text-cyan-400 border border-cyan-500/40 rounded-xl font-black text-xs shadow-lg uppercase">
+                    <button onclick="openDmModal(window.activeProfileUser, event)" class="px-3 py-2 bg-gg-900 text-cyan-400 border border-cyan-500/40 rounded-xl font-black text-xs shadow-lg uppercase">
                         <i class="fa-solid fa-envelope mr-1"></i> Message
                     </button>
                     <button id="profileFollowBtn" class="px-4 py-2 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 rounded-xl font-black text-xs shadow-lg uppercase tracking-wider">
@@ -1499,7 +1638,7 @@
                 <h2 id="profileDisplayName" class="text-lg font-black text-white tracking-wide">Sinless Gaming</h2>
                 <div class="flex items-center space-x-1">
                     <span id="profileGamertag" class="text-xs font-bold text-cyan-400">@SinlessGaming</span>
-                    <span class="verified-badge text-xs"><i class="fa-solid fa-circle-check"></i></span>
+                    <span id="profileVerifiedBadge" class="verified-badge text-xs hidden"><i class="fa-solid fa-circle-check"></i></span>
                 </div>
             </div>
 
@@ -1527,6 +1666,7 @@
         </div>
     </div>
 
+    <!-- EDIT PROFILE MODAL -->
     <div id="editProfileModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[170] flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -1567,6 +1707,7 @@
         </div>
     </div>
 
+    <!-- COMMENTS MODAL -->
     <div id="commentsModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[150] flex flex-col justify-end">
         <div class="glass-panel w-full max-w-md mx-auto rounded-t-3xl p-4 flex flex-col space-y-3 h-[75vh] shadow-2xl border-t border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -1583,6 +1724,7 @@
         </div>
     </div>
 
+    <!-- MEDIA ZOOM MODAL -->
     <div id="mediaZoomModal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-2xl z-[200] flex flex-col justify-between p-2">
         <div class="flex justify-between items-center p-2 z-10">
             <span id="mediaZoomTitle" class="text-xs font-bold text-cyan-400 uppercase tracking-wider">Media Inspection</span>
@@ -1596,6 +1738,7 @@
         </div>
     </div>
 
+    <!-- ACCOUNT MODAL -->
     <div id="accountModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-5 flex flex-col space-y-4 shadow-2xl border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -1618,6 +1761,7 @@
         </div>
     </div>
 
+    <!-- CREATE POST MODAL -->
     <div id="createPostModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-md rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -1689,6 +1833,7 @@
         </div>
     </div>
 
+    <!-- MARKET MODAL -->
     <div id="marketModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -1877,7 +2022,6 @@
         function openNotificationsModal() { showToast("No new notifications."); }
         function openMarketModal() { document.getElementById('marketModal').classList.remove('hidden'); }
         function closeMarketModal() { document.getElementById('marketModal').classList.add('hidden'); }
-        function openLiveBroadcastModal() { showToast("Live stream feature ready."); }
         function openCreateClanModal() { showToast('Squad creator active!'); }
 
         function switchView(viewName) {
@@ -1924,6 +2068,7 @@
 
                 const cleanMe = (window.myUsername || '@SinlessGaming').replace('@','').toLowerCase();
                 const isMyPost = post.user && post.user.toLowerCase() === cleanMe;
+                const isVerified = post.verified || (post.user && post.user.toLowerCase() === 'sinlessgaming');
 
                 let audioBadge = post.audioTrack ? `<p class="text-[9px] text-cyan-400 font-bold mt-1.5 flex items-center"><i class="fa-solid fa-music mr-1.5"></i> ${post.audioTrack}</p>` : '';
                 
@@ -1949,13 +2094,14 @@
                 let captionHtml = post.caption ? `<p class="text-xs text-gray-200">${formatMentions(post.caption)}</p>` : '';
 
                 let currentGGs = post.ggsCount || 0;
+                let currentViews = post.viewsCount || 1;
                 let hasGGed = post.ggsBy && window.currentUser && post.ggsBy.includes(window.currentUser.uid);
                 let commentsNum = post.commentsCount || 0;
 
                 container.innerHTML += `
-                    <div class="glass-panel rounded-2xl p-3 space-y-2 shadow-xl relative">
+                    <div class="glass-panel rounded-2xl p-3 space-y-2 shadow-xl relative post-card-item" data-post-id="${normalizedId}">
                         <div class="flex items-center justify-between">
-                            <span class="font-bold text-xs text-white cursor-pointer" onclick="openUserProfileModal('${post.user}')">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
+                            <span class="font-bold text-xs text-white cursor-pointer" onclick="openUserProfileModal('${post.user}', event)">@${post.user} ${isVerified ? '<span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span>' : ''}</span>
                             <div class="flex items-center space-x-1.5">
                                 <span class="text-[9px] text-cyan-400 font-bold mr-1">${post.game || 'GAMING'}</span>
                                 ${isMyPost ? `
@@ -1977,6 +2123,10 @@
                                 <i class="fa-regular fa-comment"></i>
                                 <span>${commentsNum} Replies</span>
                             </button>
+                            <span id="viewsCounterBadge_${normalizedId}" class="text-[10px] text-gray-400 font-semibold flex items-center space-x-1">
+                                <i class="fa-regular fa-eye"></i>
+                                <span>${currentViews} Views</span>
+                            </span>
                             <button onclick="event.stopPropagation(); shareContent('Sinless GG Post', '${(post.caption || 'Check out this clip on Sinless GG!').replace(/'/g, "\\'")}', window.location.href)" class="flex items-center space-x-1.5 text-gray-400 font-bold hover:text-cyan-400 transition">
                                 <i class="fa-solid fa-share-nodes"></i>
                                 <span>Share</span>
@@ -1985,6 +2135,10 @@
                     </div>
                 `;
             });
+
+            setTimeout(() => {
+                if (window.initViewTracker) window.initViewTracker();
+            }, 300);
         };
 
         window.renderMarketList = function() {
@@ -1994,14 +2148,14 @@
                 return;
             }
             window.marketListings.forEach(item => {
-                box.innerHTML += `<div class="glass-panel p-3 rounded-2xl flex justify-between items-center text-xs"><div><h4 class="font-bold text-white">${item.title}</h4><p class="text-[9px] text-gray-400 cursor-pointer" onclick="openUserProfileModal('${item.user}')">Seller: @${item.user}</p></div><span class="text-cyan-400 font-black">${item.price}</span></div>`;
+                box.innerHTML += `<div class="glass-panel p-3 rounded-2xl flex justify-between items-center text-xs"><div><h4 class="font-bold text-white">${item.title}</h4><p class="text-[9px] text-gray-400 cursor-pointer" onclick="openUserProfileModal('${item.user}', event)">Seller: @${item.user}</p></div><span class="text-cyan-400 font-black">${item.price}</span></div>`;
             });
         };
 
         function renderClansList() {
             let box = document.getElementById('clansListContainer'); if(!box) return; box.innerHTML = '';
             clansData.forEach(c => {
-                box.innerHTML += `<div class="glass-panel p-3 rounded-2xl flex justify-between items-center text-xs"><div><h4 class="font-bold text-white">${c.name} [${c.tag}]</h4><p class="text-[9px] text-gray-400 cursor-pointer" onclick="openUserProfileModal('${c.leader}')">Leader: @${c.leader}</p></div><button onclick="showToast('Joined squad!')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 rounded-xl font-black">Join</button></div>`;
+                box.innerHTML += `<div class="glass-panel p-3 rounded-2xl flex justify-between items-center text-xs"><div><h4 class="font-bold text-white">${c.name} [${c.tag}]</h4><p class="text-[9px] text-gray-400 cursor-pointer" onclick="openUserProfileModal('${c.leader}', event)">Leader: @${c.leader}</p></div><button onclick="showToast('Joined squad!')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 rounded-xl font-black">Join</button></div>`;
             });
         }
 
@@ -2028,7 +2182,7 @@
                 body.innerHTML += `
                     <div class="grid grid-cols-4 px-3 py-2.5 text-xs text-gray-200 items-center">
                         <span class="font-extrabold text-amber-400">#${idx+1}</span>
-                        <span class="font-bold cursor-pointer text-white truncate" onclick="openUserProfileModal('${creator.gamertag}')">@${creator.gamertag}</span>
+                        <span class="font-bold cursor-pointer text-white truncate" onclick="openUserProfileModal('${creator.gamertag}', event)">@${creator.gamertag}</span>
                         <span class="text-center font-extrabold text-emerald-400 bg-emerald-500/10 py-0.5 rounded-lg text-[10px]">${creator.postsCount} posts</span>
                         <span class="text-right text-cyan-400 font-black">${creator.totalGGs}</span>
                     </div>`;
@@ -2040,12 +2194,12 @@
             const { sortedCreators } = calculateGlobalRanks();
             if (sortedCreators.length === 0) {
                 ['SinlessGaming', 'Sinless101', 'AceKhyd'].forEach((u, i) => {
-                    list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs cursor-pointer" onclick="openUserProfileModal('${u}')"><span class="font-bold text-white">#${i+1} @${u}</span><span class="text-cyan-400 font-bold">1.4k GGs</span></div>`;
+                    list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs cursor-pointer" onclick="openUserProfileModal('${u}', event)"><span class="font-bold text-white">#${i+1} @${u}</span><span class="text-cyan-400 font-bold">1.4k GGs</span></div>`;
                 });
                 return;
             }
             sortedCreators.forEach((creator, i) => {
-                list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs cursor-pointer" onclick="openUserProfileModal('${creator.gamertag}')"><span class="font-bold text-white">#${i+1} @${creator.gamertag}</span><span class="text-cyan-400 font-bold">${creator.totalGGs} GGs</span></div>`;
+                list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs cursor-pointer" onclick="openUserProfileModal('${creator.gamertag}', event)"><span class="font-bold text-white">#${i+1} @${creator.gamertag}</span><span class="text-cyan-400 font-bold">${creator.totalGGs} GGs</span></div>`;
             });
         }
 
@@ -2053,7 +2207,7 @@
             let input = document.getElementById('chatInputMsg'); let text = input.value.trim();
             if(!text) return;
             let box = document.getElementById('chatMessagesBox');
-            box.innerHTML += `<div class="bg-gg-900 p-2.5 rounded-xl text-xs space-y-0.5"><span class="text-cyan-400 font-bold cursor-pointer" onclick="openUserProfileModal('${window.myUsername}')">${window.myUsername}:</span> <span class="text-gray-200">${formatMentions(text)}</span></div>`;
+            box.innerHTML += `<div class="bg-gg-900 p-2.5 rounded-xl text-xs space-y-0.5"><span class="text-cyan-400 font-bold cursor-pointer" onclick="openUserProfileModal('${window.myUsername}', event)">${window.myUsername}:</span> <span class="text-gray-200">${formatMentions(text)}</span></div>`;
             input.value = '';
             box.scrollTop = box.scrollHeight;
         }
@@ -2074,7 +2228,7 @@
         function handleGlobalSearch(q) {
             let res = document.getElementById('dynamicTrendingTopicsList');
             if(!q) { runTrendingTopics(); return; }
-            res.innerHTML = (window.fypposts || []).filter(p => p.caption && p.caption.toLowerCase().includes(q.toLowerCase())).map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white"><span class="font-bold cursor-pointer" onclick="openUserProfileModal('${p.user}')">@${p.user}</span>: ${p.caption}</div>`).join('') || '<p class="text-xs text-gray-400">No results found.</p>';
+            res.innerHTML = (window.fypposts || []).filter(p => p.caption && p.caption.toLowerCase().includes(q.toLowerCase())).map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white"><span class="font-bold cursor-pointer" onclick="openUserProfileModal('${p.user}', event)">@${p.user}</span>: ${p.caption}</div>`).join('') || '<p class="text-xs text-gray-400">No results found.</p>';
         }
     </script>
 </body>
