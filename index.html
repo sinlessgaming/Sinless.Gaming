@@ -49,7 +49,17 @@
 
         function publishLocallyFallback(payload) {
             if(!window.fypposts) window.fypposts = [];
+            payload.isLocalFallback = true;
             window.fypposts.unshift(payload);
+            
+            // Persist to local storage
+            try {
+                let localOnly = window.fypposts.filter(p => p.isLocalFallback);
+                localStorage.setItem('sinless_local_posts', JSON.stringify(localOnly));
+            } catch(e) {
+                console.warn("LocalStorage save error:", e);
+            }
+
             window.renderFypFeed();
             resetPostForm();
             showToast("Published to Feed!");
@@ -71,10 +81,15 @@
             if(!window.db || typeof query !== 'function') return;
             const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"), limit(30));
             onSnapshot(q, (snapshot) => {
-                window.fypposts = [];
+                let cloudPosts = [];
                 snapshot.forEach((doc) => {
-                    window.fypposts.push({ id: doc.id, ...doc.data() });
+                    cloudPosts.push({ id: doc.id, ...doc.data() });
                 });
+
+                // Preserve local posts alongside Firestore posts
+                let localPosts = (window.fypposts || []).filter(p => p.isLocalFallback);
+                window.fypposts = [...localPosts, ...cloudPosts];
+
                 if(window.renderFypFeed) window.renderFypFeed();
             }, (error) => {
                 console.warn("Firestore listener error:", error);
@@ -467,6 +482,17 @@
 
         function initApp() {
             document.getElementById('headerUserTag').innerText = window.myUsername;
+
+            // Restore locally saved posts on app start
+            try {
+                const stored = localStorage.getItem('sinless_local_posts');
+                if (stored) {
+                    window.fypposts = JSON.parse(stored);
+                }
+            } catch(e) {
+                console.warn("LocalStorage load error:", e);
+            }
+
             renderClansList();
             renderLadder('FOOTBALL');
             renderTopAccounts();
