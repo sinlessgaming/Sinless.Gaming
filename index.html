@@ -602,6 +602,236 @@
             document.getElementById('userProfileModal').classList.add('hidden');
         };
 
+        // --- DECENTRALIZED TOURNAMENTS & MATCH REPORTING SYSTEM ---
+        window.tournamentsList = JSON.parse(localStorage.getItem('sinless_tournaments_list') || 'null') || [
+            {
+                id: 'tourn_1',
+                title: 'Sinless Super League - Season 1',
+                host: 'SinlessGaming',
+                game: 'FC MOBILE',
+                format: 'KNOCKOUT',
+                maxPlayers: 8,
+                players: ['SinlessGaming', 'AceKhyd', 'DonPrime', 'Kumi_FC', 'Richard_GG', 'Messiah_X', 'Gloria_Gamer', 'Kwame_Pro'],
+                matches: [
+                    { id: 'm1', round: 1, p1: 'SinlessGaming', p2: 'AceKhyd', s1: 3, s2: 1, winner: 'SinlessGaming' },
+                    { id: 'm2', round: 1, p1: 'DonPrime', p2: 'Kumi_FC', s1: 2, s2: 0, winner: 'DonPrime' },
+                    { id: 'm3', round: 1, p1: 'Richard_GG', p2: 'Messiah_X', s1: 1, s2: 2, winner: 'Messiah_X' },
+                    { id: 'm4', round: 1, p1: 'Gloria_Gamer', p2: 'Kwame_Pro', s1: 0, s2: 1, winner: 'Kwame_Pro' },
+                    { id: 'm5', round: 2, p1: 'SinlessGaming', p2: 'DonPrime', s1: null, s2: null, winner: null },
+                    { id: 'm6', round: 2, p1: 'Messiah_X', p2: 'Kwame_Pro', s1: null, s2: null, winner: null },
+                    { id: 'm7', round: 3, p1: 'TBD', p2: 'TBD', s1: null, s2: null, winner: null }
+                ]
+            }
+        ];
+
+        window.activeTournament = window.tournamentsList[0];
+        window.activeMatchForReporting = null;
+
+        window.openCreateTournamentModal = function() {
+            document.getElementById('createTournamentModal').classList.remove('hidden');
+        };
+
+        window.closeCreateTournamentModal = function() {
+            document.getElementById('createTournamentModal').classList.add('hidden');
+        };
+
+        window.submitNewTournament = function() {
+            const title = document.getElementById('tournTitleInput').value.trim();
+            const game = document.getElementById('tournGameSelect').value;
+            const maxPlayers = parseInt(document.getElementById('tournSizeSelect').value);
+            const hostUser = (window.myUsername || '@SinlessGaming').replace('@', '');
+
+            if (!title) {
+                showToast("⚠️ Enter tournament title!");
+                return;
+            }
+
+            const newTourn = {
+                id: 'tourn_' + Date.now(),
+                title: title,
+                host: hostUser,
+                game: game,
+                format: 'KNOCKOUT',
+                maxPlayers: maxPlayers,
+                players: [hostUser],
+                matches: []
+            };
+
+            for (let i = 0; i < maxPlayers / 2; i++) {
+                newTourn.matches.push({
+                    id: `m_${Date.now()}_${i}`,
+                    round: 1,
+                    p1: i === 0 ? hostUser : 'Open Spot',
+                    p2: 'Open Spot',
+                    s1: null,
+                    s2: null,
+                    winner: null
+                });
+            }
+
+            window.tournamentsList.unshift(newTourn);
+            localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
+            window.activeTournament = newTourn;
+
+            showToast("Tournament Created Successfully!");
+            closeCreateTournamentModal();
+            renderTournamentsTab();
+        };
+
+        window.joinActiveTournament = function(tournId) {
+            const tourn = window.tournamentsList.find(t => t.id === tournId);
+            const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+
+            if (!tourn) return;
+            if (tourn.players.includes(me)) {
+                showToast("Already registered in this tournament!");
+                return;
+            }
+            if (tourn.players.length >= tourn.maxPlayers) {
+                showToast("Tournament is full!");
+                return;
+            }
+
+            tourn.players.push(me);
+
+            for (let m of tourn.matches) {
+                if (m.p1 === 'Open Spot') { m.p1 = me; break; }
+                if (m.p2 === 'Open Spot') { m.p2 = me; break; }
+            }
+
+            localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
+            showToast(`Registered for ${tourn.title}!`);
+            renderTournamentsTab();
+        };
+
+        window.openMatchReportModal = function(matchId) {
+            if (!window.activeTournament) return;
+            const match = window.activeTournament.matches.find(m => m.id === matchId);
+            if (!match) return;
+
+            window.activeMatchForReporting = match;
+            document.getElementById('reportMatchP1Label').innerText = `@${match.p1}`;
+            document.getElementById('reportMatchP2Label').innerText = `@${match.p2}`;
+            document.getElementById('reportP1ScoreInput').value = match.s1 !== null ? match.s1 : '';
+            document.getElementById('reportP2ScoreInput').value = match.s2 !== null ? match.s2 : '';
+
+            document.getElementById('matchReportModal').classList.remove('hidden');
+        };
+
+        window.closeMatchReportModal = function() {
+            document.getElementById('matchReportModal').classList.add('hidden');
+            window.activeMatchForReporting = null;
+        };
+
+        window.submitMatchScoreReport = function() {
+            const match = window.activeMatchForReporting;
+            if (!match) return;
+
+            const s1 = parseInt(document.getElementById('reportP1ScoreInput').value);
+            const s2 = parseInt(document.getElementById('reportP2ScoreInput').value);
+
+            if (isNaN(s1) || isNaN(s2)) {
+                showToast("⚠️ Enter valid scores for both players!");
+                return;
+            }
+
+            match.s1 = s1;
+            match.s2 = s2;
+            match.winner = s1 > s2 ? match.p1 : (s2 > s1 ? match.p2 : 'DRAW');
+
+            advanceWinnerInBracket(window.activeTournament, match);
+
+            localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
+            showToast(`Match Score Updated! Winner: @${match.winner}`);
+            closeMatchReportModal();
+            renderTournamentsTab();
+        };
+
+        function advanceWinnerInBracket(tourn, completedMatch) {
+            if (!completedMatch.winner || completedMatch.winner === 'DRAW') return;
+
+            const nextRound = completedMatch.round + 1;
+            let nextMatch = tourn.matches.find(m => m.round === nextRound && (m.p1 === 'TBD' || m.p2 === 'TBD' || !m.p1 || !m.p2));
+
+            if (!nextMatch) {
+                nextMatch = { id: `m_${Date.now()}_next`, round: nextRound, p1: completedMatch.winner, p2: 'TBD', s1: null, s2: null, winner: null };
+                tourn.matches.push(nextMatch);
+            } else {
+                if (nextMatch.p1 === 'TBD' || !nextMatch.p1) nextMatch.p1 = completedMatch.winner;
+                else if (nextMatch.p2 === 'TBD' || !nextMatch.p2) nextMatch.p2 = completedMatch.winner;
+            }
+        }
+
+        window.renderTournamentsTab = function() {
+            const container = document.getElementById('tournamentsTabContainer');
+            if (!container) return;
+
+            if (!window.tournamentsList || window.tournamentsList.length === 0) {
+                container.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No active tournaments. Create one now!</div>`;
+                return;
+            }
+
+            let selectorHtml = `<div class="flex items-center space-x-2 overflow-x-auto scrollbar-none pb-2">`;
+            window.tournamentsList.forEach(t => {
+                const isActive = window.activeTournament && window.activeTournament.id === t.id;
+                selectorHtml += `<button onclick="switchActiveTournament('${t.id}')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold ${isActive ? 'bg-cyan-400 text-slate-950 shadow-md' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'} whitespace-nowrap">${t.title}</button>`;
+            });
+            selectorHtml += `</div>`;
+
+            const current = window.activeTournament || window.tournamentsList[0];
+            const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+            const isJoined = current.players.includes(me);
+
+            let bodyHtml = `
+                <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/30">
+                    <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                        <div>
+                            <h3 class="text-xs font-black text-white uppercase tracking-wider">${current.title}</h3>
+                            <p class="text-[9px] text-cyan-400">Host: @${current.host} • ${current.game} • ${current.players.length}/${current.maxPlayers} Registered</p>
+                        </div>
+                        ${!isJoined ? `<button onclick="joinActiveTournament('${current.id}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Join League</button>` : `<span class="text-[9px] bg-cyan-500/10 text-cyan-400 font-extrabold px-2.5 py-1 rounded-full">✓ Registered</span>`}
+                    </div>
+
+                    <div class="space-y-2 pt-1">
+                        <h4 class="text-[10px] font-black text-gray-300 uppercase tracking-wider"><i class="fa-solid fa-sitemap text-cyan-400 mr-1"></i> Interactive Bracket & Match Center</h4>
+                        <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+            `;
+
+            if (!current.matches || current.matches.length === 0) {
+                bodyHtml += `<p class="text-xs text-gray-400 text-center py-4">Waiting for players to join to generate bracket...</p>`;
+            } else {
+                current.matches.forEach(m => {
+                    const isCompleted = m.winner !== null;
+                    bodyHtml += `
+                        <div class="bg-gg-950 p-2.5 rounded-xl border border-cyan-500/15 flex items-center justify-between text-xs cursor-pointer hover:border-cyan-400 transition" onclick="openMatchReportModal('${m.id}')">
+                            <div class="flex-1 space-y-1">
+                                <div class="flex justify-between items-center pr-3">
+                                    <span class="font-bold ${m.winner === m.p1 ? 'text-cyan-400 font-black' : 'text-gray-200'}">@${m.p1}</span>
+                                    <span class="font-extrabold ${m.winner === m.p1 ? 'text-cyan-400' : 'text-gray-400'}">${m.s1 !== null ? m.s1 : '-'}</span>
+                                </div>
+                                <div class="flex justify-between items-center pr-3">
+                                    <span class="font-bold ${m.winner === m.p2 ? 'text-cyan-400 font-black' : 'text-gray-200'}">@${m.p2}</span>
+                                    <span class="font-extrabold ${m.winner === m.p2 ? 'text-cyan-400' : 'text-gray-400'}">${m.s2 !== null ? m.s2 : '-'}</span>
+                                </div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <span class="text-[8px] uppercase block font-bold ${isCompleted ? 'text-emerald-400' : 'text-amber-400'}">${isCompleted ? '✓ Final' : '⚡ Report Score'}</span>
+                                <span class="text-[8px] text-gray-500">Round ${m.round}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            bodyHtml += `</div></div></div>`;
+            container.innerHTML = selectorHtml + bodyHtml;
+        };
+
+        window.switchActiveTournament = function(tournId) {
+            window.activeTournament = window.tournamentsList.find(t => t.id === tournId);
+            renderTournamentsTab();
+        };
+
         window.listenToFirestorePosts = function() {
             if(!window.db || typeof query !== 'function') return;
             const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"), limit(30));
@@ -820,25 +1050,41 @@
             </div>
         </div>
 
-        <!-- Tables View (VIRAL & MOST POSTS OF THE WEEK LEADERBOARD) -->
-        <div id="view-standings" class="view-section hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl fade-in">
-            <div class="flex items-center justify-between">
+        <!-- Tables View (DECENTRALIZED TOURNAMENTS & VIRAL CREATORS LEADERBOARD) -->
+        <div id="view-standings" class="view-section hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
+            
+            <!-- Host Tournament CTA Banner -->
+            <div class="glass-panel p-4 rounded-2xl flex items-center justify-between shadow-xl border border-cyan-500/30">
                 <div>
-                    <h3 class="text-xs font-black text-white uppercase tracking-wider flex items-center"><i class="fa-solid fa-fire text-amber-400 mr-1.5"></i> Viral Creators of the Week</h3>
-                    <p class="text-[9px] text-gray-400">Rankings based on most posts & overall engagement</p>
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider flex items-center"><i class="fa-solid fa-trophy text-amber-400 mr-1.5"></i> Tournaments & Leagues</h3>
+                    <p class="text-[9px] text-gray-400">Host, compete, and auto-advance brackets!</p>
                 </div>
-                <select id="ladderGameSelect" onchange="renderLadder(this.value)" class="bg-gg-950 text-cyan-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-cyan-500/30 focus:outline-none">
-                    <option value="ALL">🌐 All Categories</option>
-                    <option value="FOOTBALL">⚽ Football</option>
-                    <option value="FC MOBILE">📱 FC Mobile</option>
-                    <option value="EA SPORTS FC">🎮 EA Sports FC</option>
-                </select>
+                <button onclick="openCreateTournamentModal()" class="px-3 py-1.5 bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 rounded-xl text-[10px] font-black shadow uppercase tracking-wider">+ Host Tournament</button>
             </div>
-            <div class="overflow-x-auto flex-1 bg-gg-950 rounded-xl border border-cyan-500/20">
-                <div class="grid grid-cols-4 px-3 py-2.5 bg-gg-900 text-cyan-400 text-[9px] uppercase font-extrabold border-b border-cyan-500/15">
-                    <span>Rank</span><span>Creator</span><span class="text-center">Posts</span><span class="text-right">GGs</span>
+
+            <!-- Dynamic Self-Service Tournaments Container -->
+            <div id="tournamentsTabContainer" class="space-y-3"></div>
+
+            <!-- Viral Creators Table -->
+            <div class="glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xs font-black text-white uppercase tracking-wider flex items-center"><i class="fa-solid fa-fire text-amber-400 mr-1.5"></i> Viral Creators of the Week</h3>
+                        <p class="text-[9px] text-gray-400">Rankings based on most posts & overall engagement</p>
+                    </div>
+                    <select id="ladderGameSelect" onchange="renderLadder(this.value)" class="bg-gg-950 text-cyan-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-cyan-500/30 focus:outline-none">
+                        <option value="ALL">🌐 All Categories</option>
+                        <option value="FOOTBALL">⚽ Football</option>
+                        <option value="FC MOBILE">📱 FC Mobile</option>
+                        <option value="EA SPORTS FC">🎮 EA Sports FC</option>
+                    </select>
                 </div>
-                <div id="ladderBody" class="divide-y divide-cyan-500/10"></div>
+                <div class="overflow-x-auto flex-1 bg-gg-950 rounded-xl border border-cyan-500/20">
+                    <div class="grid grid-cols-4 px-3 py-2.5 bg-gg-900 text-cyan-400 text-[9px] uppercase font-extrabold border-b border-cyan-500/15">
+                        <span>Rank</span><span>Creator</span><span class="text-center">Posts</span><span class="text-right">GGs</span>
+                    </div>
+                    <div id="ladderBody" class="divide-y divide-cyan-500/10"></div>
+                </div>
             </div>
         </div>
 
@@ -848,6 +1094,72 @@
             <div id="topAccountsList" class="space-y-2.5 overflow-y-auto flex-1"></div>
         </div>
     </main>
+
+    <!-- CREATE TOURNAMENT MODAL -->
+    <div id="createTournamentModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[170] flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Host New Tournament</h3>
+                <button onclick="closeCreateTournamentModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
+            </div>
+
+            <div class="space-y-2.5">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Tournament Title</label>
+                    <input type="text" id="tournTitleInput" placeholder="e.g. Sinless Open Cup Vol. 3" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-2.5 text-xs text-white focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Game Title</label>
+                    <select id="tournGameSelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30 focus:outline-none">
+                        <option value="FC MOBILE">📱 FC Mobile</option>
+                        <option value="EA SPORTS FC">🎮 EA Sports FC</option>
+                        <option value="EFOOTBALL">⚡ eFootball</option>
+                        <option value="DLS">🏆 DLS</option>
+                        <option value="WRESTLING">🤼 WWE 2K / Wrestling</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Bracket Size (Max Players)</label>
+                    <select id="tournSizeSelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30 focus:outline-none">
+                        <option value="8">8 Players (Quarter-Finals)</option>
+                        <option value="16">16 Players (Round of 16)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button onclick="submitNewTournament()" class="w-full py-3 bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 font-black rounded-xl text-xs shadow-lg uppercase tracking-wider mt-2">
+                🚀 Launch & Publish Tournament
+            </button>
+        </div>
+    </div>
+
+    <!-- MATCH SCORE REPORT MODAL -->
+    <div id="matchReportModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[180] flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Report Match Final Score</h3>
+                <button onclick="closeMatchReportModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex items-center justify-between bg-gg-950 p-3 rounded-xl border border-cyan-500/20">
+                    <span id="reportMatchP1Label" class="text-xs font-bold text-white">@Player1</span>
+                    <input type="number" id="reportP1ScoreInput" min="0" placeholder="0" class="w-14 bg-gg-900 border border-cyan-500/40 rounded-lg p-1.5 text-center text-xs text-cyan-400 font-extrabold focus:outline-none">
+                </div>
+
+                <div class="flex items-center justify-between bg-gg-950 p-3 rounded-xl border border-cyan-500/20">
+                    <span id="reportMatchP2Label" class="text-xs font-bold text-white">@Player2</span>
+                    <input type="number" id="reportP2ScoreInput" min="0" placeholder="0" class="w-14 bg-gg-900 border border-cyan-500/40 rounded-lg p-1.5 text-center text-xs text-cyan-400 font-extrabold focus:outline-none">
+                </div>
+            </div>
+
+            <button onclick="submitMatchScoreReport()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black rounded-xl text-xs shadow-lg uppercase tracking-wider mt-1">
+                ✓ Confirm Final Result & Advance
+            </button>
+        </div>
+    </div>
 
     <!-- FULL-SCREEN PROFILE PAGE WITH BANNER, AVATAR, BIO, EDIT MODAL & LINK -->
     <div id="userProfileModal" class="hidden fixed inset-0 bg-slate-950 z-[160] flex flex-col overflow-y-auto">
@@ -1189,6 +1501,7 @@
             runTrendingTopics();
             fetchHorizontalLiveMatches();
             renderFypFeed();
+            renderTournamentsTab();
             initMediaTouchZoomControls();
         }
 
