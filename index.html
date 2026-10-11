@@ -1147,9 +1147,16 @@
         window.currentBroadcastStream = null;
         window.currentFacingMode = 'user'; // 'user' = front camera, 'environment' = back camera
         window.isStreamPaused = false;
+        window.isAudioMuted = false;
 
         window.openLiveBroadcastModal = function() {
             document.getElementById('liveStreamModal').classList.remove('hidden');
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const screenBtn = document.getElementById('shareScreenBtn');
+            if (isMobile && screenBtn) {
+                screenBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                screenBtn.innerHTML = `<i class="fa-solid fa-desktop"></i><span>Screen Share (Desktop Only)</span>`;
+            }
         };
 
         window.closeLiveBroadcastModal = function() {
@@ -1163,12 +1170,25 @@
                 window.currentBroadcastStream = null;
             }
             const previewVideo = document.getElementById('liveStreamPreviewVideo');
-            if (previewVideo) previewVideo.srcObject = null;
+            const placeholder = document.getElementById('streamPlaceholder');
+            
+            if (previewVideo) {
+                previewVideo.srcObject = null;
+                previewVideo.classList.add('hidden');
+            }
+            if (placeholder) placeholder.classList.remove('hidden');
 
             window.isStreamPaused = false;
+            window.isAudioMuted = false;
+
             const pauseBtn = document.getElementById('pauseStreamBtn');
             if (pauseBtn) {
-                pauseBtn.innerHTML = `<i class="fa-solid fa-pause"></i><span>Pause Video</span>`;
+                pauseBtn.innerHTML = `<i class="fa-solid fa-pause"></i><span>Pause</span>`;
+            }
+
+            const muteBtn = document.getElementById('muteAudioBtn');
+            if (muteBtn) {
+                muteBtn.innerHTML = `<i class="fa-solid fa-microphone"></i><span>Mute</span>`;
             }
 
             const statusLabel = document.getElementById('liveStreamStatusLabel');
@@ -1179,16 +1199,23 @@
         };
 
         window.startLiveStream = async function(mode) {
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            if (mode === 'screen' && isMobile) {
+                showToast("⚠️ Mobile OS blocks web screen capture. Use Desktop or Camera Stream.");
+                return;
+            }
+
             const previewVideo = document.getElementById('liveStreamPreviewVideo');
+            const placeholder = document.getElementById('streamPlaceholder');
             const statusLabel = document.getElementById('liveStreamStatusLabel');
 
-            // Cleanup active stream before switching sources
             window.stopLiveStream();
 
             try {
                 if (mode === 'screen') {
                     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-                        showToast("⚠️ Screen sharing is not supported on mobile browsers.");
+                        showToast("⚠️ Screen sharing is not supported on this browser.");
                         return;
                     }
                     window.currentBroadcastStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
@@ -1199,18 +1226,19 @@
                     });
                 }
 
-                previewVideo.srcObject = window.currentBroadcastStream;
-                statusLabel.innerText = `● LIVE BROADCASTING (${mode.toUpperCase()})`;
+                if (placeholder) placeholder.classList.add('hidden');
+                if (previewVideo) {
+                    previewVideo.classList.remove('hidden');
+                    previewVideo.srcObject = window.currentBroadcastStream;
+                }
+
+                statusLabel.innerText = `● BROADCASTING LIVE (${mode.toUpperCase()})`;
                 statusLabel.className = 'text-xs font-black text-red-500 animate-pulse';
 
-                showToast(`🔴 Live Broadcast Started via ${mode === 'screen' ? 'Screen Share' : 'Camera'}!`);
+                showToast(`🔴 Stream Online via ${mode === 'screen' ? 'Screen Share' : 'Camera'}!`);
             } catch(e) {
                 console.error("Streaming error:", e);
-                if (mode === 'screen') {
-                    showToast("⚠️ Mobile browsers block screen sharing. Use Camera Stream instead!");
-                } else {
-                    showToast("⚠️ Could not access camera/microphone.");
-                }
+                showToast("⚠️ Camera/Microphone access denied or unavailable.");
             }
         };
 
@@ -1239,9 +1267,25 @@
             if (btn) {
                 btn.innerHTML = window.isStreamPaused 
                     ? `<i class="fa-solid fa-play"></i><span>Resume</span>` 
-                    : `<i class="fa-solid fa-pause"></i><span>Pause Video</span>`;
+                    : `<i class="fa-solid fa-pause"></i><span>Pause</span>`;
             }
             showToast(window.isStreamPaused ? "Video Paused" : "Video Resumed");
+        };
+
+        window.toggleAudioMute = function() {
+            if (!window.currentBroadcastStream) return;
+            window.isAudioMuted = !window.isAudioMuted;
+            window.currentBroadcastStream.getAudioTracks().forEach(track => {
+                track.enabled = !window.isAudioMuted;
+            });
+
+            const btn = document.getElementById('muteAudioBtn');
+            if (btn) {
+                btn.innerHTML = window.isAudioMuted 
+                    ? `<i class="fa-solid fa-microphone-slash text-red-400"></i><span>Unmute</span>` 
+                    : `<i class="fa-solid fa-microphone"></i><span>Mute</span>`;
+            }
+            showToast(window.isAudioMuted ? "Microphone Muted" : "Microphone Unmuted");
         };
 
         window.listenToFirestorePosts = function() {
@@ -1505,29 +1549,46 @@
 
     <!-- LIVE STREAM BROADCAST MODAL -->
     <div id="liveStreamModal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-2xl z-[190] flex flex-col justify-between p-3">
+        <!-- Header -->
         <div class="flex justify-between items-center p-2 z-10 border-b border-cyan-500/20">
-            <span id="liveStreamStatusLabel" class="text-xs font-black text-red-500">● LIVE BROADCAST CENTER</span>
+            <div class="flex items-center space-x-2">
+                <span id="liveStreamStatusLabel" class="text-xs font-black text-red-500">● LIVE BROADCAST CENTER</span>
+                <span class="text-[9px] bg-red-600/20 text-red-400 px-2 py-0.5 rounded-full font-bold border border-red-500/30">
+                    <i class="fa-solid fa-eye mr-1"></i>0 Viewers
+                </span>
+            </div>
             <button onclick="closeLiveBroadcastModal()" class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm border border-cyan-500/40">✕</button>
         </div>
 
         <!-- Video Stream Preview Frame -->
         <div class="flex-1 relative w-full h-full flex items-center justify-center overflow-hidden my-2">
-            <video id="liveStreamPreviewVideo" autoplay playsinline muted class="w-full max-h-full object-contain rounded-2xl bg-gg-950 border border-cyan-500/30 shadow-2xl transition-all duration-300"></video>
+            <!-- Idle Placeholder -->
+            <div id="streamPlaceholder" class="flex flex-col items-center justify-center text-center p-6 bg-gg-900/60 rounded-2xl border border-cyan-500/20 space-y-2">
+                <i class="fa-solid fa-video-slash text-3xl text-cyan-400 opacity-60"></i>
+                <p class="text-xs font-bold text-gray-300">Broadcast Offline</p>
+                <p class="text-[10px] text-gray-500 max-w-xs">Tap Camera Stream below to begin your live stream preview.</p>
+            </div>
+
+            <!-- Video element -->
+            <video id="liveStreamPreviewVideo" autoplay playsinline muted class="hidden w-full max-h-full object-contain rounded-2xl bg-gg-950 border border-cyan-500/30 shadow-2xl transition-all duration-300"></video>
         </div>
 
         <!-- Broadcast Control Center Overlay -->
         <div class="p-3 bg-gg-900 rounded-2xl border border-cyan-500/30 space-y-3 z-10">
             
-            <!-- Flip, Pause & End Stream Controls -->
-            <div class="flex items-center justify-center space-x-2">
-                <button onclick="flipCamera()" class="px-3 py-2 bg-gg-800 border border-cyan-500/30 text-cyan-400 rounded-xl text-xs font-bold flex items-center space-x-1">
-                    <i class="fa-solid fa-rotate"></i><span>Flip Camera</span>
+            <!-- Action Controls: Flip, Mute, Pause & End -->
+            <div class="grid grid-cols-4 gap-1.5">
+                <button onclick="flipCamera()" class="py-2 bg-gg-800 border border-cyan-500/30 text-cyan-400 rounded-xl text-[10px] font-bold flex items-center justify-center space-x-1">
+                    <i class="fa-solid fa-rotate"></i><span>Flip</span>
                 </button>
-                <button id="pauseStreamBtn" onclick="togglePauseStream()" class="px-3 py-2 bg-gg-800 border border-amber-500/30 text-amber-400 rounded-xl text-xs font-bold flex items-center space-x-1">
-                    <i class="fa-solid fa-pause"></i><span>Pause Video</span>
+                <button id="muteAudioBtn" onclick="toggleAudioMute()" class="py-2 bg-gg-800 border border-cyan-500/30 text-cyan-400 rounded-xl text-[10px] font-bold flex items-center justify-center space-x-1">
+                    <i class="fa-solid fa-microphone"></i><span>Mute</span>
                 </button>
-                <button onclick="stopLiveStream()" class="px-3 py-2 bg-red-600/20 border border-red-500/40 text-red-400 rounded-xl text-xs font-bold flex items-center space-x-1">
-                    <i class="fa-solid fa-stop"></i><span>End Stream</span>
+                <button id="pauseStreamBtn" onclick="togglePauseStream()" class="py-2 bg-gg-800 border border-amber-500/30 text-amber-400 rounded-xl text-[10px] font-bold flex items-center justify-center space-x-1">
+                    <i class="fa-solid fa-pause"></i><span>Pause</span>
+                </button>
+                <button onclick="stopLiveStream()" class="py-2 bg-red-600/20 border border-red-500/40 text-red-400 rounded-xl text-[10px] font-bold flex items-center justify-center space-x-1">
+                    <i class="fa-solid fa-stop"></i><span>End</span>
                 </button>
             </div>
 
@@ -1547,7 +1608,7 @@
                 <button onclick="startLiveStream('camera')" class="py-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl text-xs font-black flex items-center justify-center space-x-1 shadow">
                     <i class="fa-solid fa-video"></i><span>Camera Stream</span>
                 </button>
-                <button onclick="startLiveStream('screen')" class="py-2.5 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 rounded-xl text-xs font-black flex items-center justify-center space-x-1 shadow">
+                <button id="shareScreenBtn" onclick="startLiveStream('screen')" class="py-2.5 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 rounded-xl text-xs font-black flex items-center justify-center space-x-1 shadow">
                     <i class="fa-solid fa-desktop"></i><span>Share Screen</span>
                 </button>
             </div>
