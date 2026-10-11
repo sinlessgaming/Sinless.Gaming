@@ -115,7 +115,7 @@
                 const headerTag = document.getElementById('headerUserTag');
                 if (headerTag) headerTag.innerText = '@SinlessGaming';
 
-                if (authModalStatus) authModalStatus.innerText = 'Connect with your Google account to post under your real username.';
+                if (authModalStatus) authModalStatus.innerText = 'Connect with your Google account to post under your real Gamertag.';
                 if (authModalBtn) {
                     authModalBtn.innerHTML = `<i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>`;
                     authModalBtn.onclick = window.loginWithGoogle;
@@ -324,7 +324,7 @@
                         container.innerHTML += `
                             <div class="bg-gg-900/80 p-2.5 rounded-xl space-y-1 border border-cyan-500/10">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-xs font-bold text-cyan-400">@${c.user}</span>
+                                    <span class="text-xs font-bold text-cyan-400 cursor-pointer" onclick="openUserProfileModal('${c.user}')">@${c.user}</span>
                                     <span class="text-[9px] text-gray-400">Reply</span>
                                 </div>
                                 <p class="text-xs text-gray-200">${c.text}</p>
@@ -377,6 +377,103 @@
             }
         };
 
+        // --- GAMERTAG PROFILES, FOLLOWERS & DYNAMIC RANK SYSTEM ---
+        window.userFollowsState = window.userFollowsState || {};
+
+        function calculateGlobalRanks() {
+            let statsMap = {};
+            (window.fypposts || []).forEach(p => {
+                let u = (p.user || 'Unknown').toLowerCase();
+                if (!statsMap[u]) statsMap[u] = { gamertag: p.user, totalGGs: 0, postsCount: 0 };
+                statsMap[u].totalGGs += (p.ggsCount || 0);
+                statsMap[u].postsCount += 1;
+            });
+
+            let sortedCreators = Object.values(statsMap).sort((a, b) => b.totalGGs - a.totalGGs);
+            let rankMap = {};
+            sortedCreators.forEach((creator, index) => {
+                rankMap[creator.gamertag.toLowerCase()] = index + 1;
+            });
+
+            return { rankMap, sortedCreators };
+        }
+
+        window.openUserProfileModal = function(username) {
+            const cleanUser = username.replace('@', '');
+            const userPosts = (window.fypposts || []).filter(p => p.user && p.user.toLowerCase() === cleanUser.toLowerCase());
+
+            let totalGGs = 0;
+            userPosts.forEach(p => totalGGs += (p.ggsCount || 0));
+
+            const { rankMap } = calculateGlobalRanks();
+            const userRank = rankMap[cleanUser.toLowerCase()] || '--';
+
+            document.getElementById('profileGamertag').innerText = `@${cleanUser}`;
+            document.getElementById('profilePostCount').innerText = userPosts.length;
+            document.getElementById('profileGGsCount').innerText = totalGGs;
+            document.getElementById('profileRankBadge').innerText = `#${userRank}`;
+
+            let baseFollowers = Math.max(12, userPosts.length * 14 + totalGGs * 8);
+            let isFollowing = !!window.userFollowsState[cleanUser.toLowerCase()];
+            if (isFollowing) baseFollowers += 1;
+
+            document.getElementById('profileFollowersCount').innerText = baseFollowers;
+
+            const followBtn = document.getElementById('profileFollowBtn');
+            if (followBtn) {
+                followBtn.innerHTML = isFollowing 
+                    ? `<i class="fa-solid fa-user-check mr-1"></i> Following` 
+                    : `<i class="fa-solid fa-user-plus mr-1"></i> Follow`;
+                followBtn.onclick = () => window.toggleFollowUser(cleanUser);
+            }
+
+            const postsContainer = document.getElementById('profileUserPostsList');
+            postsContainer.innerHTML = '';
+
+            if (userPosts.length === 0) {
+                postsContainer.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No published posts yet.</p>`;
+            } else {
+                userPosts.forEach(p => {
+                    let thumbHtml = '';
+                    if (p.mediaList && p.mediaList.length > 0) {
+                        thumbHtml = p.mediaList[0].type === 'video' 
+                            ? `<video src="${p.mediaList[0].url}" class="w-12 h-12 rounded-lg object-cover bg-black"></video>`
+                            : `<img src="${p.mediaList[0].url}" class="w-12 h-12 rounded-lg object-cover">`;
+                    }
+
+                    postsContainer.innerHTML += `
+                        <div class="glass-panel p-2.5 rounded-xl flex items-center justify-between space-x-3 text-xs border border-cyan-500/15">
+                            <div class="flex items-center space-x-2.5 min-w-0">
+                                ${thumbHtml}
+                                <div class="truncate">
+                                    <span class="text-[9px] text-cyan-400 font-bold uppercase">${p.game || 'GAMING'}</span>
+                                    <p class="text-xs text-gray-200 truncate">${p.caption || 'Media post'}</p>
+                                </div>
+                            </div>
+                            <span class="text-cyan-400 font-bold text-[10px] shrink-0">${p.ggsCount || 0} GGs</span>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('userProfileModal').classList.remove('hidden');
+        };
+
+        window.toggleFollowUser = function(cleanUser) {
+            let key = cleanUser.toLowerCase();
+            window.userFollowsState[key] = !window.userFollowsState[key];
+            if (window.userFollowsState[key]) {
+                showToast(`Started following @${cleanUser}!`);
+            } else {
+                showToast(`Unfollowed @${cleanUser}.`);
+            }
+            openUserProfileModal(cleanUser);
+        };
+
+        window.closeUserProfileModal = function() {
+            document.getElementById('userProfileModal').classList.add('hidden');
+        };
+
         window.listenToFirestorePosts = function() {
             if(!window.db || typeof query !== 'function') return;
             const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"), limit(30));
@@ -388,6 +485,7 @@
                 let localPosts = (window.fypposts || []).filter(p => p.isLocalFallback);
                 window.fypposts = [...localPosts, ...cloudPosts];
                 if(window.renderFypFeed) window.renderFypFeed();
+                if(window.renderTopAccounts) window.renderTopAccounts();
             }, (error) => {
                 console.warn("Firestore listener error:", error);
             });
@@ -532,7 +630,7 @@
             <div class="glass-panel p-3 rounded-2xl space-y-2.5 shadow-xl">
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-cyan-400 text-xs"></i>
-                    <input type="text" id="globalSearchInput" oninput="handleGlobalSearch(this.value)" placeholder="Search accounts, posts, or tags..." class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none">
+                    <input type="text" id="globalSearchInput" oninput="handleGlobalSearch(this.value)" placeholder="Search Gamertag, posts, or tags..." class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none">
                 </div>
             </div>
 
@@ -613,23 +711,68 @@
 
         <!-- Top View -->
         <div id="view-popular" class="view-section hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl fade-in">
-            <h3 class="text-xs font-black text-white uppercase tracking-wider border-b border-cyan-500/15 pb-2"><i class="fa-solid fa-crown text-amber-400 mr-1.5"></i> Top Creators & Accounts</h3>
+            <h3 class="text-xs font-black text-white uppercase tracking-wider border-b border-cyan-500/15 pb-2"><i class="fa-solid fa-crown text-amber-400 mr-1.5"></i> Top Gamertags & Rankings</h3>
             <div id="topAccountsList" class="space-y-2.5 overflow-y-auto flex-1"></div>
         </div>
     </main>
+
+    <!-- GAMERTAG PROFILES, FOLLOWERS & DYNAMIC RANK MODAL -->
+    <div id="userProfileModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[160] flex flex-col justify-end">
+        <div class="glass-panel w-full max-w-md mx-auto rounded-t-3xl p-5 flex flex-col space-y-4 max-h-[85vh] shadow-2xl border-t border-cyan-500/40">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-sm shadow">SG</div>
+                    <div>
+                        <h3 id="profileGamertag" class="text-xs font-black text-white uppercase tracking-wider">@Gamertag</h3>
+                        <p class="text-[9px] text-orange-400 font-bold uppercase">Sinless GG Creator</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="profileFollowBtn" class="px-3 py-1 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 rounded-xl font-black text-[10px] shadow uppercase">
+                        <i class="fa-solid fa-user-plus mr-1"></i> Follow
+                    </button>
+                    <button onclick="closeUserProfileModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕</button>
+                </div>
+            </div>
+
+            <!-- Enhanced Stats Bar (Rank, Published Posts, Followers, Total GGs) -->
+            <div class="grid grid-cols-4 gap-1.5 bg-gg-950 p-2.5 rounded-2xl border border-cyan-500/15 text-center">
+                <div>
+                    <span id="profileRankBadge" class="block text-xs font-black text-amber-400">#--</span>
+                    <span class="text-[8px] text-gray-400 uppercase font-bold">Rank</span>
+                </div>
+                <div>
+                    <span id="profilePostCount" class="block text-xs font-black text-white">0</span>
+                    <span class="text-[8px] text-gray-400 uppercase font-bold">Published</span>
+                </div>
+                <div>
+                    <span id="profileFollowersCount" class="block text-xs font-black text-emerald-400">0</span>
+                    <span class="text-[8px] text-gray-400 uppercase font-bold">Followers</span>
+                </div>
+                <div>
+                    <span id="profileGGsCount" class="block text-xs font-black text-cyan-400">0</span>
+                    <span class="text-[8px] text-gray-400 uppercase font-bold">Total GGs</span>
+                </div>
+            </div>
+
+            <!-- Published Posts List -->
+            <div class="space-y-2 flex-1 overflow-y-auto pr-1">
+                <h4 class="text-[10px] font-extrabold text-gray-300 uppercase tracking-wider">Published Clips & Posts</h4>
+                <div id="profileUserPostsList" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
 
     <!-- REAL-TIME COMMENTS & REPLIES MODAL -->
     <div id="commentsModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[150] flex flex-col justify-end">
         <div class="glass-panel w-full max-w-md mx-auto rounded-t-3xl p-4 flex flex-col space-y-3 h-[75vh] shadow-2xl border-t border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider">Replies for <span id="commentsPostUser" class="text-cyan-400">@User</span></h3>
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Replies for <span id="commentsPostUser" class="text-cyan-400">@Gamertag</span></h3>
                 <button onclick="closeCommentsModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
 
-            <!-- Comments List Area -->
             <div id="commentsListContainer" class="flex-1 overflow-y-auto space-y-2.5 pr-1"></div>
 
-            <!-- Comment Input Box -->
             <div class="pt-2 border-t border-cyan-500/15 flex items-center space-x-2">
                 <input type="text" id="commentInputText" placeholder="Write a reply..." class="flex-1 bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none" onkeypress="if(event.key === 'Enter') submitCommentReply()">
                 <button onclick="submitCommentReply()" class="px-4 py-2 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 font-black rounded-xl text-xs uppercase shadow">Send</button>
@@ -659,7 +802,7 @@
                 <button onclick="closeAccountModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
             </div>
             <div class="space-y-3 py-1">
-                <p id="accountModalStatusText" class="text-xs text-gray-300">Connect with your Google account to post under your real username.</p>
+                <p id="accountModalStatusText" class="text-xs text-gray-300">Connect with your Google account to post under your real Gamertag.</p>
                 <button id="googleAuthBtn" onclick="window.loginWithGoogle()" class="w-full py-3 bg-white text-slate-900 font-extrabold rounded-xl text-xs flex items-center justify-center space-x-2 shadow hover:bg-gray-100 transition">
                     <i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>
                 </button>
@@ -675,7 +818,6 @@
                 <button onclick="closeCreatePostModal()" class="text-gray-400 text-xs font-bold">✕ Close</button>
             </div>
 
-            <!-- Caption & Category -->
             <div class="space-y-2">
                 <textarea id="postTextContent" rows="2" placeholder="Write caption or describe your media..." class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-3 text-xs text-white focus:outline-none"></textarea>
                 <select id="postCategorySelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30 focus:outline-none">
@@ -688,7 +830,6 @@
                 </select>
             </div>
 
-            <!-- Multi-Image / Video Upload Picker -->
             <div class="p-3 bg-gg-950 rounded-xl border border-cyan-500/20 space-y-2">
                 <div class="flex justify-between items-center text-[10px] text-gray-300 font-bold">
                     <span>🖼️ Attach Media (Max 10 Items)</span>
@@ -698,7 +839,6 @@
                 <div id="mediaPreviewThumbnails" class="grid grid-cols-5 gap-2 pt-2"></div>
             </div>
 
-            <!-- Copyright-Free Music Library -->
             <div class="p-3 bg-gg-950 rounded-xl border border-cyan-500/20 space-y-2">
                 <div class="flex justify-between items-center text-[10px] text-gray-300 font-bold">
                     <span>🎵 Copyright-Free Music Library</span>
@@ -709,7 +849,6 @@
                   <span class="text-emerald-400 text-xs">Browse</span>
                 </button>
 
-                <!-- Sound Picker Modal -->
                 <div id="soundPickerModal" class="hidden fixed inset-0 bg-black/90 z-50 p-4 flex flex-col justify-between">
                   <div>
                     <div class="flex justify-between items-center mb-4">
@@ -739,7 +878,6 @@
                 </div>
             </div>
 
-            <!-- Submit Button -->
             <button id="publishPostBtn" onclick="submitUniversalPost()" class="w-full py-3 bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 font-black rounded-xl text-xs shadow-lg uppercase tracking-wider">🚀 Publish Post with Media</button>
         </div>
     </div>
@@ -844,10 +982,6 @@
             initMediaTouchZoomControls();
         }
 
-        /**
-         * Compresses and resizes an image file on the client side to WebP format.
-         * Maintains visual sharpness while significantly reducing file size.
-         */
         function compressImage(file, maxWidth = 1920, maxHeight = 1080, quality = 0.85) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -883,7 +1017,6 @@
             });
         }
 
-        // --- OPTIMIZED MEDIA SELECTION ---
         async function handleMediaSelection(input) {
             const files = Array.from(input.files);
             if (files.length > 10) {
@@ -921,7 +1054,6 @@
             }
         }
 
-        // --- TOUCH & PINCH ZOOM CONTROL LOGIC ---
         let currentScale = 1;
         let startDistance = 0;
         let translateX = 0;
@@ -1034,7 +1166,6 @@
             }, { passive: false });
         }
 
-        // Horizontal Live Matches Carousel
         async function fetchHorizontalLiveMatches() {
             const carousel = document.getElementById('horizontalLiveMatchesCarousel');
             if (!carousel) return;
@@ -1166,7 +1297,7 @@
                 container.innerHTML += `
                     <div class="glass-panel rounded-2xl p-3 space-y-2 shadow-xl">
                         <div class="flex items-center justify-between">
-                            <span class="font-bold text-xs text-white">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
+                            <span class="font-bold text-xs text-white cursor-pointer" onclick="openUserProfileModal('${post.user}')">@${post.user} <span class="verified-badge"><i class="fa-solid fa-circle-check"></i></span></span>
                             <span class="text-[9px] text-cyan-400 font-bold">${post.game || 'GAMING'}</span>
                         </div>
                         ${captionHtml}
@@ -1204,7 +1335,7 @@
                     <div class="glass-panel p-3 rounded-2xl flex justify-between items-center text-xs">
                         <div>
                             <h4 class="font-bold text-white">${item.title}</h4>
-                            <p class="text-[9px] text-gray-400">Seller: @${item.user}</p>
+                            <p class="text-[9px] text-gray-400 cursor-pointer" onclick="openUserProfileModal('${item.user}')">Seller: @${item.user}</p>
                         </div>
                         <span class="text-cyan-400 font-black">${item.price}</span>
                     </div>
@@ -1215,21 +1346,31 @@
         function renderClansList() {
             let box = document.getElementById('clansListContainer'); if(!box) return; box.innerHTML = '';
             clansData.forEach(c => {
-                box.innerHTML += `<div class="glass-panel p-3 rounded-2xl flex justify-between items-center text-xs"><div><h4 class="font-bold text-white">${c.name} [${c.tag}]</h4><p class="text-[9px] text-gray-400">Leader: @${c.leader}</p></div><button onclick="showToast('Joined squad!')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 rounded-xl font-black">Join</button></div>`;
+                box.innerHTML += `<div class="glass-panel p-3 rounded-2xl flex justify-between items-center text-xs"><div><h4 class="font-bold text-white">${c.name} [${c.tag}]</h4><p class="text-[9px] text-gray-400 cursor-pointer" onclick="openUserProfileModal('${c.leader}')">Leader: @${c.leader}</p></div><button onclick="showToast('Joined squad!')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 rounded-xl font-black">Join</button></div>`;
             });
         }
 
         function renderLadder(game) {
             let body = document.getElementById('ladderBody'); if(!body) return; body.innerHTML = '';
             ['SinlessGaming', 'DonPrime', 'Sinless101'].forEach((user, idx) => {
-                body.innerHTML += `<div class="grid grid-cols-3 px-4 py-2.5 text-xs text-gray-200"><span>#${idx+1}</span><span class="font-bold">@${user}</span><span class="text-right text-cyan-400 font-black">${120 - (idx*15)} PTS</span></div>`;
+                body.innerHTML += `<div class="grid grid-cols-3 px-4 py-2.5 text-xs text-gray-200"><span>#${idx+1}</span><span class="font-bold cursor-pointer" onclick="openUserProfileModal('${user}')">@${user}</span><span class="text-right text-cyan-400 font-black">${120 - (idx*15)} PTS</span></div>`;
             });
         }
 
-        function renderTopAccounts() {
+        window.renderTopAccounts = function() {
             let list = document.getElementById('topAccountsList'); if(!list) return; list.innerHTML = '';
-            ['SinlessGaming', 'Sinless101', 'DonPrime'].forEach((u, i) => {
-                list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs"><span class="font-bold text-white">#${i+1} @${u}</span><span class="text-cyan-400 font-bold">1.4k GGs</span></div>`;
+            
+            const { sortedCreators } = calculateGlobalRanks();
+
+            if (sortedCreators.length === 0) {
+                ['SinlessGaming', 'Sinless101', 'AceKhyd'].forEach((u, i) => {
+                    list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs cursor-pointer" onclick="openUserProfileModal('${u}')"><span class="font-bold text-white">#${i+1} @${u}</span><span class="text-cyan-400 font-bold">1.4k GGs</span></div>`;
+                });
+                return;
+            }
+
+            sortedCreators.forEach((creator, i) => {
+                list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs cursor-pointer" onclick="openUserProfileModal('${creator.gamertag}')"><span class="font-bold text-white">#${i+1} @${creator.gamertag}</span><span class="text-cyan-400 font-bold">${creator.totalGGs} GGs</span></div>`;
             });
         }
 
@@ -1258,7 +1399,7 @@
         function handleGlobalSearch(q) {
             let res = document.getElementById('dynamicTrendingTopicsList');
             if(!q) { runTrendingTopics(); return; }
-            res.innerHTML = (window.fypposts || []).filter(p => p.caption && p.caption.toLowerCase().includes(q.toLowerCase())).map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white">@${p.user}: ${p.caption}</div>`).join('') || '<p class="text-xs text-gray-400">No results found.</p>';
+            res.innerHTML = (window.fypposts || []).filter(p => p.caption && p.caption.toLowerCase().includes(q.toLowerCase())).map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white"><span class="font-bold cursor-pointer" onclick="openUserProfileModal('${p.user}')">@${p.user}</span>: ${p.caption}</div>`).join('') || '<p class="text-xs text-gray-400">No results found.</p>';
         }
     </script>
 </body>
