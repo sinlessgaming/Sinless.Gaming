@@ -168,6 +168,7 @@
                     authModalBtn.onclick = window.loginWithGoogle;
                 }
             }
+            if(window.renderClansList) window.renderClansList();
         });
 
         function openPostDB() {
@@ -764,6 +765,203 @@
                 e.stopPropagation();
             }
             document.getElementById('userProfileModal').classList.add('hidden');
+        };
+
+        // --- SQUADS (CLANS) SYSTEM ---
+        window.clansData = JSON.parse(localStorage.getItem('sinless_clans_data') || 'null') || [
+            { id: 'squad_1', name: 'FOOTBALL OFFICIAL SQUAD', tag: 'FTB', leader: 'Sinless101', game: 'FOOTBALL', members: ['Sinless101', 'AceKhyd', 'DonPrime'], bio: 'Official competitive squad for football managers.' },
+            { id: 'squad_2', name: 'FC MOBILE ELITE SQUAD', tag: 'FCM', leader: 'Sinless101', game: 'FC MOBILE', members: ['Sinless101', 'Kumi_FC'], bio: 'High OVR players and league tournament participants.' }
+        ];
+
+        window.activeSquadDetails = null;
+
+        window.listenToFirestoreSquads = function() {
+            if(!window.db || typeof query !== 'function') return;
+            const q = query(collection(window.db, "squads"), limit(30));
+            onSnapshot(q, (snapshot) => {
+                if(!snapshot.empty) {
+                    let cloudSquads = [];
+                    snapshot.forEach((docSnap) => {
+                        cloudSquads.push({ id: docSnap.id, docId: docSnap.id, ...docSnap.data() });
+                    });
+                    window.clansData = cloudSquads;
+                    localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
+                    if(window.renderClansList) window.renderClansList();
+                }
+            }, (error) => { console.warn("Squads listener error:", error); });
+        };
+
+        window.renderClansList = function() {
+            let box = document.getElementById('clansListContainer');
+            if(!box) return;
+            box.innerHTML = '';
+
+            if(!window.clansData || window.clansData.length === 0) {
+                box.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No active squads. Be the first to form a squad!</div>`;
+                return;
+            }
+
+            const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+
+            window.clansData.forEach(c => {
+                const members = c.members || [c.leader];
+                const isMember = members.some(m => m.toLowerCase() === me);
+
+                box.innerHTML += `
+                    <div class="glass-panel p-3.5 rounded-2xl flex justify-between items-center text-xs shadow-lg border border-cyan-500/20 hover:border-cyan-400/50 transition cursor-pointer" onclick="openSquadDetailsModal('${c.id}')">
+                        <div class="space-y-1">
+                            <div class="flex items-center space-x-1.5">
+                                <h4 class="font-extrabold text-white">${c.name}</h4>
+                                <span class="text-[9px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-black px-1.5 py-0.5 rounded uppercase">[${c.tag}]</span>
+                            </div>
+                            <p class="text-[9px] text-gray-400">Leader: <span class="text-cyan-400 font-bold" onclick="event.stopPropagation(); openUserProfileModal('${c.leader}', event)">@${c.leader}</span> • ${members.length} Members</p>
+                        </div>
+                        <button onclick="event.stopPropagation(); toggleSquadMembership('${c.id}')" class="px-3.5 py-1.5 rounded-xl font-black text-[10px] uppercase transition shadow ${isMember ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'}">
+                            ${isMember ? 'Leave' : 'Join'}
+                        </button>
+                    </div>
+                `;
+            });
+        };
+
+        window.toggleSquadMembership = async function(squadId) {
+            const squad = window.clansData.find(c => c.id === squadId);
+            if (!squad) return;
+
+            const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+            if (!squad.members) squad.members = [squad.leader];
+
+            const memberIndex = squad.members.findIndex(m => m.toLowerCase() === me.toLowerCase());
+            const isMember = memberIndex !== -1;
+
+            if (isMember) {
+                if (squad.leader.toLowerCase() === me.toLowerCase() && squad.members.length > 1) {
+                    showToast("⚠️ Leader cannot leave squad with active members! Transfer leadership first.");
+                    return;
+                }
+                squad.members.splice(memberIndex, 1);
+                showToast(`Left squad ${squad.name}`);
+            } else {
+                squad.members.push(me);
+                showToast(`Joined squad ${squad.name}!`);
+            }
+
+            localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
+            window.renderClansList();
+
+            if (window.db && squad.docId) {
+                try {
+                    const squadRef = doc(window.db, "squads", squad.docId);
+                    await updateDoc(squadRef, {
+                        members: isMember ? arrayRemove(me) : arrayUnion(me)
+                    });
+                } catch (e) { console.error("Error updating squad members on cloud:", e); }
+            }
+        };
+
+        window.openCreateClanModal = function() {
+            document.getElementById('createSquadModal').classList.remove('hidden');
+        };
+
+        window.closeCreateClanModal = function() {
+            document.getElementById('createSquadModal').classList.add('hidden');
+        };
+
+        window.submitNewSquad = async function() {
+            const name = document.getElementById('squadNameInput').value.trim();
+            const tag = document.getElementById('squadTagInput').value.trim().toUpperCase();
+            const game = document.getElementById('squadGameSelect').value;
+            const bio = document.getElementById('squadBioInput').value.trim();
+            const leader = (window.myUsername || '@SinlessGaming').replace('@', '');
+
+            if (!name || !tag) {
+                showToast("⚠️ Please enter a squad name and 3-letter tag!");
+                return;
+            }
+
+            const newSquad = {
+                id: 'squad_' + Date.now(),
+                name: name,
+                tag: tag,
+                game: game,
+                bio: bio || 'Official gaming squad on Sinless GG!',
+                leader: leader,
+                members: [leader],
+                createdAt: new Date().toISOString()
+            };
+
+            window.clansData.unshift(newSquad);
+            localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
+
+            if (window.db && typeof addDoc === 'function') {
+                try {
+                    const docRef = await addDoc(collection(window.db, "squads"), {
+                        ...newSquad,
+                        createdAt: serverTimestamp()
+                    });
+                    newSquad.docId = docRef.id;
+                } catch(e) { console.error("Cloud squad creation error:", e); }
+            }
+
+            showToast(`🔥 Squad [${tag}] ${name} Established!`);
+            document.getElementById('squadNameInput').value = '';
+            document.getElementById('squadTagInput').value = '';
+            document.getElementById('squadBioInput').value = '';
+            closeCreateClanModal();
+            window.renderClansList();
+        };
+
+        window.openSquadDetailsModal = function(squadId) {
+            const squad = window.clansData.find(c => c.id === squadId);
+            if (!squad) return;
+
+            window.activeSquadDetails = squad;
+            const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+            const isLeader = squad.leader.toLowerCase() === me;
+
+            document.getElementById('squadDetailTitle').innerText = squad.name;
+            document.getElementById('squadDetailTag').innerText = `[${squad.tag}]`;
+            document.getElementById('squadDetailLeader').innerText = `@${squad.leader}`;
+            document.getElementById('squadDetailGame').innerText = squad.game || 'ALL GAMING';
+            document.getElementById('squadDetailBio').innerText = squad.bio || 'Competitive squad on Sinless GG';
+
+            const rosterContainer = document.getElementById('squadRosterList');
+            rosterContainer.innerHTML = '';
+            (squad.members || [squad.leader]).forEach(member => {
+                rosterContainer.innerHTML += `
+                    <div class="flex items-center justify-between p-2 bg-gg-950 rounded-xl border border-cyan-500/10 text-xs">
+                        <span class="font-bold text-white cursor-pointer hover:text-cyan-400" onclick="closeSquadDetailsModal(); openUserProfileModal('${member}', event)">@${member}</span>
+                        ${member.toLowerCase() === squad.leader.toLowerCase() ? '<span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1.5 py-0.5 rounded font-black">👑 Leader</span>' : '<span class="text-[8px] text-gray-400">Member</span>'}
+                    </div>
+                `;
+            });
+
+            const deleteBtn = document.getElementById('deleteSquadBtn');
+            if (isLeader) deleteBtn.classList.remove('hidden');
+            else deleteBtn.classList.add('hidden');
+
+            document.getElementById('squadDetailsModal').classList.remove('hidden');
+        };
+
+        window.closeSquadDetailsModal = function() {
+            document.getElementById('squadDetailsModal').classList.add('hidden');
+            window.activeSquadDetails = null;
+        };
+
+        window.deleteActiveSquad = async function() {
+            const squad = window.activeSquadDetails;
+            if (!squad || !confirm(`Disband squad ${squad.name}? This cannot be undone.`)) return;
+
+            window.clansData = window.clansData.filter(c => c.id !== squad.id);
+            localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
+
+            if (window.db && squad.docId) {
+                try { await deleteDoc(doc(window.db, "squads", squad.docId)); } catch(e){}
+            }
+
+            showToast("Squad disbanded.");
+            closeSquadDetailsModal();
+            window.renderClansList();
         };
 
         window.tournamentsList = JSON.parse(localStorage.getItem('sinless_tournaments_list') || 'null') || [
@@ -1459,6 +1657,7 @@
         window.addEventListener('load', () => {
             if(window.listenToFirestorePosts) window.listenToFirestorePosts();
             if(window.listenToFirestoreMarket) window.listenToFirestoreMarket();
+            if(window.listenToFirestoreSquads) window.listenToFirestoreSquads();
         });
     </script>
 
@@ -1601,10 +1800,14 @@
             <div id="marketListContainer" class="space-y-3"></div>
         </div>
 
+        <!-- SQUADS / CLANS VIEW -->
         <div id="view-clans" class="view-section hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
-            <div class="glass-panel p-4 rounded-2xl flex items-center justify-between shadow-xl">
-                <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-shield-halved text-cyan-400 mr-1.5"></i> Official Squads</h3>
-                <button onclick="openCreateClanModal()" class="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl text-[10px] font-bold">+ Create Squad</button>
+            <div class="glass-panel p-4 rounded-2xl flex items-center justify-between shadow-xl border border-cyan-500/30">
+                <div>
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-shield-halved text-cyan-400 mr-1.5"></i> Official Squads</h3>
+                    <p class="text-[9px] text-gray-300">Create or join clans for tournaments & team matches.</p>
+                </div>
+                <button onclick="openCreateClanModal()" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-black rounded-xl text-[10px] shadow uppercase tracking-wider">+ Create Squad</button>
             </div>
             <div id="clansListContainer" class="space-y-3"></div>
         </div>
@@ -1663,6 +1866,77 @@
             <div id="topAccountsList" class="space-y-2.5 overflow-y-auto flex-1"></div>
         </div>
     </main>
+
+    <!-- CREATE SQUAD MODAL -->
+    <div id="createSquadModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[170] flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider">Form New Squad</h3>
+                <button onclick="closeCreateClanModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
+            </div>
+
+            <div class="space-y-2.5">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Squad Name</label>
+                    <input type="text" id="squadNameInput" placeholder="e.g. Sinless Apex Legends" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-2.5 text-xs text-white focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Squad Tag (3-4 Characters)</label>
+                    <input type="text" id="squadTagInput" maxlength="4" placeholder="e.g. SAL" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-2.5 text-xs text-white uppercase focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Primary Game Title</label>
+                    <select id="squadGameSelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30 focus:outline-none">
+                        <option value="FOOTBALL">⚽ Football</option>
+                        <option value="FC MOBILE">📱 FC Mobile</option>
+                        <option value="EA SPORTS FC">🎮 EA Sports FC</option>
+                        <option value="EFOOTBALL">⚡ eFootball</option>
+                        <option value="WRESTLING">🤼 Wrestling</option>
+                        <option value="CALL OF DUTY">🎯 Call of Duty</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Squad Description / Rules</label>
+                    <textarea id="squadBioInput" rows="2" placeholder="Requirements to join, tournament practice times..." class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-2.5 text-xs text-white focus:outline-none"></textarea>
+                </div>
+            </div>
+
+            <button onclick="submitNewSquad()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black rounded-xl text-xs shadow-lg uppercase tracking-wider mt-1">
+                🛡️ Launch Official Squad
+            </button>
+        </div>
+    </div>
+
+    <!-- SQUAD DETAILS / ROSTER MODAL -->
+    <div id="squadDetailsModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[180] flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40 max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+                <div class="flex items-center space-x-1.5">
+                    <h3 id="squadDetailTitle" class="text-xs font-black text-white uppercase tracking-wider">Squad Name</h3>
+                    <span id="squadDetailTag" class="text-[9px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-black px-1.5 py-0.5 rounded uppercase">[TAG]</span>
+                </div>
+                <button onclick="closeSquadDetailsModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕ Close</button>
+            </div>
+
+            <div class="bg-gg-950 p-3 rounded-xl border border-cyan-500/20 space-y-1.5">
+                <p class="text-[10px] text-gray-400">Leader: <span id="squadDetailLeader" class="text-cyan-400 font-bold">@Leader</span></p>
+                <p class="text-[10px] text-gray-400">Game: <span id="squadDetailGame" class="text-white font-bold">Game</span></p>
+                <p id="squadDetailBio" class="text-xs text-gray-200 pt-1 leading-relaxed"></p>
+            </div>
+
+            <div class="space-y-2">
+                <h4 class="text-[10px] font-black text-gray-300 uppercase tracking-wider">Squad Roster</h4>
+                <div id="squadRosterList" class="space-y-1.5 max-h-48 overflow-y-auto pr-1"></div>
+            </div>
+
+            <button id="deleteSquadBtn" onclick="deleteActiveSquad()" class="hidden w-full py-2 bg-red-600/20 text-red-400 border border-red-500/30 rounded-xl text-xs font-bold hover:bg-red-600/30 transition">
+                <i class="fa-solid fa-trash mr-1"></i> Disband Squad
+            </button>
+        </div>
+    </div>
 
     <!-- LIVE STREAM BROADCAST MODAL -->
     <div id="liveStreamModal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-2xl z-[190] flex flex-col justify-between p-3">
@@ -2160,11 +2434,6 @@
             document.getElementById('audioPlayingStatus').innerText = "Audio preview stopped";
         }
 
-        let clansData = [
-            { name: 'FOOTBALL OFFICIAL SQUAD', tag: 'FTB', leader: 'Sinless101' },
-            { name: 'FC MOBILE ELITE SQUAD', tag: 'FCM', leader: 'Sinless101' }
-        ];
-
         function showToast(msg) {
             let banner = document.getElementById('toastBanner');
             if(!banner) return;
@@ -2362,7 +2631,6 @@
         function openNotificationsModal() { showToast("No new notifications."); }
         function openMarketModal() { document.getElementById('marketModal').classList.remove('hidden'); }
         function closeMarketModal() { document.getElementById('marketModal').classList.add('hidden'); }
-        function openCreateClanModal() { showToast('Squad creator active!'); }
 
         function switchView(viewName) {
             document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
@@ -2496,13 +2764,6 @@
                 box.innerHTML += `<div class="glass-panel p-3 rounded-2xl flex justify-between items-center text-xs"><div><h4 class="font-bold text-white">${item.title}</h4><p class="text-[9px] text-gray-400 cursor-pointer" onclick="openUserProfileModal('${item.user}', event)">Seller: @${item.user}</p></div><span class="text-cyan-400 font-black">${item.price}</span></div>`;
             });
         };
-
-        function renderClansList() {
-            let box = document.getElementById('clansListContainer'); if(!box) return; box.innerHTML = '';
-            clansData.forEach(c => {
-                box.innerHTML += `<div class="glass-panel p-3 rounded-2xl flex justify-between items-center text-xs"><div><h4 class="font-bold text-white">${c.name} [${c.tag}]</h4><p class="text-[9px] text-gray-400 cursor-pointer" onclick="openUserProfileModal('${c.leader}', event)">Leader: @${c.leader}</p></div><button onclick="showToast('Joined squad!')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 rounded-xl font-black">Join</button></div>`;
-            });
-        }
 
         window.renderLadder = function(selectedGame = 'ALL') {
             let body = document.getElementById('ladderBody'); if(!body) return; body.innerHTML = '';
