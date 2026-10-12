@@ -788,7 +788,16 @@
             { id: 'cat_squad_other', name: 'VARIETY GAMING HUB', tag: 'VAR', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'OTHER GAMES', isOfficial: true, isPublic: true, inviteCode: 'SQ-VAR01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat'], bio: 'All other mobile, console & PC games community chat.', rooms: { 'Rules/Announcements': [], 'chat': [] } }
         ];
 
-        window.clansData = JSON.parse(localStorage.getItem('sinless_clans_data') || 'null') || window.defaultPublicCategorySquads;
+        // FIX: Ensure default squads are injected even if user has an old cache instance stored in localStorage 
+        let savedClans = JSON.parse(localStorage.getItem('sinless_clans_data') || 'null');
+        if (!savedClans) {
+            window.clansData = [...window.defaultPublicCategorySquads];
+        } else {
+            let mergedMap = {};
+            window.defaultPublicCategorySquads.forEach(s => mergedMap[s.id] = s);
+            savedClans.forEach(s => { if(s.id) mergedMap[s.id] = s; });
+            window.clansData = Object.values(mergedMap);
+        }
         
         (window.clansData || []).forEach(c => {
             if (c.id === 'cat_squad_football' || c.name === 'FOOTBALL MANAGERS HUB') {
@@ -2446,7 +2455,7 @@
     </div>
 
     <!-- FULL-SCREEN SQUAD INTERFACE -->
-    <div id="squadDetailsModal" class="hidden fixed inset-0 w-screen h-screen z-[180] bg-slate-950 flex flex-col overflow-hidden">
+    <div id="squadDetailsModal" class="hidden fixed inset-0 z-[180] bg-slate-950 flex flex-col overflow-hidden">
         <div class="p-3 bg-gg-900 border-b border-cyan-500/20 flex items-center justify-between shrink-0 shadow-lg">
             <div class="flex items-center space-x-2.5">
                 <button onclick="closeSquadDetailsModal()" class="w-8 h-8 rounded-full bg-slate-800 text-cyan-400 flex items-center justify-center font-bold text-sm border border-cyan-500/30 shadow hover:bg-slate-700 transition">
@@ -2550,7 +2559,7 @@
     </div>
 
     <!-- DIRECT MESSAGING MODAL WITH 1-ON-1 VOICE CALLING -->
-    <div id="dmModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[150] flex flex-col justify-end">
+    <div id="dmModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[200] flex flex-col justify-end">
         <div class="glass-panel w-full max-w-md mx-auto rounded-t-3xl p-4 flex flex-col space-y-3 h-[80vh] shadow-2xl border-t border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                 <div class="flex items-center space-x-2">
@@ -2821,7 +2830,7 @@
     </div>
 
     <!-- COMMENTS MODAL -->
-    <div id="commentsModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[150] flex flex-col justify-end">
+    <div id="commentsModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[200] flex flex-col justify-end">
         <div class="glass-panel w-full max-w-md mx-auto rounded-t-3xl p-4 flex flex-col space-y-3 h-[75vh] shadow-2xl border-t border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                 <h3 class="text-xs font-black text-white uppercase tracking-wider">Replies for <span id="commentsPostUser" class="text-cyan-400">@Gamertag</span></h3>
@@ -3087,8 +3096,8 @@
             currentScale = 1; translateX = 0; translateY = 0;
             
             container.innerHTML = type === 'video' 
-                ? `<video id="zoomTargetElement" src="${url}" controls autoplay class="max-w-full max-h-full object-contain rounded-2xl shadow-2xl transition-transform duration-75 ease-out"></video>`
-                : `<img id="zoomTargetElement" src="${url}" class="max-w-full max-h-full object-contain rounded-2xl shadow-2xl transition-transform duration-75 ease-out">`;
+                ? `<video id="zoomTargetElement" src="${url}" controls autoplay class="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"></video>`
+                : `<img id="zoomTargetElement" src="${url}" class="max-w-full max-h-full object-contain rounded-2xl shadow-2xl">`;
             modal.classList.remove('hidden');
         }
 
