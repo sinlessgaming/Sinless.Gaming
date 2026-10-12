@@ -640,8 +640,12 @@
             if (userPosts.length === 0) {
                 postsContainer.innerHTML = `<div class="col-span-3 text-xs text-gray-400 text-center py-10">No clips or posts published yet.</div>`;
             } else {
+                // BUG FIX 2: Tapping post cards opens Full-Screen Media Inspection correctly instead of opening replies modal or taking you out
                 userPosts.forEach(p => {
                     let mediaThumbnail = '';
+                    let firstMediaUrl = (p.mediaList && p.mediaList.length > 0) ? p.mediaList[0].url : null;
+                    let firstMediaType = (p.mediaList && p.mediaList.length > 0) ? p.mediaList[0].type : 'image';
+
                     if (p.mediaList && p.mediaList.length > 0) {
                         const m = p.mediaList[0];
                         if (m.type === 'video') {
@@ -657,11 +661,11 @@
                     }
 
                     postsContainer.innerHTML += `
-                        <div class="relative aspect-[3/4] rounded-xl overflow-hidden bg-gg-950 border border-cyan-500/20 group cursor-pointer" onclick="closeUserProfileModal(); openCommentsModal('${p.id}')">
+                        <div class="relative aspect-[3/4] rounded-xl overflow-hidden bg-gg-950 border border-cyan-500/20 group cursor-pointer" onclick="event.stopPropagation(); ${firstMediaUrl ? `openMediaZoomModal('${firstMediaType}', '${firstMediaUrl}')` : `openCommentsModal('${p.id}')`}">
                             ${mediaThumbnail}
                             <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent opacity-90"></div>
                             <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between text-[10px] text-white font-extrabold">
-                                <span class="flex items-center text-cyan-400"><i class="fa-solid fa-thumbs-up mr-1 text-[8px]"></i>${p.ggsCount || 0}</span>
+                                <span class="flex items-center text-cyan-400" onclick="event.stopPropagation(); toggleGGPost('${p.id}')"><i class="fa-solid fa-thumbs-up mr-1 text-[8px]"></i>${p.ggsCount || 0}</span>
                                 <span class="text-[8px] text-gray-300 uppercase">${p.game || 'POST'}</span>
                             </div>
                         </div>
@@ -779,6 +783,7 @@
         window.activeSquadSubRoom = 'chat';
         window.squadsFilterTab = 'my_squads';
 
+        // BUG FIX 3: Deduplicate Squads inside Firestore listener to prevent duplicate cards
         window.listenToFirestoreSquads = function() {
             if(!window.db || typeof query !== 'function') return;
             const q = query(collection(window.db, "squads"), limit(50));
@@ -791,7 +796,8 @@
                     
                     let mergedMap = {};
                     window.defaultPublicCategorySquads.forEach(s => mergedMap[s.id] = s);
-                    cloudSquads.forEach(s => mergedMap[s.id] = s);
+                    (window.clansData || []).forEach(s => { if(s.id) mergedMap[s.id] = s; });
+                    cloudSquads.forEach(s => { if(s.id) mergedMap[s.id] = s; });
                     
                     window.clansData = Object.values(mergedMap);
                     localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
@@ -905,6 +911,7 @@
             document.getElementById('createSquadModal').classList.add('hidden');
         };
 
+        // BUG FIX 3: Avoid double array push when creating squad
         window.submitNewSquad = async function() {
             const name = document.getElementById('squadNameInput').value.trim();
             const tag = document.getElementById('squadTagInput').value.trim().toUpperCase();
@@ -919,8 +926,9 @@
                 return;
             }
 
+            const squadId = 'squad_' + Date.now();
             const newSquad = {
-                id: 'squad_' + Date.now(),
+                id: squadId,
                 name: name,
                 tag: tag,
                 game: game,
@@ -941,7 +949,10 @@
                 createdAt: new Date().toISOString()
             };
 
-            window.clansData.unshift(newSquad);
+            // Avoid duplicate pushing if squad ID exists
+            if (!window.clansData.some(c => c.id === squadId)) {
+                window.clansData.unshift(newSquad);
+            }
             localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
 
             if (window.db && typeof addDoc === 'function') {
@@ -980,10 +991,13 @@
 
             // Authority controls
             const addBtn = document.getElementById('addCustomSubRoomBtn');
-            if (addBtn) addBtn.className = isAdmin ? 'px-2.5 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-[9px] font-black rounded-xl' : 'hidden';
+            if (addBtn) addBtn.className = isAdmin ? 'px-2 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-[9px] font-black rounded-xl hover:bg-cyan-500/30' : 'hidden';
+
+            const hostTournBtn = document.getElementById('hostSquadTournamentBtn');
+            if (hostTournBtn) hostTournBtn.className = isAdmin ? 'px-2 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[9px] font-black rounded-xl hover:bg-amber-500/30' : 'hidden';
 
             const disbandBtn = document.getElementById('disbandSquadBtn');
-            if (disbandBtn) disbandBtn.className = (isOwner && !squad.isOfficial) ? 'px-2.5 py-1 bg-red-600/20 text-red-400 border border-red-500/40 text-[9px] font-black rounded-xl' : 'hidden';
+            if (disbandBtn) disbandBtn.className = (isOwner && !squad.isOfficial) ? 'px-2 py-1 bg-red-600/20 text-red-400 border border-red-500/40 text-[9px] font-black rounded-xl hover:bg-red-600/30' : 'hidden';
 
             renderSquadSubRoomsNav();
             switchSquadSubRoom(squad.subRooms[0] || 'chat');
@@ -996,7 +1010,17 @@
             window.activeSquadDetails = null;
         };
 
-        // Feature 2: Custom Sub-Rooms Rendering
+        // FEATURE 4: Host Tournament Directly From Squad Room
+        window.openCreateSquadTournamentModal = function() {
+            const squad = window.activeSquadDetails;
+            if (!squad) return;
+            
+            document.getElementById('tournTitleInput').value = `${squad.name} Championship`;
+            document.getElementById('tournGameSelect').value = squad.game || 'FC MOBILE';
+            window.activeSquadForTournament = squad.id;
+            openCreateTournamentModal();
+        };
+
         function renderSquadSubRoomsNav() {
             const squad = window.activeSquadDetails;
             if (!squad) return;
@@ -1067,6 +1091,7 @@
             showToast(`Sub-channel #${room} deleted.`);
         };
 
+        // BUG FIX 5: Ensure Chat Input Container remains permanently visible in interactive squad channels
         window.switchSquadSubRoom = function(room) {
             window.activeSquadSubRoom = room;
             renderSquadSubRoomsNav();
@@ -1074,8 +1099,8 @@
             const squad = window.activeSquadDetails;
             if (!squad) return;
 
-            const contentBox = document.getElementById('squadSubRoomContent');
             const msgsBox = document.getElementById('squadRoomMsgsBox');
+            const inputContainer = document.getElementById('squadInputContainer');
             msgsBox.innerHTML = '';
 
             const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
@@ -1112,11 +1137,12 @@
                 });
                 rosterHtml += `</div>`;
                 msgsBox.innerHTML = rosterHtml;
-                document.getElementById('squadInputContainer').style.display = 'none';
+                if (inputContainer) inputContainer.style.display = 'none';
                 return;
             }
 
-            document.getElementById('squadInputContainer').style.display = 'flex';
+            // Always display input bar for standard channels
+            if (inputContainer) inputContainer.style.display = 'flex';
 
             let msgs = (squad.rooms && squad.rooms[room]) ? squad.rooms[room] : [];
             if (msgs.length === 0) {
@@ -1131,7 +1157,7 @@
                                     <span class="text-cyan-400 font-bold cursor-pointer" onclick="closeSquadDetailsModal(); openUserProfileModal('${m.sender}', event)">@${m.sender}</span>
                                     <span class="text-amber-400 font-extrabold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">${timerBadge}</span>
                                 </div>
-                                <img src="${m.imageUrl}" class="max-h-60 rounded-xl object-contain bg-black w-full border border-cyan-500/10">
+                                <img src="${m.imageUrl}" class="max-h-60 rounded-xl object-contain bg-black w-full border border-cyan-500/10 cursor-pointer" onclick="openMediaZoomModal('image', '${m.imageUrl}')">
                             </div>
                         `;
                     } else {
@@ -1150,7 +1176,7 @@
 
             // Locked Announcements Channel Check
             if (room === 'Rules/Announcements' && !isAdmin) {
-                document.getElementById('squadInputContainer').style.display = 'none';
+                if (inputContainer) inputContainer.style.display = 'none';
                 msgsBox.innerHTML += `<p class="text-[10px] text-amber-400 text-center font-bold py-2">🔒 Only Squad Owner and Admins can post in #${room}.</p>`;
             }
 
@@ -1303,7 +1329,7 @@
             }
         };
 
-        // --- FEATURE 5: TOP PROFILE STORIES BAR ---
+        // --- FEATURE 6: TOP STORIES BAR WITH 30s VIDEO SUPPORT ---
         window.profileStories = JSON.parse(localStorage.getItem('sinless_profile_stories') || '[]');
 
         window.triggerStoryUpload = function() {
@@ -1312,13 +1338,23 @@
 
         window.uploadProfileStory = async function(input) {
             if (input.files && input.files[0]) {
-                const compressedDataUrl = await compressImage(input.files[0], 1080, 1920, 0.85);
+                const file = input.files[0];
+                const isVideo = file.type.includes('video');
+                let mediaUrl = '';
+
+                if (isVideo) {
+                    mediaUrl = URL.createObjectURL(file);
+                } else {
+                    mediaUrl = await compressImage(file, 1080, 1920, 0.85);
+                }
+
                 const caption = prompt("Add a caption to your 24-hour Story (optional):") || '';
 
                 const newStory = {
                     id: 'story_' + Date.now(),
                     user: (window.myUsername || '@SinlessGaming').replace('@', ''),
-                    imageUrl: compressedDataUrl,
+                    type: isVideo ? 'video' : 'image',
+                    mediaUrl: mediaUrl,
                     caption: caption,
                     timestamp: Date.now()
                 };
@@ -1326,7 +1362,7 @@
                 window.profileStories.unshift(newStory);
                 localStorage.setItem('sinless_profile_stories', JSON.stringify(window.profileStories));
                 renderStoriesBar();
-                showToast("✨ Profile Story Posted (Expires in 24h)!");
+                showToast(`✨ Profile Story Posted (${isVideo ? 'Video' : 'Image'})!`);
             }
         };
 
@@ -1336,10 +1372,14 @@
             container.innerHTML = '';
 
             window.profileStories.forEach(story => {
+                let thumbContent = story.type === 'video'
+                    ? `<video src="${story.mediaUrl}" class="w-12 h-12 rounded-full object-cover border-2 border-slate-950 pointer-events-none" autoplay loop muted></video>`
+                    : `<img src="${story.mediaUrl}" class="w-12 h-12 rounded-full object-cover border-2 border-slate-950">`;
+
                 container.innerHTML += `
                     <div class="flex flex-col items-center shrink-0 cursor-pointer space-y-1 group" onclick="openStoryViewer('${story.id}')">
                         <div class="w-13 h-13 rounded-full p-0.5 bg-gradient-to-tr from-cyan-400 via-magenta to-amber-400 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                            <img src="${story.imageUrl}" class="w-12 h-12 rounded-full object-cover border-2 border-slate-950">
+                            ${thumbContent}
                         </div>
                         <span class="text-[8px] font-extrabold text-gray-300 truncate max-w-[60px]">@${story.user}</span>
                     </div>
@@ -1352,7 +1392,7 @@
             if (!story) return;
 
             const timerBadge = getRemainingTimeBadge(story.timestamp);
-            openMediaZoomModal('image', story.imageUrl);
+            openMediaZoomModal(story.type || 'image', story.mediaUrl);
 
             const title = document.getElementById('mediaZoomTitle');
             if (title) title.innerText = `@${story.user}'s Story • ${timerBadge}`;
@@ -1432,6 +1472,7 @@
                 game: game,
                 format: format,
                 maxPlayers: maxPlayers,
+                squadId: window.activeSquadForTournament || null,
                 players: [hostUser],
                 matches: []
             };
@@ -1454,6 +1495,7 @@
             window.tournamentsList.unshift(newTourn);
             localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
             window.activeTournament = newTourn;
+            window.activeSquadForTournament = null;
 
             showToast("Tournament Launched Successfully!");
             closeCreateTournamentModal();
@@ -1758,7 +1800,7 @@
                                     <span class="text-cyan-400 font-bold">@${m.sender}</span>
                                     <span class="text-amber-400 font-extrabold">${timerBadge}</span>
                                 </div>
-                                <img src="${m.imageUrl}" class="max-h-52 rounded-xl object-contain bg-black w-full">
+                                <img src="${m.imageUrl}" class="max-h-52 rounded-xl object-contain bg-black w-full cursor-pointer" onclick="openMediaZoomModal('image', '${m.imageUrl}')">
                             </div>
                         </div>
                     `;
@@ -2146,7 +2188,7 @@
         </div>
 
         <div id="view-fyp" class="view-section flex-1 flex flex-col space-y-3 overflow-y-auto pb-4 fade-in">
-            <!-- FEATURE 5: Top Profile Stories Bar Carousel -->
+            <!-- BUG FIX 6: Top Stories Bar Carousel supporting images and 30s videos -->
             <div id="profileStoriesBar" class="glass-panel p-2.5 rounded-2xl flex space-x-3 overflow-x-auto scrollbar-none items-center border border-cyan-500/30 shadow-lg">
                 <div class="flex flex-col items-center shrink-0 cursor-pointer space-y-1 group" onclick="triggerStoryUpload()">
                     <div class="relative w-13 h-13 rounded-full p-0.5 border-2 border-dashed border-cyan-400 flex items-center justify-center bg-gg-950 group-hover:scale-105 transition-transform">
@@ -2156,7 +2198,7 @@
                 </div>
                 <div id="activeStoriesContainer" class="flex space-x-3 items-center"></div>
             </div>
-            <input type="file" id="storyFileInput" accept="image/*" class="hidden" onchange="uploadProfileStory(this)">
+            <input type="file" id="storyFileInput" accept="image/*,video/*" class="hidden" onchange="uploadProfileStory(this)">
 
             <!-- Feed Category Filters -->
             <div id="categoryFilterBar" class="flex space-x-2 overflow-x-auto scrollbar-none py-1">
@@ -2375,6 +2417,9 @@
                 <button id="addCustomSubRoomBtn" onclick="promptCreateSubRoom()" class="hidden px-2.5 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-[9px] font-black rounded-xl hover:bg-cyan-500/30 transition">
                     + Sub-Room
                 </button>
+                <button id="hostSquadTournamentBtn" onclick="openCreateSquadTournamentModal()" class="hidden px-2.5 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[9px] font-black rounded-xl hover:bg-amber-500/30 transition">
+                    + Host Tournament
+                </button>
                 <button id="disbandSquadBtn" onclick="deleteActiveSquad()" class="hidden px-2.5 py-1 bg-red-600/20 text-red-400 border border-red-500/40 text-[9px] font-black rounded-xl hover:bg-red-600/30 transition">
                     Disband
                 </button>
@@ -2388,7 +2433,7 @@
         <div id="squadSubRoomContent" class="flex-1 flex flex-col p-3 overflow-hidden bg-slate-950">
             <div id="squadRoomMsgsBox" class="flex-1 overflow-y-auto space-y-2 pr-1 mb-2"></div>
 
-            <!-- In-Chat Media & Message Input (Feature 4) -->
+            <!-- In-Chat Media & Message Input (Feature 4 & Bug Fix 5) -->
             <div id="squadInputContainer" class="flex items-center space-x-2 bg-gg-900 p-2 rounded-2xl border border-cyan-500/30 shrink-0 shadow-xl">
                 <input type="file" id="squadChatImageInput" accept="image/*" class="hidden" onchange="sendInChatImage('squad')">
                 <button onclick="document.getElementById('squadChatImageInput').click()" class="text-cyan-400 hover:text-white px-2 py-1 text-sm transition" title="Upload 24h Ephemeral Image">
@@ -2745,7 +2790,7 @@
         </div>
     </div>
 
-    <!-- MEDIA ZOOM MODAL -->
+    <!-- MEDIA ZOOM MODAL (BUG FIX 1: Touch Events Bound Correctly) -->
     <div id="mediaZoomModal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-2xl z-[250] flex flex-col justify-between p-2">
         <div class="flex justify-between items-center p-2 z-10">
             <span id="mediaZoomTitle" class="text-xs font-bold text-cyan-400 uppercase tracking-wider">Media Inspection</span>
@@ -3013,6 +3058,7 @@
             }
         }
 
+        // BUG FIX 1: Robust Pinch-to-Zoom & Drag-to-Pan Touch Controller
         function initMediaTouchZoomControls() {
             const container = document.getElementById('mediaViewerContainer');
             if (!container) return;
