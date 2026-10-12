@@ -552,7 +552,6 @@
 
         window.activeProfileUser = null;
 
-        // FIX 1: Open current user profile when tapping header avatar/brand
         window.openMyProfile = function(e = null) {
             const me = (window.myUsername || '@SinlessGaming').replace('@', '');
             window.openUserProfileModal(me, e);
@@ -646,7 +645,6 @@
             if (userPosts.length === 0) {
                 postsContainer.innerHTML = `<div class="col-span-3 text-xs text-gray-400 text-center py-10">No clips or posts published yet.</div>`;
             } else {
-                // FIX 2: Text-only post previews in profile grid are now fully clickable and open comments modal cleanly
                 userPosts.forEach(p => {
                     let mediaThumbnail = '';
                     let firstMediaUrl = (p.mediaList && p.mediaList.length > 0) ? p.mediaList[0].url : null;
@@ -778,16 +776,20 @@
             document.getElementById('userProfileModal').classList.add('hidden');
         };
 
-        // --- FIX 3: PRE-BUILT PUBLIC CATEGORY SQUADS WITH "FOOTBALL NEWS HUB" ---
+        // EXPANDED PUBLIC DEFAULT SQUADS LIST (Fix 2: Includes default public hubs for ALL game categories)
         window.defaultPublicCategorySquads = [
             { id: 'cat_squad_fcmobile', name: 'FC MOBILE OFFICIAL HUB', tag: 'FCM', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'FC MOBILE', isOfficial: true, isPublic: true, inviteCode: 'SQ-FCM01', members: ['SinlessGaming', 'AceKhyd', 'Kumi_FC'], subRooms: ['Rules/Announcements', 'chat', 'tactics', 'highlights', 'transfers'], bio: 'Official public hub for FC Mobile players, leagues & transfers.', rooms: { 'Rules/Announcements': [{ sender: 'SinlessGaming', text: 'Welcome to the FC Mobile Public Squad!' }], 'chat': [], 'tactics': [], 'highlights': [], 'transfers': [] } },
             { id: 'cat_squad_football', name: 'FOOTBALL NEWS HUB', tag: 'FTB', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'FOOTBALL', isOfficial: true, isPublic: true, inviteCode: 'SQ-FTB01', members: ['SinlessGaming', 'DonPrime', 'Richard_GG'], subRooms: ['Rules/Announcements', 'chat', 'tactics'], bio: 'Public community for tactic discussions, news updates and fantasy lineups.', rooms: { 'Rules/Announcements': [], 'chat': [], 'tactics': [] } },
-            { id: 'cat_squad_eafc', name: 'EA SPORTS FC HUB', tag: 'EAFC', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'EA SPORTS FC', isOfficial: true, isPublic: true, inviteCode: 'SQ-EFC01', members: ['SinlessGaming', 'Messiah_X'], subRooms: ['Rules/Announcements', 'chat', 'highlights'], bio: 'Ultimate Team, Pro Clubs and local tournament match hub.', rooms: { 'Rules/Announcements': [], 'chat': [], 'highlights': [] } }
+            { id: 'cat_squad_eafc', name: 'EA SPORTS FC HUB', tag: 'EAFC', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'EA SPORTS FC', isOfficial: true, isPublic: true, inviteCode: 'SQ-EFC01', members: ['SinlessGaming', 'Messiah_X'], subRooms: ['Rules/Announcements', 'chat', 'highlights'], bio: 'Ultimate Team, Pro Clubs and local tournament match hub.', rooms: { 'Rules/Announcements': [], 'chat': [], 'highlights': [] } },
+            { id: 'cat_squad_efootball', name: 'EFOOTBALL GLOBAL HUB', tag: 'EFTB', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'EFOOTBALL', isOfficial: true, isPublic: true, inviteCode: 'SQ-EFT01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat', 'tactics'], bio: 'eFootball match strategy, squad builds and eLeagues.', rooms: { 'Rules/Announcements': [], 'chat': [], 'tactics': [] } },
+            { id: 'cat_squad_dls', name: 'DREAM LEAGUE SOCCER HUB', tag: 'DLS', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'DLS', isOfficial: true, isPublic: true, inviteCode: 'SQ-DLS01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat', 'transfers'], bio: 'Dream League Soccer tips, kits, and multiplayer hubs.', rooms: { 'Rules/Announcements': [], 'chat': [], 'transfers': [] } },
+            { id: 'cat_squad_wrestling', name: 'WWE & WRESTLING HUB', tag: 'WWE', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'WRESTLING', isOfficial: true, isPublic: true, inviteCode: 'SQ-WWE01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat', 'matches'], bio: 'WWE 2K, wrestling simulation, match cards & discussion.', rooms: { 'Rules/Announcements': [], 'chat': [], 'matches': [] } },
+            { id: 'cat_squad_cod', name: 'CALL OF DUTY HUB', tag: 'COD', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'CALL OF DUTY', isOfficial: true, isPublic: true, inviteCode: 'SQ-COD01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat', 'loadouts'], bio: 'COD Mobile, Warzone & multiplayer competitive team up.', rooms: { 'Rules/Announcements': [], 'chat': [], 'loadouts': [] } },
+            { id: 'cat_squad_other', name: 'VARIETY GAMING HUB', tag: 'VAR', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'OTHER GAMES', isOfficial: true, isPublic: true, inviteCode: 'SQ-VAR01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat'], bio: 'All other mobile, console & PC games community chat.', rooms: { 'Rules/Announcements': [], 'chat': [] } }
         ];
 
         window.clansData = JSON.parse(localStorage.getItem('sinless_clans_data') || 'null') || window.defaultPublicCategorySquads;
         
-        // Ensure "Football Managers Hub" is migrated seamlessly to "FOOTBALL NEWS HUB"
         (window.clansData || []).forEach(c => {
             if (c.id === 'cat_squad_football' || c.name === 'FOOTBALL MANAGERS HUB') {
                 c.name = 'FOOTBALL NEWS HUB';
@@ -1099,6 +1101,7 @@
             showToast(`Sub-channel #${room} deleted.`);
         };
 
+        // Fix 1: Enable Chat Input for Non-Members / Public Squad Viewers
         window.switchSquadSubRoom = function(room) {
             window.activeSquadSubRoom = room;
             renderSquadSubRoomsNav();
@@ -1147,11 +1150,12 @@
                 return;
             }
 
+            // Always display input bar for chat/sub-rooms
             if (inputContainer) inputContainer.style.display = 'flex';
 
             let msgs = (squad.rooms && squad.rooms[room]) ? squad.rooms[room] : [];
             if (msgs.length === 0) {
-                msgsBox.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">No messages in #${room} yet.</p>`;
+                msgsBox.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">No messages in #${room} yet. Be the first to start the discussion!</p>`;
             } else {
                 msgs.forEach(m => {
                     if (m.isImage) {
@@ -1232,6 +1236,12 @@
             if (!squad.rooms) squad.rooms = {};
             if (!squad.rooms[room]) squad.rooms[room] = [];
 
+            // Automatically join public squad if user sends a message in it
+            if (!squad.members) squad.members = [squad.owner || squad.leader];
+            if (!squad.members.some(m => m.toLowerCase() === me.toLowerCase())) {
+                squad.members.push(me);
+            }
+
             squad.rooms[room].push({ sender: me, text: text, time: 'Now', timestamp: Date.now() });
             localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
 
@@ -1241,7 +1251,7 @@
             if (window.db && squad.docId) {
                 try {
                     const squadRef = doc(window.db, "squads", squad.docId);
-                    updateDoc(squadRef, { rooms: squad.rooms });
+                    updateDoc(squadRef, { rooms: squad.rooms, members: squad.members });
                 } catch(e){}
             }
         };
@@ -1310,6 +1320,11 @@
                     const squad = window.activeSquadDetails;
                     const room = window.activeSquadSubRoom;
                     if (!squad.rooms[room]) squad.rooms[room] = [];
+
+                    if (!squad.members) squad.members = [squad.owner || squad.leader];
+                    if (!squad.members.some(m => m.toLowerCase() === me.toLowerCase())) {
+                        squad.members.push(me);
+                    }
 
                     squad.rooms[room].push(imgPayload);
                     localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
@@ -1746,7 +1761,6 @@
         window.dmMessagesList = JSON.parse(localStorage.getItem('sinless_dm_messages') || '{}');
         window.dmVoiceStream = null;
 
-        // FIX 4: Dedicated 1-on-1 DM Voice Calling Feature
         window.toggleDirectVoiceCall = async function() {
             const callBtn = document.getElementById('dmVoiceCallBtn');
             const partner = window.activeDmUser;
@@ -2178,7 +2192,7 @@
 
     <audio id="previewAudioPlayer" preload="auto" loop></audio>
 
-    <!-- Header (FIX 1: Clicking top-left brand logo/avatar opens user profile) -->
+    <!-- Header -->
     <header class="bg-gg-900/95 backdrop-blur-md border-b border-cyan-500/15 px-3 py-3 flex items-center justify-between sticky top-0 z-50 shadow-xl">
         <div class="flex items-center space-x-2.5 cursor-pointer group" onclick="openMyProfile(event)">
             <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-xs shadow-lg shadow-cyan-500/30 group-hover:scale-105 transition-transform">SG</div>
@@ -2260,7 +2274,6 @@
             <div id="tournamentsDedicatedContainer" class="space-y-3"></div>
         </div>
 
-        <!-- FIX 5: Trending View Verified with fallback search and reliable execution -->
         <div id="view-trending" class="view-section hidden flex-1 flex flex-col space-y-4 overflow-y-auto pb-6 fade-in">
             <div class="glass-panel p-3 rounded-2xl space-y-2.5 shadow-xl">
                 <div class="relative">
@@ -2536,7 +2549,7 @@
         </div>
     </div>
 
-    <!-- DIRECT MESSAGING MODAL WITH 1-ON-1 VOICE CALLING (FIX 4) -->
+    <!-- DIRECT MESSAGING MODAL WITH 1-ON-1 VOICE CALLING -->
     <div id="dmModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[150] flex flex-col justify-end">
         <div class="glass-panel w-full max-w-md mx-auto rounded-t-3xl p-4 flex flex-col space-y-3 h-[80vh] shadow-2xl border-t border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -3199,7 +3212,6 @@
                 activeNav.classList.add('bg-magenta', 'text-white', 'font-extrabold', 'shadow-lg');
             }
 
-            // FIX 5: Ensure Trending tab reliably populates data when selected
             if (viewName === 'trending') {
                 runTrendingTopics();
                 fetchHorizontalLiveMatches();
@@ -3390,7 +3402,6 @@
             box.innerHTML = `<div class="bg-gg-900 p-2 rounded-xl text-xs"><span class="text-cyan-400 font-bold">@GG-Bot:</span> Global gaming chat room active! Mention gamers using @username.</div>`;
         }
 
-        // FIX 5: Trending topics renderer with full fallback functionality
         function runTrendingTopics() {
             let list = document.getElementById('dynamicTrendingTopicsList'); if(!list) return;
             
