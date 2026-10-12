@@ -51,7 +51,9 @@
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
+        let analytics = null;
+        try { analytics = getAnalytics(app); } catch(e) {}
+        
         const db = getFirestore(app);
         const auth = getAuth(app);
         const googleProvider = new GoogleAuthProvider();
@@ -63,7 +65,7 @@
             console.warn("FCM Messaging unsupported in this context.");
         }
 
-        // Expose tools to global scope
+        // Expose Firebase tools to global window scope safely
         window.db = db;
         window.auth = auth;
         window.collection = collection;
@@ -91,7 +93,6 @@
                 if (permission === 'granted') {
                     const token = await getToken(messaging, { vapidKey: 'YOUR_PUBLIC_VAPID_KEY_HERE' }).catch(() => null);
                     if (token) {
-                        console.log("FCM Device Token:", token);
                         showToast("🔔 Push Notifications Enabled!");
                         if (window.currentUser && window.db) {
                             await updateDoc(doc(window.db, "users", window.currentUser.uid), { fcmToken: token });
@@ -175,7 +176,7 @@
                 request.onupgradeneeded = (e) => {
                     let db = e.target.result;
                     if (!db.objectStoreNames.contains("local_posts")) {
-                        db.createObjectStore("local_posts", { keyPath: "id", autoIncrement: true });
+                        db.createObjectStore("local_posts", { keyPath: "id", autoIncrement: false });
                     }
                 };
                 request.onsuccess = (e) => resolve(e.target.result);
@@ -188,7 +189,7 @@
                 let db = await openPostDB();
                 let tx = db.transaction("local_posts", "readwrite");
                 let store = tx.objectStore("local_posts");
-                store.add(post);
+                store.put(post);
             } catch(e) { console.error("IndexedDB save failed:", e); }
         }
 
@@ -248,13 +249,17 @@
                 ggsBy: [],
                 viewsCount: 1,
                 commentsCount: 0,
-                createdAt: typeof serverTimestamp === 'function' ? serverTimestamp() : new Date().toISOString()
+                createdAt: new Date().toISOString()
             };
 
             try {
                 if(window.db && typeof addDoc === 'function' && typeof collection === 'function') {
-                    const docRef = await addDoc(collection(window.db, "posts"), postPayload);
+                    const docRef = await addDoc(collection(window.db, "posts"), {
+                        ...postPayload,
+                        createdAt: serverTimestamp()
+                    });
                     postPayload.id = docRef.id;
+                    postPayload.docId = docRef.id;
                     showToast("Published to Cloud Feed!");
                 } else {
                     await publishLocallyFallback(postPayload);
@@ -554,8 +559,6 @@
 
             const cleanUser = username.replace('@', '');
             window.activeProfileUser = cleanUser;
-
-            const isVerifiedUser = cleanUser.toLowerCase() === 'sinlessgaming';
 
             const profileData = window.userProfiles[cleanUser.toLowerCase()] || {
                 displayName: cleanUser === 'SinlessGaming' ? 'Sinless Gaming' : cleanUser,
@@ -1208,6 +1211,7 @@
                 observer.observe(card);
             });
         }
+        window.initViewTracker = initViewTracker;
 
         async function incrementPostView(postId) {
             const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
@@ -2163,6 +2167,7 @@
 
         function showToast(msg) {
             let banner = document.getElementById('toastBanner');
+            if(!banner) return;
             banner.innerText = msg;
             banner.style.opacity = '1';
             banner.style.pointerEvents = 'auto';
@@ -2293,8 +2298,8 @@
             }, { passive: true });
 
             container.addEventListener('touchmove', (e) => {
-                e.preventDefault();
                 if (e.touches.length === 2) {
+                    e.preventDefault();
                     const currentDist = Math.hypot(
                         e.touches[0].clientX - e.touches[1].clientX,
                         e.touches[0].clientY - e.touches[1].clientY
@@ -2304,6 +2309,7 @@
                         updateZoomTransform();
                     }
                 } else if (e.touches.length === 1 && currentScale > 1) {
+                    e.preventDefault();
                     const deltaX = e.touches[0].clientX - lastTouchX;
                     const deltaY = e.touches[0].clientY - lastTouchY;
                     translateX += deltaX;
@@ -2403,7 +2409,7 @@
                 const cleanMe = (window.myUsername || '@SinlessGaming').replace('@','').toLowerCase();
                 const isMyPost = post.user && post.user.toLowerCase() === cleanMe;
                 const isVerified = post.verified || (post.user && post.user.toLowerCase() === 'sinlessgaming');
-                const badgesHtml = getProfileBadges(post.user);
+                const badgesHtml = getProfileBadges ? getProfileBadges(post.user) : '';
 
                 let audioBadge = post.audioTrack ? `<p class="text-[9px] text-cyan-400 font-bold mt-1.5 flex items-center"><i class="fa-solid fa-music mr-1.5"></i> ${post.audioTrack}</p>` : '';
                 
@@ -2518,7 +2524,7 @@
             }
 
             viralCreators.forEach((creator, idx) => {
-                const badges = getProfileBadges(creator.gamertag);
+                const badges = getProfileBadges ? getProfileBadges(creator.gamertag) : '';
                 body.innerHTML += `
                     <div class="grid grid-cols-4 px-3 py-2.5 text-xs text-gray-200 items-center">
                         <span class="font-extrabold text-amber-400">#${idx+1}</span>
@@ -2531,7 +2537,16 @@
 
         window.renderTopAccounts = function() {
             let list = document.getElementById('topAccountsList'); if(!list) return; list.innerHTML = '';
-            const { sortedCreators } = calculateGlobalRanks();
+            
+            let statsMap = {};
+            (window.fypposts || []).forEach(p => {
+                let u = (p.user || 'Unknown').toLowerCase();
+                if (!statsMap[u]) statsMap[u] = { gamertag: p.user, totalGGs: 0, postsCount: 0 };
+                statsMap[u].totalGGs += (p.ggsCount || 0);
+                statsMap[u].postsCount += 1;
+            });
+            let sortedCreators = Object.values(statsMap).sort((a, b) => b.totalGGs - a.totalGGs);
+
             if (sortedCreators.length === 0) {
                 ['SinlessGaming', 'Sinless101', 'AceKhyd'].forEach((u, i) => {
                     list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs cursor-pointer" onclick="openUserProfileModal('${u}', event)"><span class="font-bold text-white">#${i+1} @${u}</span><span class="text-cyan-400 font-bold">1.4k GGs</span></div>`;
@@ -2539,7 +2554,7 @@
                 return;
             }
             sortedCreators.forEach((creator, i) => {
-                const badges = getProfileBadges(creator.gamertag);
+                const badges = getProfileBadges ? getProfileBadges(creator.gamertag) : '';
                 list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs cursor-pointer" onclick="openUserProfileModal('${creator.gamertag}', event)"><div class="flex items-center space-x-1.5"><span class="font-bold text-white">#${i+1} @${creator.gamertag}</span> ${badges}</div><span class="text-cyan-400 font-bold">${creator.totalGGs} GGs</span></div>`;
             });
         }
