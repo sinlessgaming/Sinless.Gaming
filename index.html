@@ -167,13 +167,17 @@
             if(window.renderClansList) window.renderClansList();
         });
 
+        // FIXED: IndexedDB upgraded to handle stories alongside posts
         function openPostDB() {
             return new Promise((resolve, reject) => {
-                let request = indexedDB.open("SinlessPostDB", 1);
+                let request = indexedDB.open("SinlessPostDB", 2);
                 request.onupgradeneeded = (e) => {
                     let db = e.target.result;
                     if (!db.objectStoreNames.contains("local_posts")) {
                         db.createObjectStore("local_posts", { keyPath: "id", autoIncrement: false });
+                    }
+                    if (!db.objectStoreNames.contains("local_stories")) {
+                        db.createObjectStore("local_stories", { keyPath: "id", autoIncrement: false });
                     }
                 };
                 request.onsuccess = (e) => resolve(e.target.result);
@@ -198,12 +202,34 @@
                 store.delete(id);
             } catch(e) { console.error("IndexedDB delete failed:", e); }
         }
+        
+        async function saveStoryToIndexedDB(story) {
+            try {
+                let db = await openPostDB();
+                let tx = db.transaction("local_stories", "readwrite");
+                let store = tx.objectStore("local_stories");
+                store.put(story);
+            } catch(e) { console.error("IndexedDB story save failed:", e); }
+        }
 
         window.loadLocalPostsFromDB = async function() {
             try {
                 let db = await openPostDB();
                 let tx = db.transaction("local_posts", "readonly");
                 let store = tx.objectStore("local_posts");
+                let request = store.getAll();
+                return new Promise((resolve) => {
+                    request.onsuccess = () => resolve(request.result || []);
+                    request.onerror = () => resolve([]);
+                });
+            } catch(e) { return []; }
+        };
+        
+        window.loadLocalStoriesFromDB = async function() {
+            try {
+                let db = await openPostDB();
+                let tx = db.transaction("local_stories", "readonly");
+                let store = tx.objectStore("local_stories");
                 let request = store.getAll();
                 return new Promise((resolve) => {
                     request.onsuccess = () => resolve(request.result || []);
@@ -373,6 +399,7 @@
             }
         };
 
+        // FIXED: Feed Algorithm - Boost category on like
         window.toggleGGPost = async function(postId) {
             const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId || String(p.id) === String(postId));
             if (!post) {
@@ -390,6 +417,7 @@
             } else {
                 post.ggsCount = (post.ggsCount || 0) + 1;
                 post.ggsBy.push(uid);
+                if(window.boostCategoryInterest) window.boostCategoryInterest(post.game);
             }
 
             window.renderFypFeed();
@@ -479,6 +507,9 @@
             const postId = window.activeCommentPostId;
 
             if (!text || !postId) return;
+
+            const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
+            if(post && window.boostCategoryInterest) window.boostCategoryInterest(post.game);
 
             const payload = {
                 user: (window.myUsername || '@SinlessGaming').replace('@', ''),
@@ -666,7 +697,6 @@
                             </div>
                         `;
                     } else {
-                        // Text post
                         mediaThumbnail = `<div class="w-full h-full bg-gg-900 border border-cyan-500/20 flex flex-col items-center justify-center p-2 text-center pointer-events-none">
                             <span class="text-[8px] text-cyan-400 font-bold uppercase truncate">${p.game || 'GAMING'}</span>
                             <p class="text-[9px] text-gray-300 line-clamp-3 mt-1 font-semibold">${p.caption || 'Text Post'}</p>
@@ -1289,7 +1319,6 @@
             const EXPIRATION_MS = 86400000;
 
             window.profileStories = (window.profileStories || []).filter(s => (now - s.timestamp) < EXPIRATION_MS);
-            localStorage.setItem('sinless_profile_stories', JSON.stringify(window.profileStories));
 
             (window.clansData || []).forEach(squad => {
                 if (squad.rooms) {
@@ -1357,7 +1386,8 @@
             }
         };
 
-        window.profileStories = JSON.parse(localStorage.getItem('sinless_profile_stories') || '[]');
+        // FIXED: Using IndexedDB for Stories now
+        window.profileStories = [];
 
         window.triggerStoryUpload = function() {
             document.getElementById('storyFileInput').click();
@@ -1369,7 +1399,7 @@
                 const isVideo = file.type.includes('video');
                 const caption = prompt("Add a caption to your 24-hour Story (optional):") || '';
 
-                const saveStory = (mediaUrl, type) => {
+                const saveStory = async (mediaUrl, type) => {
                     const newStory = {
                         id: 'story_' + Date.now(),
                         user: (window.myUsername || '@SinlessGaming').replace('@', ''),
@@ -1379,7 +1409,7 @@
                         timestamp: Date.now()
                     };
                     window.profileStories.unshift(newStory);
-                    localStorage.setItem('sinless_profile_stories', JSON.stringify(window.profileStories));
+                    await saveStoryToIndexedDB(newStory);
                     renderStoriesBar();
                     showToast(`✨ Profile Story Posted (${type === 'video' ? 'Video' : 'Image'})!`);
                 };
@@ -1436,6 +1466,7 @@
                 format: 'WORLD_CUP',
                 maxPlayers: 32,
                 players: ['SinlessGaming', 'AceKhyd', 'DonPrime', 'Kumi_FC', 'Richard_GG', 'Messiah_X', 'Gloria_Gamer', 'Kwame_Pro'],
+                eliminated: [],
                 matches: [
                     { id: 'm1', round: 1, p1: 'SinlessGaming', p2: 'AceKhyd', s1: 3, s2: 1, winner: 'SinlessGaming', stage: 'Group A', streamUrl: '' },
                     { id: 'm2', round: 1, p1: 'DonPrime', p2: 'Kumi_FC', s1: 2, s2: 0, winner: 'DonPrime', stage: 'Group A', streamUrl: '' },
@@ -1490,6 +1521,7 @@
                 maxPlayers: maxPlayers,
                 squadId: window.activeSquadForTournament || null,
                 players: [hostUser],
+                eliminated: [],
                 matches: []
             };
 
@@ -1595,6 +1627,7 @@
             window.activeMatchForReporting = null;
         };
 
+        // FIXED: Added Elimination Logic for Tournaments
         window.submitMatchScoreReport = function() {
             const match = window.activeMatchForReporting;
             if (!match) return;
@@ -1612,6 +1645,13 @@
             match.s2 = s2;
             match.streamUrl = streamUrl;
             match.winner = s1 > s2 ? match.p1 : (s2 > s1 ? match.p2 : 'DRAW');
+            
+            // Elimination logic tracking
+            let loser = s1 < s2 ? match.p1 : (s2 < s1 ? match.p2 : null);
+            if (loser && (window.activeTournament.format === 'KNOCKOUT' || match.stage.toLowerCase().includes('knockout') || match.stage.toLowerCase().includes('round'))) {
+                if(!window.activeTournament.eliminated) window.activeTournament.eliminated = [];
+                if(!window.activeTournament.eliminated.includes(loser)) window.activeTournament.eliminated.push(loser);
+            }
 
             advanceWinnerInBracket(window.activeTournament, match);
 
@@ -1706,13 +1746,17 @@
                 current.matches.forEach(m => {
                     const isCompleted = m.winner !== null;
                     const hasStream = !!m.streamUrl;
+                    
+                    // FIXED: Eliminated players visual strike-through
+                    let p1Eliminated = current.eliminated && current.eliminated.includes(m.p1);
+                    let p2Eliminated = current.eliminated && current.eliminated.includes(m.p2);
 
-                    let p1Html = `<span class="font-bold ${m.winner === m.p1 ? 'text-cyan-400 font-black' : 'text-gray-200'}">@${m.p1}</span>`;
+                    let p1Html = `<span class="font-bold ${p1Eliminated ? 'line-through text-gray-500 opacity-60' : (m.winner === m.p1 ? 'text-cyan-400 font-black' : 'text-gray-200')}">@${m.p1}</span>`;
                     if ((m.p1 === 'Open Spot' || m.p1 === 'TBD') && isHost) {
                         p1Html = `<span class="font-bold text-gray-500">@${m.p1}</span> <button onclick="event.stopPropagation(); manualAddPlayer('${current.id}', '${m.id}', 'p1')" class="ml-1 px-1.5 py-0.5 bg-cyan-500/20 text-cyan-400 rounded text-[8px] font-bold">Add</button>`;
                     }
 
-                    let p2Html = `<span class="font-bold ${m.winner === m.p2 ? 'text-cyan-400 font-black' : 'text-gray-200'}">@${m.p2}</span>`;
+                    let p2Html = `<span class="font-bold ${p2Eliminated ? 'line-through text-gray-500 opacity-60' : (m.winner === m.p2 ? 'text-cyan-400 font-black' : 'text-gray-200')}">@${m.p2}</span>`;
                     if ((m.p2 === 'Open Spot' || m.p2 === 'TBD') && isHost) {
                         p2Html = `<span class="font-bold text-gray-500">@${m.p2}</span> <button onclick="event.stopPropagation(); manualAddPlayer('${current.id}', '${m.id}', 'p2')" class="ml-1 px-1.5 py-0.5 bg-cyan-500/20 text-cyan-400 rounded text-[8px] font-bold">Add</button>`;
                     }
@@ -1921,6 +1965,11 @@
                     if (!postId) return;
 
                     if (entry.isIntersecting) {
+                        // FIXED: Engagement Algorithm - Log post as seen
+                        if(!window.seenPostsList[postId]) {
+                            window.seenPostsList[postId] = true;
+                            localStorage.setItem('sinless_seen_posts', JSON.stringify(window.seenPostsList));
+                        }
                         if (!window.activeViewObservers[postId]) {
                             window.activeViewObservers[postId] = setTimeout(() => {
                                 incrementPostView(postId);
@@ -2179,12 +2228,6 @@
                 if(window.renderMarketList) window.renderMarketList();
             });
         };
-
-        window.addEventListener('load', () => {
-            if(window.listenToFirestorePosts) window.listenToFirestorePosts();
-            if(window.listenToFirestoreMarket) window.listenToFirestoreMarket();
-            if(window.listenToFirestoreSquads) window.listenToFirestoreSquads();
-        });
     </script>
 
     <script>
@@ -2209,7 +2252,8 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
         .verified-badge { color: #f97316; text-shadow: 0 0 10px rgba(249, 115, 22, 0.5); }
-        #mediaViewerContainer { touch-action: none; user-select: none; }
+        /* FIXED: Force stops background swiping during media zoom */
+        #mediaViewerContainer, #mediaZoomModal { touch-action: none !important; overscroll-behavior: none !important; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-slate-950" onload="initApp()">
@@ -2980,6 +3024,16 @@
         window.uploadedMediaBlobs = [];
         window.selectedAudioTrack = null;
 
+        // NEW: Algorithm variables to track user interests
+        window.userCategoryWeights = JSON.parse(localStorage.getItem('sinless_cat_weights') || '{}');
+        window.seenPostsList = JSON.parse(localStorage.getItem('sinless_seen_posts') || '{}');
+
+        window.boostCategoryInterest = function(category) {
+            if(!category) return;
+            window.userCategoryWeights[category] = (window.userCategoryWeights[category] || 0) + 1;
+            localStorage.setItem('sinless_cat_weights', JSON.stringify(window.userCategoryWeights));
+        };
+
         let currentPreview = null;
         let selectedAudioUrl = "";
 
@@ -3024,6 +3078,11 @@
             if (window.loadLocalPostsFromDB) {
                 let storedPosts = await window.loadLocalPostsFromDB();
                 if (storedPosts.length > 0) window.fypposts = storedPosts.reverse();
+            }
+
+            if (window.loadLocalStoriesFromDB) {
+                let storedStories = await window.loadLocalStoriesFromDB();
+                window.profileStories = storedStories.reverse();
             }
 
             pruneExpiredEphemeralData();
@@ -3155,6 +3214,7 @@
             const container = document.getElementById('mediaViewerContainer');
             if (!container) return;
 
+            // FIXED: passive: false allows preventDefault to stop native scrolling
             container.addEventListener('touchstart', (e) => {
                 if (e.touches.length === 2) {
                     initialPinchDistance = Math.hypot(
@@ -3168,6 +3228,7 @@
 
                     const now = Date.now();
                     if (now - lastTapTime < 300) {
+                        e.preventDefault();
                         if (window.activeZoomPostId) {
                             toggleGGPost(window.activeZoomPostId);
                             showToast("❤️ GGs Liked!");
@@ -3178,7 +3239,7 @@
                     }
                     lastTapTime = now;
                 }
-            }, { passive: true });
+            }, { passive: false });
 
             container.addEventListener('touchmove', (e) => {
                 if (e.touches.length === 2) {
@@ -3270,6 +3331,7 @@
 
         function filterByCategory(cat, btn) {
             activeCategoryFilter = cat;
+            window.boostCategoryInterest(cat);
             document.querySelectorAll('#categoryFilterBar .cat-btn').forEach(b => {
                 b.className = "cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-gray-300 border border-cyan-500/25 whitespace-nowrap transition";
             });
@@ -3281,7 +3343,21 @@
             let container = document.getElementById('fypFeedContainer');
             if(!container) return;
             container.innerHTML = '';
+            
+            // Filter posts
             let filtered = (window.fypposts || []).filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
+            
+            // FIXED: Algorithm Engagement Sort
+            filtered.sort((a, b) => {
+                let getScore = (p) => {
+                    let base = ((p.viewsCount||1)*0.1) + ((p.ggsCount||0)*2) + ((p.commentsCount||0)*3);
+                    let ageHours = (Date.now() - new Date(p.createdAt || Date.now()).getTime()) / 3600000;
+                    let catMulti = 1 + ((window.userCategoryWeights[p.game] || 0) * 0.05); 
+                    let seenPenalty = window.seenPostsList[p.id] ? 0.5 : 1; 
+                    return ((base + 1) * catMulti * seenPenalty) - (ageHours * 0.5); 
+                };
+                return getScore(b) - getScore(a);
+            });
             
             if(filtered.length === 0) {
                 container.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No cloud posts yet. Be the first to publish!</div>`;
@@ -3296,7 +3372,6 @@
                 const isMyPost = post.user && post.user.toLowerCase() === cleanMe;
                 const isVerified = post.verified || (post.user && post.user.toLowerCase() === 'sinlessgaming');
                 
-                // Keep feed clean, drop long badges from the feed card natively.
                 let audioBadge = post.audioTrack ? `<p class="text-[9px] text-cyan-400 font-bold mt-1.5 flex items-center"><i class="fa-solid fa-music mr-1.5"></i> ${post.audioTrack}</p>` : '';
                 
                 let mediaHtml = '';
