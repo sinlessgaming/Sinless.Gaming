@@ -819,7 +819,7 @@
             { id: 'cat_squad_dls', name: 'DREAM LEAGUE SOCCER HUB', tag: 'DLS', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'DLS', isOfficial: true, isPublic: true, inviteCode: 'SQ-DLS01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat', 'transfers'], bio: 'Dream League Soccer tips, kits, and multiplayer hubs.', rooms: { 'Rules/Announcements': [], 'chat': [], 'transfers': [] } },
             { id: 'cat_squad_wrestling', name: 'WRESTLING', tag: 'WWE', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'WRESTLING', isOfficial: true, isPublic: true, inviteCode: 'SQ-WWE01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat', 'matches'], bio: 'WWE 2K, wrestling simulation, match cards & discussion.', rooms: { 'Rules/Announcements': [], 'chat': [], 'matches': [] } },
             { id: 'cat_squad_cod', name: 'CALL OF DUTY HUB', tag: 'COD', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'CALL OF DUTY', isOfficial: true, isPublic: true, inviteCode: 'SQ-COD01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat', 'loadouts'], bio: 'COD Mobile, Warzone & multiplayer competitive team up.', rooms: { 'Rules/Announcements': [], 'chat': [], 'loadouts': [] } },
-            { id: 'cat_squad_other', name: 'VARIETY GAMING HUB', tag: 'VAR', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'VARIETY', isOfficial: true, isPublic: true, inviteCode: 'SQ-VAR01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat'], bio: 'All other mobile, console & PC games community chat.', rooms: { 'Rules/Announcements': [], 'chat': [] } }
+            { id: 'cat_squad_other', name: 'OTHER GAMES HUB', tag: 'OTH', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'OTHER GAMES', isOfficial: true, isPublic: true, inviteCode: 'SQ-OTH01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat'], bio: 'All other mobile, console & PC games community chat.', rooms: { 'Rules/Announcements': [], 'chat': [] } }
         ];
 
         let savedClans = JSON.parse(localStorage.getItem('sinless_clans_data') || 'null');
@@ -1149,13 +1149,14 @@
             msgsBox.innerHTML = '';
 
             const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+            const members = squad.members || [squad.owner || squad.leader];
+            const isMember = members.some(m => m.toLowerCase() === me);
+
             const isOwner = (squad.owner || squad.leader).toLowerCase() === me;
             const isAdmin = isOwner || (squad.admins && squad.admins.some(a => a.toLowerCase() === me));
 
             if (room === 'Roster') {
                 let rosterHtml = `<div class="space-y-2 max-w-lg mx-auto w-full pt-2">`;
-                const members = squad.members || [squad.owner || squad.leader];
-
                 members.forEach(m => {
                     const memberIsOwner = m.toLowerCase() === (squad.owner || squad.leader).toLowerCase();
                     const memberIsAdmin = squad.admins && squad.admins.some(a => a.toLowerCase() === m.toLowerCase());
@@ -1182,6 +1183,20 @@
                 rosterHtml += `</div>`;
                 msgsBox.innerHTML = rosterHtml;
                 if (inputContainer) inputContainer.style.display = 'none';
+                return;
+            }
+
+            // 🔒 SECURITY CHECK: If user hasn't joined, block chat access
+            if (!isMember) {
+                if (inputContainer) inputContainer.style.display = 'none';
+                msgsBox.innerHTML = `
+                    <div class="flex flex-col items-center justify-center text-center p-8 space-y-3 my-auto">
+                        <i class="fa-solid fa-lock text-3xl text-cyan-400 opacity-80"></i>
+                        <p class="text-xs font-black text-white">Join Squad to Chat</p>
+                        <p class="text-[10px] text-gray-400 max-w-xs">You must join this squad to read and participate in #${room}.</p>
+                        <button onclick="toggleSquadMembership('${squad.id}')" class="px-5 py-2.5 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl uppercase shadow-lg">Join Squad Now</button>
+                    </div>
+                `;
                 return;
             }
 
@@ -2435,7 +2450,7 @@
                 <button onclick="filterByCategory('DLS', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">🏆 DLS</button>
                 <button onclick="filterByCategory('WRESTLING', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-amber-400 border border-amber-500/30 whitespace-nowrap transition">🤼 Wrestling</button>
                 <button onclick="filterByCategory('CALL OF DUTY', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-orange-400 border border-orange-500/30 whitespace-nowrap transition">🎯 Call of Duty</button>
-                <button onclick="filterByCategory('VARIETY', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-purple-400 border border-purple-500/30 whitespace-nowrap transition">🎮 Variety</button>
+                <button onclick="filterByCategory('OTHER GAMES', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-purple-400 border border-purple-500/30 whitespace-nowrap transition">🎮 Other Games</button>
             </div>
             <div id="fypFeedContainer" class="space-y-4"></div>
         </div>
@@ -2550,7 +2565,7 @@
                         <option value="FOOTBALL">⚽ Football</option>
                         <option value="FC MOBILE">📱 FC Mobile</option>
                         <option value="EA SPORTS FC">🎮 EA Sports FC</option>
-                        <option value="VARIETY">🎮 Variety</option>
+                        <option value="OTHER GAMES">🎮 Other Games</option>
                     </select>
                 </div>
                 <div class="overflow-x-auto flex-1 bg-gg-950 rounded-xl border border-cyan-500/20">
@@ -2605,7 +2620,7 @@
                         <option value="DLS">🏆 DLS</option>
                         <option value="WRESTLING">🤼 Wrestling</option>
                         <option value="CALL OF DUTY">🎯 Call of Duty</option>
-                        <option value="VARIETY">🎮 Variety</option>
+                        <option value="OTHER GAMES">🎮 Other Games</option>
                     </select>
                 </div>
 
@@ -2796,7 +2811,7 @@
                     <option value="EFOOTBALL">⚡ eFootball</option>
                     <option value="WRESTLING">🤼 Wrestling</option>
                     <option value="CALL OF DUTY">🎯 Call of Duty</option>
-                    <option value="VARIETY">🎮 Variety</option>
+                    <option value="OTHER GAMES">🎮 Other Games</option>
                 </select>
             </div>
 
@@ -2827,7 +2842,7 @@
                         <option value="EFOOTBALL">⚡ eFootball</option>
                         <option value="DLS">🏆 DLS</option>
                         <option value="WRESTLING">🤼 WWE 2K / Wrestling</option>
-                        <option value="VARIETY">🎮 Variety</option>
+                        <option value="OTHER GAMES">🎮 Other Games</option>
                     </select>
                 </div>
 
@@ -3059,7 +3074,7 @@
                     <option value="DLS">🏆 DLS</option>
                     <option value="WRESTLING">🤼 Wrestling</option>
                     <option value="CALL OF DUTY">🎯 Call of Duty</option>
-                    <option value="VARIETY">🎮 Variety</option>
+                    <option value="OTHER GAMES">🎮 Other Games</option>
                 </select>
             </div>
 
@@ -3390,19 +3405,19 @@
                 const res = await fetch('https://api.sstats.net/games/list?Live=true&Limit=15');
                 if (res.ok) {
                     const data = await res.json();
-                    const activeMatches = (data.data || []).filter(m => (m.elapsed || 0) <= 75).slice(0, 8);
+                    const activeMatches = (data.data || []).slice(0, 10);
                     if (activeMatches.length > 0) {
                         carousel.innerHTML = '';
                         activeMatches.forEach(m => {
                             carousel.innerHTML += `
                                 <div class="glass-panel p-3.5 rounded-2xl min-w-[230px] flex flex-col justify-between shrink-0 shadow-lg border border-cyan-500/20">
                                     <div class="flex items-center justify-between pb-2 border-b border-cyan-500/10">
-                                        <span class="text-[9px] text-gray-400 truncate uppercase">${m.season?.league?.name || 'League'}</span>
+                                        <span class="text-[9px] text-cyan-400 font-bold truncate uppercase">${m.season?.league?.name || 'Live Match'}</span>
                                         <span class="text-[9px] font-black text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full animate-pulse">${m.elapsed || 'LIVE'}</span>
                                     </div>
-                                    <div class="py-3 space-y-1 text-xs font-bold text-white">
-                                        <div class="flex justify-between"><span>${m.homeTeam?.name || 'Home'}</span><span class="text-cyan-400">${m.homeResult ?? 0}</span></div>
-                                        <div class="flex justify-between"><span>${m.awayTeam?.name || 'Away'}</span><span class="text-cyan-400">${m.awayResult ?? 0}</span></div>
+                                    <div class="py-3 space-y-1.5 text-xs font-bold text-white">
+                                        <div class="flex justify-between items-center"><span>${m.homeTeam?.name || 'Home'}</span><span class="text-cyan-400 text-sm font-black">${m.homeResult ?? 0}</span></div>
+                                        <div class="flex justify-between items-center"><span>${m.awayTeam?.name || 'Away'}</span><span class="text-cyan-400 text-sm font-black">${m.awayResult ?? 0}</span></div>
                                     </div>
                                 </div>`;
                         });
