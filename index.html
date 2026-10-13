@@ -167,7 +167,6 @@
             if(window.renderClansList) window.renderClansList();
         });
 
-        // FIXED: IndexedDB upgraded to handle stories alongside posts
         function openPostDB() {
             return new Promise((resolve, reject) => {
                 let request = indexedDB.open("SinlessPostDB", 2);
@@ -399,7 +398,6 @@
             }
         };
 
-        // FIXED: Feed Algorithm - Boost category on like
         window.toggleGGPost = async function(postId) {
             const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId || String(p.id) === String(postId));
             if (!post) {
@@ -481,7 +479,6 @@
 
                     snapshot.forEach(docSnap => {
                         const c = docSnap.data();
-                        const badgesHtml = getProfileBadges(c.user);
                         container.innerHTML += `
                             <div class="bg-gg-900/80 p-2.5 rounded-xl space-y-1 border border-cyan-500/10">
                                 <div class="flex items-center justify-between">
@@ -834,12 +831,6 @@
             savedClans.forEach(s => { if(s.id) mergedMap[s.id] = s; });
             window.clansData = Object.values(mergedMap);
         }
-        
-        (window.clansData || []).forEach(c => {
-            if (c.id === 'cat_squad_football' || c.name === 'FOOTBALL MANAGERS HUB') {
-                c.name = 'FOOTBALL NEWS HUB';
-            }
-        });
 
         window.activeSquadDetails = null;
         window.activeSquadSubRoom = 'chat';
@@ -1386,7 +1377,6 @@
             }
         };
 
-        // FIXED: Using IndexedDB for Stories now
         window.profileStories = [];
 
         window.triggerStoryUpload = function() {
@@ -1411,6 +1401,7 @@
                     window.profileStories.unshift(newStory);
                     await saveStoryToIndexedDB(newStory);
                     renderStoriesBar();
+                    input.value = '';
                     showToast(`✨ Profile Story Posted (${type === 'video' ? 'Video' : 'Image'})!`);
                 };
 
@@ -1472,7 +1463,7 @@
                     { id: 'm2', round: 1, p1: 'DonPrime', p2: 'Kumi_FC', s1: 2, s2: 0, winner: 'DonPrime', stage: 'Group A', streamUrl: '' },
                     { id: 'm3', round: 1, p1: 'Richard_GG', p2: 'Messiah_X', s1: 1, s2: 2, winner: 'Messiah_X', stage: 'Group B', streamUrl: '' },
                     { id: 'm4', round: 1, p1: 'Gloria_Gamer', p2: 'Kwame_Pro', s1: 0, s2: 1, winner: 'Kwame_Pro', stage: 'Group B', streamUrl: '' },
-                    { id: 'm5', round: 2, p1: 'SinlessGaming', p2: 'Messiah_X', s1: null, s2: null, winner: null, stage: 'Knockout Semi-Final', streamUrl: 'https://youtube.com/embed/live_stream' }
+                    { id: 'm5', round: 2, p1: 'SinlessGaming', p2: 'Messiah_X', s1: null, s2: null, winner: null, stage: 'Quarter-Final', streamUrl: 'https://youtube.com/embed/live_stream' }
                 ]
             }
         ];
@@ -1500,6 +1491,15 @@
             renderTournamentsTabDedicated();
         };
 
+        function getKnockoutStageName(maxPlayers, round) {
+            let playersInRound = maxPlayers / Math.pow(2, round - 1);
+            if (playersInRound === 2) return "Final";
+            if (playersInRound === 4) return "Semi-Final";
+            if (playersInRound === 8) return "Quarter-Final";
+            if (playersInRound > 8) return `Round of ${playersInRound}`;
+            return `Round ${round}`;
+        }
+
         window.submitNewTournament = function() {
             const title = document.getElementById('tournTitleInput').value.trim();
             const game = document.getElementById('tournGameSelect').value;
@@ -1525,8 +1525,19 @@
                 matches: []
             };
 
-            const numInitialMatches = format === 'KNOCKOUT' ? maxPlayers / 2 : (format === 'WORLD_CUP' ? 8 : 12);
+            let numInitialMatches = 0;
+            if (format === 'KNOCKOUT') numInitialMatches = maxPlayers / 2;
+            else if (format === 'WORLD_CUP') numInitialMatches = 8;
+            else if (format === 'CHAMPIONS_LEAGUE') numInitialMatches = 12;
+            else if (format === 'LEAGUE') numInitialMatches = maxPlayers * 2;
+
             for (let i = 0; i < numInitialMatches; i++) {
+                let initialStage = 'Round 1';
+                if (format === 'KNOCKOUT') initialStage = getKnockoutStageName(maxPlayers, 1);
+                else if (format === 'WORLD_CUP') initialStage = `Group ${String.fromCharCode(65 + (i % 4))}`;
+                else if (format === 'CHAMPIONS_LEAGUE') initialStage = 'Swiss Phase';
+                else if (format === 'LEAGUE') initialStage = 'League Fixture';
+
                 newTourn.matches.push({
                     id: `m_${Date.now()}_${i}`,
                     round: 1,
@@ -1535,7 +1546,7 @@
                     s1: null,
                     s2: null,
                     winner: null,
-                    stage: format === 'WORLD_CUP' ? `Group ${String.fromCharCode(65 + (i % 4))}` : (format === 'CHAMPIONS_LEAGUE' ? 'Swiss Phase' : 'Round 1'),
+                    stage: initialStage,
                     streamUrl: ''
                 });
             }
@@ -1568,8 +1579,8 @@
             tourn.players.push(me);
 
             for (let m of tourn.matches) {
-                if (m.p1 === 'Open Spot') { m.p1 = me; break; }
-                if (m.p2 === 'Open Spot') { m.p2 = me; break; }
+                if (m.p1 === 'Open Spot' || !m.p1) { m.p1 = me; break; }
+                if (m.p2 === 'Open Spot' || !m.p2) { m.p2 = me; break; }
             }
 
             localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
@@ -1627,7 +1638,6 @@
             window.activeMatchForReporting = null;
         };
 
-        // FIXED: Added Elimination Logic for Tournaments
         window.submitMatchScoreReport = function() {
             const match = window.activeMatchForReporting;
             if (!match) return;
@@ -1646,7 +1656,6 @@
             match.streamUrl = streamUrl;
             match.winner = s1 > s2 ? match.p1 : (s2 > s1 ? match.p2 : 'DRAW');
             
-            // Elimination logic tracking
             let loser = s1 < s2 ? match.p1 : (s2 < s1 ? match.p2 : null);
             if (loser && (window.activeTournament.format === 'KNOCKOUT' || match.stage.toLowerCase().includes('knockout') || match.stage.toLowerCase().includes('round'))) {
                 if(!window.activeTournament.eliminated) window.activeTournament.eliminated = [];
@@ -1662,11 +1671,41 @@
             renderTournamentsTabDedicated();
         };
 
+        window.addLeagueMatch = function(tournId) {
+            const tourn = window.tournamentsList.find(t => t.id === tournId);
+            if (!tourn) return;
+            tourn.matches.push({
+                id: `m_${Date.now()}`,
+                round: 1,
+                p1: 'Open Spot',
+                p2: 'Open Spot',
+                s1: null,
+                s2: null,
+                winner: null,
+                stage: 'League Fixture',
+                streamUrl: ''
+            });
+            localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
+            renderTournamentsTab();
+            renderTournamentsTabDedicated();
+            showToast("Added new league fixture slot.");
+        };
+
         function advanceWinnerInBracket(tourn, completedMatch) {
+            if (tourn.format === 'LEAGUE') return;
             if (!completedMatch.winner || completedMatch.winner === 'DRAW') return;
 
             const nextRound = completedMatch.round + 1;
             let nextMatch = tourn.matches.find(m => m.round === nextRound && (m.p1 === 'TBD' || m.p2 === 'TBD' || !m.p1 || !m.p2));
+
+            let nextStageName = `Round ${nextRound}`;
+            if (tourn.format === 'KNOCKOUT' || completedMatch.stage.includes('Knockout') || completedMatch.stage.includes('Round of') || completedMatch.stage.includes('Quarter') || completedMatch.stage.includes('Semi')) {
+                nextStageName = getKnockoutStageName(tourn.maxPlayers, nextRound);
+            } else if (tourn.format === 'WORLD_CUP' && nextRound === 2) {
+                nextStageName = "Round of 16";
+            } else if (tourn.format === 'WORLD_CUP' && nextRound === 3) {
+                nextStageName = "Quarter-Final";
+            }
 
             if (!nextMatch) {
                 nextMatch = { 
@@ -1677,7 +1716,7 @@
                     s1: null, 
                     s2: null, 
                     winner: null, 
-                    stage: `Knockout Round ${nextRound}`,
+                    stage: nextStageName,
                     streamUrl: ''
                 };
                 tourn.matches.push(nextMatch);
@@ -1716,7 +1755,7 @@
             const isJoined = current.players.includes(me);
             const isHost = current.host.toLowerCase() === me.toLowerCase();
 
-            let formatBadge = current.format === 'WORLD_CUP' ? '🌍 World Cup Style' : (current.format === 'CHAMPIONS_LEAGUE' ? '🏆 Champions League Swiss' : '⚡ Single Elimination');
+            let formatBadge = current.format === 'WORLD_CUP' ? '🌍 World Cup Style' : (current.format === 'CHAMPIONS_LEAGUE' ? '🏆 Champions League Swiss' : (current.format === 'LEAGUE' ? '📊 Full League Table' : '⚡ Single Elimination'));
 
             let bodyHtml = `
                 <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/30">
@@ -1731,13 +1770,83 @@
                             ${!isJoined ? `<button onclick="joinActiveTournament('${current.id}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Join League</button>` : `<span class="text-[9px] bg-cyan-500/10 text-cyan-400 font-extrabold px-2.5 py-1 rounded-full">✓ Registered</span>`}
                         </div>
                     </div>
+            `;
 
-                    <div class="space-y-2 pt-1">
-                        <h4 class="text-[10px] font-black text-gray-300 uppercase tracking-wider flex justify-between items-center">
-                            <span><i class="fa-solid fa-sitemap text-cyan-400 mr-1"></i> Matches & Brackets</span>
-                            <span class="text-[9px] text-gray-400 font-normal">Tap node to watch/report</span>
-                        </h4>
-                        <div class="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+            if (current.format === 'LEAGUE') {
+                let standings = {};
+                current.players.forEach(p => {
+                    if (p !== 'Open Spot' && p !== 'TBD') {
+                        standings[p] = { p: p, played: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
+                    }
+                });
+
+                current.matches.forEach(m => {
+                    if (m.winner !== null && m.p1 !== 'Open Spot' && m.p2 !== 'Open Spot') {
+                        if (!standings[m.p1]) standings[m.p1] = { p: m.p1, played: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
+                        if (!standings[m.p2]) standings[m.p2] = { p: m.p2, played: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
+                        
+                        standings[m.p1].played++;
+                        standings[m.p2].played++;
+                        standings[m.p1].gf += m.s1; standings[m.p1].ga += m.s2;
+                        standings[m.p2].gf += m.s2; standings[m.p2].ga += m.s1;
+
+                        if (m.s1 > m.s2) {
+                            standings[m.p1].w++; standings[m.p1].pts += 3;
+                            standings[m.p2].l++;
+                        } else if (m.s2 > m.s1) {
+                            standings[m.p2].w++; standings[m.p2].pts += 3;
+                            standings[m.p1].l++;
+                        } else {
+                            standings[m.p1].d++; standings[m.p1].pts += 1;
+                            standings[m.p2].d++; standings[m.p2].pts += 1;
+                        }
+                    }
+                });
+
+                Object.values(standings).forEach(s => s.gd = s.gf - s.ga);
+                let tableArr = Object.values(standings).sort((a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+
+                bodyHtml += `
+                    <div class="bg-gg-950 rounded-xl border border-cyan-500/20 overflow-x-auto mb-3 shadow-inner">
+                        <table class="w-full text-xs text-left">
+                            <thead class="bg-gg-900 text-cyan-400 font-black uppercase text-[9px]">
+                                <tr>
+                                    <th class="px-2 py-1.5">Pos</th>
+                                    <th class="px-2 py-1.5">Club / Player</th>
+                                    <th class="px-2 text-center">P</th>
+                                    <th class="px-2 text-center">W</th>
+                                    <th class="px-2 text-center">D</th>
+                                    <th class="px-2 text-center">L</th>
+                                    <th class="px-2 text-center">GD</th>
+                                    <th class="px-2 text-center">Pts</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-cyan-500/10 text-gray-200">
+                `;
+                tableArr.forEach((row, i) => {
+                    bodyHtml += `
+                        <tr>
+                            <td class="px-2 py-1.5 font-bold">${i+1}</td>
+                            <td class="px-2 py-1.5 font-bold text-white truncate max-w-[90px]">@${row.p}</td>
+                            <td class="px-2 text-center">${row.played}</td>
+                            <td class="px-2 text-center text-emerald-400">${row.w}</td>
+                            <td class="px-2 text-center text-gray-400">${row.d}</td>
+                            <td class="px-2 text-center text-red-400">${row.l}</td>
+                            <td class="px-2 text-center">${row.gd > 0 ? '+'+row.gd : row.gd}</td>
+                            <td class="px-2 text-center font-black text-cyan-400">${row.pts}</td>
+                        </tr>
+                    `;
+                });
+                bodyHtml += `</tbody></table></div>`;
+            }
+
+            bodyHtml += `
+                <div class="space-y-2 pt-1">
+                    <h4 class="text-[10px] font-black text-gray-300 uppercase tracking-wider flex justify-between items-center">
+                        <span><i class="fa-solid fa-sitemap text-cyan-400 mr-1"></i> Matches & Brackets</span>
+                        <span class="text-[9px] text-gray-400 font-normal">Tap node to watch/report</span>
+                    </h4>
+                    <div class="space-y-2 max-h-[340px] overflow-y-auto pr-1">
             `;
 
             if (!current.matches || current.matches.length === 0) {
@@ -1747,7 +1856,6 @@
                     const isCompleted = m.winner !== null;
                     const hasStream = !!m.streamUrl;
                     
-                    // FIXED: Eliminated players visual strike-through
                     let p1Eliminated = current.eliminated && current.eliminated.includes(m.p1);
                     let p2Eliminated = current.eliminated && current.eliminated.includes(m.p2);
 
@@ -1781,6 +1889,10 @@
                         </div>
                     `;
                 });
+            }
+
+            if (current.format === 'LEAGUE' && isHost) {
+                bodyHtml += `<button onclick="addLeagueMatch('${current.id}')" class="w-full py-2 bg-gg-900 border border-cyan-500/30 text-cyan-400 rounded-xl text-xs font-bold mt-2 hover:bg-cyan-500/20 transition">+ Add League Fixture</button>`;
             }
 
             bodyHtml += `</div></div></div>`;
@@ -1965,7 +2077,6 @@
                     if (!postId) return;
 
                     if (entry.isIntersecting) {
-                        // FIXED: Engagement Algorithm - Log post as seen
                         if(!window.seenPostsList[postId]) {
                             window.seenPostsList[postId] = true;
                             localStorage.setItem('sinless_seen_posts', JSON.stringify(window.seenPostsList));
@@ -2252,7 +2363,6 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
         .verified-badge { color: #f97316; text-shadow: 0 0 10px rgba(249, 115, 22, 0.5); }
-        /* FIXED: Force stops background swiping during media zoom */
         #mediaViewerContainer, #mediaZoomModal { touch-action: none !important; overscroll-behavior: none !important; }
     </style>
 </head>
@@ -2334,7 +2444,7 @@
             <div class="glass-panel p-4 rounded-2xl flex items-center justify-between shadow-xl border border-amber-500/40 bg-gradient-to-r from-gg-900 via-amber-950/30 to-gg-900">
                 <div>
                     <h3 class="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center"><i class="fa-solid fa-trophy mr-1.5"></i> Tournaments & Leagues Arena</h3>
-                    <p class="text-[9px] text-gray-300">Self-serve brackets, World Cup & Champions League formats</p>
+                    <p class="text-[9px] text-gray-300">Self-serve brackets, Leagues, World Cup & Champions League formats</p>
                 </div>
                 <button onclick="openCreateTournamentModal()" class="px-3 py-1.5 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 rounded-xl text-[10px] font-black shadow uppercase tracking-wider">+ Host Tournament</button>
             </div>
@@ -2663,8 +2773,8 @@
             <button onclick="openCreateTournamentModal()" class="p-3 bg-gg-900 hover:bg-gg-800 rounded-xl border border-cyan-500/30 flex items-center space-x-3 text-left transition group">
                 <div class="w-9 h-9 rounded-lg bg-cyan-400 flex items-center justify-center text-slate-950 font-black shrink-0"><i class="fa-solid fa-trophy"></i></div>
                 <div>
-                    <h4 class="text-xs font-bold text-white group-hover:text-cyan-400">Host Tournament</h4>
-                    <p class="text-[9px] text-gray-400">Knockout, World Cup, or Champions League</p>
+                    <h4 class="text-xs font-bold text-white group-hover:text-cyan-400">Host Tournament / League</h4>
+                    <p class="text-[9px] text-gray-400">Leagues, Knockout, World Cup, or Champions League</p>
                 </div>
             </button>
         </div>
@@ -2705,8 +2815,8 @@
 
             <div class="space-y-2.5">
                 <div>
-                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Tournament Title</label>
-                    <input type="text" id="tournTitleInput" placeholder="e.g. Sinless Champions Cup 2026" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-2.5 text-xs text-white focus:outline-none">
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Tournament / League Title</label>
+                    <input type="text" id="tournTitleInput" placeholder="e.g. Sinless Premier League 2026" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl p-2.5 text-xs text-white focus:outline-none">
                 </div>
 
                 <div>
@@ -2724,6 +2834,7 @@
                 <div>
                     <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Tournament Format</label>
                     <select id="tournFormatSelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30 focus:outline-none">
+                        <option value="LEAGUE">📊 Full League Table (e.g. La Liga, EPL)</option>
                         <option value="KNOCKOUT">⚡ Single Elimination Bracket</option>
                         <option value="WORLD_CUP">🌍 World Cup Style (Groups + Bracket)</option>
                         <option value="CHAMPIONS_LEAGUE">🏆 Champions League (Swiss Phase + Bracket)</option>
@@ -2731,11 +2842,12 @@
                 </div>
 
                 <div>
-                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Maximum Teams</label>
+                    <label class="text-[10px] font-bold text-gray-300 uppercase block mb-1">Maximum Teams / Players</label>
                     <select id="tournSizeSelect" class="w-full bg-gg-900 text-cyan-400 text-xs font-bold p-2.5 rounded-xl border border-cyan-500/30 focus:outline-none">
                         <option value="64">64 Teams (Mega Tournament)</option>
                         <option value="36">36 Teams (Champions League Standard)</option>
                         <option value="32">32 Teams (World Cup Standard)</option>
+                        <option value="20">20 Teams (Standard League Table)</option>
                         <option value="16">16 Teams (Classic Cup)</option>
                         <option value="8">8 Teams (Mini Bracket)</option>
                     </select>
@@ -2743,7 +2855,7 @@
             </div>
 
             <button onclick="submitNewTournament()" class="w-full py-3 bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 font-black rounded-xl text-xs shadow-lg uppercase tracking-wider mt-2">
-                🚀 Launch Tournament
+                🚀 Launch Tournament / League
             </button>
         </div>
     </div>
@@ -2775,7 +2887,7 @@
             </div>
 
             <button onclick="submitMatchScoreReport()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black rounded-xl text-xs shadow-lg uppercase tracking-wider mt-1">
-                ✓ Save Score & Advance Bracket
+                ✓ Save Score & Update Standings / Bracket
             </button>
         </div>
     </div>
@@ -3024,7 +3136,6 @@
         window.uploadedMediaBlobs = [];
         window.selectedAudioTrack = null;
 
-        // NEW: Algorithm variables to track user interests
         window.userCategoryWeights = JSON.parse(localStorage.getItem('sinless_cat_weights') || '{}');
         window.seenPostsList = JSON.parse(localStorage.getItem('sinless_seen_posts') || '{}');
 
@@ -3085,6 +3196,10 @@
                 window.profileStories = storedStories.reverse();
             }
 
+            if (typeof listenToFirestorePosts === 'function') listenToFirestorePosts();
+            if (typeof listenToFirestoreMarket === 'function') listenToFirestoreMarket();
+            if (typeof listenToFirestoreSquads === 'function') listenToFirestoreSquads();
+
             pruneExpiredEphemeralData();
             renderStoriesBar();
             renderClansList();
@@ -3117,7 +3232,7 @@
                         canvas.width = width; canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-                        resolve(canvas.toDataURL('image/webp', quality));
+                        resolve(canvas.toDataURL('image/jpeg', quality));
                     };
                 };
             });
@@ -3214,7 +3329,6 @@
             const container = document.getElementById('mediaViewerContainer');
             if (!container) return;
 
-            // FIXED: passive: false allows preventDefault to stop native scrolling
             container.addEventListener('touchstart', (e) => {
                 if (e.touches.length === 2) {
                     initialPinchDistance = Math.hypot(
@@ -3344,10 +3458,8 @@
             if(!container) return;
             container.innerHTML = '';
             
-            // Filter posts
             let filtered = (window.fypposts || []).filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
             
-            // FIXED: Algorithm Engagement Sort
             filtered.sort((a, b) => {
                 let getScore = (p) => {
                     let base = ((p.viewsCount||1)*0.1) + ((p.ggsCount||0)*2) + ((p.commentsCount||0)*3);
