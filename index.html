@@ -2739,6 +2739,18 @@
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
         .verified-badge { color: #f97316; text-shadow: 0 0 10px rgba(249, 115, 22, 0.5); }
         #mediaViewerContainer, #mediaZoomModal { touch-action: none !important; overscroll-behavior: none !important; }
+        /* Keep the media pinned while comments scroll underneath */
+.sticky-media-frame {
+    position: sticky;
+    top: 60px;
+    z-index: 40;
+    background: #02050b;
+    border-radius: 1rem;
+    overflow: hidden;
+    border: 1px solid rgba(0, 243, 255, 0.25);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8);
+}
+
     </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-slate-950" onload="initApp()">
