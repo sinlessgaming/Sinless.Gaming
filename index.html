@@ -3,14 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sinless GG - Global Gaming, Esports & Match Hub</title>
+    <title>Sinless GG - Global Gaming Hub</title>
     
     <!-- Tailwind CSS & Font Awesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background-color: #02050b;
+            color: #f8fafc;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            touch-action: manipulation;
+        }
+
+        .glass-panel {
+            background: rgba(11, 22, 44, 0.9);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 243, 255, 0.15);
+        }
+
+        .scrollbar-none::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-none {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
 
     <script>
         tailwind.config = {
@@ -25,7 +47,7 @@
         }
     </script>
 </head>
-<body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-slate-950 bg-gg-950 text-white">
+<body class="min-h-screen flex flex-col antialiased bg-gg-950 text-white">
 
     <!-- Toast Notification Banner -->
     <div id="toastBanner" class="fixed top-4 left-1/2 -translate-x-1/2 z-[300] bg-cyan-500 text-slate-950 px-4 py-2.5 rounded-2xl font-black text-xs shadow-2xl transition-all duration-300 opacity-0 pointer-events-none text-center">
@@ -78,7 +100,7 @@
         </button>
     </header>
 
-    <!-- Main Section -->
+    <!-- Main App Container -->
     <main class="flex-1 flex flex-col max-w-2xl w-full mx-auto p-3 space-y-3">
         <!-- Navigation Bar -->
         <div class="glass-panel p-1.5 rounded-2xl flex shadow-xl overflow-x-auto scrollbar-none">
@@ -130,6 +152,134 @@
         </div>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <!-- Self-Contained JavaScript Logic -->
+    <script>
+        window.myGGCoins = parseInt(localStorage.getItem('sinless_gg_coins') || '100');
+
+        window.showToast = function(msg) {
+            const banner = document.getElementById('toastBanner');
+            if (!banner) return;
+            banner.innerText = msg;
+            banner.style.opacity = '1';
+            banner.style.pointerEvents = 'auto';
+            setTimeout(() => {
+                banner.style.opacity = '0';
+                banner.style.pointerEvents = 'none';
+            }, 3000);
+        };
+
+        window.openSideDrawer = function() {
+            document.getElementById('sideDrawerOverlay')?.classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('sideDrawerPanel')?.classList.remove('-translate-x-full');
+            }, 10);
+        };
+
+        window.closeSideDrawer = function() {
+            document.getElementById('sideDrawerPanel')?.classList.add('-translate-x-full');
+            setTimeout(() => {
+                document.getElementById('sideDrawerOverlay')?.classList.add('hidden');
+            }, 300);
+        };
+
+        window.fypposts = [
+            { id: '1', user: 'SinlessGaming', game: 'FC MOBILE', caption: '🏆 SINLESS SUPER LEAGUE SEASON 8 IS LIVE!' },
+            { id: '2', user: 'AceKhyd', game: 'EA SPORTS FC', caption: 'Who is ready for the tournament this weekend?' }
+        ];
+
+        window.renderFeed = function() {
+            const container = document.getElementById('fypFeedContainer');
+            if (!container) return;
+            container.innerHTML = window.fypposts.map(p => `
+                <div class="glass-panel p-4 rounded-2xl space-y-2 border border-cyan-500/20">
+                    <div class="flex justify-between items-center">
+                        <span class="font-extrabold text-xs text-white">@${p.user}</span>
+                        <span class="text-[9px] text-cyan-400 font-bold">${p.game}</span>
+                    </div>
+                    <p class="text-xs text-gray-200">${p.caption}</p>
+                </div>
+            `).join('');
+        };
+
+        window.renderTrending = function() {
+            const container = document.getElementById('dynamicTrendingTopicsList');
+            if (!container) return;
+            container.innerHTML = `
+                <div class="glass-panel p-3 bg-gg-900 rounded-xl flex justify-between">
+                    <h4 class="text-xs font-bold text-white">#SinlessSuperLeague</h4>
+                    <span class="text-[9px] text-cyan-400">4,320 posts</span>
+                </div>`;
+        };
+
+        window.renderTournaments = function() {
+            const container = document.getElementById('tournamentsDedicatedContainer');
+            if (!container) return;
+            container.innerHTML = `
+                <div class="glass-panel p-4 rounded-2xl border border-cyan-500/20 space-y-1">
+                    <h3 class="font-black text-white text-sm">SINLESS SUPER LEAGUE - SEASON 8</h3>
+                    <p class="text-[10px] text-cyan-400">Game: EA SPORTS FC MOBILE • Prize: 10,000 GG Coins</p>
+                </div>`;
+        };
+
+        window.renderSquads = function() {
+            const container = document.getElementById('clansContainer');
+            if (!container) return;
+            container.innerHTML = `
+                <div class="glass-panel p-4 rounded-2xl border border-cyan-500/20">
+                    <h3 class="font-black text-white text-sm">Sinless Esports Elite</h3>
+                    <p class="text-[10px] text-gray-400">Official Accra tournament competitive squad.</p>
+                </div>`;
+        };
+
+        window.renderLobbies = function() {
+            const container = document.getElementById('chatLobbiesContainer');
+            if (!container) return;
+            container.innerHTML = `
+                <div class="glass-panel p-4 rounded-2xl border border-cyan-500/20">
+                    <h3 class="font-black text-white text-sm">Global Matchmaking Lobby</h3>
+                    <p class="text-[10px] text-cyan-400">Challenge local players live.</p>
+                </div>`;
+        };
+
+        window.switchView = function(viewName) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+
+            const target = document.getElementById(`view-${viewName}`);
+            if (target) target.classList.remove('hidden');
+
+            ['fyp', 'trending', 'tournaments', 'clans', 'chat'].forEach(name => {
+                const btn = document.getElementById(`nav-${name}`);
+                if (btn) {
+                    btn.className = (name === viewName)
+                        ? 'flex-1 py-2 px-3 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap'
+                        : 'flex-1 py-2 px-3 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap';
+                }
+            });
+
+            if (viewName === 'trending') window.renderTrending();
+            if (viewName === 'tournaments') window.renderTournaments();
+            if (viewName === 'clans') window.renderSquads();
+            if (viewName === 'chat') window.renderLobbies();
+        };
+
+        window.openUniversalCreateModal = () => document.getElementById('universalCreateModal')?.classList.remove('hidden');
+        window.closeUniversalCreateModal = () => document.getElementById('universalCreateModal')?.classList.add('hidden');
+
+        window.submitNewPost = function() {
+            const input = document.getElementById('postCaptionInput');
+            const caption = input ? input.value.trim() : '';
+            if (!caption) return window.showToast('⚠️ Please write something first!');
+
+            window.fypposts.unshift({ id: Date.now().toString(), user: 'AceKhyd', game: 'FC MOBILE', caption });
+            input.value = '';
+            window.closeUniversalCreateModal();
+            window.renderFeed();
+            window.showToast('🚀 Post published!');
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.renderFeed();
+        });
+    </script>
 </body>
 </html>
