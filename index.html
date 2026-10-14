@@ -3954,7 +3954,20 @@
                     post.mediaList.forEach(m => {
                         if (m.type === 'video') {
                             mediaHtml += `<div class="relative cursor-pointer overflow-hidden rounded-xl border border-cyan-500/20 hover:border-cyan-400/60 transition group" onclick="event.stopPropagation(); openMediaZoomModal('video', '${m.url}', '${normalizedId}')" ondblclick="event.stopPropagation(); toggleGGPost('${normalizedId}'); showToast('❤️ GGs Liked!')">
-                                <video src="${m.url}" class="w-full h-36 rounded-xl object-cover bg-black pointer-events-none group-hover:scale-105 transition-transform duration-300" autoplay loop muted></video>
+                       <!-- Sticky Media Frame (Twitter/X Layout) -->
+${p.videoUrl ? `
+    <div class="sticky-media-frame">
+        <video controls autoplay loop muted class="w-full max-h-64 object-cover">
+            <source src="${p.videoUrl}" type="video/mp4">
+        </video>
+    </div>
+` : ''}
+
+<!-- Scrollable Comments / Replies Section Below -->
+<div class="space-y-2 pt-2 border-t border-cyan-500/15 max-h-60 overflow-y-auto">
+    <!-- Your existing reply mapping logic stays here -->
+</div>
+         <video src="${m.url}" class="w-full h-36 rounded-xl object-cover bg-black pointer-events-none group-hover:scale-105 transition-transform duration-300" autoplay loop muted></video>
                                 <i class="fa-solid fa-expand absolute top-2 right-2 text-xs text-white bg-slate-900/80 p-1 rounded-lg opacity-80 group-hover:opacity-100"></i>
                             </div>`;
                         } else {
