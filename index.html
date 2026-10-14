@@ -79,6 +79,48 @@
         window.onSnapshot = onSnapshot;
         window.serverTimestamp = serverTimestamp;
 
+        // GG Coins Local Initialization
+        window.myGGCoins = parseInt(localStorage.getItem('sinless_gg_coins') || '100');
+
+        window.updateCoinDisplay = function() {
+            const coinBadge = document.getElementById('headerCoinBalanceText');
+            if (coinBadge) {
+                coinBadge.innerText = `${window.myGGCoins} GG Coins`;
+            }
+            localStorage.setItem('sinless_gg_coins', window.myGGCoins);
+        };
+
+        window.tipCreator = async function(postId, creatorUsername) {
+            const tipAmount = prompt(`How many GG Coins would you like to tip @${creatorUsername}? (Available Balance: ${window.myGGCoins} coins):`, "10");
+            const amount = parseInt(tipAmount);
+
+            if (isNaN(amount) || amount <= 0) return;
+
+            if (window.myGGCoins < amount) {
+                showToast("⚠️ Insufficient GG Coins! Top up your wallet first.");
+                return;
+            }
+
+            window.myGGCoins -= amount;
+            window.updateCoinDisplay();
+
+            const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
+            if (post) {
+                post.tipsTotal = (post.tipsTotal || 0) + amount;
+                if (window.renderFypFeed) window.renderFypFeed();
+            }
+
+            showToast(`🪙 Successfully tipped ${amount} GG Coins to @${creatorUsername}!`);
+
+            const targetId = post ? (post.docId || post.id) : postId;
+            if (window.db && targetId && !String(targetId).startsWith('local_')) {
+                try {
+                    const postRef = doc(window.db, "posts", targetId);
+                    await updateDoc(postRef, { tipsTotal: increment(amount) });
+                } catch (e) { console.error("Cloud tip update error:", e); }
+            }
+        };
+
         window.setupPushNotifications = async function() {
             if (!messaging) {
                 showToast("Push notifications not supported on this device.");
@@ -269,6 +311,7 @@
                 audioTrack: audioTrack,
                 ggsCount: 0,
                 ggsBy: [],
+                tipsTotal: 0,
                 viewsCount: 1,
                 commentsCount: 0,
                 createdAt: new Date().toISOString()
@@ -2715,6 +2758,12 @@
             </div>
         </div>
         <div class="flex items-center space-x-1.5">
+            <!-- GG Coins Wallet Badge -->
+            <div onclick="showToast('🪙 Wallet Balance: ' + window.myGGCoins + ' GG Coins')" class="px-2.5 py-1.5 rounded-xl text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center space-x-1 cursor-pointer shadow hover:bg-amber-500/30 transition">
+                <i class="fa-solid fa-coins text-amber-400"></i>
+                <span id="headerCoinBalanceText">100 GG Coins</span>
+            </div>
+
             <button onclick="openLiveBroadcastModal()" class="px-2 py-1.5 rounded-xl text-[10px] font-extrabold bg-red-600 text-white shadow-lg shadow-red-600/30 animate-pulse hover:bg-red-500 transition flex items-center space-x-1">
                 <i class="fa-solid fa-circle text-[5px]"></i><span>LIVE</span>
             </button>
@@ -3585,6 +3634,8 @@
         async function initApp() {
             document.getElementById('headerUserTag').innerText = window.myUsername;
 
+            if (window.updateCoinDisplay) window.updateCoinDisplay();
+
             if (window.loadLocalPostsFromDB) {
                 let storedPosts = await window.loadLocalPostsFromDB();
                 if (storedPosts.length > 0) window.fypposts = storedPosts.reverse();
@@ -3861,7 +3912,7 @@
             
             filtered.sort((a, b) => {
                 let getScore = (p) => {
-                    let base = ((p.viewsCount||1)*0.1) + ((p.ggsCount||0)*2) + ((p.commentsCount||0)*3);
+                    let base = ((p.viewsCount||1)*0.1) + ((p.ggsCount||0)*2) + ((p.commentsCount||0)*3) + ((p.tipsTotal||0)*5);
                     let ageHours = (Date.now() - new Date(p.createdAt || Date.now()).getTime()) / 3600000;
                     let catMulti = 1 + ((window.userCategoryWeights[p.game] || 0) * 0.05); 
                     let seenPenalty = window.seenPostsList[p.id] ? 0.5 : 1; 
@@ -3911,6 +3962,7 @@
                 let uid = window.currentUser ? window.currentUser.uid : 'guest_user';
                 let hasGGed = post.ggsBy && post.ggsBy.includes(uid);
                 let commentsNum = post.commentsCount || 0;
+                let currentTips = post.tipsTotal || 0;
 
                 container.innerHTML += `
                     <div class="glass-panel rounded-2xl p-3.5 space-y-2.5 shadow-xl relative post-card-item hover:-translate-y-0.5 transition-all duration-200" data-post-id="${normalizedId}">
@@ -3939,6 +3991,10 @@
                             <button onclick="event.stopPropagation(); openCommentsModal('${normalizedId}')" class="flex items-center space-x-1.5 text-gray-400 font-bold hover:text-cyan-400 transition active:scale-95 px-2 py-1 rounded-lg hover:bg-cyan-500/10">
                                 <i class="fa-regular fa-comment"></i>
                                 <span>${commentsNum} Replies</span>
+                            </button>
+                            <button onclick="event.stopPropagation(); tipCreator('${normalizedId}', '${post.user}')" class="flex items-center space-x-1.5 text-amber-400 font-extrabold hover:text-amber-300 transition active:scale-95 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                                <i class="fa-solid fa-coins"></i>
+                                <span>Tip ${currentTips > 0 ? `(${currentTips})` : ''}</span>
                             </button>
                             <span id="viewsCounterBadge_${normalizedId}" class="text-[10px] text-gray-400 font-semibold flex items-center space-x-1">
                                 <i class="fa-regular fa-eye"></i>
