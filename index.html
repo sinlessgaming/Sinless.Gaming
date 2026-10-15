@@ -4249,6 +4249,28 @@ ${p.videoUrl ? `
     </li>
   </ul>
 </aside>
+<script>// Side Drawer Interaction
+const openDrawerBtn = document.getElementById('openDrawerBtn');
+const sideDrawer = document.getElementById('sideDrawer');
+const drawerOverlay = document.getElementById('drawerOverlay');
 
+function toggleDrawer(open) {
+  if (open) {
+    sideDrawer.classList.add('active');
+    drawerOverlay.classList.add('active');
+  } else {
+    sideDrawer.classList.remove('active');
+    drawerOverlay.classList.remove('active');
+  }
+}
+
+if (openDrawerBtn) {
+  openDrawerBtn.addEventListener('click', () => toggleDrawer(true));
+}
+
+if (drawerOverlay) {
+  drawerOverlay.addEventListener('click', () => toggleDrawer(false));
+}
+</script>
 </body>
 </html>
