@@ -5,31 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sinless GG - Global Gaming, Esports & Match Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
-    <body><!-- REPLACE YOUR EXISTING <header> WITH THIS -->
-<header class="bg-gg-900/95 backdrop-blur-md border-b border-cyan-500/15 px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-xl">
-    <!-- Drawer Menu Trigger (Avatar + Username) -->
-    <button id="openDrawerBtn" class="flex items-center space-x-2.5 cursor-pointer group focus:outline-none">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-xs shadow-lg shadow-cyan-500/30 group-hover:scale-105 transition-transform">SG</div>
-        <div class="text-left">
-            <h1 class="font-extrabold text-sm tracking-wide text-white group-hover:text-cyan-400 transition">SINLESS <span class="text-cyan-400">GG</span></h1>
-            <p id="headerUserTag" class="text-[9px] text-amber-400 tracking-wider uppercase font-extrabold">@ACEKHYD</p>
-        </div>
-    </button>
-
-    <!-- Top Right Actions: LIVE + POST -->
-    <div class="flex items-center space-x-2">
-        <button onclick="openLiveBroadcastModal()" class="px-2.5 py-1.5 rounded-xl text-xs font-extrabold bg-red-600 text-white shadow-lg shadow-red-600/30 animate-pulse hover:bg-red-500 transition flex items-center space-x-1">
-            <i class="fa-solid fa-circle text-[6px]"></i><span>LIVE</span>
-        </button>
-        <button onclick="openCreatePostModal()" class="px-3 py-1.5 rounded-xl text-xs font-black bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20 hover:bg-cyan-300 transition flex items-center space-x-1">
-            <i class="fa-solid fa-plus text-[10px]"></i><span>Post</span>
-        </button>
-    </div>
-</header>
-<style>
-    .drawer-overlay {
-  position: fixed
+    
+<style>.drawer-overlay {
+  position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
@@ -38,9 +16,11 @@
   z-index: 199;
   display: none;
 }
+
 .drawer-overlay.active {
   display: block;
 }
+
 .side-drawer {
   position: fixed;
   top: 0;
@@ -100,72 +80,6 @@
   border-radius: 10px;
   font-weight: bold;
 }
-    /* Drawer & Navigation Styling */
-.drawer-overlay {
-  position: fixed;
-  top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(6px);
-  z-index: 199; display: none; opacity: 0;
-  transition: opacity 0.3s ease;
-}
-.drawer-overlay.active { display: block; opacity: 1; }
-
-.side-drawer {
-  position: fixed; top: 0; left: -320px;
-  width: 290px; height: 100%;
-  background: #0f141c; z-index: 201;
-  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex; flex-direction: column; gap: 16px;
-  padding: 24px 16px; box-sizing: border-box;
-  border-right: 1px solid rgba(0, 243, 255, 0.2);
-  box-shadow: 10px 0 30px rgba(0,0,0,0.8);
-}
-.side-drawer.active { left: 0; }
-
-.drawer-profile {
-  display: flex; align-items: center; gap: 12px;
-  padding-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.drawer-menu { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-.drawer-menu-item {
-  display: flex; align-items: center; gap: 14px; padding: 12px 14px;
-  border-radius: 12px; color: #ffffff; font-size: 0.9rem; font-weight: 600;
-  cursor: pointer; transition: all 0.2s ease;
-}
-.drawer-menu-item:hover { background: #161b22; color: #00f3ff; }
-.drawer-menu-item.danger { color: #ff4d4d; }
-.drawer-menu-item.danger:hover { background: rgba(255, 77, 77, 0.1); }
-
-.gg-coins-card {
-  background: linear-gradient(135deg, rgba(255, 184, 0, 0.12) 0%, rgba(15, 20, 28, 0.9) 100%);
-  border: 1px solid #ffb800; border-radius: 16px; padding: 12px 16px;
-  display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 15px rgba(255, 184, 0, 0.15);
-}
-
-.bottom-nav-bar {
-  position: fixed; bottom: 0; left: 0; right: 0; height: 68px;
-  background: rgba(11, 14, 20, 0.95); backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex; align-items: center; justify-space-around; z-index: 100; padding: 0 16px;
-}
-.bottom-nav-item {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  color: #94a3b8; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: color 0.2s ease;
-}
-.bottom-nav-item.active { color: #00f3ff; }
-.bottom-nav-item i { font-size: 1.25rem; }
-
-.floating-plus-btn {
-  position: fixed; bottom: 20px; right: 24px; width: 58px; height: 58px;
-  border-radius: 50%; background: #00f3ff; color: #02050b;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  box-shadow: 0 0 25px rgba(0, 243, 255, 0.4); z-index: 105; cursor: pointer;
-  transition: transform 0.2s ease;
-}
-.floating-plus-btn:active { transform: scale(0.92); }
-
 </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -4302,6 +4216,7 @@ ${p.videoUrl ? `
                 `;
             }
         }
+
         function handleGlobalSearch(q) {
             let res = document.getElementById('dynamicTrendingTopicsList');
             if(!res) return;
@@ -4309,66 +4224,53 @@ ${p.videoUrl ? `
             let matches = (window.fypposts || []).filter(p => (p.caption && p.caption.toLowerCase().includes(q.toLowerCase())) || (p.user && p.user.toLowerCase().includes(q.toLowerCase())) || (p.game && p.game.toLowerCase().includes(q.toLowerCase())));
             res.innerHTML = matches.map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white border border-cyan-500/10"><span class="font-bold cursor-pointer text-cyan-400" onclick="openUserProfileModal('${p.user}', event)">@${p.user}</span>: ${p.caption || 'Media Clip'}</div>`).join('') || '<p class="text-xs text-gray-400 text-center py-4">No matching posts or gamertags found.</p>';
         }
-    <!-- Side Drawer Structure & Overlay -->
+    </script> <!-- Side Drawer Structure (Paste right before </body>) -->
 <div class="drawer-overlay" id="drawerOverlay"></div>
 
 <aside class="side-drawer" id="sideDrawer">
   <div class="drawer-profile">
-    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-sm shadow-lg">SG</div>
+    <div class="logo-avatar">SG</div>
     <div>
-      <div style="font-weight: bold; color: #ffffff;">SinlessGaming</div>
-      <div style="font-size: 0.8rem; color: #00f3ff;">@SinlessGaming</div>
+      <div style="font-weight: bold; color: var(--text-main);">SinlessGaming</div>
+      <div style="font-size: 0.8rem; color: var(--text-muted);">@SinlessGaming</div>
     </div>
   </div>
+
   <ul class="drawer-menu">
-    <li class="drawer-menu-item" onclick="toggleDrawer(false); showToast('🪙 Wallet Balance: ' + window.myGGCoins + ' GG Coins');">
-      <span><i class="fa-solid fa-wallet mr-2 text-amber-400"></i> GG Coins Wallet</span>
+    <li class="drawer-menu-item">
+      <span><i class="fa-solid fa-wallet"></i> GG Coins Wallet</span>
       <span class="badge">4,500</span>
     </li>
-    <li class="drawer-menu-item" onclick="toggleDrawer(false); window.setupPushNotifications();">
-      <span><i class="fa-solid fa-bell mr-2 text-cyan-400"></i> Notifications</span>
+    <li class="drawer-menu-item">
+      <span><i class="fa-solid fa-bell"></i> Notifications</span>
     </li>
-    <li class="drawer-menu-item" onclick="toggleDrawer(false); openAccountModal();">
-      <span><i class="fa-solid fa-gear mr-2 text-magenta"></i> Account Settings</span>
+    <li class="drawer-menu-item">
+      <span><i class="fa-solid fa-gear"></i> Account Settings</span>
     </li>
   </ul>
 </aside>
+<script>// Side Drawer Interaction
+const openDrawerBtn = document.getElementById('openDrawerBtn');
+const sideDrawer = document.getElementById('sideDrawer');
+const drawerOverlay = document.getElementById('drawerOverlay');
 
-<script>
-  // Side Drawer Interaction
-  const openDrawerBtn = document.getElementById('openDrawerBtn');
-  const sideDrawer = document.getElementById('sideDrawer');
-  const drawerOverlay = document.getElementById('drawerOverlay');
-
-  function toggleDrawer(open) {
-    if (!sideDrawer || !drawerOverlay) return;
-    if (open) {
-      sideDrawer.classList.add('active');
-      drawerOverlay.classList.add('active');
-    } else {
-      sideDrawer.classList.remove('active');
-      drawerOverlay.classList.remove('active');
-    }
+function toggleDrawer(open) {
+  if (open) {
+    sideDrawer.classList.add('active');
+    drawerOverlay.classList.add('active');
+  } else {
+    sideDrawer.classList.remove('active');
+    drawerOverlay.classList.remove('active');
   }
+}
 
-  if (openDrawerBtn) {
-    openDrawerBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleDrawer(true);
-    });
-  }
+if (openDrawerBtn) {
+  openDrawerBtn.addEventListener('click', () => toggleDrawer(true));
+}
 
-  if (drawerOverlay) {
-    drawerOverlay.addEventListener('click', () => toggleDrawer(false));
-  }
-
-  // Bottom Bar Active Tab Switcher
-  function switchMainTab(tabName, element) {
-    document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
-    if (element) element.classList.add('active');
-  }
+if (drawerOverlay) {
+  drawerOverlay.addEventListener('click', () => toggleDrawer(false));
+}
 </script>
 </body>
-</html>
-
+                    </html>
