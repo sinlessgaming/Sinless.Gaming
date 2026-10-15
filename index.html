@@ -102,6 +102,72 @@
   border-radius: 10px;
   font-weight: bold;
 }
+    /* Drawer & Navigation Styling */
+.drawer-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 199; display: none; opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.drawer-overlay.active { display: block; opacity: 1; }
+
+.side-drawer {
+  position: fixed; top: 0; left: -320px;
+  width: 290px; height: 100%;
+  background: #0f141c; z-index: 201;
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex; flex-direction: column; gap: 16px;
+  padding: 24px 16px; box-sizing: border-box;
+  border-right: 1px solid rgba(0, 243, 255, 0.2);
+  box-shadow: 10px 0 30px rgba(0,0,0,0.8);
+}
+.side-drawer.active { left: 0; }
+
+.drawer-profile {
+  display: flex; align-items: center; gap: 12px;
+  padding-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.drawer-menu { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.drawer-menu-item {
+  display: flex; align-items: center; gap: 14px; padding: 12px 14px;
+  border-radius: 12px; color: #ffffff; font-size: 0.9rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s ease;
+}
+.drawer-menu-item:hover { background: #161b22; color: #00f3ff; }
+.drawer-menu-item.danger { color: #ff4d4d; }
+.drawer-menu-item.danger:hover { background: rgba(255, 77, 77, 0.1); }
+
+.gg-coins-card {
+  background: linear-gradient(135deg, rgba(255, 184, 0, 0.12) 0%, rgba(15, 20, 28, 0.9) 100%);
+  border: 1px solid #ffb800; border-radius: 16px; padding: 12px 16px;
+  display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 15px rgba(255, 184, 0, 0.15);
+}
+
+.bottom-nav-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 68px;
+  background: rgba(11, 14, 20, 0.95); backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex; align-items: center; justify-space-around; z-index: 100; padding: 0 16px;
+}
+.bottom-nav-item {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  color: #94a3b8; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: color 0.2s ease;
+}
+.bottom-nav-item.active { color: #00f3ff; }
+.bottom-nav-item i { font-size: 1.25rem; }
+
+.floating-plus-btn {
+  position: fixed; bottom: 20px; right: 24px; width: 58px; height: 58px;
+  border-radius: 50%; background: #00f3ff; color: #02050b;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  box-shadow: 0 0 25px rgba(0, 243, 255, 0.4); z-index: 105; cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.floating-plus-btn:active { transform: scale(0.92); }
+
 </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -4293,6 +4359,43 @@ if (openDrawerBtn) {
 if (drawerOverlay) {
   drawerOverlay.addEventListener('click', () => toggleDrawer(false));
 }
+ function toggleDrawer(open) {
+</body>   // Side Drawer Toggle Handler
+ 
+    const sideDrawer = document.getElementById('sideDrawer');
+    const drawerOverlay = document.getElementById('drawerOverlay');
+    if (!sideDrawer || !drawerOverlay) return;
+    
+    if (open) {
+        sideDrawer.classList.add('active');
+        drawerOverlay.classList.add('active');
+    } else {
+        sideDrawer.classList.remove('active');
+        drawerOverlay.classList.remove('active');
+    }
+}
+
+// Bind Open Event to Logo/Avatar
+document.addEventListener('DOMContentLoaded', () => {
+    const openDrawerBtn = document.getElementById('openDrawerBtn');
+    const drawerOverlay = document.getElementById('drawerOverlay');
+    
+    if (openDrawerBtn) {
+        openDrawerBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleDrawer(true);
+        });
+    }
+    if (drawerOverlay) {
+        drawerOverlay.addEventListener('click', () => toggleDrawer(false));
+    }
+});
+
+// Bottom Bar Active Tab Switcher
+function switchMainTab(tabName, element) {
+    document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
+    if (element) element.classList.add('active');
+}
 </script>
-</body>
 </html>
