@@ -4309,58 +4309,66 @@ ${p.videoUrl ? `
             let matches = (window.fypposts || []).filter(p => (p.caption && p.caption.toLowerCase().includes(q.toLowerCase())) || (p.user && p.user.toLowerCase().includes(q.toLowerCase())) || (p.game && p.game.toLowerCase().includes(q.toLowerCase())));
             res.innerHTML = matches.map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white border border-cyan-500/10"><span class="font-bold cursor-pointer text-cyan-400" onclick="openUserProfileModal('${p.user}', event)">@${p.user}</span>: ${p.caption || 'Media Clip'}</div>`).join('') || '<p class="text-xs text-gray-400 text-center py-4">No matching posts or gamertags found.</p>';
         }
-    </script> <!-- Side Drawer Structure (Paste right before </body>) -->
+    <!-- Side Drawer Structure & Overlay -->
 <div class="drawer-overlay" id="drawerOverlay"></div>
 
 <aside class="side-drawer" id="sideDrawer">
   <div class="drawer-profile">
-    <div class="logo-avatar">SG</div>
+    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-sm shadow-lg">SG</div>
     <div>
-      <div style="font-weight: bold; color: var(--text-main);">SinlessGaming</div>
-      <div style="font-size: 0.8rem; color: var(--text-muted);">@SinlessGaming</div>
+      <div style="font-weight: bold; color: #ffffff;">SinlessGaming</div>
+      <div style="font-size: 0.8rem; color: #00f3ff;">@SinlessGaming</div>
     </div>
   </div>
   <ul class="drawer-menu">
-    <li class="drawer-menu-item">
-      <span><i class="fa-solid fa-wallet"></i> GG Coins Wallet</span>
+    <li class="drawer-menu-item" onclick="toggleDrawer(false); showToast('🪙 Wallet Balance: ' + window.myGGCoins + ' GG Coins');">
+      <span><i class="fa-solid fa-wallet mr-2 text-amber-400"></i> GG Coins Wallet</span>
       <span class="badge">4,500</span>
     </li>
-    <li class="drawer-menu-item">
-      <span><i class="fa-solid fa-bell"></i> Notifications</span>
+    <li class="drawer-menu-item" onclick="toggleDrawer(false); window.setupPushNotifications();">
+      <span><i class="fa-solid fa-bell mr-2 text-cyan-400"></i> Notifications</span>
     </li>
-    <li class="drawer-menu-item">
-      <span><i class="fa-solid fa-gear"></i> Account Settings</span>
+    <li class="drawer-menu-item" onclick="toggleDrawer(false); openAccountModal();">
+      <span><i class="fa-solid fa-gear mr-2 text-magenta"></i> Account Settings</span>
     </li>
   </ul>
 </aside>
-<script>// Side Drawer Interaction
-const openDrawerBtn = document.getElementById('openDrawerBtn');
-const sideDrawer = document.getElementById('sideDrawer');
-const drawerOverlay = document.getElementById('drawerOverlay');
-function toggleDrawer(open) {
-  if (open) {
-    sideDrawer.classList.add('active');
-    drawerOverlay.classList.add('active');
-  } else {
-    sideDrawer.classList.remove('active');
-    drawerOverlay.classList.remove('active');
+
+<script>
+  // Side Drawer Interaction
+  const openDrawerBtn = document.getElementById('openDrawerBtn');
+  const sideDrawer = document.getElementById('sideDrawer');
+  const drawerOverlay = document.getElementById('drawerOverlay');
+
+  function toggleDrawer(open) {
+    if (!sideDrawer || !drawerOverlay) return;
+    if (open) {
+      sideDrawer.classList.add('active');
+      drawerOverlay.classList.add('active');
+    } else {
+      sideDrawer.classList.remove('active');
+      drawerOverlay.classList.remove('active');
+    }
   }
-}
-    if (openDrawerBtn) {
-        openDrawerBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleDrawer(true);
-        });
-    }
-    if (drawerOverlay) {
-        drawerOverlay.addEventListener('click', () => toggleDrawer(false));
-    }
-});
-// Bottom Bar Active Tab Switcher
-function switchMainTab(tabName, element) {
+
+  if (openDrawerBtn) {
+    openDrawerBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleDrawer(true);
+    });
+  }
+
+  if (drawerOverlay) {
+    drawerOverlay.addEventListener('click', () => toggleDrawer(false));
+  }
+
+  // Bottom Bar Active Tab Switcher
+  function switchMainTab(tabName, element) {
     document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
     if (element) element.classList.add('active');
-}
+  }
 </script>
+</body>
 </html>
+
