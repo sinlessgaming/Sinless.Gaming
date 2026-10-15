@@ -4354,11 +4354,9 @@ function toggleDrawer(open) {
 if (openDrawerBtn) {
   openDrawerBtn.addEventListener('click', () => toggleDrawer(true));
 }
-
 if (drawerOverlay) {
   drawerOverlay.addEventListener('click', () => toggleDrawer(false));
-}
-  {
+} {
 // Bind Open Event to Logo/Avatar
 document.addEventListener('DOMContentLoaded', () => {
     const openDrawerBtn = document.getElementById('openDrawerBtn');
@@ -4375,7 +4373,6 @@ document.addEventListener('DOMContentLoaded', () => {
         drawerOverlay.addEventListener('click', () => toggleDrawer(false));
     }
 });
-
 // Bottom Bar Active Tab Switcher
 function switchMainTab(tabName, element) {
     document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
