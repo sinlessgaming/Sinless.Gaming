@@ -4362,18 +4362,6 @@ if (drawerOverlay) {
  function toggleDrawer(open) {
 </body>   // Side Drawer Toggle Handler
  
-    const sideDrawer = document.getElementById('sideDrawer');
-    const drawerOverlay = document.getElementById('drawerOverlay');
-    if (!sideDrawer || !drawerOverlay) return;
-    
-    if (open) {
-        sideDrawer.classList.add('active');
-        drawerOverlay.classList.add('active');
-    } else {
-        sideDrawer.classList.remove('active');
-        drawerOverlay.classList.remove('active');
-    }
-}
 
 // Bind Open Event to Logo/Avatar
 document.addEventListener('DOMContentLoaded', () => {
