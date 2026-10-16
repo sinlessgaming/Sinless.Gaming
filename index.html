@@ -4270,7 +4270,7 @@ ${p.videoUrl ? `
             res.innerHTML = matches.map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white border border-cyan-500/10"><span class="font-bold cursor-pointer text-cyan-400" onclick="openUserProfileModal('${p.user}', event)">@${p.user}</span>: ${p.caption || 'Media Clip'}</div>`).join('') || '<p class="text-xs text-gray-400 text-center py-4">No matching posts or gamertags found.</p>';
         }
     </script> <!-- Side Drawer Structure (Paste right before </body>) -->
-<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer-overlay" id="drawerOverlay"onclick="closeSideMenu()"></div>
 
 <aside class="side-drawer" id="sideDrawer">
   <div class="drawer-profile">
