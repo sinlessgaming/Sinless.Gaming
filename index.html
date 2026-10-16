@@ -4315,7 +4315,11 @@ if (openDrawerBtn) {
 
 if (drawerOverlay) {
   drawerOverlay.addEventListener('click', () => toggleDrawer(false));
-}
+} window.closeSideMenu = function() {
+  document.getElementById('sideMenu').classList.remove('active');
+  document.getElementById('drawerOverlay').classList.remove('active');
+};
+
 </script>
 </body>
                     </html>
