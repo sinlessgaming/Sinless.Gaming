@@ -4,56 +4,89 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sinless GG - Global Gaming, Esports & Match Hub</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Pro Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
+        /* Base Styling & Smooth Scroll */
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
         body { 
             background-color: #02050b; 
             color: #f8fafc; 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             scroll-behavior: smooth; 
-            touch-action: manipulation; 
+            touch-action: manipulation;
+            overflow-x: hidden;
         }
+
+        /* Glassmorphism & UI Panels */
         .glass-panel { 
-            background: rgba(11, 22, 44, 0.9); 
+            background: rgba(11, 22, 44, 0.85); 
             backdrop-filter: blur(20px); 
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(0, 243, 255, 0.15); 
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
         }
         .glass-panel:hover { 
-            border-color: rgba(0, 243, 255, 0.3); 
-            box-shadow: 0 10px 30px -10px rgba(0, 243, 255, 0.2); 
+            border-color: rgba(0, 243, 255, 0.35); 
+            box-shadow: 0 10px 30px -10px rgba(0, 243, 255, 0.25); 
         }
-        .scrollbar-none::-webkit-scrollbar { display: none; }
-        @keyframes fadeIn { 
-            from { opacity: 0; transform: translateY(6px); } 
-            to { opacity: 1; transform: translateY(0); } 
+        .glass-card-interactive {
+            background: linear-gradient(135deg, rgba(15, 29, 54, 0.9), rgba(7, 15, 30, 0.95));
+            border: 1px solid rgba(0, 243, 255, 0.1);
         }
-        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        .verified-badge { color: #f97316; text-shadow: 0 0 10px rgba(249, 115, 22, 0.5); }
-        #mediaViewerContainer, #mediaZoomModal { touch-action: none !important; overscroll-behavior: none !important; }
-        .sticky-media-frame {
-            position: sticky;
-            top: 60px;
-            z-index: 40;
-            background: #02050b;
-            border-radius: 1rem;
-            overflow: hidden;
-            border: 1px solid rgba(0, 243, 255, 0.25);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8);
+        .glass-card-interactive:hover {
+            border-color: rgba(0, 243, 255, 0.4);
+            transform: translateY(-2px);
         }
 
-        /* Fixed Side Drawer CSS */
+        /* Custom Scrollbar Removal */
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Keyframe Animations */
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(8px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+        .fade-in { animation: fadeIn 0.35s ease-out forwards; }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(0, 243, 255, 0.2); }
+            50% { box-shadow: 0 0 25px rgba(0, 243, 255, 0.5); }
+        }
+        .pulse-glow { animation: pulseGlow 3s infinite; }
+
+        .verified-badge { color: #f97316; text-shadow: 0 0 10px rgba(249, 115, 22, 0.5); }
+
+        /* Sticky Frame Viewer */
+        .sticky-media-frame {
+            position: sticky;
+            top: 65px;
+            z-index: 40;
+            background: #02050b;
+            border-radius: 1.25rem;
+            overflow: hidden;
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.9);
+        }
+
+        /* Fixed Side Navigation Drawer */
         .drawer-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(4px);
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(6px);
             z-index: 2000;
             display: none;
             pointer-events: none;
@@ -70,19 +103,19 @@
         .side-drawer {
             position: fixed;
             top: 0;
-            left: -280px;
-            width: 280px;
+            left: -300px;
+            width: 300px;
             height: 100%;
-            background: #070f1e;
-            border-right: 1px solid rgba(0, 243, 255, 0.2);
+            background: #060d1a;
+            border-right: 1px solid rgba(0, 243, 255, 0.25);
             z-index: 2001;
             transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             flex-direction: column;
             gap: 20px;
-            padding: 24px 16px;
+            padding: 24px 18px;
             box-sizing: border-box;
-            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.8);
+            box-shadow: 12px 0 35px rgba(0, 0, 0, 0.85);
             pointer-events: auto;
         }
 
@@ -93,22 +126,23 @@
         .drawer-profile {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding-bottom: 16px;
+            gap: 14px;
+            padding-bottom: 18px;
             border-bottom: 1px solid rgba(0, 243, 255, 0.15);
         }
 
         .logo-avatar {
-            width: 42px;
-            height: 42px;
-            border-radius: 12px;
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
             background: linear-gradient(135deg, #00f3ff, #ff007f);
             color: #000;
             font-weight: 800;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.9rem;
+            font-size: 1rem;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
         }
 
         .drawer-menu {
@@ -117,14 +151,14 @@
             margin: 0;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
 
         .drawer-menu-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px;
+            padding: 12px 14px;
             border-radius: 12px;
             color: #ffffff;
             font-weight: 700;
@@ -138,18 +172,30 @@
         .drawer-menu-item:hover {
             background: rgba(0, 243, 255, 0.15);
             border-color: rgba(0, 243, 255, 0.4);
+            transform: translateX(4px);
         }
 
-        .badge {
+        .badge-cyan {
             background: #00f3ff;
+            color: #000;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+        
+        .badge-amber {
+            background: #f59e0b;
             color: #000;
             font-size: 0.75rem;
             padding: 2px 8px;
-            border-radius: 10px;
+            border-radius: 8px;
             font-weight: 800;
         }
     </style>
 
+    <!-- Firebase SDK Modular Import -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
@@ -176,11 +222,6 @@
             signOut, 
             onAuthStateChanged 
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { 
-            getMessaging, 
-            getToken, 
-            onMessage 
-        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyBDWeHQpmCVfJVXj5Dmu_ZuGmKvlqI4wek",
@@ -199,16 +240,11 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
         const googleProvider = new GoogleAuthProvider();
-        
-        let messaging = null;
-        try {
-            messaging = getMessaging(app);
-        } catch (e) {
-            console.warn("FCM Messaging unsupported in this context.");
-        }
 
+        // Attach to global window scope for interface interactions
         window.db = db;
         window.auth = auth;
+        window.googleProvider = googleProvider;
         window.collection = collection;
         window.addDoc = addDoc;
         window.doc = doc;
@@ -222,19 +258,22 @@
         window.limit = limit;
         window.onSnapshot = onSnapshot;
         window.serverTimestamp = serverTimestamp;
+        window.signInWithPopup = signInWithPopup;
+        window.signOut = signOut;
+        window.onAuthStateChanged = onAuthStateChanged;
 
-        // GG Coins Local Initialization
-        window.myGGCoins = parseInt(localStorage.getItem('sinless_gg_coins') || '100');
+        // GG Coins Persistent Local State
+        window.myGGCoins = parseInt(localStorage.getItem('sinless_gg_coins') || '150');
 
         window.updateCoinDisplay = function() {
-            const coinBadge = document.getElementById('headerCoinBalanceText');
+            const coinHeader = document.getElementById('headerCoinBalanceText');
             const drawerBadge = document.getElementById('drawerCoinBadge');
-            if (coinBadge) {
-                coinBadge.innerText = `${window.myGGCoins} GG Coins`;
-            }
-            if (drawerBadge) {
-                drawerBadge.innerText = window.myGGCoins;
-            }
+            const mainCoin = document.getElementById('mainCoinDisplay');
+            
+            if (coinHeader) coinHeader.innerText = `${window.myGGCoins} GG Coins`;
+            if (drawerBadge) drawerBadge.innerText = window.myGGCoins;
+            if (mainCoin) mainCoin.innerText = `${window.myGGCoins} GG`;
+            
             localStorage.setItem('sinless_gg_coins', window.myGGCoins);
         };
 
@@ -254,264 +293,384 @@
             const toast = document.getElementById('toastBanner');
             if(toast) {
                 toast.innerText = msg;
-                toast.classList.remove('opacity-0', 'pointer-events-none');
-                setTimeout(() => { toast.classList.add('opacity-0', 'pointer-events-none'); }, 3000);
+                toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+                toast.classList.add('translate-y-0');
+                setTimeout(() => { 
+                    toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4'); 
+                    toast.classList.remove('translate-y-0');
+                }, 3200);
             }
         };
     </script>
 </head>
 <body class="min-h-screen pb-24 text-slate-100 selection:bg-cyan-500 selection:text-black">
 
-    <!-- OVERLAY & DRAWER -->
+    <!-- OVERLAY & SIDE DRAWER NAVIGATION -->
     <div id="drawerOverlay" class="drawer-overlay" onclick="window.toggleDrawer(false)"></div>
     
     <aside id="sideDrawer" class="side-drawer">
         <div class="drawer-profile">
             <div class="logo-avatar">SGG</div>
             <div>
-                <h4 class="text-sm font-bold text-cyan-400 leading-tight">Sinless GG Hub</h4>
-                <p class="text-xs text-slate-400">v3.5 - Global Esports</p>
+                <h4 class="text-sm font-extrabold text-cyan-400 leading-tight">Sinless GG Hub</h4>
+                <p class="text-[11px] text-slate-400 font-mono">v3.5 • Esport Ecosystem</p>
             </div>
         </div>
 
         <ul class="drawer-menu">
-            <li class="drawer-menu-item" onclick="window.toggleDrawer(false)">
-                <span><i class="fa-solid fa-gamepad text-cyan-400 mr-2"></i> Tournaments</span>
-                <span class="badge">ACTIVE</span>
+            <li class="drawer-menu-item" onclick="window.switchTab('matches'); window.toggleDrawer(false);">
+                <span class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-trophy text-amber-400"></i> Active Tournaments
+                </span>
+                <span class="badge-cyan">LIVE</span>
             </li>
-            <li class="drawer-menu-item" onclick="window.toggleDrawer(false)">
-                <span><i class="fa-solid fa-coins text-amber-400 mr-2"></i> My GG Balance</span>
-                <span id="drawerCoinBadge" class="badge">100</span>
-            </li>
-            <li class="drawer-menu-item" onclick="window.toggleDrawer(false)">
-                <span><i class="fa-solid fa-shield-halved text-purple-400 mr-2"></i> Admin Panel</span>
+            <li class="drawer-menu-item" onclick="window.switchTab('brackets'); window.toggleDrawer(false);">
+                <span class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-sitemap text-pink-400"></i> Knockout Brackets
+                </span>
                 <i class="fa-solid fa-chevron-right text-xs text-slate-500"></i>
             </li>
-            <li class="drawer-menu-item" onclick="window.toggleDrawer(false)">
-                <span><i class="fa-solid fa-headset text-emerald-400 mr-2"></i> Support Hub</span>
+            <li class="drawer-menu-item" onclick="window.switchTab('leaderboard'); window.toggleDrawer(false);">
+                <span class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-chart-line text-emerald-400"></i> Season Standings
+                </span>
+                <i class="fa-solid fa-chevron-right text-xs text-slate-500"></i>
+            </li>
+            <li class="drawer-menu-item" onclick="window.toggleDrawer(false);">
+                <span class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-coins text-amber-400"></i> My GG Coin Balance
+                </span>
+                <span id="drawerCoinBadge" class="badge-amber">150</span>
+            </li>
+            <li class="drawer-menu-item" onclick="window.toggleDrawer(false); window.showToast('Match Verification System Active');">
+                <span class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-shield-halved text-cyan-400"></i> Admin Panel
+                </span>
+                <i class="fa-solid fa-lock text-xs text-slate-500"></i>
+            </li>
+            <li class="drawer-menu-item" onclick="window.toggleDrawer(false); window.showToast('Support Ticket Hub Loading...');">
+                <span class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-headset text-purple-400"></i> Player Support
+                </span>
                 <i class="fa-solid fa-chevron-right text-xs text-slate-500"></i>
             </li>
         </ul>
 
-        <div class="mt-auto pt-4 border-t border-slate-800">
-            <button id="drawerAuthBtn" onclick="window.toggleAuth()" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 flex items-center justify-center gap-2 transition">
+        <div class="mt-auto pt-4 border-t border-slate-800 space-y-3">
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-[11px] space-y-1">
+                <p class="font-bold text-slate-300 flex items-center justify-between">
+                    <span>FC Mobile Season 4</span>
+                    <span class="text-emerald-400 font-mono">ONLINE</span>
+                </p>
+                <p class="text-slate-500">Sinless Super League Week 8 Prize Pool: $1,200</p>
+            </div>
+
+            <button id="drawerAuthBtn" onclick="window.toggleAuth()" class="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-bold text-slate-200 border border-slate-700 flex items-center justify-center gap-2 transition shadow-lg">
                 <i class="fa-solid fa-right-to-bracket text-cyan-400"></i> Sign In with Google
             </button>
         </div>
     </aside>
 
     <!-- HEADER NAVIGATION -->
-    <header class="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-xl border-b border-cyan-500/20 px-4 py-3">
+    <header class="sticky top-0 z-50 bg-slate-950/85 backdrop-blur-xl border-b border-cyan-500/20 px-4 py-3">
         <div class="max-w-4xl mx-auto flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <button onclick="window.toggleDrawer(true)" class="p-2 rounded-xl bg-slate-900/80 border border-cyan-500/20 text-cyan-400 hover:text-cyan-300 focus:outline-none">
+                <button onclick="window.toggleDrawer(true)" class="p-2.5 rounded-xl bg-slate-900/90 border border-cyan-500/20 text-cyan-400 hover:text-cyan-300 hover:border-cyan-500/50 transition focus:outline-none">
                     <i class="fa-solid fa-bars text-lg"></i>
                 </button>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 cursor-pointer" onclick="window.switchTab('feed')">
                     <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-sky-400 to-pink-500 bg-clip-text text-transparent">
                         SINLESS<span class="text-white">.GG</span>
                     </span>
-                    <span class="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-                        LIVE
+                    <span class="text-[10px] uppercase font-extrabold tracking-widest px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                        HUB
                     </span>
                 </div>
             </div>
 
-            <!-- Header Balance & Quick Action -->
+            <!-- Header Balance & Account Action -->
             <div class="flex items-center gap-3">
-                <div class="hidden sm:flex items-center gap-2 bg-slate-900/90 px-3 py-1.5 rounded-full border border-amber-500/30 text-amber-400 text-xs font-bold">
-                    <i class="fa-solid fa-coins"></i>
-                    <span id="headerCoinBalanceText">100 GG Coins</span>
+                <div class="hidden sm:flex items-center gap-2 bg-slate-900/90 px-3.5 py-1.5 rounded-full border border-amber-500/30 text-amber-400 text-xs font-bold shadow-inner">
+                    <i class="fa-solid fa-coins animate-bounce"></i>
+                    <span id="headerCoinBalanceText">150 GG Coins</span>
                 </div>
-                <button id="topAuthBtn" onclick="window.toggleAuth()" class="text-xs px-3.5 py-1.5 rounded-xl font-bold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-user text-xs"></i>
+                <button id="topAuthBtn" onclick="window.toggleAuth()" class="text-xs px-3.5 py-1.5 rounded-xl font-extrabold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 transition flex items-center gap-1.5 shadow-md">
+                    <i class="fa-solid fa-user-gear text-xs"></i>
                     <span id="topAuthBtnText">Login</span>
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- MAIN APP WRAPPER -->
+    <!-- MAIN APP CONTAINER -->
     <main class="max-w-4xl mx-auto px-4 py-4 space-y-4">
 
-        <!-- USER STATS & LEAGUE TICKER -->
-        <div class="glass-panel rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div class="flex items-center gap-3 w-full md:w-auto">
-                <img id="userAvatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=SinlessGuest" class="w-12 h-12 rounded-xl bg-slate-800 border border-cyan-500/30 p-0.5 object-cover" alt="Avatar">
+        <!-- USER STATS & LEAGUE TICKER CARD -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 border border-cyan-500/20 shadow-2xl">
+            <div class="flex items-center gap-3.5 w-full md:w-auto">
+                <img id="userAvatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=SinlessGuest" class="w-12 h-12 rounded-2xl bg-slate-800 border-2 border-cyan-500/40 p-0.5 object-cover shadow-lg" alt="Avatar">
                 <div>
-                    <div class="flex items-center gap-1.5">
-                        <h3 id="userName" class="font-bold text-sm text-slate-100">Guest Player</h3>
+                    <div class="flex items-center gap-2">
+                        <h3 id="userName" class="font-extrabold text-sm text-slate-100">Guest Player</h3>
                         <i id="userVerified" class="fa-solid fa-circle-check text-xs verified-badge hidden" title="Verified Player"></i>
                     </div>
-                    <p id="userRole" class="text-xs text-cyan-400/80 font-mono">Rank: Challenger • Pro Circuit</p>
+                    <p id="userRole" class="text-xs text-cyan-400 font-mono">Rank: Challenger • Pro Circuit Division</p>
                 </div>
             </div>
 
-            <div class="flex items-center justify-between w-full md:w-auto gap-4 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
+            <div class="flex items-center justify-between w-full md:w-auto gap-4 pt-3 md:pt-0 border-t md:border-t-0 border-slate-800/80">
                 <div class="text-center px-3">
-                    <p class="text-[10px] text-slate-400 uppercase font-semibold">FC Mobile ID</p>
-                    <p id="userFcId" class="text-xs font-mono font-bold text-slate-200">SIN-8849</p>
+                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">FC Mobile ID</p>
+                    <p id="userFcId" class="text-xs font-mono font-extrabold text-slate-100">SIN-8849</p>
                 </div>
-                <div class="text-center px-3 border-x border-slate-800">
-                    <p class="text-[10px] text-slate-400 uppercase font-semibold">Rank Points</p>
-                    <p class="text-xs font-mono font-bold text-cyan-400">2,450 RP</p>
+                <div class="text-center px-3 border-x border-slate-800/80">
+                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Rank Points</p>
+                    <p class="text-xs font-mono font-extrabold text-cyan-400">2,450 RP</p>
                 </div>
                 <div class="text-center px-3">
-                    <p class="text-[10px] text-slate-400 uppercase font-semibold">Coins</p>
-                    <p id="mainCoinDisplay" class="text-xs font-mono font-bold text-amber-400">100 GG</p>
+                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">GG Coins</p>
+                    <p id="mainCoinDisplay" class="text-xs font-mono font-extrabold text-amber-400">150 GG</p>
                 </div>
             </div>
         </div>
 
-        <!-- STICKY MEDIA VIEWER (Video/Image Highlight) -->
+        <!-- STICKY MEDIA PLAYER (Video Clips / Proof Screenshots) -->
         <div id="mediaViewerContainer" class="sticky-media-frame hidden">
-            <div class="relative w-full aspect-video bg-black flex items-center justify-center">
-                <button onclick="window.closeMediaViewer()" class="absolute top-3 right-3 z-50 w-8 h-8 rounded-full bg-slate-900/80 text-white border border-slate-700 flex items-center justify-center hover:bg-rose-600 transition">
-                    <i class="fa-solid fa-xmark text-sm"></i>
+            <div class="relative w-full aspect-video bg-slate-950 flex items-center justify-center">
+                <button onclick="window.closeMediaViewer()" class="absolute top-3 right-3 z-50 w-9 h-9 rounded-full bg-slate-900/90 text-white border border-slate-700 flex items-center justify-center hover:bg-rose-600 transition shadow-xl">
+                    <i class="fa-solid fa-xmark text-base"></i>
                 </button>
                 <div id="mediaViewerContent" class="w-full h-full flex items-center justify-center">
-                    <!-- Dynamic Video/Image Inserted Here -->
+                    <!-- Dynamic Media Content Injected via Script -->
                 </div>
             </div>
         </div>
 
-        <!-- FEED SECTION TAB SELECTOR -->
-        <div class="flex items-center gap-2 overflow-x-auto scrollbar-none py-1 border-b border-slate-800">
-            <button onclick="window.switchTab('feed')" id="tabBtnFeed" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap bg-cyan-500 text-black shadow-lg shadow-cyan-500/20">
+        <!-- NAVIGATION TABS -->
+        <div class="flex items-center gap-2 overflow-x-auto scrollbar-none py-1 border-b border-slate-800/80">
+            <button onclick="window.switchTab('feed')" id="tabBtnFeed" class="px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap bg-cyan-500 text-black shadow-lg shadow-cyan-500/20">
                 <i class="fa-solid fa-rss"></i> Live Community Feed
             </button>
-            <button onclick="window.switchTab('matches')" id="tabBtnMatches" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition flex items-center gap-2 whitespace-nowrap bg-slate-900/60 border border-slate-800">
-                <i class="fa-solid fa-trophy"></i> Tournament Matches
+            <button onclick="window.switchTab('matches')" id="tabBtnMatches" class="px-4 py-2.5 rounded-xl text-xs font-extrabold text-slate-400 hover:text-white transition flex items-center gap-2 whitespace-nowrap bg-slate-900/60 border border-slate-800">
+                <i class="fa-solid fa-trophy text-amber-400"></i> Tournament Matches
             </button>
-            <button onclick="window.switchTab('brackets')" id="tabBtnBrackets" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition flex items-center gap-2 whitespace-nowrap bg-slate-900/60 border border-slate-800">
-                <i class="fa-solid fa-sitemap"></i> Live Brackets
+            <button onclick="window.switchTab('brackets')" id="tabBtnBrackets" class="px-4 py-2.5 rounded-xl text-xs font-extrabold text-slate-400 hover:text-white transition flex items-center gap-2 whitespace-nowrap bg-slate-900/60 border border-slate-800">
+                <i class="fa-solid fa-sitemap text-pink-400"></i> Playoff Brackets
             </button>
-            <button onclick="window.switchTab('leaderboard')" id="tabBtnLeaderboard" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition flex items-center gap-2 whitespace-nowrap bg-slate-900/60 border border-slate-800">
-                <i class="fa-solid fa-chart-line"></i> Leaderboard
+            <button onclick="window.switchTab('leaderboard')" id="tabBtnLeaderboard" class="px-4 py-2.5 rounded-xl text-xs font-extrabold text-slate-400 hover:text-white transition flex items-center gap-2 whitespace-nowrap bg-slate-900/60 border border-slate-800">
+                <i class="fa-solid fa-chart-line text-emerald-400"></i> Global Ranks
             </button>
         </div>
 
-        <!-- TAB 1: COMMUNITY & FEED -->
+        <!-- TAB 1: COMMUNITY FEED -->
         <section id="tabContentFeed" class="space-y-4 fade-in">
-            <!-- CREATE POST INPUT BOX -->
-            <div class="glass-panel rounded-2xl p-4 space-y-3">
+            <!-- CREATE POST COMPOSER -->
+            <div class="glass-panel rounded-2xl p-4 space-y-3 border border-cyan-500/20 shadow-xl">
                 <div class="flex items-start gap-3">
-                    <img id="postInputAvatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=SinlessGuest" class="w-9 h-9 rounded-xl bg-slate-800 border border-cyan-500/30" alt="Avatar">
-                    <textarea id="postInputText" rows="2" placeholder="Share match highlight, clip link, or challenge a rival..." class="w-full bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 resize-none"></textarea>
+                    <img id="postInputAvatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=SinlessGuest" class="w-10 h-10 rounded-xl bg-slate-800 border border-cyan-500/30 p-0.5 object-cover" alt="Avatar">
+                    <textarea id="postInputText" rows="2" placeholder="Share a gameplay highlight, clip link, or challenge an opponent..." class="w-full bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 resize-none transition"></textarea>
                 </div>
 
                 <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
                     <div class="flex items-center gap-2">
-                        <button onclick="window.triggerMediaUpload('image')" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-400 text-xs font-semibold flex items-center gap-1.5 transition">
+                        <button onclick="window.triggerMediaUpload('image')" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/30 text-xs font-semibold flex items-center gap-1.5 transition">
                             <i class="fa-solid fa-image text-emerald-400"></i> Photo
                         </button>
-                        <button onclick="window.triggerMediaUpload('video')" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-400 text-xs font-semibold flex items-center gap-1.5 transition">
-                            <i class="fa-solid fa-video text-rose-400"></i> Video / Stream
+                        <button onclick="window.triggerMediaUpload('video')" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/30 text-xs font-semibold flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-video text-rose-400"></i> Stream / Clip
                         </button>
                     </div>
 
-                    <button onclick="window.submitNewPost()" class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-extrabold text-xs hover:brightness-110 transition shadow-lg shadow-cyan-500/20 flex items-center gap-1.5">
-                        <i class="fa-solid fa-paper-plane"></i> Post Update
+                    <button onclick="window.submitNewPost()" class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-600 text-black font-extrabold text-xs hover:brightness-110 transition shadow-lg shadow-cyan-500/25 flex items-center gap-1.5">
+                        <i class="fa-solid fa-paper-plane"></i> Publish Post
                     </button>
                 </div>
             </div>
 
             <!-- COMMUNITY POSTS CONTAINER -->
             <div id="postsFeedContainer" class="space-y-4">
-                <!-- Posts will be populated dynamically from Firestore -->
+                <!-- Posts populated dynamically from Firestore -->
             </div>
         </section>
-        <!-- TAB 2: TOURNAMENT MATCHES -->
+        <!-- TAB 2: TOURNAMENT MATCHES FEED -->
         <section id="tabContentMatches" class="space-y-4 hidden fade-in">
-            <div class="glass-panel rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <!-- TOURNAMENT BANNER & QUICK SUBMIT ACTION -->
+            <div class="glass-panel rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 border border-amber-500/20 shadow-xl">
                 <div>
-                    <h3 class="font-extrabold text-sm text-cyan-400 uppercase tracking-wider">Sinless Super League • Week 8</h3>
-                    <p class="text-xs text-slate-400">Official fixtures & real-time match result reporting</p>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold uppercase">Official Circuit</span>
+                        <h3 class="font-extrabold text-sm text-cyan-400 uppercase tracking-wider">Sinless Super League • Week 8</h3>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Official EA Sports FC Mobile tournament fixtures & live result submission</p>
                 </div>
-                <button onclick="window.openSubmitMatchModal()" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20">
-                    <i class="fa-solid fa-plus-circle"></i> Submit Score
+                <button onclick="window.openSubmitMatchModal()" class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-extrabold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 whitespace-nowrap">
+                    <i class="fa-solid fa-circle-plus text-sm"></i> Report Match Score
                 </button>
             </div>
 
             <!-- MATCH CARDS CONTAINER -->
             <div id="matchesContainer" class="space-y-3">
-                <!-- Example Match Item 1 -->
-                <div class="glass-panel rounded-2xl p-4 space-y-3">
+                <!-- Match Fixture 1 (Completed) -->
+                <div class="glass-panel rounded-2xl p-4 space-y-3 border border-cyan-500/15">
                     <div class="flex items-center justify-between text-[11px] font-bold text-slate-400 border-b border-slate-800/80 pb-2">
-                        <span class="text-cyan-400 flex items-center gap-1.5"><i class="fa-solid fa-circle text-[8px] text-emerald-400 animate-pulse"></i> Fixture #42 • Group A</span>
-                        <span class="font-mono bg-slate-900 px-2 py-0.5 rounded border border-slate-800">BO3 Format</span>
+                        <span class="text-cyan-400 flex items-center gap-1.5 font-mono">
+                            <i class="fa-solid fa-circle text-[8px] text-emerald-400 animate-pulse"></i> Fixture #42 • Group A
+                        </span>
+                        <span class="font-mono bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-slate-300">BO3 Series</span>
                     </div>
 
                     <div class="grid grid-cols-7 items-center gap-2 text-center py-2">
                         <!-- Player 1 -->
                         <div class="col-span-3 flex flex-col items-center gap-1">
-                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=AlphaApex" class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 p-0.5" alt="AlphaApex">
-                            <span class="font-bold text-xs truncate w-full text-slate-200">AlphaApex</span>
+                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=AlphaApex" class="w-11 h-11 rounded-2xl bg-slate-800 border-2 border-cyan-500/40 p-0.5 object-cover shadow-md" alt="AlphaApex">
+                            <span class="font-bold text-xs truncate w-full text-slate-100">AlphaApex</span>
                             <span class="text-[10px] text-cyan-400 font-mono">FC ID: ALP-01</span>
                         </div>
 
                         <!-- Score Divider -->
                         <div class="col-span-1 flex flex-col items-center justify-center">
-                            <div class="bg-slate-900 border border-cyan-500/30 px-3 py-1.5 rounded-xl font-mono font-black text-sm text-cyan-400 shadow-inner">
+                            <div class="bg-slate-900 border border-cyan-500/40 px-3.5 py-1.5 rounded-xl font-mono font-black text-sm text-cyan-400 shadow-inner">
                                 3 - 1
                             </div>
-                            <span class="text-[9px] uppercase font-bold text-slate-500 mt-1">FT</span>
+                            <span class="text-[9px] uppercase font-extrabold text-slate-500 mt-1">FINAL</span>
                         </div>
 
                         <!-- Player 2 -->
                         <div class="col-span-3 flex flex-col items-center gap-1">
-                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=GhostRider" class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 p-0.5" alt="GhostRider">
+                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=GhostRider" class="w-11 h-11 rounded-2xl bg-slate-800 border border-slate-700 p-0.5 object-cover shadow-md" alt="GhostRider">
                             <span class="font-bold text-xs truncate w-full text-slate-200">GhostRider</span>
                             <span class="text-[10px] text-slate-500 font-mono">FC ID: GHO-99</span>
                         </div>
                     </div>
 
                     <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px]">
-                        <span class="text-slate-400"><i class="fa-solid fa-check-double text-emerald-400 mr-1"></i> Verified by Admin</span>
-                        <button onclick="window.viewMatchProof('https://picsum.photos/800/450')" class="text-cyan-400 font-bold hover:underline flex items-center gap-1">
-                            <i class="fa-solid fa-image"></i> View Proof
+                        <span class="text-slate-400 flex items-center gap-1">
+                            <i class="fa-solid fa-circle-check text-emerald-400"></i> Verified by Sinless Admin
+                        </span>
+                        <button onclick="window.viewMatchProof('https://picsum.photos/seed/matchproof1/800/450')" class="text-cyan-400 font-bold hover:underline flex items-center gap-1">
+                            <i class="fa-solid fa-file-image"></i> View Proof Screenshot
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Match Fixture 2 (Completed) -->
+                <div class="glass-panel rounded-2xl p-4 space-y-3 border border-slate-800">
+                    <div class="flex items-center justify-between text-[11px] font-bold text-slate-400 border-b border-slate-800/80 pb-2">
+                        <span class="text-cyan-400 flex items-center gap-1.5 font-mono">
+                            <i class="fa-solid fa-circle text-[8px] text-emerald-400 animate-pulse"></i> Fixture #41 • Group B
+                        </span>
+                        <span class="font-mono bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-slate-300">BO3 Series</span>
+                    </div>
+
+                    <div class="grid grid-cols-7 items-center gap-2 text-center py-2">
+                        <!-- Player 1 -->
+                        <div class="col-span-3 flex flex-col items-center gap-1">
+                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=ViperX" class="w-11 h-11 rounded-2xl bg-slate-800 border border-slate-700 p-0.5 object-cover shadow-md" alt="ViperX">
+                            <span class="font-bold text-xs truncate w-full text-slate-200">ViperX</span>
+                            <span class="text-[10px] text-slate-500 font-mono">FC ID: VPX-07</span>
+                        </div>
+
+                        <!-- Score Divider -->
+                        <div class="col-span-1 flex flex-col items-center justify-center">
+                            <div class="bg-slate-900 border border-slate-700 px-3.5 py-1.5 rounded-xl font-mono font-black text-sm text-slate-200 shadow-inner">
+                                2 - 2
+                            </div>
+                            <span class="text-[9px] uppercase font-extrabold text-amber-400 mt-1">DRAW</span>
+                        </div>
+
+                        <!-- Player 2 -->
+                        <div class="col-span-3 flex flex-col items-center gap-1">
+                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=StormBreaker" class="w-11 h-11 rounded-2xl bg-slate-800 border border-slate-700 p-0.5 object-cover shadow-md" alt="StormBreaker">
+                            <span class="font-bold text-xs truncate w-full text-slate-200">StormBreaker</span>
+                            <span class="text-[10px] text-slate-500 font-mono">FC ID: STR-88</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px]">
+                        <span class="text-slate-400 flex items-center gap-1">
+                            <i class="fa-solid fa-circle-check text-emerald-400"></i> Verified by Sinless Admin
+                        </span>
+                        <button onclick="window.viewMatchProof('https://picsum.photos/seed/matchproof2/800/450')" class="text-cyan-400 font-bold hover:underline flex items-center gap-1">
+                            <i class="fa-solid fa-file-image"></i> View Proof Screenshot
                         </button>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- TAB 3: BRACKETS -->
+        <!-- TAB 3: PLAYOFF BRACKETS -->
         <section id="tabContentBrackets" class="space-y-4 hidden fade-in">
-            <div class="glass-panel rounded-2xl p-4">
-                <h3 class="font-extrabold text-sm text-cyan-400 uppercase tracking-wider mb-1">Knockout Phase Bracket</h3>
-                <p class="text-xs text-slate-400 mb-4">Quarter-Finals through Grand Final playoff tree</p>
+            <div class="glass-panel rounded-2xl p-4 border border-pink-500/20 shadow-xl">
+                <div class="flex items-center justify-between mb-2">
+                    <div>
+                        <h3 class="font-extrabold text-sm text-cyan-400 uppercase tracking-wider">Knockout Phase Bracket</h3>
+                        <p class="text-xs text-slate-400">Quarter-Finals through Grand Final playoff tree progression</p>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-lg bg-pink-500/10 text-pink-400 border border-pink-500/30 font-mono text-xs font-bold">
+                        Single Elimination
+                    </span>
+                </div>
 
-                <div class="overflow-x-auto scrollbar-none py-2">
-                    <div class="min-w-[600px] flex items-center justify-between gap-6">
-                        <!-- Quarter Finals -->
+                <div class="overflow-x-auto scrollbar-none py-3">
+                    <div class="min-w-[680px] flex items-center justify-between gap-6">
+                        <!-- Quarter Finals Column -->
                         <div class="space-y-4 w-1/3">
-                            <div class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider text-center bg-slate-900 py-1 rounded border border-slate-800">Quarter Finals</div>
-                            <div class="bg-slate-900/90 border border-slate-800 p-2 rounded-xl space-y-1.5">
-                                <div class="flex justify-between items-center text-xs font-bold text-slate-200"><span>AlphaApex</span><span class="text-cyan-400 font-mono">2</span></div>
-                                <div class="flex justify-between items-center text-xs text-slate-500"><span>ShadowNinja</span><span class="font-mono">0</span></div>
+                            <div class="text-[10px] font-extrabold text-cyan-400 uppercase tracking-wider text-center bg-slate-900 py-1 rounded-md border border-slate-800">
+                                Quarter Finals
                             </div>
-                            <div class="bg-slate-900/90 border border-slate-800 p-2 rounded-xl space-y-1.5">
-                                <div class="flex justify-between items-center text-xs font-bold text-slate-200"><span>ViperX</span><span class="text-cyan-400 font-mono">2</span></div>
-                                <div class="flex justify-between items-center text-xs text-slate-500"><span>StormBreaker</span><span class="font-mono">1</span></div>
+                            <div class="bg-slate-900/90 border border-cyan-500/30 p-2.5 rounded-xl space-y-2 shadow-md">
+                                <div class="flex justify-between items-center text-xs font-bold text-slate-100">
+                                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-caret-right text-cyan-400"></i> AlphaApex</span>
+                                    <span class="text-cyan-400 font-mono font-extrabold">2</span>
+                                </div>
+                                <div class="flex justify-between items-center text-xs text-slate-500">
+                                    <span>ShadowNinja</span>
+                                    <span class="font-mono">0</span>
+                                </div>
+                            </div>
+                            <div class="bg-slate-900/90 border border-slate-800 p-2.5 rounded-xl space-y-2 shadow-md">
+                                <div class="flex justify-between items-center text-xs font-bold text-slate-100">
+                                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-caret-right text-cyan-400"></i> ViperX</span>
+                                    <span class="text-cyan-400 font-mono font-extrabold">2</span>
+                                </div>
+                                <div class="flex justify-between items-center text-xs text-slate-500">
+                                    <span>StormBreaker</span>
+                                    <span class="font-mono">1</span>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Semi Finals -->
+                        <!-- Semi Finals Column -->
                         <div class="space-y-8 w-1/3">
-                            <div class="text-[10px] font-bold text-pink-400 uppercase tracking-wider text-center bg-slate-900 py-1 rounded border border-slate-800">Semi Finals</div>
-                            <div class="bg-slate-900/90 border border-pink-500/30 p-2.5 rounded-xl space-y-1.5 shadow-lg shadow-pink-500/5">
-                                <div class="flex justify-between items-center text-xs font-bold text-slate-200"><span>AlphaApex</span><span class="text-pink-400 font-mono">3</span></div>
-                                <div class="flex justify-between items-center text-xs text-slate-400"><span>ViperX</span><span class="font-mono">1</span></div>
+                            <div class="text-[10px] font-extrabold text-pink-400 uppercase tracking-wider text-center bg-slate-900 py-1 rounded-md border border-slate-800">
+                                Semi Finals
+                            </div>
+                            <div class="bg-slate-900/90 border border-pink-500/40 p-3 rounded-xl space-y-2 shadow-lg shadow-pink-500/5">
+                                <div class="flex justify-between items-center text-xs font-bold text-slate-100">
+                                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-trophy text-pink-400 text-[10px]"></i> AlphaApex</span>
+                                    <span class="text-pink-400 font-mono font-extrabold">3</span>
+                                </div>
+                                <div class="flex justify-between items-center text-xs text-slate-400">
+                                    <span>ViperX</span>
+                                    <span class="font-mono">1</span>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Grand Final -->
+                        <!-- Grand Final Column -->
                         <div class="space-y-4 w-1/3">
-                            <div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider text-center bg-slate-900 py-1 rounded border border-slate-800">Grand Final</div>
-                            <div class="bg-gradient-to-b from-slate-900 to-amber-950/40 border border-amber-500/40 p-3 rounded-xl space-y-2 text-center shadow-xl">
-                                <div class="text-[10px] font-extrabold text-amber-400 tracking-wider">CHAMPIONSHIP MATCH</div>
-                                <div class="text-xs font-bold text-white flex justify-between"><span>AlphaApex</span><span class="text-amber-400 font-mono">VS</span><span>TBD</span></div>
+                            <div class="text-[10px] font-extrabold text-amber-400 uppercase tracking-wider text-center bg-slate-900 py-1 rounded-md border border-slate-800">
+                                Grand Final
+                            </div>
+                            <div class="bg-gradient-to-b from-slate-900 via-slate-900 to-amber-950/40 border border-amber-500/50 p-3.5 rounded-xl space-y-2 text-center shadow-2xl">
+                                <div class="text-[10px] font-extrabold text-amber-400 tracking-wider flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-crown text-xs"></i> CHAMPIONSHIP
+                                </div>
+                                <div class="text-xs font-bold text-white flex justify-between items-center pt-1 border-t border-amber-500/20">
+                                    <span class="text-slate-100">AlphaApex</span>
+                                    <span class="text-amber-400 font-mono font-extrabold text-xs">VS</span>
+                                    <span class="text-slate-400">TBD</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -519,63 +678,67 @@
             </div>
         </section>
 
-        <!-- TAB 4: LEADERBOARD -->
+        <!-- TAB 4: LEADERBOARD & STANDINGS -->
         <section id="tabContentLeaderboard" class="space-y-4 hidden fade-in">
-            <div class="glass-panel rounded-2xl p-4">
+            <div class="glass-panel rounded-2xl p-4 border border-emerald-500/20 shadow-xl">
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <h3 class="font-extrabold text-sm text-cyan-400 uppercase tracking-wider">Global Player Standings</h3>
-                        <p class="text-xs text-slate-400">Official ranking based on tournament RP & victory count</p>
+                        <p class="text-xs text-slate-400">Official season rankings based on tournament RP & GG earnings</p>
                     </div>
-                    <span class="text-xs px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">Season 4</span>
+                    <span class="text-xs px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono font-bold">
+                        Season 4 Active
+                    </span>
                 </div>
 
-                <div class="space-y-2">
-                    <!-- Rank 1 -->
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/90 border border-amber-500/40 shadow-lg shadow-amber-500/5">
+                <div class="space-y-2.5">
+                    <!-- Leaderboard Rank 1 -->
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/90 border border-amber-500/50 shadow-lg shadow-amber-500/5">
                         <div class="flex items-center gap-3">
                             <span class="w-6 text-center font-black text-amber-400 text-sm">#1</span>
-                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=AlphaApex" class="w-9 h-9 rounded-xl bg-slate-800 border border-amber-500/50 p-0.5" alt="Rank 1">
+                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=AlphaApex" class="w-10 h-10 rounded-xl bg-slate-800 border border-amber-500/60 p-0.5 object-cover" alt="Rank 1">
                             <div>
-                                <p class="text-xs font-bold text-slate-100 flex items-center gap-1">AlphaApex <i class="fa-solid fa-crown text-amber-400 text-[10px]"></i></p>
-                                <p class="text-[10px] text-slate-400">18 Wins • 2 Losses</p>
+                                <p class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                                    AlphaApex <i class="fa-solid fa-crown text-amber-400 text-xs"></i>
+                                </p>
+                                <p class="text-[10px] text-slate-400 font-mono">18 Wins • 2 Losses • 90% Winrate</p>
                             </div>
                         </div>
                         <div class="text-right">
-                            <p class="text-xs font-bold font-mono text-cyan-400">3,120 RP</p>
-                            <p class="text-[10px] font-bold text-amber-400">+150 GG</p>
+                            <p class="text-xs font-extrabold font-mono text-cyan-400">3,120 RP</p>
+                            <p class="text-[10px] font-extrabold text-amber-400">+150 GG Reward</p>
                         </div>
                     </div>
 
-                    <!-- Rank 2 -->
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <!-- Leaderboard Rank 2 -->
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/70 border border-slate-800">
                         <div class="flex items-center gap-3">
                             <span class="w-6 text-center font-black text-slate-300 text-sm">#2</span>
-                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=GhostRider" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 p-0.5" alt="Rank 2">
+                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=GhostRider" class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 p-0.5 object-cover" alt="Rank 2">
                             <div>
                                 <p class="text-xs font-bold text-slate-100">GhostRider</p>
-                                <p class="text-[10px] text-slate-400">15 Wins • 4 Losses</p>
+                                <p class="text-[10px] text-slate-400 font-mono">15 Wins • 4 Losses • 78% Winrate</p>
                             </div>
                         </div>
                         <div class="text-right">
-                            <p class="text-xs font-bold font-mono text-cyan-400">2,850 RP</p>
-                            <p class="text-[10px] font-bold text-amber-400">+100 GG</p>
+                            <p class="text-xs font-extrabold font-mono text-cyan-400">2,850 RP</p>
+                            <p class="text-[10px] font-extrabold text-amber-400">+100 GG Reward</p>
                         </div>
                     </div>
 
-                    <!-- Rank 3 -->
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <!-- Leaderboard Rank 3 -->
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/70 border border-slate-800">
                         <div class="flex items-center gap-3">
                             <span class="w-6 text-center font-black text-amber-700 text-sm">#3</span>
-                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=ViperX" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 p-0.5" alt="Rank 3">
+                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=ViperX" class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 p-0.5 object-cover" alt="Rank 3">
                             <div>
                                 <p class="text-xs font-bold text-slate-100">ViperX</p>
-                                <p class="text-[10px] text-slate-400">14 Wins • 5 Losses</p>
+                                <p class="text-[10px] text-slate-400 font-mono">14 Wins • 5 Losses • 73% Winrate</p>
                             </div>
                         </div>
                         <div class="text-right">
-                            <p class="text-xs font-bold font-mono text-cyan-400">2,640 RP</p>
-                            <p class="text-[10px] font-bold text-amber-400">+50 GG</p>
+                            <p class="text-xs font-extrabold font-mono text-cyan-400">2,640 RP</p>
+                            <p class="text-[10px] font-extrabold text-amber-400">+50 GG Reward</p>
                         </div>
                     </div>
                 </div>
@@ -584,96 +747,101 @@
 
     </main>
 
-    <!-- SUBMIT MATCH MODAL -->
-    <div id="submitMatchModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-        <div class="glass-panel w-full max-w-md rounded-2xl p-5 space-y-4 border border-cyan-500/30">
+    <!-- SUBMIT MATCH SCORE MODAL -->
+    <div id="submitMatchModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-2xl p-5 space-y-4 border border-cyan-500/30 shadow-2xl">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                 <h3 class="font-extrabold text-sm text-cyan-400 flex items-center gap-2">
-                    <i class="fa-solid fa-trophy"></i> Submit Match Result
+                    <i class="fa-solid fa-trophy text-amber-400"></i> Submit Tournament Score
                 </h3>
-                <button onclick="window.closeSubmitMatchModal()" class="text-slate-400 hover:text-white">
+                <button onclick="window.closeSubmitMatchModal()" class="text-slate-400 hover:text-white transition">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
 
-            <div class="space-y-3">
+            <div class="space-y-3.5">
                 <div>
-                    <label class="text-[11px] font-bold text-slate-400 uppercase">Opponent FC Mobile ID</label>
-                    <input id="matchOpponentInput" type="text" placeholder="e.g. GHO-99" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+                    <label class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Opponent FC Mobile ID</label>
+                    <input id="matchOpponentInput" type="text" placeholder="e.g. GHO-99" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500 font-mono">
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">Your Score</label>
-                        <input id="matchMyScoreInput" type="number" min="0" placeholder="0" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+                        <label class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Your Score</label>
+                        <input id="matchMyScoreInput" type="number" min="0" placeholder="0" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500 font-mono font-bold">
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">Opponent Score</label>
-                        <input id="matchOpponentScoreInput" type="number" min="0" placeholder="0" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+                        <label class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Opponent Score</label>
+                        <input id="matchOpponentScoreInput" type="number" min="0" placeholder="0" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500 font-mono font-bold">
                     </div>
                 </div>
 
                 <div>
-                    <label class="text-[11px] font-bold text-slate-400 uppercase">Proof Screenshot URL</label>
-                    <input id="matchProofUrlInput" type="url" placeholder="https://..." class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+                    <label class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Screenshot Proof URL</label>
+                    <input id="matchProofUrlInput" type="url" placeholder="https://..." class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500">
                 </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
-                <button onclick="window.closeSubmitMatchModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-300 hover:bg-slate-700 transition">Cancel</button>
-                <button onclick="window.confirmSubmitMatch()" class="px-5 py-2 rounded-xl bg-cyan-500 text-black font-extrabold text-xs hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20">Submit Result</button>
+            <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+                <button onclick="window.closeSubmitMatchModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-300 hover:bg-slate-700 transition">
+                    Cancel
+                </button>
+                <button onclick="window.confirmSubmitMatch()" class="px-5 py-2 rounded-xl bg-cyan-500 text-black font-extrabold text-xs hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20">
+                    Submit Result
+                </button>
             </div>
         </div>
     </div>
 
     <!-- MEDIA ZOOM MODAL -->
-    <div id="mediaZoomModal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl hidden flex items-center justify-center p-4">
-        <button onclick="window.closeMediaZoom()" class="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-slate-900 border border-slate-700 text-white flex items-center justify-center hover:bg-rose-600 transition">
+    <div id="mediaZoomModal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl hidden flex items-center justify-center p-4">
+        <button onclick="window.closeMediaZoom()" class="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-slate-900 border border-slate-700 text-white flex items-center justify-center hover:bg-rose-600 transition shadow-2xl">
             <i class="fa-solid fa-xmark text-lg"></i>
         </button>
         <div id="mediaZoomContent" class="max-w-4xl max-h-[90vh] flex items-center justify-center">
-            <!-- Dynamic Image Preview -->
+            <!-- Dynamic Image Preview Injected via Script -->
         </div>
     </div>
-    <!-- BOTTOM NAVIGATION (MOBILE) -->
-    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-xl border-t border-cyan-500/20 py-2.5 px-6 md:hidden">
+    <!-- BOTTOM MOBILE NAVIGATION BAR -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-xl border-t border-cyan-500/20 py-2.5 px-6 md:hidden shadow-2xl">
         <div class="flex items-center justify-around max-w-md mx-auto">
             <button onclick="window.switchTab('feed')" class="flex flex-col items-center gap-1 text-cyan-400">
                 <i class="fa-solid fa-rss text-base"></i>
-                <span class="text-[10px] font-bold">Feed</span>
+                <span class="text-[10px] font-bold tracking-tight">Feed</span>
             </button>
-            <button onclick="window.switchTab('matches')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-cyan-400">
+            <button onclick="window.switchTab('matches')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-cyan-400 transition">
                 <i class="fa-solid fa-trophy text-base"></i>
-                <span class="text-[10px] font-bold">Matches</span>
+                <span class="text-[10px] font-bold tracking-tight">Matches</span>
             </button>
-            <button onclick="window.switchTab('brackets')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-cyan-400">
+            <button onclick="window.switchTab('brackets')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-cyan-400 transition">
                 <i class="fa-solid fa-sitemap text-base"></i>
-                <span class="text-[10px] font-bold">Brackets</span>
+                <span class="text-[10px] font-bold tracking-tight">Brackets</span>
             </button>
-            <button onclick="window.switchTab('leaderboard')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-cyan-400">
+            <button onclick="window.switchTab('leaderboard')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-cyan-400 transition">
                 <i class="fa-solid fa-chart-line text-base"></i>
-                <span class="text-[10px] font-bold">Ranks</span>
+                <span class="text-[10px] font-bold tracking-tight">Ranks</span>
             </button>
         </div>
     </nav>
 
-    <!-- TOAST BANNER -->
-    <div id="toastBanner" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-cyan-500 text-black px-4 py-2 rounded-full font-bold text-xs shadow-xl opacity-0 pointer-events-none transition-all duration-300">
-        Notification Message
+    <!-- TOAST NOTIFICATION BANNER -->
+    <div id="toastBanner" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-cyan-400 text-slate-950 font-extrabold text-xs px-5 py-2.5 rounded-full shadow-2xl border border-cyan-300 opacity-0 pointer-events-none translate-y-4 transition-all duration-300 flex items-center gap-2">
+        <i class="fa-solid fa-bell text-sm"></i>
+        <span id="toastBannerText">Notification Message</span>
     </div>
 
-    <!-- MAIN APP SCRIPT -->
+    <!-- MAIN APP CONTROLLER & FIREBASE ENGINE -->
     <script>
-        // State Initialization
+        // Global Application State Variables
         let currentUser = null;
         let selectedMediaUrl = null;
         let selectedMediaType = null;
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Initialize GG Coins Display
+            // Synchronize GG Coin Balance across UI
             if (window.updateCoinDisplay) window.updateCoinDisplay();
 
-            // Firebase Auth Observer
+            // Firebase Authentication State Listener
             if (window.auth && window.onAuthStateChanged) {
                 window.onAuthStateChanged(window.auth, (user) => {
                     currentUser = user;
@@ -706,7 +874,7 @@
                 });
             }
 
-            // Real-time Firestore Feed Listener
+            // Real-time Firestore Feed Synchronization
             if (window.db && window.collection && window.query && window.orderBy && window.onSnapshot) {
                 const postsRef = window.collection(window.db, "posts");
                 const q = window.query(postsRef, window.orderBy("timestamp", "desc"), window.limit(20));
@@ -717,9 +885,9 @@
 
                     if (snapshot.empty) {
                         postsContainer.innerHTML = `
-                            <div class="glass-panel rounded-2xl p-8 text-center space-y-2">
+                            <div class="glass-panel rounded-2xl p-8 text-center space-y-2 border border-slate-800">
                                 <i class="fa-solid fa-comments text-3xl text-slate-600"></i>
-                                <p class="text-xs text-slate-400">No community posts yet. Be the first to share a highlight!</p>
+                                <p class="text-xs text-slate-400">No community posts yet. Be the first player to share a match highlight!</p>
                             </div>
                         `;
                         return;
@@ -733,19 +901,19 @@
                         const isLiked = currentUser && userLikes.includes(currentUser.uid);
                         
                         feedHtml += `
-                            <div class="glass-panel rounded-2xl p-4 space-y-3 fade-in" id="post-${postId}">
+                            <div class="glass-panel rounded-2xl p-4 space-y-3 border border-slate-800/80 hover:border-cyan-500/30 transition fade-in" id="post-${postId}">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-2.5">
-                                        <img src="${data.userAvatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=Sinless'}" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 p-0.5 object-cover" alt="User Avatar">
+                                        <img src="${data.userAvatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=Sinless'}" class="w-9 h-9 rounded-xl bg-slate-800 border border-cyan-500/30 p-0.5 object-cover" alt="User Avatar">
                                         <div>
                                             <h4 class="text-xs font-bold text-slate-200 flex items-center gap-1">
                                                 ${data.userName || 'Anonymous'}
                                                 <i class="fa-solid fa-circle-check text-[10px] verified-badge"></i>
                                             </h4>
-                                            <p class="text-[10px] text-slate-500">${data.timestamp ? new Date(data.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Just now'}</p>
+                                            <p class="text-[10px] text-slate-500 font-mono">${data.timestamp ? new Date(data.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Just now'}</p>
                                         </div>
                                     </div>
-                                    <button class="text-slate-500 hover:text-slate-300 text-xs">
+                                    <button class="text-slate-500 hover:text-slate-300 text-xs p-1">
                                         <i class="fa-solid fa-ellipsis-vertical"></i>
                                     </button>
                                 </div>
@@ -755,8 +923,8 @@
                                 ${data.mediaUrl ? `
                                     <div class="relative rounded-xl overflow-hidden border border-slate-800 bg-black cursor-pointer group" onclick="window.openMediaViewer('${data.mediaUrl}', '${data.mediaType || 'image'}')">
                                         ${data.mediaType === 'video' ? `
-                                            <div class="aspect-video w-full flex items-center justify-center bg-slate-900">
-                                                <i class="fa-solid fa-play text-4xl text-cyan-400 group-hover:scale-110 transition"></i>
+                                            <div class="aspect-video w-full flex items-center justify-center bg-slate-900/90 group-hover:bg-slate-900 transition">
+                                                <i class="fa-solid fa-circle-play text-4xl text-cyan-400 group-hover:scale-110 transition duration-300"></i>
                                             </div>
                                         ` : `
                                             <img src="${data.mediaUrl}" class="w-full max-h-96 object-cover group-hover:scale-105 transition duration-300" alt="Post Media">
@@ -764,21 +932,29 @@
                                     </div>
                                 ` : ''}
 
-                                <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs text-slate-400">
-                                    <button onclick="window.toggleLikePost('${postId}', ${isLiked})" class="flex items-center gap-1.5 hover:text-rose-500 transition ${isLiked ? 'text-rose-500 font-bold' : ''}">
-                                        <i class="fa-${isLiked ? 'solid' : 'regular'} fa-heart"></i>
+                                <div class="flex items-center justify-between pt-2.5 border-t border-slate-800/80 text-xs text-slate-400 font-bold">
+                                    <button onclick="window.toggleLikePost('${postId}', ${isLiked})" class="flex items-center gap-1.5 hover:text-rose-500 transition ${isLiked ? 'text-rose-500' : ''}">
+                                        <i class="fa-${isLiked ? 'solid' : 'regular'} fa-heart text-sm"></i>
                                         <span>${userLikes.length}</span>
                                     </button>
 
                                     <button onclick="window.toggleComments('${postId}')" class="flex items-center gap-1.5 hover:text-cyan-400 transition">
-                                        <i class="fa-regular fa-comment"></i>
+                                        <i class="fa-regular fa-comment text-sm"></i>
                                         <span>Comments</span>
                                     </button>
 
-                                    <button onclick="window.tipGGCoins('${postId}')" class="flex items-center gap-1.5 text-amber-400 hover:text-amber-300 font-bold transition">
-                                        <i class="fa-solid fa-coins"></i>
+                                    <button onclick="window.tipGGCoins('${postId}')" class="flex items-center gap-1.5 text-amber-400 hover:text-amber-300 transition">
+                                        <i class="fa-solid fa-coins text-sm"></i>
                                         <span>Tip GG</span>
                                     </button>
+                                </div>
+
+                                <!-- Dynamic Comments Section -->
+                                <div id="comments-${postId}" class="hidden pt-3 border-t border-slate-800/50 space-y-2">
+                                    <div class="flex items-center gap-2">
+                                        <input type="text" id="comment-input-${postId}" placeholder="Write a comment..." class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+                                        <button onclick="window.submitComment('${postId}')" class="px-3 py-1.5 bg-cyan-500 text-black text-xs font-bold rounded-xl hover:bg-cyan-400 transition">Send</button>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -789,7 +965,7 @@
             }
         });
 
-        // Tab Navigation Switching
+        // Tab Navigation Switcher
         window.switchTab = function(tabName) {
             const tabs = ['feed', 'matches', 'brackets', 'leaderboard'];
             tabs.forEach(t => {
@@ -798,26 +974,26 @@
                 if (t === tabName) {
                     if (content) content.classList.remove('hidden');
                     if (btn) {
-                        btn.className = "px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap bg-cyan-500 text-black shadow-lg shadow-cyan-500/20";
+                        btn.className = "px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center gap-2 whitespace-nowrap bg-cyan-500 text-black shadow-lg shadow-cyan-500/20";
                     }
                 } else {
                     if (content) content.classList.add('hidden');
                     if (btn) {
-                        btn.className = "px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition flex items-center gap-2 whitespace-nowrap bg-slate-900/60 border border-slate-800";
+                        btn.className = "px-4 py-2.5 rounded-xl text-xs font-extrabold text-slate-400 hover:text-white transition flex items-center gap-2 whitespace-nowrap bg-slate-900/60 border border-slate-800";
                     }
                 }
             });
         };
 
-        // Authentication Toggle
+        // Authentication Toggle Function
         window.toggleAuth = async function() {
             if (currentUser) {
                 await window.signOut(window.auth);
-                window.showToast("Signed out successfully");
+                window.showToast("Signed out successfully.");
             } else {
                 try {
                     await window.signInWithPopup(window.auth, window.googleProvider);
-                    window.showToast("Welcome to Sinless GG!");
+                    window.showToast("Signed in as " + (window.auth.currentUser.displayName || "Gamer"));
                 } catch (e) {
                     console.error("Auth error:", e);
                     window.showToast("Authentication failed.");
@@ -825,13 +1001,13 @@
             }
         };
 
-        // Submit Post Functionality
+        // Submit New Post to Real-time Firestore Feed
         window.submitNewPost = async function() {
             const input = document.getElementById('postInputText');
             const content = input ? input.value.trim() : '';
 
             if (!content && !selectedMediaUrl) {
-                window.showToast("Please write something or attach media.");
+                window.showToast("Please enter text or attach media before publishing.");
                 return;
             }
 
@@ -850,27 +1026,27 @@
                 if (input) input.value = '';
                 selectedMediaUrl = null;
                 selectedMediaType = null;
-                window.showToast("Post published to GG Feed!");
+                window.showToast("Post published to Sinless GG Feed!");
             } catch (e) {
                 console.error("Post creation error:", e);
-                window.showToast("Error publishing post.");
+                window.showToast("Failed to publish post.");
             }
         };
 
-        // Media Upload Prompt Simulation
+        // Media Upload Link Attachment Prompt
         window.triggerMediaUpload = function(type) {
-            const url = prompt(`Enter ${type.toUpperCase()} URL (Direct Image or Stream Link):`);
+            const url = prompt(`Paste the URL for your ${type.toUpperCase()} attachment:`);
             if (url) {
                 selectedMediaUrl = url;
                 selectedMediaType = type;
-                window.showToast(`${type.toUpperCase()} attached to post!`);
+                window.showToast(`${type.toUpperCase()} media attached!`);
             }
         };
 
-        // Like/Unlike Functionality
+        // Like / Unlike Firestore Post Handler
         window.toggleLikePost = async function(postId, isLiked) {
             if (!currentUser) {
-                window.showToast("Please sign in to like posts.");
+                window.showToast("Please sign in to like community posts.");
                 return;
             }
             const postRef = window.doc(window.db, "posts", postId);
@@ -881,25 +1057,42 @@
             }
         };
 
-        // Tip GG Coins
+        // Toggle Comments Drawer
+        window.toggleComments = function(postId) {
+            const commentsDiv = document.getElementById(`comments-${postId}`);
+            if (commentsDiv) {
+                commentsDiv.classList.toggle('hidden');
+            }
+        };
+
+        // Submit Comment Logic
+        window.submitComment = function(postId) {
+            const input = document.getElementById(`comment-input-${postId}`);
+            if (input && input.value.trim()) {
+                window.showToast("Comment added!");
+                input.value = '';
+            }
+        };
+
+        // Tip GG Coins Interaction
         window.tipGGCoins = function(postId) {
             if (window.myGGCoins < 10) {
-                window.showToast("Insufficient GG Coins balance!");
+                window.showToast("Insufficient GG Coins! Participate in tournaments to earn more.");
                 return;
             }
             window.myGGCoins -= 10;
             window.updateCoinDisplay();
-            window.showToast("Tipped 10 GG Coins to Player!");
+            window.showToast("Tipped 10 GG Coins to player!");
         };
 
-        // Media Viewer Sticky Dock
+        // Sticky Media Viewer Docking
         window.openMediaViewer = function(url, type) {
             const container = document.getElementById('mediaViewerContainer');
             const content = document.getElementById('mediaViewerContent');
             if (!container || !content) return;
 
             if (type === 'video') {
-                content.innerHTML = `<iframe src="${url}" class="w-full h-full border-0" allowfullscreen></iframe>`;
+                content.innerHTML = `<iframe src="${url}" class="w-full h-full border-0" allowfullscreen allow="autoplay"></iframe>`;
             } else {
                 content.innerHTML = `<img src="${url}" class="max-h-full max-w-full object-contain" alt="Media Preview">`;
             }
@@ -913,7 +1106,7 @@
             if (container) container.classList.add('hidden');
         };
 
-        // Match Modals & Proof Viewer
+        // Submit Match Result Modal Logic
         window.openSubmitMatchModal = function() {
             const modal = document.getElementById('submitMatchModal');
             if (modal) modal.classList.remove('hidden');
@@ -930,19 +1123,20 @@
             const oppScore = document.getElementById('matchOpponentScoreInput').value;
 
             if (!opp || myScore === '' || oppScore === '') {
-                window.showToast("Please fill all match details.");
+                window.showToast("Please fill out all match details.");
                 return;
             }
 
             window.closeSubmitMatchModal();
-            window.showToast("Match result submitted for admin verification!");
+            window.showToast("Match score submitted for admin verification!");
         };
 
+        // Screenshot Proof Zoom Preview Modal
         window.viewMatchProof = function(url) {
             const modal = document.getElementById('mediaZoomModal');
             const content = document.getElementById('mediaZoomContent');
             if (modal && content) {
-                content.innerHTML = `<img src="${url}" class="rounded-2xl border border-cyan-500/30 shadow-2xl max-h-[80vh] object-contain">`;
+                content.innerHTML = `<img src="${url}" class="rounded-2xl border-2 border-cyan-500/40 shadow-2xl max-h-[80vh] object-contain">`;
                 modal.classList.remove('hidden');
             }
         };
