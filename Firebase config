@@ -54,6 +54,7 @@ try {
     console.warn("FCM Messaging unsupported in this context.");
 }
 
+// Global window bindings for Firestore
 window.db = db;
 window.auth = auth;
 window.collection = collection;
@@ -70,7 +71,7 @@ window.limit = limit;
 window.onSnapshot = onSnapshot;
 window.serverTimestamp = serverTimestamp;
 
-// Added so app.js (a classic script) can reach these too
+// Global window bindings for Authentication & Messaging
 window.googleProvider = googleProvider;
 window.signInWithPopup = signInWithPopup;
 window.signOut = signOut;
@@ -78,4 +79,3 @@ window.onAuthStateChanged = onAuthStateChanged;
 window.messaging = messaging;
 window.getToken = getToken;
 window.onMessage = onMessage;
-
