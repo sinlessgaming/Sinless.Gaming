@@ -27,7 +27,7 @@
   width: 280px;
   height: 100%;
   background: var(--drawer-bg, #11151d);
-  z-index: 201;
+  z-index: 2001;
   transition: left 0.3s ease;
   display: flex;
   flex-direction: column;
@@ -46,6 +46,19 @@
   gap: 12px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border-color, #222936);
+}
+
+.logo-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #00f3ff, #ff007f);
+  color: #000;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
 }
 
 .drawer-menu {
@@ -2813,32 +2826,16 @@
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
         .verified-badge { color: #f97316; text-shadow: 0 0 10px rgba(249, 115, 22, 0.5); }
         #mediaViewerContainer, #mediaZoomModal { touch-action: none !important; overscroll-behavior: none !important; }
-        /* Keep the media pinned while comments scroll underneath */
-.sticky-media-frame {
-    position: sticky;
-    top: 60px;
-    z-index: 40;
-    background: #02050b;
-    border-radius: 1rem;
-    overflow: hidden;
-    border: 1px solid rgba(0, 243, 255, 0.25);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8);
-}
-.side-drawer {
-  position: fixed;
-  top: 0;
-  left: -280px;
-  width: 280px;
-  height: 100%;
-  background: #11151d;
-  transition: left 0.3s ease;
-  display: flex;
-  z-index: 1000;
-}
-
-.side-drawer.active {
-  left: 0;
-}
+        .sticky-media-frame {
+            position: sticky;
+            top: 60px;
+            z-index: 40;
+            background: #02050b;
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 1px solid rgba(0, 243, 255, 0.25);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8);
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-slate-950" onload="initApp()">
@@ -2848,62 +2845,36 @@
     </div>
 
     <audio id="previewAudioPlayer" preload="auto" loop></audio>
+    
     <header class="bg-gg-900/95 backdrop-blur-md border-b border-zinc-500/15 px-3 py-3 flex items-center justify-between sticky top-0 z-40">
-    <div class="flex items-center space-x-2.5 cursor-pointer group" onclick="openMyProfile(event)">
-      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center">
-        <div>
-          <h1 class="font-extrabold text-xs tracking-wide text-white group-hover:text-cyan-400 transition">SINLESS</h1>
-          <p id="headerUserTag" class="text-[7.5px] text-orange-400 tracking-wider uppercase font-extrabold"></p>
+        <div class="flex items-center space-x-2.5 cursor-pointer group" onclick="openMyProfile(event)">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center">
+                <div>
+                    <h1 class="font-extrabold text-xs tracking-wide text-white group-hover:text-cyan-400 transition">SINLESS</h1>
+                    <p id="headerUserTag" class="text-[7.5px] text-orange-400 tracking-wider uppercase font-extrabold"></p>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-    <div class="flex items-center space-x-1.5">
-      <!-- GG Coins Wallet Badge -->
-      <div onclick="showToast(' Wallet Balance: ' + window.myGGCoins + ' GG Coins')" class="px-2.5 py-1.5 rounded-xl bg-gg-800 border border-zinc-700/50 flex items-center space-x-2 cursor-pointer">
-        <i class="fa-solid fa-coins text-amber-400"></i>
-        <span id="headerCoinBalanceText">100 GG Coins</span>
-      </div>
-      <button onclick="openUniversalCreateModal()" class="px-2 py-1.5 rounded-xl font-bold bg-gradient-to-r from-cyan-400 to-magenta text-black text-xs">
-        <i class="fa-solid fa-plus mr-0.5"></i> Post
-      </button>
-      <button onclick="document.getElementById('sideMenu').classList.add('active')" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-zinc-700/50 flex items-center justify-center text-zinc-400 hover:bg-zinc-700 hover:text-white transition group">
-        <i class="fa-solid fa-user"></i>
-      </button>
-      <button onclick="window.setupPushNotifications()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-zinc-700/50 flex items-center justify-center text-zinc-400 hover:bg-zinc-700 hover:text-white transition group">
-        <i class="fa-solid fa-bell"></i>
-      </button>
-      <button onclick="openDmModal()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-zinc-700/50 flex items-center justify-center text-zinc-400 hover:bg-zinc-700 hover:text-white transition group">
-        <i class="fa-solid fa-envelope"></i>
-      </button>
-    </div>
-</header>
-    <div class="p-4 border-b border-zinc-800 flex items-center justify-between">
-      <span class="text-white font-bold text-lg">Menu</span>
-      <button onclick="closeSideMenu()" class="text-zinc-400 hover:text-white p-2">
-        <i class="fa-solid fa-xmark text-xl"></i>
-      </button>
-    </div>
-    <div class="flex-1 overflow-y-auto p-4 space-y-2">
-      <button onclick="switchNav('home')" class="w-full text-left px-4 py-3 rounded-lg text-zinc-300 hover:bg-zinc-800 flex items-center space-x-3">
-        <i class="fa-solid fa-house w-5"></i>
-        <span>Home</span>
-      </button>
-      <button onclick="switchNav('tournaments')" class="w-full text-left px-4 py-3 rounded-lg text-zinc-300 hover:bg-zinc-800 flex items-center space-x-3">
-        <i class="fa-solid fa-trophy w-5"></i>
-        <span>Tournaments</span>
-      </button>
-      <button onclick="switchNav('chat')" class="w-full text-left px-4 py-3 rounded-lg text-zinc-300 hover:bg-zinc-800 flex items-center space-x-3">
-        <i class="fa-solid fa-comments w-5"></i>
-        <span>Chat</span>
-      </button>
-      <button onclick="switchNav('wallet')" class="w-full text-left px-4 py-3 rounded-lg text-zinc-300 hover:bg-zinc-800 flex items-center space-x-3">
-        <i class="fa-solid fa-wallet w-5"></i>
-        <span>Wallet</span>
-      </button>
-    </div>
-  </div>
-</div>
-  </header>
+        <div class="flex items-center space-x-1.5">
+            <!-- GG Coins Wallet Badge -->
+            <div onclick="showToast(' Wallet Balance: ' + window.myGGCoins + ' GG Coins')" class="px-2.5 py-1.5 rounded-xl bg-gg-800 border border-zinc-700/50 flex items-center space-x-2 cursor-pointer">
+                <i class="fa-solid fa-coins text-amber-400"></i>
+                <span id="headerCoinBalanceText">100 GG Coins</span>
+            </div>
+            <button onclick="openUniversalCreateModal()" class="px-2 py-1.5 rounded-xl font-bold bg-gradient-to-r from-cyan-400 to-magenta text-black text-xs">
+                <i class="fa-solid fa-plus mr-0.5"></i> Post
+            </button>
+            <button id="openDrawerBtn" onclick="toggleDrawer(true)" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-zinc-700/50 flex items-center justify-center text-zinc-400 hover:bg-zinc-700 hover:text-white transition group">
+                <i class="fa-solid fa-user"></i>
+            </button>
+            <button onclick="window.setupPushNotifications()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-zinc-700/50 flex items-center justify-center text-zinc-400 hover:bg-zinc-700 hover:text-white transition group">
+                <i class="fa-solid fa-bell"></i>
+            </button>
+            <button onclick="openDmModal()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-zinc-700/50 flex items-center justify-center text-zinc-400 hover:bg-zinc-700 hover:text-white transition group">
+                <i class="fa-solid fa-envelope"></i>
+            </button>
+        </div>
+    </header>
 
     <main class="flex-1 flex flex-col max-w-2xl w-full mx-auto p-3 space-y-3">
         <div class="glass-panel p-1.5 rounded-2xl flex shadow-xl overflow-x-auto scrollbar-none">
@@ -3323,14 +3294,15 @@
                     <h4 class="text-xs font-bold text-white group-hover:text-cyan-400">Host Tournament / League</h4>
                     <p class="text-[9px] text-gray-400">Leagues (1x/2x H2H), Knockout up to 128, World Cup</p>
                 </div>
-            </button> <button onclick="openLiveBroadcastModal()" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800 hover:bg-slate-700 transition border border-slate-700 text-left">
-    <div class="text-cyan-400 text-xl mb-2">
-        <i class="fas fa-video"></i>
-    </div>
-    <span class="text-white font-bold text-sm">Live Broadcast</span>
-    <span class="text-slate-400 text-xs text-center mt-1">Start a camera stream or embed a live link.</span>
-</button>
-
+            </button> 
+            
+            <button onclick="closeUniversalCreateModal(); openLiveBroadcastModal()" class="p-3 bg-gg-900 hover:bg-gg-800 rounded-xl border border-cyan-500/30 flex items-center space-x-3 text-left transition group">
+                <div class="w-9 h-9 rounded-lg bg-red-600 flex items-center justify-center text-white font-black shrink-0"><i class="fa-solid fa-video"></i></div>
+                <div>
+                    <h4 class="text-xs font-bold text-white group-hover:text-cyan-400">Live Broadcast</h4>
+                    <p class="text-[9px] text-gray-400">Camera stream or embed live link</p>
+                </div>
+            </button>
         </div>
     </div>
 
@@ -3421,7 +3393,6 @@
                     </div>
                 </div>
             </div>
-<button onclick="openLiveBroadcastModal()" class="flex items-center space-x-3 w-full p-3 rounded-xl hover:bg-zinc-800 text-left transition"><i class="fa-solid fa-video text-cyan-400 text-xl"></i><span class="text-white font-medium">Live Broadcast</span></button>
 
             <button onclick="submitNewTournament()" class="w-full py-3 bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 font-black rounded-xl text-xs shadow-lg uppercase tracking-wider mt-2">
                 🚀 Launch Tournament / League
@@ -3706,619 +3677,50 @@
         </div>
     </div>
 
+    <!-- Side Drawer Overlay -->
+    <div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer(false)"></div>
+
+    <!-- Side Drawer -->
+    <aside class="side-drawer" id="sideDrawer">
+        <div class="drawer-profile">
+            <div class="logo-avatar">SG</div>
+            <div>
+                <div style="font-weight: bold; color: var(--text-main, #ffffff);">SinlessGaming</div>
+                <div style="font-size: 0.8rem; color: #a0aec0;">@SinlessGaming</div>
+            </div>
+        </div>
+
+        <ul class="drawer-menu">
+            <li class="drawer-menu-item" onclick="toggleDrawer(false); showToast('Wallet Balance: ' + window.myGGCoins + ' GG Coins');">
+                <span><i class="fa-solid fa-wallet mr-2"></i> GG Coins Wallet</span>
+                <span class="badge" id="drawerCoinBadge">100</span>
+            </li>
+            <li class="drawer-menu-item" onclick="toggleDrawer(false); window.setupPushNotifications();">
+                <span><i class="fa-solid fa-bell mr-2"></i> Notifications</span>
+            </li>
+            <li class="drawer-menu-item" onclick="toggleDrawer(false); openAccountModal();">
+                <span><i class="fa-solid fa-gear mr-2"></i> Account Settings</span>
+            </li>
+        </ul>
+    </aside>
+
     <script>
-        let activeCategoryFilter = 'ALL';
-        window.myUsername = '@SinlessGaming';
-        window.myDisplayName = 'Sinless Gaming';
-        window.fypposts = [];
-        window.marketListings = [];
-        window.uploadedMediaBlobs = [];
-        window.selectedAudioTrack = null;
-
-        window.userCategoryWeights = JSON.parse(localStorage.getItem('sinless_cat_weights') || '{}');
-        window.seenPostsList = JSON.parse(localStorage.getItem('sinless_seen_posts') || '{}');
-
-        window.boostCategoryInterest = function(category) {
-            if(!category) return;
-            window.userCategoryWeights[category] = (window.userCategoryWeights[category] || 0) + 1;
-            localStorage.setItem('sinless_cat_weights', JSON.stringify(window.userCategoryWeights));
-        };
-
-        let currentPreview = null;
-        let selectedAudioUrl = "";
-
-        function openSoundModal() { document.getElementById('soundPickerModal').classList.remove('hidden'); }
-        function closeSoundModal() { document.getElementById('soundPickerModal').classList.add('hidden'); }
-
-        function previewAudio(url) {
-            if (currentPreview) currentPreview.pause();
-            currentPreview = new Audio(url);
-            currentPreview.volume = 0.5;
-            currentPreview.play().catch(err => console.warn("Audio preview failed:", err));
-            document.getElementById('audioPlayingStatus').innerText = "▶ Audio preview playing";
-        }
-
-        function selectTrack(url, label) {
-            selectedAudioUrl = url;
-            window.selectedAudioTrack = label;
-            document.getElementById('selectedSoundLabel').innerText = label;
-            previewAudio(url);
-        }
-
-        function stopAudioPreview() {
-            if (currentPreview) { currentPreview.pause(); currentPreview.currentTime = 0; }
-            document.getElementById('audioPlayingStatus').innerText = "Audio preview stopped";
-        }
-
-        function showToast(msg) {
-            let banner = document.getElementById('toastBanner');
-            if(!banner) return;
-            banner.innerText = msg;
-            banner.style.opacity = '1';
-            banner.style.pointerEvents = 'auto';
-            setTimeout(() => {
-                banner.style.opacity = '0';
-                banner.style.pointerEvents = 'none';
-            }, 3000);
-        }
-
-        async function initApp() {
-            document.getElementById('headerUserTag').innerText = window.myUsername;
-
-            if (window.updateCoinDisplay) window.updateCoinDisplay();
-
-            if (window.loadLocalPostsFromDB) {
-                let storedPosts = await window.loadLocalPostsFromDB();
-                if (storedPosts.length > 0) window.fypposts = storedPosts.reverse();
-            }
-
-            if (window.loadLocalStoriesFromDB) {
-                let storedStories = await window.loadLocalStoriesFromDB();
-                window.profileStories = storedStories.reverse();
-            }
-
-            if (typeof listenToFirestorePosts === 'function') listenToFirestorePosts();
-            if (typeof listenToFirestoreMarket === 'function') listenToFirestoreMarket();
-            if (typeof listenToFirestoreSquads === 'function') listenToFirestoreSquads();
-
-            pruneExpiredEphemeralData();
-            renderStoriesBar();
-            renderClansList();
-            renderLadder('ALL');
-            renderTopAccounts();
-            runTrendingTopics();
-            fetchHorizontalLiveMatches();
-            renderFypFeed();
-            renderTournamentsTab();
-            renderTournamentsTabDedicated();
-            initMediaTouchZoomControls();
-        }
-
-        function compressImage(file, maxWidth = 1920, maxHeight = 1080, quality = 0.85) {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.src = e.target.result;
-                    img.onload = () => {
-                        let width = img.width;
-                        let height = img.height;
-                        if (width > maxWidth || height > maxHeight) {
-                            const ratio = Math.min(maxWidth / width, maxHeight / height);
-                            width = Math.round(width * ratio);
-                            height = Math.round(height * ratio);
-                        }
-                        const canvas = document.createElement('canvas');
-                        canvas.width = width; canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        resolve(canvas.toDataURL('image/jpeg', quality));
-                    };
-                };
-            });
-        }
-
-        async function handleMediaSelection(input) {
-            const files = Array.from(input.files);
-            if (files.length > 10) { showToast("⚠️ Max 10 items per post!"); return; }
-
-            window.uploadedMediaBlobs = [];
-            const thumbContainer = document.getElementById('mediaPreviewThumbnails');
-            thumbContainer.innerHTML = '';
-            document.getElementById('mediaCountIndicator').innerText = `${files.length} / 10 selected`;
-
-            for (let file of files) {
-                if (file.type.includes('video')) {
-                    const videoUrl = URL.createObjectURL(file);
-                    window.uploadedMediaBlobs.push({ type: 'video', url: videoUrl });
-                    thumbContainer.innerHTML += `<div class="relative w-14 h-14 rounded-xl bg-gg-900 border border-cyan-500/30 overflow-hidden"><video src="${videoUrl}" class="w-full h-full object-cover"></video></div>`;
-                } else {
-                    const compressedDataUrl = await compressImage(file, 1920, 1080, 0.85);
-                    window.uploadedMediaBlobs.push({ type: 'image', url: compressedDataUrl });
-                    thumbContainer.innerHTML += `<div class="relative w-14 h-14 rounded-xl bg-gg-900 border border-cyan-500/30 overflow-hidden"><img src="${compressedDataUrl}" class="w-full h-full object-cover"></div>`;
-                }
-            }
-        }
-
-        let currentScale = 1, translateX = 0, translateY = 0;
-        let initialPinchDistance = 0, initialScale = 1;
-        let lastTouchX = 0, lastTouchY = 0, lastTapTime = 0;
-        window.activeZoomPostId = null;
-
-        window.openMediaZoomModal = function(type, url, postId = null, textContent = null) {
-            const modal = document.getElementById('mediaZoomModal');
-            const container = document.getElementById('mediaViewerContainer');
+        function toggleDrawer(open) {
+            const sideDrawer = document.getElementById('sideDrawer');
+            const drawerOverlay = document.getElementById('drawerOverlay');
             
-            currentScale = 1; translateX = 0; translateY = 0;
-            window.activeZoomPostId = postId;
-            
-            if (type === 'video') {
-                container.innerHTML = `<video id="zoomTargetElement" src="${url}" controls autoplay class="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"></video>`;
-            } else if (type === 'text') {
-                container.innerHTML = `<div id="zoomTargetElement" class="p-6 bg-gg-900 border border-cyan-500/30 rounded-2xl shadow-2xl text-white max-w-sm w-full text-center flex flex-col justify-center min-h-[300px]"><p class="text-sm font-bold leading-relaxed">${formatMentions(textContent)}</p></div>`;
+            if (open) {
+                if (sideDrawer) sideDrawer.classList.add('active');
+                if (drawerOverlay) drawerOverlay.classList.add('active');
             } else {
-                container.innerHTML = `<img id="zoomTargetElement" src="${url}" class="max-w-full max-h-full object-contain rounded-2xl shadow-2xl">`;
+                if (sideDrawer) sideDrawer.classList.remove('active');
+                if (drawerOverlay) drawerOverlay.classList.remove('active');
             }
-            
-            const interactionBar = document.getElementById('mediaZoomInteractionBar');
-            if (postId) {
-                renderZoomInteractions(postId);
-                interactionBar.classList.remove('hidden');
-            } else {
-                interactionBar.classList.add('hidden');
-            }
-            
-            modal.classList.remove('hidden');
+        }
+
+        window.closeSideMenu = function() {
+            toggleDrawer(false);
         };
-
-        window.renderZoomInteractions = function(postId) {
-            const interactionBar = document.getElementById('mediaZoomInteractionBar');
-            const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
-            if (post && interactionBar) {
-                const uid = window.currentUser ? window.currentUser.uid : 'guest_user';
-                const hasGGed = post.ggsBy && post.ggsBy.includes(uid);
-                interactionBar.innerHTML = `
-                    <button onclick="toggleGGPost('${postId}')" class="flex items-center space-x-2 ${hasGGed ? 'text-cyan-400' : 'text-white'} font-black hover:text-cyan-400 transition transform active:scale-95 text-sm">
-                        <i class="${hasGGed ? 'fa-solid' : 'fa-regular'} fa-thumbs-up"></i>
-                        <span>${post.ggsCount || 0}</span>
-                    </button>
-                    <div class="w-px h-6 bg-cyan-500/30"></div>
-                    <button onclick="closeMediaZoomModal(); openCommentsModal('${postId}')" class="flex items-center space-x-2 text-white font-bold hover:text-cyan-400 transition transform active:scale-95 text-sm">
-                        <i class="fa-regular fa-comment"></i>
-                        <span>${post.commentsCount || 0} Replies</span>
-                    </button>
-                `;
-            }
-        };
-
-        function closeMediaZoomModal() {
-            document.getElementById('mediaZoomModal').classList.add('hidden');
-            document.getElementById('mediaViewerContainer').innerHTML = '';
-            currentScale = 1; translateX = 0; translateY = 0;
-            window.activeZoomPostId = null;
-        }
-
-        function updateZoomTransform() {
-            const el = document.getElementById('zoomTargetElement');
-            if (el) {
-                el.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
-            }
-        }
-
-        function initMediaTouchZoomControls() {
-            const container = document.getElementById('mediaViewerContainer');
-            if (!container) return;
-
-            container.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 2) {
-                    initialPinchDistance = Math.hypot(
-                        e.touches[0].clientX - e.touches[1].clientX,
-                        e.touches[0].clientY - e.touches[1].clientY
-                    );
-                    initialScale = currentScale;
-                } else if (e.touches.length === 1) {
-                    lastTouchX = e.touches[0].clientX;
-                    lastTouchY = e.touches[0].clientY;
-
-                    const now = Date.now();
-                    if (now - lastTapTime < 300) {
-                        e.preventDefault();
-                        if (window.activeZoomPostId) {
-                            toggleGGPost(window.activeZoomPostId);
-                            showToast("❤️ GGs Liked!");
-                        }
-                        currentScale = currentScale === 1 ? 2.5 : 1;
-                        translateX = 0; translateY = 0;
-                        updateZoomTransform();
-                    }
-                    lastTapTime = now;
-                }
-            }, { passive: false });
-
-            container.addEventListener('touchmove', (e) => {
-                if (e.touches.length === 2) {
-                    e.preventDefault();
-                    const currentDist = Math.hypot(
-                        e.touches[0].clientX - e.touches[1].clientX,
-                        e.touches[0].clientY - e.touches[1].clientY
-                    );
-                    if (initialPinchDistance > 0) {
-                        currentScale = Math.min(Math.max(1, initialScale * (currentDist / initialPinchDistance)), 4);
-                        updateZoomTransform();
-                    }
-                } else if (e.touches.length === 1 && currentScale > 1) {
-                    e.preventDefault();
-                    const deltaX = e.touches[0].clientX - lastTouchX;
-                    const deltaY = e.touches[0].clientY - lastTouchY;
-                    translateX += deltaX;
-                    translateY += deltaY;
-                    lastTouchX = e.touches[0].clientX;
-                    lastTouchY = e.touches[0].clientY;
-                    updateZoomTransform();
-                }
-            }, { passive: false });
-
-            container.addEventListener('touchend', (e) => {
-                if (e.touches.length < 2) initialPinchDistance = 0;
-            });
-        }
-
-        async function fetchHorizontalLiveMatches() {
-            const carousel = document.getElementById('horizontalLiveMatchesCarousel');
-            if (!carousel) return;
-            try {
-                const res = await fetch('https://api.sstats.net/games/list?Live=true&Limit=15');
-                if (res.ok) {
-                    const data = await res.json();
-                    const activeMatches = (data.data || []).slice(0, 10);
-                    if (activeMatches.length > 0) {
-                        carousel.innerHTML = '';
-                        activeMatches.forEach(m => {
-                            carousel.innerHTML += `
-                                <div class="glass-panel p-3.5 rounded-2xl min-w-[230px] flex flex-col justify-between shrink-0 shadow-lg border border-cyan-500/20">
-                                    <div class="flex items-center justify-between pb-2 border-b border-cyan-500/10">
-                                        <span class="text-[9px] text-cyan-400 font-bold truncate uppercase">${m.season?.league?.name || 'Live Match'}</span>
-                                        <span class="text-[9px] font-black text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full animate-pulse">${m.elapsed || 'LIVE'}</span>
-                                    </div>
-                                    <div class="py-3 space-y-1.5 text-xs font-bold text-white">
-                                        <div class="flex justify-between items-center"><span>${m.homeTeam?.name || 'Home'}</span><span class="text-cyan-400 text-sm font-black">${m.homeResult ?? 0}</span></div>
-                                        <div class="flex justify-between items-center"><span>${m.awayTeam?.name || 'Away'}</span><span class="text-cyan-400 text-sm font-black">${m.awayResult ?? 0}</span></div>
-                                    </div>
-                                </div>`;
-                        });
-                        return;
-                    }
-                }
-            } catch(e) {}
-            carousel.innerHTML = `<div class="glass-panel p-4 rounded-2xl min-w-[240px] text-center text-xs text-gray-400">No active live matches right now.</div>`;
-        }
-
-        function openAccountModal() { document.getElementById('accountModal').classList.remove('hidden'); }
-        function closeAccountModal() { document.getElementById('accountModal').classList.add('hidden'); }
-        function openCreatePostModal() { document.getElementById('createPostModal').classList.remove('hidden'); }
-        function closeCreatePostModal() { document.getElementById('createPostModal').classList.add('hidden'); }
-        function openMarketModal() { document.getElementById('marketModal').classList.remove('hidden'); }
-        function closeMarketModal() { document.getElementById('marketModal').classList.add('hidden'); }
-
-        function switchView(viewName) {
-            document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
-            ['fyp', 'trending', 'market', 'clans', 'chat', 'tournaments', 'standings', 'popular'].forEach(v => {
-                let navBtn = document.getElementById('nav-' + v);
-                if(navBtn) {
-                    navBtn.classList.remove('bg-magenta', 'text-white', 'font-extrabold', 'shadow-lg');
-                    navBtn.classList.add('text-gray-400', 'font-bold');
-                }
-            });
-            let activeSection = document.getElementById('view-' + viewName);
-            let activeNav = document.getElementById('nav-' + viewName);
-            if(activeSection) activeSection.classList.remove('hidden');
-            if(activeNav) {
-                activeNav.classList.remove('text-gray-400', 'font-bold');
-                activeNav.classList.add('bg-magenta', 'text-white', 'font-extrabold', 'shadow-lg');
-            }
-
-            if (viewName === 'trending') {
-                runTrendingTopics();
-                fetchHorizontalLiveMatches();
-            }
-        }
-
-        function filterByCategory(cat, btn) {
-            activeCategoryFilter = cat;
-            window.boostCategoryInterest(cat);
-            document.querySelectorAll('#categoryFilterBar .cat-btn').forEach(b => {
-                b.className = "cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-gray-300 border border-cyan-500/25 whitespace-nowrap transition";
-            });
-            if(btn) btn.className = "cat-btn px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition";
-            renderFypFeed();
-        }
-
-        window.renderFypFeed = function() {
-            let container = document.getElementById('fypFeedContainer');
-            if(!container) return;
-            container.innerHTML = '';
-            
-            let filtered = (window.fypposts || []).filter(p => activeCategoryFilter === 'ALL' || (activeCategoryFilter === 'LIVE STREAM' ? p.isLive : p.game === activeCategoryFilter));
-            
-            filtered.sort((a, b) => {
-                let getScore = (p) => {
-                    let base = ((p.viewsCount||1)*0.1) + ((p.ggsCount||0)*2) + ((p.commentsCount||0)*3) + ((p.tipsTotal||0)*5);
-                    let ageHours = (Date.now() - new Date(p.createdAt || Date.now()).getTime()) / 3600000;
-                    let catMulti = 1 + ((window.userCategoryWeights[p.game] || 0) * 0.05); 
-                    let seenPenalty = window.seenPostsList[p.id] ? 0.5 : 1; 
-                    return ((base + 1) * catMulti * seenPenalty) - (ageHours * 0.5); 
-                };
-                return getScore(b) - getScore(a);
-            });
-            
-            if(filtered.length === 0) {
-                container.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No cloud posts yet. Be the first to publish!</div>`;
-                return;
-            }
-
-            filtered.forEach((post, index) => {
-                let normalizedId = post.docId || post.id || ('post_fallback_' + index);
-                post.id = normalizedId;
-
-                const cleanMe = (window.myUsername || '@SinlessGaming').replace('@','').toLowerCase();
-                const isMyPost = post.user && post.user.toLowerCase() === cleanMe;
-                const isVerified = post.verified || (post.user && post.user.toLowerCase() === 'sinlessgaming');
-                
-                let audioBadge = post.audioTrack ? `<p class="text-[9px] text-cyan-400 font-bold mt-1.5 flex items-center"><i class="fa-solid fa-music mr-1.5"></i> ${post.audioTrack}</p>` : '';
-                
-                let mediaHtml = '';
-                if (post.mediaList && post.mediaList.length > 0) {
-                    mediaHtml = `<div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-cyan-500/10">`;
-                    post.mediaList.forEach(m => {
-                        if (m.type === 'video') {
-                            mediaHtml += `<div class="relative cursor-pointer overflow-hidden rounded-xl border border-cyan-500/20 hover:border-cyan-400/60 transition group" onclick="event.stopPropagation(); openMediaZoomModal('video', '${m.url}', '${normalizedId}')" ondblclick="event.stopPropagation(); toggleGGPost('${normalizedId}'); showToast('❤️ GGs Liked!')">
-                       <!-- Sticky Media Frame (Twitter/X Layout) -->
-${p.videoUrl ? `
-    <div class="sticky-media-frame">
-        <video controls autoplay loop muted class="w-full max-h-64 object-cover">
-            <source src="${p.videoUrl}" type="video/mp4">
-        </video>
-    </div>
-` : ''}
-
-<!-- Scrollable Comments / Replies Section Below -->
-<div class="space-y-2 pt-2 border-t border-cyan-500/15 max-h-60 overflow-y-auto">
-    <!-- Your existing reply mapping logic stays here -->
-</div>
-         <video src="${m.url}" class="w-full h-36 rounded-xl object-cover bg-black pointer-events-none group-hover:scale-105 transition-transform duration-300" autoplay loop muted></video>
-                                <i class="fa-solid fa-expand absolute top-2 right-2 text-xs text-white bg-slate-900/80 p-1 rounded-lg opacity-80 group-hover:opacity-100"></i>
-                            </div>`;
-                        } else {
-                            mediaHtml += `<div class="relative cursor-pointer overflow-hidden rounded-xl border border-cyan-500/20 hover:border-cyan-400/60 transition group" onclick="event.stopPropagation(); openMediaZoomModal('image', '${m.url}', '${normalizedId}')" ondblclick="event.stopPropagation(); toggleGGPost('${normalizedId}'); showToast('❤️ GGs Liked!')">
-                                <img src="${m.url}" class="w-full h-36 rounded-xl object-cover group-hover:scale-105 transition-transform duration-300">
-                                <i class="fa-solid fa-expand absolute top-2 right-2 text-xs text-white bg-slate-900/80 p-1 rounded-lg opacity-80 group-hover:opacity-100"></i>
-                            </div>`;
-                        }
-                    });
-                    mediaHtml += `</div>`;
-                }
-
-                let captionHtml = post.caption ? `<p class="text-xs text-gray-200 leading-relaxed">${formatMentions(post.caption)}</p>` : '';
-
-                let currentGGs = post.ggsCount || 0;
-                let currentViews = post.viewsCount || 1;
-                let uid = window.currentUser ? window.currentUser.uid : 'guest_user';
-                let hasGGed = post.ggsBy && post.ggsBy.includes(uid);
-                let commentsNum = post.commentsCount || 0;
-                let currentTips = post.tipsTotal || 0;
-
-                container.innerHTML += `
-                    <div class="glass-panel rounded-2xl p-3.5 space-y-2.5 shadow-xl relative post-card-item hover:-translate-y-0.5 transition-all duration-200" data-post-id="${normalizedId}">
-                        <div class="flex items-center justify-between border-b border-cyan-500/10 pb-1.5">
-                            <div class="flex items-center space-x-1.5">
-                                <span class="font-bold text-xs text-white cursor-pointer hover:text-cyan-400 transition" onclick="openUserProfileModal('${post.user}', event)">@${post.user}</span>
-                                ${isVerified ? '<span class="verified-badge text-[10px]"><i class="fa-solid fa-circle-check"></i></span>' : ''}
-                            </div>
-                            <div class="flex items-center space-x-1.5">
-                                <span class="text-[9px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-full font-extrabold uppercase">${post.game || 'GAMING'}</span>
-                                ${isMyPost ? `
-                                    <button onclick="event.stopPropagation(); openEditPostModal('${normalizedId}')" class="text-gray-400 hover:text-cyan-400 text-xs px-1 transition" title="Edit Post"><i class="fa-solid fa-pen-to-square"></i></button>
-                                    <button onclick="event.stopPropagation(); deletePost('${normalizedId}')" class="text-gray-400 hover:text-red-400 text-xs px-1 transition" title="Delete Post"><i class="fa-solid fa-trash"></i></button>
-                                ` : ''}
-                            </div>
-                        </div>
-                        ${captionHtml}
-                        ${mediaHtml}
-                        ${audioBadge}
-                        
-                        <div class="flex items-center justify-between pt-2 border-t border-cyan-500/10 text-xs">
-                            <button onclick="event.stopPropagation(); toggleGGPost('${normalizedId}')" class="flex items-center space-x-1.5 ${hasGGed ? 'text-cyan-400 font-black' : 'text-gray-400 font-bold'} hover:text-cyan-400 transition active:scale-95 px-2 py-1 rounded-lg hover:bg-cyan-500/10">
-                                <i class="${hasGGed ? 'fa-solid' : 'fa-regular'} fa-thumbs-up"></i>
-                                <span>${currentGGs} GGs</span>
-                            </button>
-                            <button onclick="event.stopPropagation(); openCommentsModal('${normalizedId}')" class="flex items-center space-x-1.5 text-gray-400 font-bold hover:text-cyan-400 transition active:scale-95 px-2 py-1 rounded-lg hover:bg-cyan-500/10">
-                                <i class="fa-regular fa-comment"></i>
-                                <span>${commentsNum} Replies</span>
-                            </button>
-                            <button onclick="event.stopPropagation(); tipCreator('${normalizedId}', '${post.user}')" class="flex items-center space-x-1.5 text-amber-400 font-extrabold hover:text-amber-300 transition active:scale-95 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                                <i class="fa-solid fa-coins"></i>
-                                <span>Tip ${currentTips > 0 ? `(${currentTips})` : ''}</span>
-                            </button>
-                            <span id="viewsCounterBadge_${normalizedId}" class="text-[10px] text-gray-400 font-semibold flex items-center space-x-1">
-                                <i class="fa-regular fa-eye"></i>
-                                <span>${currentViews} Views</span>
-                            </span>
-                            <button onclick="event.stopPropagation(); shareContent('Sinless GG Post', '${(post.caption || 'Check out this clip on Sinless GG!').replace(/'/g, "\\'")}', window.location.href)" class="flex items-center space-x-1.5 text-gray-400 font-bold hover:text-cyan-400 transition active:scale-95 px-2 py-1 rounded-lg hover:bg-cyan-500/10">
-                                <i class="fa-solid fa-share-nodes"></i>
-                                <span>Share</span>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-
-            setTimeout(() => {
-                if (window.initViewTracker) window.initViewTracker();
-            }, 300);
-        };
-
-        window.renderMarketList = function() {
-            let box = document.getElementById('marketListContainer'); if(!box) return; box.innerHTML = '';
-            if(!window.marketListings || window.marketListings.length === 0) {
-                box.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No active cloud market listings.</div>`;
-                return;
-            }
-            window.marketListings.forEach(item => {
-                box.innerHTML += `<div class="glass-panel p-3 rounded-2xl flex justify-between items-center text-xs"><div><h4 class="font-bold text-white">${item.title}</h4><p class="text-[9px] text-gray-400 cursor-pointer" onclick="openUserProfileModal('${item.user}', event)">Seller: @${item.user}</p></div><span class="text-cyan-400 font-black">${item.price}</span></div>`;
-            });
-        };
-
-        window.renderLadder = function(selectedGame = 'ALL') {
-            let body = document.getElementById('ladderBody'); if(!body) return; body.innerHTML = '';
-            let statsMap = {};
-            (window.fypposts || []).forEach(p => {
-                if (selectedGame !== 'ALL' && p.game !== selectedGame) return;
-                let u = (p.user || 'Unknown').toLowerCase();
-                if (!statsMap[u]) statsMap[u] = { gamertag: p.user, postsCount: 0, totalGGs: 0 };
-                statsMap[u].postsCount += 1;
-                statsMap[u].totalGGs += (p.ggsCount || 0);
-            });
-
-            let viralCreators = Object.values(statsMap).sort((a, b) => b.postsCount !== a.postsCount ? b.postsCount - a.postsCount : b.totalGGs - a.totalGGs);
-            if (viralCreators.length === 0) {
-                viralCreators = [
-                    { gamertag: 'SinlessGaming', postsCount: 14, totalGGs: 180 },
-                    { gamertag: 'Sinless101', postsCount: 9, totalGGs: 110 }
-                ];
-            }
-
-            viralCreators.forEach((creator, idx) => {
-                const badges = getProfileBadges ? getProfileBadges(creator.gamertag) : '';
-                body.innerHTML += `
-                    <div class="grid grid-cols-4 px-3 py-2.5 text-xs text-gray-200 items-center">
-                        <span class="font-extrabold text-amber-400">#${idx+1}</span>
-                        <div class="truncate"><span class="font-bold cursor-pointer text-white truncate" onclick="openUserProfileModal('${creator.gamertag}', event)">@${creator.gamertag}</span> ${badges}</div>
-                        <span class="text-center font-extrabold text-emerald-400 bg-emerald-500/10 py-0.5 rounded-lg text-[10px]">${creator.postsCount} posts</span>
-                        <span class="text-right text-cyan-400 font-black">${creator.totalGGs}</span>
-                    </div>`;
-            });
-        }
-
-        window.renderTopAccounts = function() {
-            let list = document.getElementById('topAccountsList'); if(!list) return; list.innerHTML = '';
-            
-            let statsMap = {};
-            (window.fypposts || []).forEach(p => {
-                let u = (p.user || 'Unknown').toLowerCase();
-                if (!statsMap[u]) statsMap[u] = { gamertag: p.user, totalGGs: 0, postsCount: 0 };
-                statsMap[u].totalGGs += (p.ggsCount || 0);
-                statsMap[u].postsCount += 1;
-            });
-            let sortedCreators = Object.values(statsMap).sort((a, b) => b.totalGGs - a.totalGGs);
-
-            if (sortedCreators.length === 0) {
-                ['SinlessGaming', 'Sinless101', 'AceKhyd'].forEach((u, i) => {
-                    list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs cursor-pointer" onclick="openUserProfileModal('${u}', event)"><span class="font-bold text-white">#${i+1} @${u}</span><span class="text-cyan-400 font-bold">1.4k GGs</span></div>`;
-                });
-                return;
-            }
-            sortedCreators.forEach((creator, i) => {
-                const badges = getProfileBadges ? getProfileBadges(creator.gamertag) : '';
-                list.innerHTML += `<div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs cursor-pointer" onclick="openUserProfileModal('${creator.gamertag}', event)"><div class="flex items-center space-x-1.5"><span class="font-bold text-white">#${i+1} @${creator.gamertag}</span> ${badges}</div><span class="text-cyan-400 font-bold">${creator.totalGGs} GGs</span></div>`;
-            });
-        }
-
-        function sendChatMessage() {
-            let input = document.getElementById('chatInputMsg'); let text = input.value.trim();
-            if(!text) return;
-            let box = document.getElementById('chatMessagesBox');
-            box.innerHTML += `<div class="bg-gg-900 p-2.5 rounded-xl text-xs space-y-0.5"><span class="text-cyan-400 font-bold cursor-pointer" onclick="openUserProfileModal('${window.myUsername}', event)">${window.myUsername}:</span> <span class="text-gray-200">${formatMentions(text)}</span></div>`;
-            input.value = '';
-            box.scrollTop = box.scrollHeight;
-        }
-
-        function switchChatRoom(room) {
-            let box = document.getElementById('chatMessagesBox'); if(!box) return;
-            box.innerHTML = `<div class="bg-gg-900 p-2 rounded-xl text-xs"><span class="text-cyan-400 font-bold">@GG-Bot:</span> Global gaming chat room active! Mention gamers using @username.</div>`;
-        }
-
-        function runTrendingTopics() {
-            let list = document.getElementById('dynamicTrendingTopicsList'); if(!list) return;
-            
-            let posts = window.fypposts || [];
-            if (posts.length > 0) {
-                list.innerHTML = posts.slice(0, 5).map(p => `
-                    <div class="p-3 bg-gg-950 rounded-xl border border-cyan-500/10 flex justify-between items-center cursor-pointer hover:border-cyan-400 transition" onclick="openUserProfileModal('${p.user}', event)">
-                        <div>
-                            <h4 class="text-xs font-black text-white">@${p.user}</h4>
-                            <p class="text-[10px] text-gray-300 line-clamp-1">${p.caption || 'New clip uploaded!'}</p>
-                        </div>
-                        <span class="text-[9px] text-cyan-400 font-bold uppercase shrink-0 ml-2">${p.game || 'POST'}</span>
-                    </div>
-                `).join('');
-            } else {
-                list.innerHTML = `
-                    <div class="p-3 bg-gg-950 rounded-xl border border-cyan-500/10"><h4 class="text-xs font-black text-white">#SinlessSuperLeague</h4><p class="text-[9px] text-cyan-400">4,320 posts • Ghana</p></div>
-                    <div class="p-3 bg-gg-950 rounded-xl border border-cyan-500/10"><h4 class="text-xs font-black text-white">#PremierLeague</h4><p class="text-[9px] text-cyan-400">3,360 posts • Football</p></div>
-                    <div class="p-3 bg-gg-950 rounded-xl border border-cyan-500/10"><h4 class="text-xs font-black text-white">#FCMobileChampions</h4><p class="text-[9px] text-cyan-400">2,110 posts • FC Mobile</p></div>
-                `;
-            }
-        }
-
-        function handleGlobalSearch(q) {
-            let res = document.getElementById('dynamicTrendingTopicsList');
-            if(!res) return;
-            if(!q || !q.trim()) { runTrendingTopics(); return; }
-            let matches = (window.fypposts || []).filter(p => (p.caption && p.caption.toLowerCase().includes(q.toLowerCase())) || (p.user && p.user.toLowerCase().includes(q.toLowerCase())) || (p.game && p.game.toLowerCase().includes(q.toLowerCase())));
-            res.innerHTML = matches.map(p => `<div class="p-3 bg-gg-950 rounded-xl text-xs text-white border border-cyan-500/10"><span class="font-bold cursor-pointer text-cyan-400" onclick="openUserProfileModal('${p.user}', event)">@${p.user}</span>: ${p.caption || 'Media Clip'}</div>`).join('') || '<p class="text-xs text-gray-400 text-center py-4">No matching posts or gamertags found.</p>';
-        }
-    </script> <!-- Side Drawer Structure (Paste right before </body>) -->
-<div class="drawer-overlay" id="drawerOverlay"onclick="closeSideMenu()"></div>
-
-<aside class="side-drawer" id="sideDrawer">
-  <div class="drawer-profile">
-    <div class="logo-avatar">SG</div>
-    <div>
-      <div style="font-weight: bold; color: var(--text-main);">SinlessGaming</div>
-      <div style="font-size: 0.8rem; color: var(--text-muted);">@SinlessGaming</div>
-    </div>
-  </div>
-
-  <ul class="drawer-menu">
-    <li class="drawer-menu-item">
-      <span><i class="fa-solid fa-wallet"></i> GG Coins Wallet</span>
-      <span class="badge">4,500</span>
-    </li>
-    <li class="drawer-menu-item">
-      <span><i class="fa-solid fa-bell"></i> Notifications</span>
-    </li>
-    <li class="drawer-menu-item">
-      <span><i class="fa-solid fa-gear"></i> Account Settings</span>
-    </li>
-  </ul>
-</aside>
-<script>// Side Drawer Interaction
-const openDrawerBtn = document.getElementById('openDrawerBtn');
-const sideDrawer = document.getElementById('sideDrawer');
-const drawerOverlay = document.getElementById('drawerOverlay');
-
-function toggleDrawer(open) {
-  if (open) {
-    sideDrawer.classList.add('active');
-    drawerOverlay.classList.add('active');
-  } else {
-    sideDrawer.classList.remove('active');
-    drawerOverlay.classList.remove('active');
-  }
-}
-
-if (openDrawerBtn) {
-  openDrawerBtn.addEventListener('click', () => toggleDrawer(true));
-}
-
-if (drawerOverlay) {
-  drawerOverlay.addEventListener('click', () => toggleDrawer(false));
-} window.closeSideMenu = function() {
-  document.getElementById('sideMenu').classList.remove('active');
-  document.getElementById('drawerOverlay').classList.remove('active');
-};
-
-</script>
+    </script>
 </body>
-                    </html>
+</html>
