@@ -3612,6 +3612,23 @@
         </div>
     </div>
 
+    <!-- CSS Overlay Fix for Touch Blockers -->
+    <style>
+        .drawer-overlay {
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .drawer-overlay.active {
+            pointer-events: auto;
+            opacity: 1;
+            display: block !important;
+        }
+        .side-drawer {
+            pointer-events: auto;
+        }
+    </style>
+
     <!-- ================= APP INITIALIZATION & CORE ENGINE SCRIPTS ================= -->
     <script>
         window.uploadedMediaBlobs = [];
@@ -3679,7 +3696,7 @@
             if (window.listenToFirestoreMarket) listenToFirestoreMarket();
         }
 
-        function switchView(viewId) {
+        window.switchView = function(viewId) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
             const target = document.getElementById(`view-${viewId}`);
             if (target) target.classList.remove('hidden');
@@ -3696,7 +3713,7 @@
             if (viewId === 'chat') {
                 renderGlobalChat();
             }
-        }
+        };
 
         function renderFypFeed() {
             const container = document.getElementById('fypFeedContainer');
