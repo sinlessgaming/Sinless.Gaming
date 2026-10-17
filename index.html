@@ -31,21 +31,20 @@
 
     <audio id="previewAudioPlayer" preload="auto" loop></audio>
     
+    <!-- Cleaned Header -->
     <header class="bg-gg-900/95 backdrop-blur-md border-b border-zinc-500/15 px-3 py-3 flex items-center justify-between sticky top-0 z-40">
+        <!-- Left Logo & Side Drawer Toggle -->
         <div class="flex items-center space-x-2.5 cursor-pointer group" onclick="toggleDrawer(true)">
             <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center">
                 <i class="fa-solid fa-bars text-slate-950 text-xs font-black"></i>
             </div>
             <div>
                 <h1 class="font-extrabold text-xs tracking-wide text-white group-hover:text-cyan-400 transition">SINLESS GG</h1>
-                <p id="headerUserTag" class="text-[7.5px] text-cyan-400 tracking-wider uppercase font-extrabold">@SinlessGaming</p>
             </div>
         </div>
+
+        <!-- Right Header Action Buttons -->
         <div class="flex items-center space-x-1.5">
-            <div onclick="showToast('Wallet Balance: ' + window.myGGCoins + ' GG Coins')" class="px-2.5 py-1.5 rounded-xl bg-gg-800 border border-zinc-700/50 flex items-center space-x-2 cursor-pointer">
-                <i class="fa-solid fa-coins text-amber-400"></i>
-                <span id="headerCoinBalanceText">100 GG Coins</span>
-            </div>
             <button onclick="openUniversalCreateModal()" class="px-2 py-1.5 rounded-xl font-bold bg-gradient-to-r from-cyan-400 to-magenta text-black text-xs">
                 <i class="fa-solid fa-plus mr-0.5"></i> Post
             </button>
@@ -87,6 +86,7 @@
             </li>
         </ul>
     </aside>
+
     <!-- Main Content Container -->
     <main class="flex-1 flex flex-col max-w-2xl w-full mx-auto p-3 space-y-3">
         <!-- Navigation View Bar -->
@@ -240,6 +240,7 @@
             <div id="topAccountsList" class="space-y-2.5 overflow-y-auto flex-1 pr-1"></div>
         </div>
     </main>
+
     <!-- ================= MODALS & OVERLAYS ================= -->
 
     <!-- Universal Post Create Modal -->
