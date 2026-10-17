@@ -1,5 +1,5 @@
 // ======================================================================
-// SINLESS GG - APP LOGIC (MODULE VERSION)
+// SINLESS GG - APP LOGIC (MODULE VERSION - PART 1)
 // ======================================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -866,15 +866,16 @@ window.closeUserProfileModal = function(e = null) {
     document.getElementById('userProfileModal').classList.add('hidden');
 };
 
+// Official public squads start with empty members list so users start non-members
 window.defaultPublicCategorySquads = [
-    { id: 'cat_squad_fcmobile', name: 'FC MOBILE OFFICIAL HUB', tag: 'FCM', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'FC MOBILE', isOfficial: true, isPublic: true, inviteCode: 'SQ-FCM01', members: ['SinlessGaming', 'AceKhyd', 'Kumi_FC'], subRooms: ['Rules/Announcements', 'chat', 'tactics', 'highlights', 'transfers', 'Matchmaking'], bio: 'Official public hub for FC Mobile players, leagues & transfers.', rooms: { 'Rules/Announcements': [{ sender: 'SinlessGaming', text: 'Welcome to the FC Mobile Public Squad!' }], 'chat': [], 'tactics': [], 'highlights': [], 'transfers': [], 'Matchmaking': [] } },
-    { id: 'cat_squad_football', name: 'FOOTBALL NEWS HUB', tag: 'FTB', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'FOOTBALL', isOfficial: true, isPublic: true, inviteCode: 'SQ-FTB01', members: ['SinlessGaming', 'DonPrime', 'Richard_GG'], subRooms: ['Rules/Announcements', 'chat', 'tactics', 'Matchmaking'], bio: 'Public community for tactic discussions, news updates and fantasy lineups.', rooms: { 'Rules/Announcements': [], 'chat': [], 'tactics': [], 'Matchmaking': [] } },
-    { id: 'cat_squad_eafc', name: 'EA SPORTS FC HUB', tag: 'EAFC', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'EA SPORTS FC', isOfficial: true, isPublic: true, inviteCode: 'SQ-EFC01', members: ['SinlessGaming', 'Messiah_X'], subRooms: ['Rules/Announcements', 'chat', 'highlights', 'Matchmaking'], bio: 'Ultimate Team, Pro Clubs and local tournament match hub.', rooms: { 'Rules/Announcements': [], 'chat': [], 'highlights': [], 'Matchmaking': [] } },
-    { id: 'cat_squad_efootball', name: 'EFOOTBALL GLOBAL HUB', tag: 'EFTB', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'EFOOTBALL', isOfficial: true, isPublic: true, inviteCode: 'SQ-EFT01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat', 'tactics', 'Matchmaking'], bio: 'eFootball match strategy, squad builds and eLeagues.', rooms: { 'Rules/Announcements': [], 'chat': [], 'tactics': [], 'Matchmaking': [] } },
-    { id: 'cat_squad_dls', name: 'DREAM LEAGUE SOCCER HUB', tag: 'DLS', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'DLS', isOfficial: true, isPublic: true, inviteCode: 'SQ-DLS01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat', 'transfers', 'Matchmaking'], bio: 'Dream League Soccer tips, kits, and multiplayer hubs.', rooms: { 'Rules/Announcements': [], 'chat': [], 'transfers': [], 'Matchmaking': [] } },
-    { id: 'cat_squad_wrestling', name: 'WRESTLING', tag: 'WWE', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'WRESTLING', isOfficial: true, isPublic: true, inviteCode: 'SQ-WWE01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat', 'matches', 'Matchmaking'], bio: 'WWE 2K, wrestling simulation, match cards & discussion.', rooms: { 'Rules/Announcements': [], 'chat': [], 'matches': [], 'Matchmaking': [] } },
-    { id: 'cat_squad_cod', name: 'CALL OF DUTY HUB', tag: 'COD', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'CALL OF DUTY', isOfficial: true, isPublic: true, inviteCode: 'SQ-COD01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat', 'loadouts', 'Matchmaking'], bio: 'COD Mobile, Warzone & multiplayer competitive team up.', rooms: { 'Rules/Announcements': [], 'chat': [], 'loadouts': [], 'Matchmaking': [] } },
-    { id: 'cat_squad_other', name: 'OTHER GAMES HUB', tag: 'OTH', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'OTHER GAMES', isOfficial: true, isPublic: true, inviteCode: 'SQ-OTH01', members: ['SinlessGaming'], subRooms: ['Rules/Announcements', 'chat', 'Matchmaking'], bio: 'All other mobile, console & PC games community chat.', rooms: { 'Rules/Announcements': [], 'chat': [], 'Matchmaking': [] } }
+    { id: 'cat_squad_fcmobile', name: 'FC MOBILE OFFICIAL HUB', tag: 'FCM', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'FC MOBILE', isOfficial: true, isPublic: true, inviteCode: 'SQ-FCM01', members: [], subRooms: ['Rules/Announcements', 'chat', 'tactics', 'highlights', 'transfers', 'Matchmaking'], bio: 'Official public hub for FC Mobile players, leagues & transfers.', rooms: { 'Rules/Announcements': [{ sender: 'SinlessGaming', text: 'Welcome to the FC Mobile Public Squad!' }], 'chat': [], 'tactics': [], 'highlights': [], 'transfers': [], 'Matchmaking': [] } },
+    { id: 'cat_squad_football', name: 'FOOTBALL NEWS HUB', tag: 'FTB', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'FOOTBALL', isOfficial: true, isPublic: true, inviteCode: 'SQ-FTB01', members: [], subRooms: ['Rules/Announcements', 'chat', 'tactics', 'Matchmaking'], bio: 'Public community for tactic discussions, news updates and fantasy lineups.', rooms: { 'Rules/Announcements': [], 'chat': [], 'tactics': [], 'Matchmaking': [] } },
+    { id: 'cat_squad_eafc', name: 'EA SPORTS FC HUB', tag: 'EAFC', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'EA SPORTS FC', isOfficial: true, isPublic: true, inviteCode: 'SQ-EFC01', members: [], subRooms: ['Rules/Announcements', 'chat', 'highlights', 'Matchmaking'], bio: 'Ultimate Team, Pro Clubs and local tournament match hub.', rooms: { 'Rules/Announcements': [], 'chat': [], 'highlights': [], 'Matchmaking': [] } },
+    { id: 'cat_squad_efootball', name: 'EFOOTBALL GLOBAL HUB', tag: 'EFTB', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'EFOOTBALL', isOfficial: true, isPublic: true, inviteCode: 'SQ-EFT01', members: [], subRooms: ['Rules/Announcements', 'chat', 'tactics', 'Matchmaking'], bio: 'eFootball match strategy, squad builds and eLeagues.', rooms: { 'Rules/Announcements': [], 'chat': [], 'tactics': [], 'Matchmaking': [] } },
+    { id: 'cat_squad_dls', name: 'DREAM LEAGUE SOCCER HUB', tag: 'DLS', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'DLS', isOfficial: true, isPublic: true, inviteCode: 'SQ-DLS01', members: [], subRooms: ['Rules/Announcements', 'chat', 'transfers', 'Matchmaking'], bio: 'Dream League Soccer tips, kits, and multiplayer hubs.', rooms: { 'Rules/Announcements': [], 'chat': [], 'transfers': [], 'Matchmaking': [] } },
+    { id: 'cat_squad_wrestling', name: 'WWE & WRESTLING HUB', tag: 'WWE', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'WRESTLING', isOfficial: true, isPublic: true, inviteCode: 'SQ-WWE01', members: [], subRooms: ['Rules/Announcements', 'chat', 'matches', 'Matchmaking'], bio: 'WWE 2K, wrestling simulation, match cards & discussion.', rooms: { 'Rules/Announcements': [], 'chat': [], 'matches': [], 'Matchmaking': [] } },
+    { id: 'cat_squad_cod', name: 'CALL OF DUTY HUB', tag: 'COD', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'CALL OF DUTY', isOfficial: true, isPublic: true, inviteCode: 'SQ-COD01', members: [], subRooms: ['Rules/Announcements', 'chat', 'loadouts', 'Matchmaking'], bio: 'COD Mobile, Warzone & multiplayer competitive team up.', rooms: { 'Rules/Announcements': [], 'chat': [], 'loadouts': [], 'Matchmaking': [] } },
+    { id: 'cat_squad_other', name: 'VARIETY GAMING HUB', tag: 'VAR', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'OTHER GAMES', isOfficial: true, isPublic: true, inviteCode: 'SQ-VAR01', members: [], subRooms: ['Rules/Announcements', 'chat', 'Matchmaking'], bio: 'All other mobile, console & PC games community chat.', rooms: { 'Rules/Announcements': [], 'chat': [], 'Matchmaking': [] } }
 ];
 
 let savedClans = JSON.parse(localStorage.getItem('sinless_clans_data') || 'null');
@@ -929,7 +930,7 @@ window.renderClansList = function() {
     const searchQ = (document.getElementById('squadSearchInput')?.value || '').trim().toLowerCase();
 
     let displaySquads = (window.clansData || []).filter(c => {
-        const members = c.members || [c.leader || c.owner];
+        const members = c.members || [];
         const isMember = members.some(m => m.toLowerCase() === me);
 
         if (searchQ) {
@@ -953,7 +954,7 @@ window.renderClansList = function() {
     }
 
     displaySquads.forEach(c => {
-        const members = c.members || [c.leader || c.owner];
+        const members = c.members || [];
         const isMember = members.some(m => m.toLowerCase() === me);
 
         box.innerHTML += `
@@ -980,13 +981,14 @@ window.toggleSquadMembership = async function(squadId) {
     if (!squad) return;
 
     const me = (window.myUsername || '@SinlessGaming').replace('@', '');
-    if (!squad.members) squad.members = [squad.owner || squad.leader];
+    if (!squad.members) squad.members = [];
 
     const memberIndex = squad.members.findIndex(m => m.toLowerCase() === me.toLowerCase());
     const isMember = memberIndex !== -1;
 
     if (isMember) {
-        if ((squad.owner || squad.leader).toLowerCase() === me.toLowerCase() && squad.members.length > 1) {
+        // Enforce owner check only for custom user squads, not official category hubs
+        if (!squad.isOfficial && (squad.owner || squad.leader).toLowerCase() === me.toLowerCase() && squad.members.length > 1) {
             showToast("⚠️ Squad Owner cannot leave with active members! Transfer ownership first.");
             return;
         }
@@ -1206,7 +1208,7 @@ window.switchSquadSubRoom = function(room) {
     msgsBox.innerHTML = '';
 
     const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
-    const members = squad.members || [squad.owner || squad.leader];
+    const members = squad.members || [];
     const isMember = members.some(m => m.toLowerCase() === me);
 
     const isOwner = (squad.owner || squad.leader).toLowerCase() === me;
@@ -1399,7 +1401,7 @@ window.sendSquadRoomMessage = function() {
     if (!squad.rooms) squad.rooms = {};
     if (!squad.rooms[room]) squad.rooms[room] = [];
 
-    if (!squad.members) squad.members = [squad.owner || squad.leader];
+    if (!squad.members) squad.members = [];
     if (!squad.members.some(m => m.toLowerCase() === me.toLowerCase())) {
         squad.members.push(me);
     }
@@ -1482,7 +1484,7 @@ window.sendInChatImage = async function(context) {
             const room = window.activeSquadSubRoom;
             if (!squad.rooms[room]) squad.rooms[room] = [];
 
-            if (!squad.members) squad.members = [squad.owner || squad.leader];
+            if (!squad.members) squad.members = [];
             if (!squad.members.some(m => m.toLowerCase() === me.toLowerCase())) {
                 squad.members.push(me);
             }
@@ -1576,6 +1578,9 @@ window.openStoryViewer = function(storyId) {
     const title = document.getElementById('mediaZoomTitle');
     if (title) title.innerText = `@${story.user}'s Story • ${timerBadge}`;
 };
+// ======================================================================
+// SINLESS GG - APP LOGIC (MODULE VERSION - PART 2)
+// ======================================================================
 
 window.tournamentsList = JSON.parse(localStorage.getItem('sinless_tournaments_list') || 'null') || [
     {
@@ -1609,11 +1614,13 @@ window.closeCreateTournamentModal = function() { document.getElementById('create
 window.activeDeleteTournamentId = null;
 window.deleteTournament = function(tournId) {
     window.activeDeleteTournamentId = tournId;
-    document.getElementById('deleteTournamentModal').classList.remove('hidden');
+    const modal = document.getElementById('deleteTournamentModal');
+    if (modal) modal.classList.remove('hidden');
 };
 
 window.closeDeleteTournamentModal = function() {
-    document.getElementById('deleteTournamentModal').classList.add('hidden');
+    const modal = document.getElementById('deleteTournamentModal');
+    if (modal) modal.classList.add('hidden');
     window.activeDeleteTournamentId = null;
 };
 
@@ -1628,10 +1635,10 @@ window.confirmDeleteTournament = function() {
         window.activeTournament = window.tournamentsList[0] || null;
     }
 
-    showToast("Tournament deleted.");
+    showToast("Tournament deleted successfully!");
     window.closeDeleteTournamentModal();
-    window.renderTournamentsTab();
-    window.renderTournamentsTabDedicated();
+    if (window.renderTournamentsTab) window.renderTournamentsTab();
+    if (window.renderTournamentsTabDedicated) window.renderTournamentsTabDedicated();
 };
 
 function getKnockoutStageName(maxPlayers, round) {
@@ -2277,9 +2284,6 @@ function renderBracketMatchCardHex(m, tournId, isHost, theme = 'red') {
         </div>
     `;
 }
-// ======================================================================
-// SINLESS GG - APP LOGIC (PART 2 / MODULE VERSION)
-// ======================================================================
 
 // FYP Feed & Dynamic Feed State
 window.fypposts = [];
@@ -2710,7 +2714,7 @@ window.sendDirectMessage = function() {
 };
 
 window.toggleDirectVoiceCall = function() {
-    showToast(`📞 Direct Voice Call Connected with @${window.activeDmUser || 'Gamer'}!`);
+    showToast(`📞 Direct Voice Call Connected with @${window.activeDmUser || 'Gramer'}!`);
 };
 
 window.openMarketModal = function() { document.getElementById('marketModal').classList.remove('hidden'); };
