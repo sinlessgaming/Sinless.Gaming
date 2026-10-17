@@ -1,7 +1,19 @@
 // ======================================================================
-// SINLESS GG - APP LOGIC
-// (Firebase setup lives in firebase-config.js)
+// SINLESS GG - APP LOGIC (MODULE VERSION)
 // ======================================================================
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { 
+    getFirestore, collection, addDoc, doc, deleteDoc, updateDoc, 
+    arrayUnion, arrayRemove, increment, query, orderBy, limit, 
+    onSnapshot, serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { 
+    getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { 
+    getMessaging, getToken, onMessage 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
 // GG Coins Local Initialization
 window.myGGCoins = parseInt(localStorage.getItem('sinless_gg_coins') || '100');
@@ -71,14 +83,14 @@ window.tipCreator = async function(postId, creatorUsername) {
 };
 
 window.setupPushNotifications = async function() {
-    if (!messaging) {
+    if (!window.messaging) {
         showToast("Push notifications not supported on this device.");
         return;
     }
     try {
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
-            const token = await getToken(messaging, { vapidKey: 'YOUR_PUBLIC_VAPID_KEY_HERE' }).catch(() => null);
+            const token = await getToken(window.messaging, { vapidKey: 'YOUR_PUBLIC_VAPID_KEY_HERE' }).catch(() => null);
             if (token) {
                 showToast("🔔 Push Notifications Enabled!");
                 if (window.currentUser && window.db) {
@@ -95,18 +107,18 @@ window.setupPushNotifications = async function() {
     }
 };
 
-if (messaging) {
-    onMessage(messaging, (payload) => {
+if (window.messaging) {
+    onMessage(window.messaging, (payload) => {
         showToast(`💬 ${payload.notification?.title || 'New Alert'}: ${payload.notification?.body || ''}`);
     });
 }
 
 window.loginWithGoogle = async function() {
     try {
-        const result = await signInWithPopup(auth, googleProvider);
+        const result = await signInWithPopup(window.auth, window.googleProvider);
         const user = result.user;
         showToast(`Welcome, ${user.displayName || 'Gamer'}!`);
-        closeAccountModal();
+        window.closeAccountModal();
     } catch (error) {
         console.error("Auth error:", error);
         showToast("Sign-in failed. Please try again.");
@@ -115,48 +127,50 @@ window.loginWithGoogle = async function() {
 
 window.logoutUser = async function() {
     try {
-        await signOut(auth);
+        await signOut(window.auth);
         showToast("Signed out successfully.");
-        closeAccountModal();
+        window.closeAccountModal();
     } catch (error) {
         console.error("Sign-out error:", error);
     }
 };
 
-onAuthStateChanged(auth, (user) => {
-    const authModalBtn = document.getElementById('googleAuthBtn');
-    const authModalStatus = document.getElementById('accountModalStatusText');
+if (window.auth) {
+    onAuthStateChanged(window.auth, (user) => {
+        const authModalBtn = document.getElementById('googleAuthBtn');
+        const authModalStatus = document.getElementById('accountModalStatusText');
 
-    if (user) {
-        const displayName = user.displayName || user.email.split('@')[0];
-        window.myUsername = `@${displayName.replace(/\s+/g, '')}`;
-        window.myDisplayName = displayName;
-        window.currentUser = user;
+        if (user) {
+            const displayName = user.displayName || user.email.split('@')[0];
+            window.myUsername = `@${displayName.replace(/\s+/g, '')}`;
+            window.myDisplayName = displayName;
+            window.currentUser = user;
 
-        const headerTag = document.getElementById('headerUserTag');
-        if (headerTag) headerTag.innerText = window.myUsername;
+            const headerTag = document.getElementById('headerUserTag');
+            if (headerTag) headerTag.innerText = window.myUsername;
 
-        if (authModalStatus) authModalStatus.innerText = `Logged in as ${displayName}`;
-        if (authModalBtn) {
-            authModalBtn.innerHTML = `<i class="fa-solid fa-right-from-bracket text-red-500 text-sm"></i><span>Sign Out</span>`;
-            authModalBtn.onclick = window.logoutUser;
+            if (authModalStatus) authModalStatus.innerText = `Logged in as ${displayName}`;
+            if (authModalBtn) {
+                authModalBtn.innerHTML = `<i class="fa-solid fa-right-from-bracket text-red-500 text-sm"></i><span>Sign Out</span>`;
+                authModalBtn.onclick = window.logoutUser;
+            }
+        } else {
+            window.myUsername = '@SinlessGaming';
+            window.myDisplayName = 'Sinless Gaming';
+            window.currentUser = null;
+
+            const headerTag = document.getElementById('headerUserTag');
+            if (headerTag) headerTag.innerText = '@SinlessGaming';
+
+            if (authModalStatus) authModalStatus.innerText = 'Connect with your Google account to post under your real Gamertag.';
+            if (authModalBtn) {
+                authModalBtn.innerHTML = `<i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>`;
+                authModalBtn.onclick = window.loginWithGoogle;
+            }
         }
-    } else {
-        window.myUsername = '@SinlessGaming';
-        window.myDisplayName = 'Sinless Gaming';
-        window.currentUser = null;
-
-        const headerTag = document.getElementById('headerUserTag');
-        if (headerTag) headerTag.innerText = '@SinlessGaming';
-
-        if (authModalStatus) authModalStatus.innerText = 'Connect with your Google account to post under your real Gamertag.';
-        if (authModalBtn) {
-            authModalBtn.innerHTML = `<i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>`;
-            authModalBtn.onclick = window.loginWithGoogle;
-        }
-    }
-    if(window.renderClansList) window.renderClansList();
-});
+        if(window.renderClansList) window.renderClansList();
+    });
+}
 
 function openPostDB() {
     return new Promise((resolve, reject) => {
@@ -296,7 +310,7 @@ async function publishLocallyFallback(payload) {
     payload.isLocalFallback = true;
     window.fypposts.unshift(payload);
     await savePostToIndexedDB(payload);
-    window.renderFypFeed();
+    if(window.renderFypFeed) window.renderFypFeed();
     if(window.renderLadder) window.renderLadder();
     resetPostForm();
     showToast("Published to Feed!");
@@ -310,8 +324,8 @@ function resetPostForm() {
     document.getElementById('mediaPreviewThumbnails').innerHTML = '';
     document.getElementById('mediaCountIndicator').innerText = '0 / 10 selected';
     document.getElementById('selectedSoundLabel').innerText = '🎵 Choose Background Music';
-    stopAudioPreview();
-    closeCreatePostModal();
+    if(window.stopAudioPreview) window.stopAudioPreview();
+    window.closeCreatePostModal();
 }
 
 window.activeDeletePostId = null;
@@ -330,8 +344,8 @@ window.confirmDeletePost = async function() {
     if (!postId) return;
 
     window.fypposts = (window.fypposts || []).filter(p => p.id !== postId && p.docId !== postId);
-    window.renderFypFeed();
-    closeDeletePostModal();
+    if(window.renderFypFeed) window.renderFypFeed();
+    window.closeDeletePostModal();
 
     try {
         await removePostFromIndexedDB(postId);
@@ -374,8 +388,8 @@ window.submitEditPost = async function() {
         post.game = newGame;
     }
 
-    window.renderFypFeed();
-    closeEditPostModal();
+    if(window.renderFypFeed) window.renderFypFeed();
+    window.closeEditPostModal();
 
     if (window.db && !String(postId).startsWith('local_')) {
         try {
@@ -423,7 +437,7 @@ window.toggleGGPost = async function(postId) {
         if(window.boostCategoryInterest) window.boostCategoryInterest(post.game);
     }
 
-    window.renderFypFeed();
+    if(window.renderFypFeed) window.renderFypFeed();
     if(window.renderLadder) window.renderLadder();
     if(window.activeZoomPostId === postId && typeof window.renderZoomInteractions === 'function') {
         window.renderZoomInteractions(postId);
@@ -501,6 +515,11 @@ function loadCommentsForPost(postId) {
     } else {
         container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">Local mode replies active.</p>`;
     }
+}
+
+function formatMentions(text) {
+    if (!text) return '';
+    return text.replace(/@(\w+)/g, '<span class="text-cyan-400 font-bold cursor-pointer hover:underline" onclick="openUserProfileModal(\'$1\', event)">@$1</span>');
 }
 
 window.submitCommentReply = async function() {
@@ -619,7 +638,7 @@ window.openUserProfileModal = function(username, e = null) {
 
     const badgeContainer = document.getElementById('profileDynamicBadgesBox');
     if (badgeContainer) {
-        badgeContainer.innerHTML = getProfileBadges(cleanUser);
+        badgeContainer.innerHTML = window.getProfileBadges(cleanUser);
     }
 
     const linkElem = document.getElementById('profileLinkUrl');
@@ -689,7 +708,7 @@ window.openUserProfileModal = function(username, e = null) {
                     mediaThumbnail = `<img src="${m.url}" class="w-full h-full object-cover">`;
                 }
                 postsContainer.innerHTML += `
-                    <div class="relative aspect-[3/4] rounded-xl overflow-hidden bg-gg-950 border border-cyan-500/20 group cursor-pointer hover:border-cyan-400 transition" onclick="event.stopPropagation(); openMediaZoomModal('${firstMediaType}', '${firstMediaUrl}', '${pId}')">
+                    <div class="relative aspect-[3/4] rounded-xl overflow-hidden bg-gg-950 border border-cyan-500/20 group cursor-pointer hover:border-cyan-400 transition" onclick="event.stopPropagation(); window.openMediaZoomModal('${firstMediaType}', '${firstMediaUrl}', '${pId}')">
                         ${mediaThumbnail}
                         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent opacity-90 pointer-events-none"></div>
                         <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between text-[10px] text-white font-extrabold z-10">
@@ -705,7 +724,7 @@ window.openUserProfileModal = function(username, e = null) {
                 </div>`;
                 let safeCaption = p.caption ? p.caption.replace(/'/g, "\\'").replace(/"/g, '&quot;') : '';
                 postsContainer.innerHTML += `
-                    <div class="relative aspect-[3/4] rounded-xl overflow-hidden bg-gg-950 border border-cyan-500/20 group cursor-pointer hover:border-cyan-400 transition" onclick="event.stopPropagation(); openMediaZoomModal('text', '', '${pId}', '${safeCaption}')">
+                    <div class="relative aspect-[3/4] rounded-xl overflow-hidden bg-gg-950 border border-cyan-500/20 group cursor-pointer hover:border-cyan-400 transition" onclick="event.stopPropagation(); window.openMediaZoomModal('text', '', '${pId}', '${safeCaption}')">
                         ${mediaThumbnail}
                         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent opacity-90 pointer-events-none"></div>
                         <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between text-[10px] text-white font-extrabold z-10">
@@ -745,6 +764,37 @@ window.closeEditProfileModal = function() {
     document.getElementById('editProfileModal').classList.add('hidden');
 };
 
+function compressImage(file, maxWidth, maxHeight, quality) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+                if (height > maxHeight) {
+                    width = Math.round((width * maxHeight) / height);
+                    height = maxHeight;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+        };
+    });
+}
+
 window.handlePfpUpload = async function(input) {
     if (input.files && input.files[0]) {
         const compressed = await compressImage(input.files[0], 500, 500, 0.85);
@@ -777,8 +827,8 @@ window.saveUserProfileChanges = function() {
     localStorage.setItem('sinless_user_profiles', JSON.stringify(window.userProfiles));
 
     showToast("Profile Saved!");
-    closeEditProfileModal();
-    openUserProfileModal(cleanUser);
+    window.closeEditProfileModal();
+    window.openUserProfileModal(cleanUser);
 };
 
 window.deleteAccountData = async function() {
@@ -789,11 +839,11 @@ window.deleteAccountData = async function() {
     localStorage.setItem('sinless_user_profiles', JSON.stringify(window.userProfiles));
 
     if (window.currentUser) {
-        try { await signOut(auth); } catch(e) {}
+        try { await signOut(window.auth); } catch(e) {}
     }
 
     showToast("Account data reset.");
-    closeAccountModal();
+    window.closeAccountModal();
     location.reload();
 };
 
@@ -805,7 +855,7 @@ window.toggleFollowUser = function(cleanUser) {
     } else {
         showToast(`Unfollowed @${cleanUser}.`);
     }
-    openUserProfileModal(cleanUser);
+    window.openUserProfileModal(cleanUser);
 };
 
 window.closeUserProfileModal = function(e = null) {
@@ -815,6 +865,7 @@ window.closeUserProfileModal = function(e = null) {
     }
     document.getElementById('userProfileModal').classList.add('hidden');
 };
+
 window.defaultPublicCategorySquads = [
     { id: 'cat_squad_fcmobile', name: 'FC MOBILE OFFICIAL HUB', tag: 'FCM', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'FC MOBILE', isOfficial: true, isPublic: true, inviteCode: 'SQ-FCM01', members: ['SinlessGaming', 'AceKhyd', 'Kumi_FC'], subRooms: ['Rules/Announcements', 'chat', 'tactics', 'highlights', 'transfers', 'Matchmaking'], bio: 'Official public hub for FC Mobile players, leagues & transfers.', rooms: { 'Rules/Announcements': [{ sender: 'SinlessGaming', text: 'Welcome to the FC Mobile Public Squad!' }], 'chat': [], 'tactics': [], 'highlights': [], 'transfers': [], 'Matchmaking': [] } },
     { id: 'cat_squad_football', name: 'FOOTBALL NEWS HUB', tag: 'FTB', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'FOOTBALL', isOfficial: true, isPublic: true, inviteCode: 'SQ-FTB01', members: ['SinlessGaming', 'DonPrime', 'Richard_GG'], subRooms: ['Rules/Announcements', 'chat', 'tactics', 'Matchmaking'], bio: 'Public community for tactic discussions, news updates and fantasy lineups.', rooms: { 'Rules/Announcements': [], 'chat': [], 'tactics': [], 'Matchmaking': [] } },
@@ -906,7 +957,7 @@ window.renderClansList = function() {
         const isMember = members.some(m => m.toLowerCase() === me);
 
         box.innerHTML += `
-            <div class="glass-panel p-3.5 rounded-2xl flex justify-between items-center text-xs shadow-lg border border-cyan-500/20 hover:border-cyan-400/50 transition cursor-pointer" onclick="openSquadDetailsModal('${c.id}')">
+            <div class="glass-panel p-3.5 rounded-2xl flex justify-between items-center text-xs shadow-lg border border-cyan-500/20 hover:border-cyan-400/50 transition cursor-pointer" onclick="window.openSquadDetailsModal('${c.id}')">
                 <div class="space-y-1">
                     <div class="flex items-center space-x-1.5">
                         <h4 class="font-extrabold text-white">${c.name}</h4>
@@ -914,9 +965,9 @@ window.renderClansList = function() {
                         ${c.isOfficial ? '<span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1.5 py-0.5 rounded font-black">Official</span>' : ''}
                         ${!c.isPublic ? '<span class="text-[8px] bg-red-500/20 text-red-400 border border-red-500/40 px-1.5 py-0.5 rounded font-black"><i class="fa-solid fa-lock mr-0.5"></i>Private</span>' : ''}
                     </div>
-                    <p class="text-[9px] text-gray-400">Owner: <span class="text-cyan-400 font-bold" onclick="event.stopPropagation(); openUserProfileModal('${c.owner || c.leader}', event)">@${c.owner || c.leader}</span> • ${members.length} Members ${c.inviteCode ? `• Code: ${c.inviteCode}` : ''}</p>
+                    <p class="text-[9px] text-gray-400">Owner: <span class="text-cyan-400 font-bold" onclick="event.stopPropagation(); window.openUserProfileModal('${c.owner || c.leader}', event)">@${c.owner || c.leader}</span> • ${members.length} Members ${c.inviteCode ? `• Code: ${c.inviteCode}` : ''}</p>
                 </div>
-                <button onclick="event.stopPropagation(); toggleSquadMembership('${c.id}')" class="px-3.5 py-1.5 rounded-xl font-black text-[10px] uppercase transition shadow ${isMember ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'}">
+                <button onclick="event.stopPropagation(); window.toggleSquadMembership('${c.id}')" class="px-3.5 py-1.5 rounded-xl font-black text-[10px] uppercase transition shadow ${isMember ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'}">
                     ${isMember ? 'Leave' : 'Join'}
                 </button>
             </div>
@@ -1024,7 +1075,7 @@ window.submitNewSquad = async function() {
     document.getElementById('squadNameInput').value = '';
     document.getElementById('squadTagInput').value = '';
     document.getElementById('squadBioInput').value = '';
-    closeCreateClanModal();
+    window.closeCreateClanModal();
     window.renderClansList();
 };
 
@@ -1053,7 +1104,7 @@ window.openSquadDetailsModal = function(squadId) {
     if (disbandBtn) disbandBtn.className = (isOwner && !squad.isOfficial) ? 'px-2 py-1 bg-red-600/20 text-red-400 border border-red-500/40 text-[9px] font-black rounded-xl hover:bg-red-600/30' : 'hidden';
 
     renderSquadSubRoomsNav();
-    switchSquadSubRoom(squad.subRooms[0] || 'chat');
+    window.switchSquadSubRoom(squad.subRooms[0] || 'chat');
 
     document.getElementById('squadDetailsModal').classList.remove('hidden');
 };
@@ -1063,14 +1114,14 @@ window.closeSquadDetailsModal = function() {
     window.activeSquadDetails = null;
 };
 
-window.openCreateSquadTournamentModal = function() {
+window.openCreateSquadSquadTournamentModal = function() {
     const squad = window.activeSquadDetails;
     if (!squad) return;
     
     document.getElementById('tournTitleInput').value = `${squad.name} Championship`;
     document.getElementById('tournGameSelect').value = squad.game || 'FC MOBILE';
     window.activeSquadForTournament = squad.id;
-    openCreateTournamentModal();
+    window.openCreateTournamentModal();
 };
 
 function renderSquadSubRoomsNav() {
@@ -1092,16 +1143,16 @@ function renderSquadSubRoomsNav() {
 
         nav.innerHTML += `
             <div class="flex items-center space-x-1 shrink-0">
-                <button onclick="switchSquadSubRoom('${room}')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition ${isActive ? 'bg-cyan-400 text-slate-950 shadow-md' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'}">
+                <button onclick="window.switchSquadSubRoom('${room}')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition ${isActive ? 'bg-cyan-400 text-slate-950 shadow-md' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'}">
                     ${isLocked ? '📢 ' : (isMatchmaking ? '⚔️ ' : '# ')}${room}
                 </button>
-                ${(isAdmin && !isLocked && room !== 'chat' && !isMatchmaking) ? `<button onclick="deleteSubRoom('${room}')" class="text-red-400 text-xs px-1 hover:text-red-300 font-bold" title="Delete Channel">✕</button>` : ''}
+                ${(isAdmin && !isLocked && room !== 'chat' && !isMatchmaking) ? `<button onclick="window.deleteSubRoom('${room}')" class="text-red-400 text-xs px-1 hover:text-red-300 font-bold" title="Delete Channel">✕</button>` : ''}
             </div>
         `;
     });
 
     nav.innerHTML += `
-        <button onclick="switchSquadSubRoom('Roster')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+        <button onclick="window.switchSquadSubRoom('Roster')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
             👥 Roster & Roles
         </button>
     `;
@@ -1126,7 +1177,7 @@ window.promptCreateSubRoom = function() {
 
     localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
     renderSquadSubRoomsNav();
-    switchSquadSubRoom(cleanName);
+    window.switchSquadSubRoom(cleanName);
     showToast(`Sub-channel #${cleanName} created!`);
 };
 
@@ -1139,7 +1190,7 @@ window.deleteSubRoom = function(room) {
 
     localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
     renderSquadSubRoomsNav();
-    switchSquadSubRoom('chat');
+    window.switchSquadSubRoom('chat');
     showToast(`Sub-channel #${room} deleted.`);
 };
 
@@ -1170,7 +1221,7 @@ window.switchSquadSubRoom = function(room) {
                         <i class="fa-solid fa-shield-halved mr-1.5"></i> Squad Matchmaking & Challenge Queue
                     </h4>
                     <p class="text-[10px] text-gray-300">Book 1v1 or 5v5 fixtures directly with rival clans and members instantly.</p>
-                    <button onclick="bookSquadMatchmakingFixture()" class="px-4 py-2 bg-emerald-500 text-slate-950 font-black rounded-xl text-xs uppercase shadow hover:bg-emerald-400 transition">
+                    <button onclick="window.bookSquadMatchmakingFixture()" class="px-4 py-2 bg-emerald-500 text-slate-950 font-black rounded-xl text-xs uppercase shadow hover:bg-emerald-400 transition">
                         ⚔️ Queue for Match / Challenge Rival
                     </button>
                 </div>
@@ -1187,7 +1238,7 @@ window.switchSquadSubRoom = function(room) {
                             <span class="font-extrabold text-white">@${q.challenger}</span>
                             <span class="text-[9px] text-cyan-400 block">${q.format} Fixture • Status: ${q.status}</span>
                         </div>
-                        <button onclick="acceptSquadChallenge('${q.id}')" class="px-3 py-1.5 bg-cyan-400 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Accept Match</button>
+                        <button onclick="window.acceptSquadChallenge('${q.id}')" class="px-3 py-1.5 bg-cyan-400 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Accept Match</button>
                     </div>
                 `;
             });
@@ -1206,15 +1257,15 @@ window.switchSquadSubRoom = function(room) {
             rosterHtml += `
                 <div class="flex items-center justify-between p-3 bg-gg-900 rounded-2xl border border-cyan-500/15 text-xs shadow-md">
                     <div class="flex items-center space-x-2">
-                        <span class="font-bold text-white cursor-pointer hover:text-cyan-400" onclick="closeSquadDetailsModal(); openUserProfileModal('${m}', event)">@${m}</span>
+                        <span class="font-bold text-white cursor-pointer hover:text-cyan-400" onclick="window.closeSquadDetailsModal(); window.openUserProfileModal('${m}', event)">@${m}</span>
                         ${memberIsOwner ? '<span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded font-black">👑 Owner</span>' : (memberIsAdmin ? '<span class="text-[8px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 px-2 py-0.5 rounded font-black">🛡️ Admin</span>' : '<span class="text-[8px] text-gray-400">Member</span>')}
                     </div>
                     <div class="flex items-center space-x-2">
                         ${isOwner && !memberIsOwner ? `
-                            <button onclick="toggleSquadAdmin('${m}')" class="px-2.5 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-xl text-[9px] font-bold">
+                            <button onclick="window.toggleSquadAdmin('${m}')" class="px-2.5 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-xl text-[9px] font-bold">
                                 ${memberIsAdmin ? 'Demote Admin' : 'Make Admin'}
                             </button>
-                            <button onclick="transferOwnership('${m}')" class="px-2.5 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-xl text-[9px] font-bold">
+                            <button onclick="window.transferOwnership('${m}')" class="px-2.5 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-xl text-[9px] font-bold">
                                 Transfer Ownership
                             </button>
                         ` : ''}
@@ -1235,7 +1286,7 @@ window.switchSquadSubRoom = function(room) {
                 <i class="fa-solid fa-lock text-3xl text-cyan-400 opacity-80"></i>
                 <p class="text-xs font-black text-white">Join Squad to Chat</p>
                 <p class="text-[10px] text-gray-400 max-w-xs">You must join this squad to read and participate in #${room}.</p>
-                <button onclick="toggleSquadMembership('${squad.id}')" class="px-5 py-2.5 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl uppercase shadow-lg">Join Squad Now</button>
+                <button onclick="window.toggleSquadMembership('${squad.id}')" class="px-5 py-2.5 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl uppercase shadow-lg">Join Squad Now</button>
             </div>
         `;
         return;
@@ -1253,17 +1304,17 @@ window.switchSquadSubRoom = function(room) {
                 msgsBox.innerHTML += `
                     <div class="bg-gg-900 p-3 rounded-2xl border border-cyan-500/20 space-y-1.5 max-w-sm">
                         <div class="flex justify-between items-center text-[10px]">
-                            <span class="text-cyan-400 font-bold cursor-pointer" onclick="closeSquadDetailsModal(); openUserProfileModal('${m.sender}', event)">@${m.sender}</span>
+                            <span class="text-cyan-400 font-bold cursor-pointer" onclick="window.closeSquadDetailsModal(); window.openUserProfileModal('${m.sender}', event)">@${m.sender}</span>
                             <span class="text-amber-400 font-extrabold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">${timerBadge}</span>
                         </div>
-                        <img src="${m.imageUrl}" class="max-h-60 rounded-xl object-contain bg-black w-full border border-cyan-500/10 cursor-pointer" onclick="openMediaZoomModal('image', '${m.imageUrl}')">
+                        <img src="${m.imageUrl}" class="max-h-60 rounded-xl object-contain bg-black w-full border border-cyan-500/10 cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.imageUrl}')">
                     </div>
                 `;
             } else {
                 msgsBox.innerHTML += `
                     <div class="bg-gg-900 p-2.5 rounded-2xl border border-cyan-500/10 space-y-0.5 max-w-xl">
                         <div class="flex items-center justify-between">
-                            <span class="text-[10px] font-bold text-cyan-400 cursor-pointer" onclick="closeSquadDetailsModal(); openUserProfileModal('${m.sender}', event)">@${m.sender}</span>
+                            <span class="text-[10px] font-bold text-cyan-400 cursor-pointer" onclick="window.closeSquadDetailsModal(); window.openUserProfileModal('${m.sender}', event)">@${m.sender}</span>
                             <span class="text-[8px] text-gray-500">${m.time || 'Today'}</span>
                         </div>
                         <p class="text-xs text-gray-200">${formatMentions(m.text)}</p>
@@ -1295,7 +1346,7 @@ window.bookSquadMatchmakingFixture = function() {
     };
     squad.matchmakingQueue.unshift(newChallenge);
     localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
-    switchSquadSubRoom('Matchmaking');
+    window.switchSquadSubRoom('Matchmaking');
     showToast("⚔️ Queued for match successfully!");
 };
 
@@ -1319,7 +1370,7 @@ window.toggleSquadAdmin = function(member) {
     }
 
     localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
-    switchSquadSubRoom('Roster');
+    window.switchSquadSubRoom('Roster');
 };
 
 window.transferOwnership = function(newOwner) {
@@ -1331,7 +1382,7 @@ window.transferOwnership = function(newOwner) {
     if (!squad.admins.includes(newOwner)) squad.admins.push(newOwner);
 
     localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
-    openSquadDetailsModal(squad.id);
+    window.openSquadDetailsModal(squad.id);
     showToast(`👑 Ownership transferred to @${newOwner}!`);
 };
 
@@ -1379,7 +1430,7 @@ window.deleteActiveSquad = async function() {
     }
 
     showToast("Squad disbanded.");
-    closeSquadDetailsModal();
+    window.closeSquadDetailsModal();
     window.renderClansList();
 };
 
@@ -1438,7 +1489,7 @@ window.sendInChatImage = async function(context) {
 
             squad.rooms[room].push(imgPayload);
             localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
-            switchSquadSubRoom(room);
+            window.switchSquadSubRoom(room);
         } else if (context === 'dm') {
             const partner = window.activeDmUser;
             if (partner) {
@@ -1446,7 +1497,7 @@ window.sendInChatImage = async function(context) {
                 if (!window.dmMessagesList[threadKey]) window.dmMessagesList[threadKey] = [];
                 window.dmMessagesList[threadKey].push(imgPayload);
                 localStorage.setItem('sinless_dm_messages', JSON.stringify(window.dmMessagesList));
-                window.renderDmThread();
+                if(window.renderDmThread) window.renderDmThread();
             }
         }
 
@@ -1478,7 +1529,7 @@ window.uploadProfileStory = async function(input) {
             };
             window.profileStories.unshift(newStory);
             await saveStoryToIndexedDB(newStory);
-            renderStoriesBar();
+            window.renderStoriesBar();
             input.value = '';
             showToast(`✨ Profile Story Posted (${type === 'video' ? 'Video' : 'Image'})!`);
         };
@@ -1505,7 +1556,7 @@ window.renderStoriesBar = function() {
             : `<img src="${story.mediaUrl}" class="w-12 h-12 rounded-full object-cover border-2 border-slate-950">`;
 
         container.innerHTML += `
-            <div class="flex flex-col items-center shrink-0 cursor-pointer space-y-1 group" onclick="openStoryViewer('${story.id}')">
+            <div class="flex flex-col items-center shrink-0 cursor-pointer space-y-1 group" onclick="window.openStoryViewer('${story.id}')">
                 <div class="w-13 h-13 rounded-full p-0.5 bg-gradient-to-tr from-cyan-400 via-magenta to-amber-400 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
                     ${thumbContent}
                 </div>
@@ -1520,11 +1571,12 @@ window.openStoryViewer = function(storyId) {
     if (!story) return;
 
     const timerBadge = getRemainingTimeBadge(story.timestamp);
-    openMediaZoomModal(story.type || 'image', story.mediaUrl);
+    window.openMediaZoomModal(story.type || 'image', story.mediaUrl);
 
     const title = document.getElementById('mediaZoomTitle');
     if (title) title.innerText = `@${story.user}'s Story • ${timerBadge}`;
 };
+
 window.tournamentsList = JSON.parse(localStorage.getItem('sinless_tournaments_list') || 'null') || [
     {
         id: 'tourn_1',
@@ -1551,7 +1603,7 @@ window.activeMatchForReporting = null;
 
 window.openUniversalCreateModal = function() { document.getElementById('universalCreateModal').classList.remove('hidden'); };
 window.closeUniversalCreateModal = function() { document.getElementById('universalCreateModal').classList.add('hidden'); };
-window.openCreateTournamentModal = function() { closeUniversalCreateModal(); document.getElementById('createTournamentModal').classList.remove('hidden'); };
+window.openCreateTournamentModal = function() { window.closeUniversalCreateModal(); document.getElementById('createTournamentModal').classList.remove('hidden'); };
 window.closeCreateTournamentModal = function() { document.getElementById('createTournamentModal').classList.add('hidden'); };
 
 window.activeDeleteTournamentId = null;
@@ -1577,9 +1629,9 @@ window.confirmDeleteTournament = function() {
     }
 
     showToast("Tournament deleted.");
-    closeDeleteTournamentModal();
-    renderTournamentsTab();
-    renderTournamentsTabDedicated();
+    window.closeDeleteTournamentModal();
+    window.renderTournamentsTab();
+    window.renderTournamentsTabDedicated();
 };
 
 function getKnockoutStageName(maxPlayers, round) {
@@ -1698,9 +1750,9 @@ window.submitNewTournament = function() {
     window.activeSquadForTournament = null;
 
     showToast("Tournament Launched Successfully!");
-    closeCreateTournamentModal();
-    switchView('tournaments');
-    renderTournamentsTabDedicated();
+    window.closeCreateTournamentModal();
+    if(window.switchView) window.switchView('tournaments');
+    window.renderTournamentsTabDedicated();
 };
 
 window.joinActiveTournament = function(tournId) {
@@ -1726,8 +1778,8 @@ window.joinActiveTournament = function(tournId) {
 
     localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
     showToast(`Registered for ${tourn.title}!`);
-    renderTournamentsTab();
-    renderTournamentsTabDedicated();
+    window.renderTournamentsTab();
+    window.renderTournamentsTabDedicated();
 };
 
 window.activeManualAddContext = null;
@@ -1762,10 +1814,10 @@ window.confirmManualAddPlayer = function() {
         tourn.players.push(cleanPlayer);
     }
     localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
-    renderTournamentsTab();
-    renderTournamentsTabDedicated();
+    window.renderTournamentsTab();
+    window.renderTournamentsTabDedicated();
     showToast(`Added @${cleanPlayer} to match!`);
-    closeManualAddPlayerModal();
+    window.closeManualAddPlayerModal();
 };
 
 window.openMatchReportModal = function(matchId) {
@@ -1846,9 +1898,9 @@ window.submitMatchScoreReport = function() {
 
     localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
     showToast(isHost ? `Match Score Updated & Approved! Winner: @${match.winner}` : `Score submitted! Pending Host Approval.`);
-    closeMatchReportModal();
-    renderTournamentsTab();
-    renderTournamentsTabDedicated();
+    window.closeMatchReportModal();
+    window.renderTournamentsTab();
+    window.renderTournamentsTabDedicated();
 };
 
 window.hostApproveMatch = function() {
@@ -1865,9 +1917,9 @@ window.hostApproveMatch = function() {
 
     localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
     showToast("Match Approved and Bracket Updated!");
-    closeMatchReportModal();
-    renderTournamentsTab();
-    renderTournamentsTabDedicated();
+    window.closeMatchReportModal();
+    window.renderTournamentsTab();
+    window.renderTournamentsTabDedicated();
 };
 
 window.addLeagueMatch = function(tournId) {
@@ -1887,8 +1939,8 @@ window.addLeagueMatch = function(tournId) {
         status: 'approved'
     });
     localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
-    renderTournamentsTab();
-    renderTournamentsTabDedicated();
+    window.renderTournamentsTab();
+    window.renderTournamentsTabDedicated();
     showToast("Added new league fixture slot.");
 };
 
@@ -1941,6 +1993,15 @@ window.renderTournamentsTabDedicated = function() {
     container.innerHTML = generateTournamentsHTML();
 };
 
+window.switchActiveTournament = function(tournId) {
+    const found = window.tournamentsList.find(t => t.id === tournId);
+    if (found) {
+        window.activeTournament = found;
+        window.renderTournamentsTab();
+        window.renderTournamentsTabDedicated();
+    }
+};
+
 function generateTournamentsHTML() {
     if (!window.tournamentsList || window.tournamentsList.length === 0) {
         return `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No active tournaments. Create one now!</div>`;
@@ -1949,7 +2010,7 @@ function generateTournamentsHTML() {
     let selectorHtml = `<div class="flex items-center space-x-2 overflow-x-auto scrollbar-none pb-2">`;
     window.tournamentsList.forEach(t => {
         const isActive = window.activeTournament && window.activeTournament.id === t.id;
-        selectorHtml += `<button onclick="switchActiveTournament('${t.id}')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold ${isActive ? 'bg-cyan-400 text-slate-950 shadow-md' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'} whitespace-nowrap">${t.title}</button>`;
+        selectorHtml += `<button onclick="window.switchActiveTournament('${t.id}')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold ${isActive ? 'bg-cyan-400 text-slate-950 shadow-md' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'} whitespace-nowrap">${t.title}</button>`;
     });
     selectorHtml += `</div>`;
 
@@ -1972,8 +2033,8 @@ function generateTournamentsHTML() {
                     </div>
                 </div>
                 <div class="flex items-center space-x-1.5">
-                    ${isHost ? `<button onclick="deleteTournament('${current.id}')" class="px-2 py-1 bg-red-600/20 text-red-400 border border-red-500/30 text-[9px] font-bold rounded-lg"><i class="fa-solid fa-trash mr-1"></i>Delete</button>` : ''}
-                    ${!isJoined ? `<button onclick="joinActiveTournament('${current.id}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Join League</button>` : `<span class="text-[9px] bg-cyan-500/10 text-cyan-400 font-extrabold px-2.5 py-1 rounded-full">✓ Registered</span>`}
+                    ${isHost ? `<button onclick="window.deleteTournament('${current.id}')" class="px-2 py-1 bg-red-600/20 text-red-400 border border-red-500/30 text-[9px] font-bold rounded-lg"><i class="fa-solid fa-trash mr-1"></i>Delete</button>` : ''}
+                    ${!isJoined ? `<button onclick="window.joinActiveTournament('${current.id}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Join League</button>` : `<span class="text-[9px] bg-cyan-500/10 text-cyan-400 font-extrabold px-2.5 py-1 rounded-full">✓ Registered</span>`}
                 </div>
             </div>
     `;
@@ -2052,7 +2113,7 @@ function generateTournamentsHTML() {
         bodyHtml += `</div></div>`;
 
         if (isHost) {
-            bodyHtml += `<button onclick="addLeagueMatch('${current.id}')" class="w-full py-2 bg-gg-900 border border-cyan-500/30 text-cyan-400 rounded-xl text-xs font-bold mt-2 hover:bg-cyan-500/20 transition">+ Add League Fixture</button>`;
+            bodyHtml += `<button onclick="window.addLeagueMatch('${current.id}')" class="w-full py-2 bg-gg-900 border border-cyan-500/30 text-cyan-400 rounded-xl text-xs font-bold mt-2 hover:bg-cyan-500/20 transition">+ Add League Fixture</button>`;
         }
 
         bodyHtml += `</div></div>`;
@@ -2183,4 +2244,688 @@ function renderBracketMatchCardHex(m, tournId, isHost, theme = 'red') {
     if (theme === 'gold') borderStyle = 'border-amber-500/50 hover:border-amber-400 bg-amber-950/20';
     if (theme === 'league') borderStyle = 'border-cyan-500/20 hover:border-cyan-400 bg-gg-950';
 
-    let p1Html = `<span class="font-extrabold ${m.winner === m.p1 ? 'text-cyan-400 font-black' : 'text-gray-100'
+    let p1Html = `<span class="font-extrabold ${m.winner === m.p1 ? 'text-cyan-400 font-black' : 'text-gray-100'}">${m.p1 || 'Open Spot'}</span>`;
+    let p2Html = `<span class="font-extrabold ${m.winner === m.p2 ? 'text-cyan-400 font-black' : 'text-gray-100'}">${m.p2 || 'Open Spot'}</span>`;
+
+    return `
+        <div class="glass-panel p-2.5 rounded-xl border ${borderStyle} transition shadow-md cursor-pointer space-y-1.5" onclick="window.openMatchReportModal('${m.id}')">
+            <div class="flex items-center justify-between text-[9px]">
+                <span class="text-cyan-400 font-black uppercase tracking-wider">${m.stage || 'Fixture'}</span>
+                <div class="flex items-center space-x-1">
+                    ${hasStream ? '<span class="text-[8px] bg-red-600 text-white font-extrabold px-1.5 py-0.5 rounded animate-pulse">🔴 Live Stream</span>' : ''}
+                    ${isDisputed ? '<span class="text-[8px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.5 rounded">⚠️ Disputed</span>' : (isCompleted ? '<span class="text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black px-1.5 py-0.5 rounded">✓ Final</span>' : '<span class="text-[8px] text-gray-400">Report Score</span>')}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs bg-gg-950/80 p-2 rounded-lg border border-cyan-500/10">
+                <div class="flex items-center justify-between pr-1 border-r border-cyan-500/10">
+                    ${p1Html}
+                    <span class="font-black text-amber-400 ml-1">${m.s1 !== null ? m.s1 : '-'}</span>
+                </div>
+                <div class="flex items-center justify-between pl-1">
+                    ${p2Html}
+                    <span class="font-black text-amber-400 ml-1">${m.s2 !== null ? m.s2 : '-'}</span>
+                </div>
+            </div>
+
+            ${isHost && (m.p1 === 'Open Spot' || m.p2 === 'Open Spot') ? `
+                <div class="flex space-x-1 pt-0.5">
+                    ${m.p1 === 'Open Spot' ? `<button onclick="event.stopPropagation(); window.manualAddPlayer('${tournId}', '${m.id}', 'p1')" class="flex-1 py-1 bg-cyan-500/20 text-cyan-300 rounded text-[8px] font-bold">+ Add P1</button>` : ''}
+                    ${m.p2 === 'Open Spot' ? `<button onclick="event.stopPropagation(); window.manualAddPlayer('${tournId}', '${m.id}', 'p2')" class="flex-1 py-1 bg-cyan-500/20 text-cyan-300 rounded text-[8px] font-bold">+ Add P2</button>` : ''}
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+// ======================================================================
+// SINLESS GG - APP LOGIC (PART 2 / MODULE VERSION)
+// ======================================================================
+
+// FYP Feed & Dynamic Feed State
+window.fypposts = [];
+window.activeCategoryFilter = 'ALL';
+window.uploadedMediaBlobs = [];
+window.selectedAudioTrack = null;
+
+window.categoryInterests = JSON.parse(localStorage.getItem('sinless_category_interests') || '{}');
+
+window.boostCategoryInterest = function(category) {
+    if (!category) return;
+    const cat = category.toUpperCase();
+    window.categoryInterests[cat] = (window.categoryInterests[cat] || 0) + 1;
+    localStorage.setItem('sinless_category_interests', JSON.stringify(window.categoryInterests));
+};
+
+window.filterByCategory = function(cat, btnElem) {
+    window.activeCategoryFilter = cat;
+    document.querySelectorAll('.cat-btn').forEach(b => {
+        b.className = "cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-gray-400 border border-cyan-500/20 whitespace-nowrap transition";
+    });
+    if (btnElem) {
+        btnElem.className = "cat-btn px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition";
+    }
+    window.renderFypFeed();
+};
+
+window.renderFypFeed = function() {
+    const feedContainer = document.getElementById('fypFeedContainer');
+    if (!feedContainer) return;
+
+    let posts = [...(window.fypposts || [])];
+
+    if (window.activeCategoryFilter !== 'ALL') {
+        if (window.activeCategoryFilter === 'LIVE STREAM') {
+            posts = posts.filter(p => p.isLive || p.game === 'LIVE STREAM');
+        } else {
+            posts = posts.filter(p => (p.game || '').toUpperCase() === window.activeCategoryFilter);
+        }
+    } else {
+        posts.sort((a, b) => {
+            const scoreA = (window.categoryInterests[(a.game || '').toUpperCase()] || 0) + (a.ggsCount || 0);
+            const scoreB = (window.categoryInterests[(b.game || '').toUpperCase()] || 0) + (b.ggsCount || 0);
+            return scoreB - scoreA;
+        });
+    }
+
+    if (posts.length === 0) {
+        feedContainer.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center space-y-2">
+            <i class="fa-solid fa-gamepad text-3xl text-cyan-400 opacity-60"></i>
+            <p class="text-xs font-bold text-white">No posts found in ${window.activeCategoryFilter}</p>
+            <p class="text-[10px] text-gray-400">Be the first gamer to post a clip or match update!</p>
+        </div>`;
+        return;
+    }
+
+    const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+
+    feedContainer.innerHTML = posts.map(p => {
+        const pId = p.docId || p.id;
+        const isOwner = p.user && p.user.toLowerCase() === me;
+        const hasGGed = p.ggsBy && p.ggsBy.includes(window.currentUser ? window.currentUser.uid : 'guest_user');
+
+        let mediaHtml = '';
+        if (p.mediaList && p.mediaList.length > 0) {
+            if (p.mediaList.length === 1) {
+                const m = p.mediaList[0];
+                if (m.type === 'video') {
+                    mediaHtml = `
+                        <div class="relative rounded-2xl overflow-hidden bg-black max-h-96 border border-cyan-500/20 group cursor-pointer" onclick="window.openMediaZoomModal('video', '${m.url}', '${pId}')">
+                            <video src="${m.url}" class="w-full h-full object-cover" controls playsinline></video>
+                        </div>
+                    `;
+                } else {
+                    mediaHtml = `
+                        <div class="relative rounded-2xl overflow-hidden bg-black max-h-96 border border-cyan-500/20 group cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.url}', '${pId}')">
+                            <img src="${m.url}" class="w-full h-full object-cover">
+                        </div>
+                    `;
+                }
+            } else {
+                mediaHtml = `
+                    <div class="grid grid-cols-2 gap-1.5 rounded-2xl overflow-hidden max-h-96 border border-cyan-500/20">
+                        ${p.mediaList.map(m => m.type === 'video' 
+                            ? `<video src="${m.url}" class="w-full h-36 object-cover bg-black cursor-pointer" onclick="window.openMediaZoomModal('video', '${m.url}', '${pId}')"></video>` 
+                            : `<img src="${m.url}" class="w-full h-36 object-cover bg-black cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.url}', '${pId}')">`
+                        ).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        let audioTrackHtml = '';
+        if (p.audioTrack) {
+            audioTrackHtml = `
+                <div class="flex items-center space-x-2 p-2 bg-gg-900/90 rounded-xl border border-cyan-500/20 text-[10px] text-cyan-300">
+                    <i class="fa-solid fa-music animate-spin text-magenta"></i>
+                    <span class="font-bold truncate">${p.audioTrack.title || 'Background Sound'}</span>
+                </div>
+            `;
+        }
+
+        const badges = window.getProfileBadges ? window.getProfileBadges(p.user) : '';
+
+        return `
+            <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/20 hover:border-cyan-500/40 transition">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2.5 cursor-pointer" onclick="window.openUserProfileModal('${p.user}', event)">
+                        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-xs shadow-md">
+                            ${(p.user || 'SG').substring(0,2).toUpperCase()}
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-1.5">
+                                <h4 class="font-bold text-xs text-white hover:text-cyan-400 transition">@${p.user}</h4>
+                                ${badges}
+                            </div>
+                            <p class="text-[9px] text-cyan-400 uppercase font-black tracking-wider">${p.game || 'GAMING'}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        ${isOwner ? `
+                            <button onclick="window.openEditPostModal('${pId}')" class="text-gray-400 hover:text-cyan-400 text-xs px-1.5"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="window.deletePost('${pId}')" class="text-gray-400 hover:text-red-400 text-xs px-1.5"><i class="fa-solid fa-trash"></i></button>
+                        ` : ''}
+                        <button onclick="window.shareContent('Sinless GG Post', 'Check out @${p.user}\'s post on Sinless GG!', window.location.href)" class="text-gray-400 hover:text-white text-xs px-1.5"><i class="fa-solid fa-share-nodes"></i></button>
+                    </div>
+                </div>
+
+                ${p.caption ? `<p class="text-xs text-gray-200 leading-relaxed font-medium">${formatMentions(p.caption)}</p>` : ''}
+
+                ${mediaHtml}
+                ${audioTrackHtml}
+
+                <div class="flex items-center justify-between pt-2 border-t border-cyan-500/15 text-xs text-gray-300 font-bold">
+                    <button onclick="window.toggleGGPost('${pId}')" class="flex items-center space-x-1.5 ${hasGGed ? 'text-cyan-400' : 'hover:text-cyan-400'} transition">
+                        <i class="fa-solid fa-thumbs-up"></i>
+                        <span>${p.ggsCount || 0} GG</span>
+                    </button>
+                    <button onclick="window.openCommentsModal('${pId}')" class="flex items-center space-x-1.5 hover:text-cyan-400 transition">
+                        <i class="fa-solid fa-comment"></i>
+                        <span>${p.commentsCount || 0} Replies</span>
+                    </button>
+                    <button onclick="window.tipCreator('${pId}', '${p.user}')" class="flex items-center space-x-1.5 text-amber-400 hover:text-amber-300 transition">
+                        <i class="fa-solid fa-coins"></i>
+                        <span>${p.tipsTotal || 0} Tip</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+};
+
+window.listenToCloudPosts = function() {
+    if (!window.db || typeof query !== 'function') return;
+
+    try {
+        const postsRef = collection(window.db, "posts");
+        const q = query(postsRef, orderBy("createdAt", "desc"), limit(40));
+
+        onSnapshot(q, async (snapshot) => {
+            let cloudPosts = [];
+            snapshot.forEach(docSnap => {
+                cloudPosts.push({ id: docSnap.id, docId: docSnap.id, ...docSnap.data() });
+            });
+
+            const localPosts = await window.loadLocalPostsFromDB();
+            let mergedMap = {};
+
+            cloudPosts.forEach(p => { if (p.id) mergedMap[p.id] = p; });
+            localPosts.forEach(p => { if (p.id && !mergedMap[p.id]) mergedMap[p.id] = p; });
+
+            window.fypposts = Object.values(mergedMap);
+            window.renderFypFeed();
+            if (window.renderLadder) window.renderLadder();
+        }, (error) => {
+            console.warn("Cloud posts listener error:", error);
+        });
+    } catch (e) {
+        console.error("Firestore feed setup failed:", e);
+    }
+};
+
+window.handleMediaUploadSelect = function(input) {
+    if (!input.files) return;
+    const files = Array.from(input.files).slice(0, 10);
+    window.uploadedMediaBlobs = [];
+    const previewBox = document.getElementById('mediaPreviewThumbnails');
+    if (previewBox) previewBox.innerHTML = '';
+
+    files.forEach(file => {
+        const isVideo = file.type.includes('video');
+        const url = URL.createObjectURL(file);
+        window.uploadedMediaBlobs.push({ type: isVideo ? 'video' : 'image', url: url, file: file });
+
+        if (previewBox) {
+            previewBox.innerHTML += isVideo
+                ? `<div class="aspect-square rounded-lg bg-black overflow-hidden relative border border-cyan-500/20"><video src="${url}" class="w-full h-full object-cover"></video><span class="absolute top-1 right-1 text-[8px] bg-red-600 text-white font-bold px-1 rounded">VID</span></div>`
+                : `<div class="aspect-square rounded-lg bg-black overflow-hidden relative border border-cyan-500/20"><img src="${url}" class="w-full h-full object-cover"></div>`;
+        }
+    });
+
+    const indicator = document.getElementById('mediaCountIndicator');
+    if (indicator) indicator.innerText = `${window.uploadedMediaBlobs.length} / 10 selected`;
+};
+
+window.audioTracksPreset = [
+    { id: 'track_1', title: 'Sinless GG Tournament Theme', artist: 'Sinless Productions', url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73421.mp3' },
+    { id: 'track_2', title: 'Cyberpunk Esports Hype', artist: 'Gaming Audio', url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3' },
+    { id: 'track_3', title: 'Champions League Anthem Remix', artist: 'FIFA Beat', url: 'https://cdn.pixabay.com/download/audio/2021/08/09/audio_884b2c15a5.mp3' }
+];
+
+window.openAudioSelector = function() {
+    const list = document.getElementById('audioTracksList');
+    if (!list) return;
+
+    list.innerHTML = window.audioTracksPreset.map(t => `
+        <div class="p-2.5 bg-gg-900 rounded-xl border border-amber-500/20 flex items-center justify-between cursor-pointer hover:border-amber-400 transition" onclick="window.selectAudioTrack('${t.id}')">
+            <div>
+                <h4 class="text-xs font-bold text-white">${t.title}</h4>
+                <p class="text-[9px] text-amber-400">${t.artist}</p>
+            </div>
+            <button class="px-3 py-1 bg-amber-400 text-slate-950 font-black rounded-lg text-[10px] uppercase shadow">Select</button>
+        </div>
+    `).join('');
+
+    document.getElementById('audioSelectorModal').classList.remove('hidden');
+};
+
+window.closeAudioSelector = function() {
+    document.getElementById('audioSelectorModal').classList.add('hidden');
+};
+
+window.selectAudioTrack = function(trackId) {
+    const track = window.audioTracksPreset.find(t => t.id === trackId);
+    if (!track) return;
+
+    window.selectedAudioTrack = track;
+    const label = document.getElementById('selectedSoundLabel');
+    if (label) label.innerText = `🎵 Sound: ${track.title}`;
+
+    const player = document.getElementById('previewAudioPlayer');
+    if (player) {
+        player.src = track.url;
+        player.play().catch(() => {});
+    }
+
+    window.closeAudioSelector();
+    showToast(`🎵 Background Track Attached!`);
+};
+
+window.stopAudioPreview = function() {
+    const player = document.getElementById('previewAudioPlayer');
+    if (player) {
+        player.pause();
+        player.currentTime = 0;
+    }
+};
+
+window.activeLiveMediaStream = null;
+window.activeLiveMediaRecorder = null;
+
+window.openLiveBroadcastModal = function() {
+    document.getElementById('liveStreamModal').classList.remove('hidden');
+};
+
+window.closeLiveBroadcastModal = function() {
+    if (window.activeLiveMediaStream) {
+        window.activeLiveMediaStream.getTracks().forEach(track => track.stop());
+        window.activeLiveMediaStream = null;
+    }
+    document.getElementById('liveStreamModal').classList.add('hidden');
+};
+
+window.startLiveStream = async function(mode) {
+    const video = document.getElementById('liveStreamPreviewVideo');
+    const placeholder = document.getElementById('streamPlaceholder');
+    const label = document.getElementById('liveStreamStatusLabel');
+
+    if (mode === 'camera') {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            window.activeLiveMediaStream = stream;
+            video.srcObject = stream;
+            video.classList.remove('hidden');
+            if (placeholder) placeholder.classList.add('hidden');
+            if (label) label.innerHTML = `<i class="fa-solid fa-tower-broadcast mr-1.5 animate-pulse text-red-500"></i> LIVE ON CAMERA`;
+            showToast("🎥 Camera Broadcast Started!");
+        } catch (e) {
+            console.error("Camera access error:", e);
+            showToast("⚠️ Unable to access camera device.");
+        }
+    }
+};
+
+window.flipCamera = async function() {
+    if (!window.activeLiveMediaStream) return;
+    window.activeLiveMediaStream.getTracks().forEach(track => track.stop());
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
+        window.activeLiveMediaStream = stream;
+        const video = document.getElementById('liveStreamPreviewVideo');
+        video.srcObject = stream;
+        showToast("📷 Switched Camera Facing");
+    } catch (e) {
+        showToast("Unable to flip camera.");
+    }
+};
+
+window.togglePauseStream = function() {
+    if (!window.activeLiveMediaStream) return;
+    const videoTrack = window.activeLiveMediaStream.getVideoTracks()[0];
+    if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        showToast(videoTrack.enabled ? "▶️ Video Resumed" : "⏸️ Video Paused");
+    }
+};
+
+window.toggleAudioMute = function() {
+    if (!window.activeLiveMediaStream) return;
+    const audioTrack = window.activeLiveMediaStream.getAudioTracks()[0];
+    if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        showToast(audioTrack.enabled ? "🎙️ Audio Unmuted" : "🔇 Audio Muted");
+    }
+};
+
+window.embedExternalStreamLink = function() {
+    const url = document.getElementById('streamUrlInput').value.trim();
+    if (!url) return;
+
+    let embedUrl = url.replace('watch?v=', 'embed/').replace('twitch.tv/', 'player.twitch.tv/?channel=');
+    const iframe = document.getElementById('liveStreamEmbedIframe');
+    const video = document.getElementById('liveStreamPreviewVideo');
+    const placeholder = document.getElementById('streamPlaceholder');
+
+    iframe.src = embedUrl;
+    iframe.classList.remove('hidden');
+    video.classList.add('hidden');
+    if (placeholder) placeholder.classList.add('hidden');
+
+    showToast("📡 External Live Stream Embedded!");
+};
+
+window.activeDmUser = null;
+window.dmMessagesList = JSON.parse(localStorage.getItem('sinless_dm_messages') || '{}');
+
+window.openDmModal = function(username = 'SinlessGaming', e = null) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    const cleanUser = username.replace('@', '');
+    window.activeDmUser = cleanUser;
+
+    const headerUser = document.getElementById('dmHeaderUser');
+    if (headerUser) headerUser.innerText = `@${cleanUser}`;
+
+    window.renderDmThread();
+    document.getElementById('dmModal').classList.remove('hidden');
+};
+
+window.closeDmModal = function() {
+    document.getElementById('dmModal').classList.add('hidden');
+    window.activeDmUser = null;
+};
+
+window.renderDmThread = function() {
+    const container = document.getElementById('dmMessagesContainer');
+    if (!container || !window.activeDmUser) return;
+
+    const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+    const partner = window.activeDmUser.toLowerCase();
+    const threadKey = [me, partner].sort().join('_');
+
+    const msgs = window.dmMessagesList[threadKey] || [];
+
+    if (msgs.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Start a private chat with @${window.activeDmUser}!</p>`;
+        return;
+    }
+
+    container.innerHTML = msgs.map(m => {
+        const isMine = m.sender.toLowerCase() === me;
+        if (m.isImage) {
+            return `
+                <div class="flex flex-col ${isMine ? 'items-end' : 'items-start'} my-1">
+                    <div class="p-2 bg-gg-900 rounded-2xl border border-cyan-500/20 max-w-xs space-y-1">
+                        <span class="text-[9px] text-cyan-400 font-bold block">@${m.sender}</span>
+                        <img src="${m.imageUrl}" class="max-h-48 rounded-xl object-contain cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.imageUrl}')">
+                    </div>
+                </div>
+            `;
+        }
+        return `
+            <div class="flex flex-col ${isMine ? 'items-end' : 'items-start'} my-1">
+                <div class="px-3 py-2 ${isMine ? 'bg-cyan-500 text-slate-950 font-bold' : 'bg-gg-900 text-white'} rounded-2xl max-w-xs text-xs shadow-md">
+                    <p>${formatMentions(m.text)}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.scrollTop = container.scrollHeight;
+};
+
+window.sendDirectMessage = function() {
+    const input = document.getElementById('dmInputText');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text || !window.activeDmUser) return;
+
+    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const partner = window.activeDmUser;
+    const threadKey = [me.toLowerCase(), partner.toLowerCase()].sort().join('_');
+
+    if (!window.dmMessagesList[threadKey]) window.dmMessagesList[threadKey] = [];
+
+    window.dmMessagesList[threadKey].push({
+        sender: me,
+        text: text,
+        timestamp: Date.now()
+    });
+
+    localStorage.setItem('sinless_dm_messages', JSON.stringify(window.dmMessagesList));
+    input.value = '';
+    window.renderDmThread();
+};
+
+window.toggleDirectVoiceCall = function() {
+    showToast(`📞 Direct Voice Call Connected with @${window.activeDmUser || 'Gamer'}!`);
+};
+
+window.openMarketModal = function() { document.getElementById('marketModal').classList.remove('hidden'); };
+window.closeMarketModal = function() { document.getElementById('marketModal').classList.add('hidden'); };
+
+window.submitMarketListingToCloud = async function() {
+    const title = document.getElementById('marketTitleInput').value.trim();
+    const price = document.getElementById('marketPriceInput').value.trim();
+
+    if (!title || !price) {
+        showToast("⚠️ Enter title and price!");
+        return;
+    }
+
+    showToast("🛍️ Market listing published!");
+    document.getElementById('marketTitleInput').value = '';
+    document.getElementById('marketPriceInput').value = '';
+    window.closeMarketModal();
+};
+
+window.openAccountModal = function() { document.getElementById('accountModal').classList.remove('hidden'); };
+window.closeAccountModal = function() { document.getElementById('accountModal').classList.add('hidden'); };
+
+window.openCreatePostModal = function() { document.getElementById('createPostModal').classList.remove('hidden'); };
+window.closeCreatePostModal = function() { document.getElementById('createPostModal').classList.add('hidden'); };
+
+window.activeZoomPostId = null;
+
+window.openMediaZoomModal = function(type, mediaUrl, postId = null, caption = '') {
+    window.activeZoomPostId = postId;
+    const stage = document.getElementById('mediaZoomStage');
+    const title = document.getElementById('mediaZoomTitle');
+    if (!stage) return;
+
+    if (title) title.innerText = 'Media Lightbox Preview';
+
+    if (type === 'video') {
+        stage.innerHTML = `<video src="${mediaUrl}" class="max-w-full max-h-full object-contain rounded-2xl" controls autoplay></video>`;
+    } else if (type === 'image') {
+        stage.innerHTML = `<img src="${mediaUrl}" class="max-w-full max-h-full object-contain rounded-2xl">`;
+    } else {
+        stage.innerHTML = `<div class="p-6 bg-gg-900 rounded-2xl border border-cyan-500/30 text-white text-sm max-w-md text-center">${caption}</div>`;
+    }
+
+    window.renderZoomInteractions(postId);
+    document.getElementById('mediaZoomModal').classList.remove('hidden');
+};
+
+window.closeMediaZoomModal = function() {
+    document.getElementById('mediaZoomModal').classList.add('hidden');
+    window.activeZoomPostId = null;
+};
+
+window.renderZoomInteractions = function(postId) {
+    const bar = document.getElementById('mediaZoomInteractionsBar');
+    if (!bar) return;
+
+    if (!postId) {
+        bar.innerHTML = '';
+        return;
+    }
+
+    const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
+    if (!post) {
+        bar.innerHTML = '';
+        return;
+    }
+
+    const hasGGed = post.ggsBy && post.ggsBy.includes(window.currentUser ? window.currentUser.uid : 'guest_user');
+
+    bar.innerHTML = `
+        <div class="flex items-center space-x-2 text-xs text-white">
+            <span class="font-bold text-cyan-400">@${post.user}</span>
+            <span class="text-[9px] text-gray-400 uppercase">${post.game || 'POST'}</span>
+        </div>
+        <div class="flex items-center space-x-3 text-xs">
+            <button onclick="window.toggleGGPost('${postId}')" class="flex items-center space-x-1 ${hasGGed ? 'text-cyan-400' : 'text-gray-300'} font-bold">
+                <i class="fa-solid fa-thumbs-up"></i>
+                <span>${post.ggsCount || 0}</span>
+            </button>
+            <button onclick="window.openCommentsModal('${postId}')" class="flex items-center space-x-1 text-gray-300 font-bold">
+                <i class="fa-solid fa-comment"></i>
+                <span>${post.commentsCount || 0}</span>
+            </button>
+        </div>
+    `;
+};
+
+window.switchView = function(viewId) {
+    document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
+    const target = document.getElementById(`view-${viewId}`);
+    if (target) target.classList.remove('hidden');
+
+    document.querySelectorAll('[id^="nav-"]').forEach(b => {
+        b.className = "flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap";
+    });
+
+    const activeNav = document.getElementById(`nav-${viewId}`);
+    if (activeNav) {
+        activeNav.className = "flex-1 py-2 px-2.5 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap";
+    }
+
+    if (viewId === 'tournaments') {
+        window.renderTournamentsTabDedicated();
+    } else if (viewId === 'clans') {
+        window.renderClansList();
+    } else if (viewId === 'standings') {
+        window.renderTournamentsTab();
+        window.renderLadder();
+    } else if (viewId === 'popular') {
+        window.renderTopAccounts();
+    }
+};
+
+window.renderLadder = function() {
+    const container = document.getElementById('ladderBody');
+    if (!container) return;
+
+    const { sortedCreators } = calculateGlobalRanks();
+
+    if (sortedCreators.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No creators ranked yet.</p>`;
+        return;
+    }
+
+    container.innerHTML = sortedCreators.slice(0, 10).map((c, i) => `
+        <div class="p-2.5 flex items-center justify-between text-xs cursor-pointer hover:bg-gg-900/50 transition" onclick="window.openUserProfileModal('${c.gamertag}', event)">
+            <div class="flex items-center space-x-2.5">
+                <span class="font-black text-amber-400 text-xs w-4">#${i + 1}</span>
+                <div>
+                    <h4 class="font-bold text-white">@${c.gamertag}</h4>
+                    <p class="text-[9px] text-gray-400">${c.postsCount} Clips Published</p>
+                </div>
+            </div>
+            <span class="font-black text-cyan-400 text-xs">${c.totalGGs} GGs</span>
+        </div>
+    `).join('');
+};
+
+window.renderTopAccounts = function() {
+    const container = document.getElementById('topAccountsList');
+    if (!container) return;
+
+    const { sortedCreators } = calculateGlobalRanks();
+
+    container.innerHTML = sortedCreators.map((c, i) => `
+        <div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs border border-cyan-500/15 hover:border-cyan-400 transition cursor-pointer" onclick="window.openUserProfileModal('${c.gamertag}', event)">
+            <div class="flex items-center space-x-3">
+                <span class="font-black text-amber-400 w-5">#${i + 1}</span>
+                <div>
+                    <h4 class="font-bold text-white">@${c.gamertag}</h4>
+                    <p class="text-[9px] text-cyan-400 font-semibold">${c.postsCount} Posts • ${c.totalGGs} Total GGs</p>
+                </div>
+            </div>
+            <button class="px-3 py-1 bg-cyan-400 text-slate-950 font-black rounded-lg text-[10px] uppercase shadow">View Profile</button>
+        </div>
+    `).join('');
+};
+
+window.sendChatMessage = function() {
+    const input = document.getElementById('chatInputMsg');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+
+    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const box = document.getElementById('chatMessagesBox');
+
+    if (box) {
+        box.innerHTML += `
+            <div class="bg-gg-900 p-2.5 rounded-xl border border-cyan-500/15 space-y-0.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-cyan-400 cursor-pointer" onclick="window.openUserProfileModal('${me}', event)">@${me}</span>
+                    <span class="text-[8px] text-gray-500">Just now</span>
+                </div>
+                <p class="text-xs text-gray-200">${formatMentions(text)}</p>
+            </div>
+        `;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    input.value = '';
+};
+
+window.toggleVoiceLobbyConnection = function() {
+    const label = document.getElementById('voiceStatusLabel');
+    const btn = document.getElementById('voiceLobbyToggleBtn');
+
+    if (label && label.innerText.includes('Disconnected')) {
+        label.innerText = 'Voice Connected (Live)';
+        label.className = 'text-[9px] text-emerald-400 font-extrabold animate-pulse';
+        if (btn) btn.innerHTML = `<i class="fa-solid fa-microphone-slash"></i><span>Leave Voice Channel</span>`;
+        showToast("🎙️ Connected to Global Voice Channel!");
+    } else if (label) {
+        label.innerText = 'Voice Disconnected';
+        label.className = 'text-[9px] text-gray-400 font-extrabold';
+        if (btn) btn.innerHTML = `<i class="fa-solid fa-microphone"></i><span>Join Voice Channel</span>`;
+        showToast("Voice Channel Disconnected.");
+    }
+};
+
+window.initApp = async function() {
+    window.updateCoinDisplay();
+    pruneExpiredEphemeralData();
+
+    const localStories = await window.loadLocalStoriesFromDB();
+    if (localStories && localStories.length > 0) {
+        window.profileStories = localStories;
+        window.renderStoriesBar();
+    }
+
+    if (window.listenToCloudPosts) window.listenToCloudPosts();
+    if (window.listenToFirestoreSquads) window.listenToFirestoreSquads();
+
+    if (window.renderFypFeed) window.renderFypFeed();
+    if (window.renderClansList) window.renderClansList();
+    if (window.renderTournamentsTab) window.renderTournamentsTab();
+};
