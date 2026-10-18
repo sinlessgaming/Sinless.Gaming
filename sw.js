@@ -2,7 +2,7 @@
 // - Lets the app be installed on the home screen.
 // - Always tries the internet first, so updates you upload to GitHub show up straight away.
 // - If there's no internet, it opens the last saved copy of the app instead of a blank page.
-const CACHE = 'sinless-gg-v3';
+const CACHE = 'sinless-gg-v4';
 const APP_FILES = ['./', './index.html', './styles.css', './app.js', './firebase-config.js', './manifest.json', './icon-192.png', './icon-512.png', './logo-96.png', './icon-180.png'];
 
 self.addEventListener('install', (event) => {
@@ -30,5 +30,17 @@ self.addEventListener('fetch', (event) => {
         return res;
       })
       .catch(() => caches.match(req).then((hit) => hit || caches.match('./index.html')))
+  );
+});
+
+// Tapping a phone alert opens (or focuses) the app
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || './';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) { if ('focus' in c) return c.focus(); }
+      return self.clients.openWindow(url);
+    })
   );
 });

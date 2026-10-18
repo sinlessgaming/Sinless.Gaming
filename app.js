@@ -572,6 +572,9 @@ window.submitUniversalPost = async function() {
         caption: text,
         mediaList: mediaList,
         audioTrack: audioTrack,
+        poll: window.pollDraft || null,
+        pollCounts: {},
+        pollVoters: [],
         ggsCount: 0,
         ggsBy: [],
         tipsTotal: 0,
@@ -2996,6 +2999,7 @@ window.renderFeedCard = function(p, me) {
             ${caption ? `<p class="text-xs text-gray-200 leading-relaxed font-medium whitespace-pre-wrap break-words">${formatMentions(longCaption ? caption.slice(0, 280) + '…' : caption)}${longCaption ? ' <span class="text-cyan-400 font-bold">Show more</span>' : ''}</p>` : ''}
 
             ${mediaHtml}
+            ${window.renderPollHtml ? window.renderPollHtml(p) : ''}
             ${audioTrackHtml}
 
             <div class="flex items-center justify-between pt-2 border-t border-cyan-500/15 text-xs text-gray-300 font-bold">
@@ -3226,6 +3230,7 @@ window.renderPostDetail = function(p) {
 
             ${p.caption ? `<p class="${big ? 'text-xl font-extrabold leading-snug' : 'text-[15px] leading-relaxed'} text-white whitespace-pre-wrap break-words">${formatMentions(p.caption)}</p>` : ''}
             ${media ? `<div class="space-y-2">${media}</div>` : ''}
+            ${window.renderPollHtml ? window.renderPollHtml(p) : ''}
             ${p.audioTrack ? `<div class="flex items-center space-x-2 p-2.5 bg-gg-900 rounded-xl border border-cyan-500/20 text-xs text-cyan-300"><i class="fa-solid fa-music text-magenta"></i><span class="font-bold truncate">${p.audioTrack.title || 'Sound'}</span></div>` : ''}
 
             <p class="text-[11px] text-gray-400 font-semibold">${when.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} · ${when.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</p>
@@ -5822,3 +5827,1123 @@ window.initApp = async function() {
 // after saving your profile, refresh names everywhere
 window._baseSaveProfile2 = window._baseSaveProfile2 || window.saveUserProfileChanges;
 window.saveUserProfileChanges = async function() { await window._baseSaveProfile2(); window.loadAllProfiles(); };
+
+// ======================================================================
+// v13: GAMERTAGS, ADMIN PANEL, BANS, LOBBY CHAT, PHONE ALERTS
+// ======================================================================
+
+// ---------- Custom gamertags ----------
+window.RESERVED_TAGS = ['guest', 'admin', 'administrator', 'moderator', 'mod', 'support', 'official', 'sinless', 'sinlessgg', 'sinlessgaming', 'staff', 'system'];
+window.validTag = function(t) { return /^[A-Za-z0-9_]{3,20}$/.test(t || ''); };
+
+window.resolveGamertag = async function(user) {
+    // 1) already chose one
+    try {
+        const u = await getDoc(doc(window.db, 'users', user.uid));
+        if (u.exists() && u.data().gamertag) return u.data().gamertag;
+    } catch (e) {}
+    // 2) people who joined before gamertags: keep the one they already have
+    try {
+        const s = await getDocs(query(collection(window.db, 'profiles'), where('uid', '==', user.uid), limit(1)));
+        let found = null;
+        s.forEach(d => { found = d.data().gamertag || d.id; });
+        if (found) { setDoc(doc(window.db, 'users', user.uid), { gamertag: found }, { merge: true }).catch(() => {}); return found; }
+    } catch (e) {}
+    // 3) brand-new: let them pick
+    return await window.askForGamertag(user);
+};
+
+window.askForGamertag = function(user) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('gamertagModal');
+        const input = document.getElementById('gamertagInput');
+        const status = document.getElementById('gamertagStatus');
+        const btn = document.getElementById('gamertagSaveBtn');
+        input.value = (user.displayName || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 20);
+        document.getElementById('gamertagNameInput').value = user.displayName || '';
+        modal.classList.remove('hidden');
+        let timer = null, okTag = null;
+        const check = async () => {
+            const t = input.value.trim();
+            okTag = null; btn.disabled = true; btn.classList.add('opacity-50');
+            if (!window.validTag(t)) { status.innerHTML = `<span class="text-amber-400">3–20 letters, numbers or _ (no spaces)</span>`; return; }
+            if (window.RESERVED_TAGS.includes(t.toLowerCase()) && !window.isAppAdmin) { status.innerHTML = `<span class="text-red-400">That gamertag is reserved.</span>`; return; }
+            status.innerHTML = `<span class="text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i> Checking…</span>`;
+            try {
+                const snap = await getDoc(doc(window.db, 'profiles', t.toLowerCase()));
+                if (input.value.trim() !== t) return;
+                if (snap.exists() && snap.data().uid !== user.uid) { status.innerHTML = `<span class="text-red-400">@${escapeHTML(t)} is taken. Try another.</span>`; return; }
+                okTag = t; btn.disabled = false; btn.classList.remove('opacity-50');
+                status.innerHTML = `<span class="text-emerald-400">✓ @${escapeHTML(t)} is available!</span>`;
+            } catch (e) { status.innerHTML = `<span class="text-red-400">Couldn't check. Are you online?</span>`; }
+        };
+        input.oninput = () => { clearTimeout(timer); timer = setTimeout(check, 400); };
+        check();
+        btn.onclick = async () => {
+            if (!okTag) return;
+            btn.disabled = true; btn.innerText = 'Saving…';
+            const displayName = document.getElementById('gamertagNameInput').value.trim() || okTag;
+            try {
+                await setDoc(doc(window.db, 'profiles', okTag.toLowerCase()), window.cleanForCloud({
+                    uid: user.uid, gamertag: okTag, displayName, bio: 'Gamer on Sinless GG 🎮', website: '',
+                    pfp: user.photoURL || '', cover: '', createdAt: serverTimestamp()
+                }));
+                await setDoc(doc(window.db, 'users', user.uid), { gamertag: okTag }, { merge: true });
+                window.myDisplayName = displayName;
+                modal.classList.add('hidden');
+                btn.innerText = "Let's go";
+                showToast(`🎮 Welcome to Sinless GG, @${okTag}!`);
+                resolve(okTag);
+            } catch (e) {
+                btn.disabled = false; btn.innerText = "Let's go";
+                status.innerHTML = `<span class="text-red-400">Someone just took @${escapeHTML(okTag)}. Pick another.</span>`;
+            }
+        };
+    });
+};
+
+// ---------- App admins & bans ----------
+window.isAppAdmin = false;
+window.isBanned = false;
+
+window.checkAdminAndBan = async function(user) {
+    window.isAppAdmin = false; window.isBanned = false;
+    if (!user || !window.db) return;
+    try { const c = await getDoc(doc(window.db, 'config', 'admins')); window.isAppAdmin = c.exists() && (c.data().uids || []).includes(user.uid); } catch (e) {}
+    try { const b = await getDoc(doc(window.db, 'banned', user.uid)); window.isBanned = b.exists(); } catch (e) {}
+    document.getElementById('adminPanelItem') && document.getElementById('adminPanelItem').classList.toggle('hidden', !window.isAppAdmin);
+    document.getElementById('bannedBanner') && document.getElementById('bannedBanner').classList.toggle('hidden', !window.isBanned);
+};
+
+// Banned accounts can look around but can't post, chat or interact
+window._baseNeedSignIn = window._baseNeedSignIn || window.needSignIn;
+window.needSignIn = function(what) {
+    if (window._baseNeedSignIn(what)) return true;
+    if (window.isBanned) { showToast("🚫 Your account is suspended."); return true; }
+    return false;
+};
+
+// Sign-in: pick/load gamertag first, then everything else
+window._baseAfterAuthChange = window._baseAfterAuthChange || window.afterAuthChange;
+window.afterAuthChange = async function(user) {
+    if (user && window.db) {
+        await window.checkAdminAndBan(user);
+        const tag = await window.resolveGamertag(user);
+        window.myUsername = '@' + tag;
+        const prof = await window.getProfile(tag, true);
+        window.myDisplayName = (prof && prof.displayName) || window.myDisplayName || tag;
+        const status = document.getElementById('accountModalStatusText');
+        if (status) status.innerText = `Signed in as ${window.myDisplayName} (@${tag})`;
+        const uidBox = document.getElementById('myUidText');
+        if (uidBox) uidBox.innerText = user.uid;
+    } else {
+        window.isAppAdmin = false; window.isBanned = false;
+        document.getElementById('adminPanelItem') && document.getElementById('adminPanelItem').classList.add('hidden');
+        document.getElementById('bannedBanner') && document.getElementById('bannedBanner').classList.add('hidden');
+    }
+    await window._baseAfterAuthChange(user);
+    window.loadAllProfiles && window.loadAllProfiles();
+};
+
+window.copyMyUid = async function() {
+    const uid = window.currentUser && window.currentUser.uid;
+    if (!uid) return;
+    try { await navigator.clipboard.writeText(uid); showToast('📋 User ID copied'); } catch (e) { showToast(uid); }
+};
+
+// Verified badge (given by admins)
+window._baseGetProfileBadges = window._baseGetProfileBadges || window.getProfileBadges;
+window.getProfileBadges = function(username) {
+    const p = window.profileFor ? window.profileFor(username) : null;
+    const v = p && p.verified ? '<span class="text-[9px] text-sky-400" title="Verified"><i class="fa-solid fa-circle-check"></i></span> ' : '';
+    return v + window._baseGetProfileBadges(username);
+};
+
+// ---------- Admin panel ----------
+window.adminTab = 'reports';
+window.openAdminPanel = function() {
+    if (!window.isAppAdmin) { showToast("Admins only."); return; }
+    document.getElementById('adminModal').classList.remove('hidden');
+    window.setAdminTab(window.adminTab);
+};
+window.closeAdminPanel = function() { document.getElementById('adminModal').classList.add('hidden'); };
+window.setAdminTab = function(tab) {
+    window.adminTab = tab;
+    document.querySelectorAll('[data-admintab]').forEach(b => {
+        b.className = `flex-1 py-2 text-xs font-black border-b-2 ${b.dataset.admintab === tab ? 'text-white border-cyan-400' : 'text-gray-500 border-transparent'}`;
+    });
+    ({ reports: window.renderAdminReports, users: window.renderAdminUsers, stats: window.renderAdminStats })[tab]();
+};
+
+window.renderAdminReports = async function() {
+    const box = document.getElementById('adminBody');
+    box.innerHTML = `<p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Loading reports…</p>`;
+    let reports = [];
+    try { const s = await getDocs(query(collection(window.db, 'reports'), limit(300))); s.forEach(d => reports.push({ id: d.id, ...d.data() })); }
+    catch (e) { box.innerHTML = `<p class="text-xs text-red-400 text-center py-8">Couldn't load reports. Did you publish the new rules?</p>`; return; }
+    const groups = {};
+    reports.forEach(r => { (groups[r.postId] = groups[r.postId] || []).push(r); });
+    const ids = Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length);
+    if (!ids.length) { box.innerHTML = `<div class="text-center py-14"><i class="fa-solid fa-shield-heart text-3xl text-emerald-400"></i><p class="text-xs text-gray-400 mt-2">No reports. All clean! 🎉</p></div>`; return; }
+    const cards = [];
+    for (const id of ids) {
+        let p = window.findPost(id);
+        if (!p) { try { const s = await getDoc(doc(window.db, 'posts', id)); if (s.exists()) p = { id, docId: id, ...s.data() }; } catch (e) {} }
+        const reasons = {};
+        groups[id].forEach(r => { reasons[r.reason] = (reasons[r.reason] || 0) + 1; });
+        cards.push(`
+            <div class="glass-panel rounded-2xl p-3 space-y-2 border border-red-500/30">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-black text-red-400">🚩 ${groups[id].length} report${groups[id].length === 1 ? '' : 's'}</span>
+                    <span class="text-[10px] text-gray-400">${Object.entries(reasons).map(([k, v]) => `${escapeHTML(k)} ×${v}`).join(' · ')}</span>
+                </div>
+                ${p ? `<div class="text-xs text-gray-200"><b class="text-white">${window.dn(p.user)}</b> <span class="text-gray-500">@${escapeHTML(p.user)}</span><p class="mt-1 line-clamp-3">${escapeHTML(p.caption || '(photo/video post)')}</p></div>` : `<p class="text-xs text-gray-500">Post already deleted.</p>`}
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    ${p ? `<button onclick="window.closeAdminPanel(); window.openPostDetail('${id}')" class="py-2 rounded-xl bg-gg-900 text-gray-200 text-[11px] font-bold">👁 View post</button>` : ''}
+                    <button onclick="window.adminDismissReports('${id}')" class="py-2 rounded-xl bg-gg-900 text-emerald-400 text-[11px] font-bold">✓ Keep post</button>
+                    ${p ? `<button onclick="window.adminRemovePost('${id}')" class="py-2 rounded-xl bg-red-600/20 text-red-400 text-[11px] font-bold">🗑 Remove post</button>` : ''}
+                    ${p && p.uid ? `<button onclick="window.adminBan('${p.uid}', '${escapeHTML(p.user)}')" class="py-2 rounded-xl bg-red-600 text-white text-[11px] font-bold">🚫 Ban @${escapeHTML(p.user)}</button>` : ''}
+                </div>
+            </div>`);
+    }
+    box.innerHTML = cards.join('');
+};
+
+window.adminDeleteReportsFor = async function(postId) {
+    try {
+        const s = await getDocs(query(collection(window.db, 'reports'), where('postId', '==', postId), limit(300)));
+        const jobs = []; s.forEach(d => jobs.push(deleteDoc(doc(window.db, 'reports', d.id))));
+        await Promise.all(jobs);
+    } catch (e) {}
+};
+window.adminDismissReports = async function(postId) {
+    try { await updateDoc(doc(window.db, 'posts', postId), { reportsCount: 0 }); } catch (e) {}
+    await window.adminDeleteReportsFor(postId);
+    showToast('✓ Post kept, reports cleared.'); window.renderAdminReports();
+};
+window.adminRemovePost = async function(postId) {
+    const ok = await window.sgConfirm('This post will be deleted for everyone.', { title: 'Remove post?', okText: 'Remove', danger: true });
+    if (!ok) return;
+    try { await deleteDoc(doc(window.db, 'posts', postId)); } catch (e) { showToast("⚠️ Couldn't delete. Check rules."); return; }
+    window.fypposts = (window.fypposts || []).filter(p => (p.docId || p.id) !== postId);
+    await window.adminDeleteReportsFor(postId);
+    window.renderFypFeed(); showToast('🗑 Post removed.'); window.renderAdminReports();
+};
+window.adminBan = async function(uid, tag) {
+    const ok = await window.sgConfirm(`@${tag} won't be able to post, reply, chat, follow or message anyone. You can unban them later.`, { title: `Ban @${tag}?`, okText: 'Ban', danger: true });
+    if (!ok) return;
+    try { await setDoc(doc(window.db, 'banned', uid), { tag, by: window.me(), createdAt: serverTimestamp() }); showToast(`🚫 @${tag} banned.`); }
+    catch (e) { showToast("⚠️ Couldn't ban. Check rules."); }
+    if (window.adminTab === 'users') window.renderAdminUsers(); else window.renderAdminReports();
+};
+window.adminUnban = async function(uid, tag) {
+    try { await deleteDoc(doc(window.db, 'banned', uid)); showToast(`@${tag} unbanned.`); } catch (e) {}
+    window.renderAdminUsers();
+};
+window.adminToggleVerify = async function(tag, on) {
+    try {
+        await updateDoc(doc(window.db, 'profiles', tag.toLowerCase()), { verified: on });
+        if (window.allProfilesMap[tag.toLowerCase()]) window.allProfilesMap[tag.toLowerCase()].verified = on;
+        showToast(on ? `✔ @${tag} verified!` : `Removed verification from @${tag}.`);
+    } catch (e) { showToast("⚠️ Couldn't update. Check rules."); }
+    window.renderAdminUsers(); window.renderFypFeed();
+};
+
+window.renderAdminUsers = async function() {
+    const box = document.getElementById('adminBody');
+    const q = (document.getElementById('adminUserSearch') || {}).value || '';
+    let banned = {};
+    try { const s = await getDocs(query(collection(window.db, 'banned'), limit(500))); s.forEach(d => banned[d.id] = d.data()); } catch (e) {}
+    await window.loadAllProfiles();
+    const list = Object.values(window.allProfilesMap)
+        .filter(p => !q || (p.gamertag || '').toLowerCase().includes(q.toLowerCase()) || (p.displayName || '').toLowerCase().includes(q.toLowerCase()))
+        .sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''))
+        .slice(0, 200);
+    box.innerHTML = `
+        <input id="adminUserSearch" value="${escapeHTML(q)}" oninput="clearTimeout(window._aus); window._aus = setTimeout(window.renderAdminUsers, 350)" placeholder="Search name or @gamertag…" class="w-full bg-gg-900 border border-cyan-500/30 rounded-full px-4 py-2.5 text-sm text-white focus:outline-none mb-2">
+        <p class="text-[10px] text-gray-500 mb-1">${Object.keys(window.allProfilesMap).length} gamers · ${Object.keys(banned).length} banned</p>
+        ${list.map(p => `
+            <div class="flex items-center justify-between p-2.5 rounded-xl bg-gg-900/60 border border-cyan-500/10">
+                <div class="flex items-center space-x-2 min-w-0">
+                    ${window.avatarHtml(p.gamertag, 'w-9 h-9', 'rounded-xl', 'text-[10px]')}
+                    <div class="min-w-0"><p class="text-xs font-bold text-white truncate">${escapeHTML(p.displayName || p.gamertag)} ${p.verified ? '<i class="fa-solid fa-circle-check text-sky-400"></i>' : ''}</p><p class="text-[10px] text-gray-500">@${escapeHTML(p.gamertag)}</p></div>
+                </div>
+                <div class="flex space-x-1.5 shrink-0">
+                    <button onclick="window.adminToggleVerify('${escapeHTML(p.gamertag)}', ${!p.verified})" class="px-2 py-1.5 rounded-lg text-[10px] font-bold ${p.verified ? 'bg-gg-800 text-gray-300' : 'bg-sky-500/20 text-sky-400'}">${p.verified ? 'Unverify' : '✔ Verify'}</button>
+                    ${banned[p.uid] ? `<button onclick="window.adminUnban('${p.uid}', '${escapeHTML(p.gamertag)}')" class="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-emerald-500/20 text-emerald-400">Unban</button>`
+                                    : (p.uid !== window.currentUser.uid ? `<button onclick="window.adminBan('${p.uid}', '${escapeHTML(p.gamertag)}')" class="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-red-600/20 text-red-400">Ban</button>` : '')}
+                </div>
+            </div>`).join('')}`;
+    const inp = document.getElementById('adminUserSearch');
+    if (inp && q) { inp.focus(); inp.setSelectionRange(q.length, q.length); }
+};
+
+window.renderAdminStats = async function() {
+    const box = document.getElementById('adminBody');
+    box.innerHTML = `<p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Counting…</p>`;
+    const count = async (q) => { try { return (await getCountFromServer(q)).data().count; } catch (e) { return '–'; } };
+    const day = new Date(Date.now() - 86400000), week = new Date(Date.now() - 7 * 86400000);
+    const [users, posts, posts24, posts7, squads, tourns, reports, banned] = await Promise.all([
+        count(collection(window.db, 'profiles')), count(collection(window.db, 'posts')),
+        count(query(collection(window.db, 'posts'), where('createdAt', '>=', day))), count(query(collection(window.db, 'posts'), where('createdAt', '>=', week))),
+        count(collection(window.db, 'squads')), count(collection(window.db, 'tournaments')),
+        count(collection(window.db, 'reports')), count(collection(window.db, 'banned'))
+    ]);
+    const tile = (label, v, color = 'text-white') => `<div class="glass-panel rounded-2xl p-3 border border-cyan-500/15"><p class="text-2xl font-black ${color}">${typeof v === 'number' ? window.formatCount(v) : v}</p><p class="text-[10px] text-gray-400 font-bold uppercase">${label}</p></div>`;
+    box.innerHTML = `<div class="grid grid-cols-2 gap-2">
+        ${tile('Gamers', users, 'text-cyan-400')}${tile('Posts total', posts)}
+        ${tile('Posts today', posts24, 'text-emerald-400')}${tile('Posts this week', posts7)}
+        ${tile('Squads', squads)}${tile('Tournaments', tourns, 'text-amber-400')}
+        ${tile('Open reports', reports, 'text-red-400')}${tile('Banned', banned)}
+    </div>`;
+};
+
+// ---------- Lobby: real shared chat ----------
+window.lobbyUnsub = null;
+window.listenToLobby = function() {
+    if (window.lobbyUnsub || !window.db) return;
+    window.lobbyUnsub = onSnapshot(query(collection(window.db, 'lobbyMessages'), orderBy('createdAt', 'desc'), limit(120)), (snap) => {
+        const msgs = [];
+        snap.forEach(d => msgs.unshift({ id: d.id, ...d.data() }));
+        window.renderLobby(msgs);
+    }, (e) => console.warn('Lobby:', e));
+};
+window.renderLobby = function(msgs) {
+    const box = document.getElementById('chatMessagesBox');
+    if (!box) return;
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    const list = msgs.filter(m => !window.isBlocked(m.user));
+    if (!list.length) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Say hi to everyone on Sinless GG 👋</p>`; return; }
+    const uid = window.currentUser && window.currentUser.uid;
+    box.innerHTML = list.map(m => `
+        <div class="flex space-x-2.5 group">
+            ${window.avatarHtml(m.user, 'w-8 h-8', 'rounded-xl', 'text-[10px]')}
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center space-x-2">${window.nameLink(m.user, 'text-xs font-bold text-white')}<span class="text-[9px] text-gray-500">${m.createdAt ? window.timeAgo(window.postTimeValue(m)) : 'now'}</span>
+                    ${(m.uid === uid || window.isAppAdmin) ? `<button onclick="window.deleteLobbyMessage('${m.id}')" class="text-[10px] text-gray-600 hover:text-red-400 ml-auto"><i class="fa-solid fa-trash"></i></button>` : ''}</div>
+                <p class="text-sm text-gray-200 whitespace-pre-wrap break-words">${formatMentions(m.text || '')}</p>
+            </div>
+        </div>`).join('');
+    if (atBottom || !window._lobbyScrolled) { box.scrollTop = box.scrollHeight; window._lobbyScrolled = true; }
+};
+window.sendChatMessage = async function() {
+    const input = document.getElementById('chatInputMsg');
+    const text = (input.value || '').trim();
+    if (!text || window.needSignIn('chat in the lobby')) return;
+    input.value = '';
+    try {
+        await addDoc(collection(window.db, 'lobbyMessages'), { user: window.me(), uid: window.currentUser.uid, text: text.slice(0, 500), createdAt: serverTimestamp() });
+        window.notifyMentions(text, null, 'the lobby');
+    } catch (e) { showToast("⚠️ Message not sent."); }
+};
+window.deleteLobbyMessage = async function(id) {
+    try { await deleteDoc(doc(window.db, 'lobbyMessages', id)); } catch (e) { showToast("Couldn't delete."); }
+};
+window.toggleVoiceLobbyConnection = function() { showToast("🎙️ Voice rooms are coming soon."); };
+
+// ---------- Phone alerts (while the app is open or in the background) ----------
+window.alertsEnabled = function() { return 'Notification' in window && Notification.permission === 'granted'; };
+window.setupPushNotifications = async function() {
+    if (!('Notification' in window)) { showToast("This browser doesn't support alerts. Try installing the app."); return; }
+    if (window.detectPlatform && window.detectPlatform().startsWith('ios') && !window.isStandalone()) {
+        window.sgConfirm('On iPhone, alerts only work after you install the app: Share → Add to Home Screen, then open it from your home screen and turn alerts on.', { title: '📲 Install first', okText: 'OK', cancelText: 'Close' });
+        return;
+    }
+    const perm = await Notification.requestPermission();
+    showToast(perm === 'granted' ? "🔔 Phone alerts on!" : "Alerts are off. You can allow them in your browser settings.");
+};
+window.phoneAlert = async function(title, body, tag) {
+    if (!window.alertsEnabled() || document.visibilityState === 'visible') return;
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        reg.showNotification(title, { body, tag, icon: 'icon-192.png', badge: 'icon-192.png', data: { url: location.href.split('#')[0] } });
+    } catch (e) { try { new Notification(title, { body, icon: 'icon-192.png' }); } catch (err) {} }
+};
+// Watch new notifications and turn them into phone alerts when the app isn't on screen
+window._seenNotifIds = null;
+window._baseUpdateNotifBadge = window._baseUpdateNotifBadge || window.updateNotifBadge;
+window.updateNotifBadge = function() {
+    window._baseUpdateNotifBadge();
+    const ids = new Set(window.notifList.map(n => n.id));
+    if (window._seenNotifIds) {
+        window.notifList.filter(n => !n.read && !window._seenNotifIds.has(n.id) && !window.isBlocked(n.fromUser)).slice(0, 3).forEach(n => {
+            const who = window.dnText(n.fromUser);
+            window.phoneAlert(n.type === 'dm' ? `💬 ${who}` : 'Sinless GG', n.type === 'dm' ? (n.text || 'sent you a message') : `${who} ${window.notifText(n)}`, n.id);
+        });
+    }
+    window._seenNotifIds = ids;
+};
+
+// Lobby starts listening when you open it
+window._baseSwitchView13 = window._baseSwitchView13 || window.switchView;
+window.switchView = function(v) {
+    window._baseSwitchView13(v);
+    if (v === 'chat') window.listenToLobby();
+};
+
+// ======================================================================
+// v13: DISCORD-STYLE SQUADS
+// Owner = full control. Admins = moderate (mute, kick, ban, delete, pin, channels).
+// Channels live in categories; some are "admins post only", some are a private staff room.
+// ======================================================================
+
+window.DEFAULT_CHANNELS = [
+    { name: 'rules', category: 'INFO', adminOnly: true },
+    { name: 'announcements', category: 'INFO', adminOnly: true },
+    { name: 'chat', category: 'TEXT CHANNELS' },
+    { name: 'tactics', category: 'TEXT CHANNELS' },
+    { name: 'highlights', category: 'TEXT CHANNELS' },
+    { name: 'results', category: 'RESULTS', adminOnly: true },
+    { name: 'staff-room', category: 'STAFF', staff: true }
+];
+
+window.squadChannels = function(sq) {
+    if (Array.isArray(sq.channels) && sq.channels.length) return sq.channels;
+    // older squads: build channels from their old room list
+    return (sq.subRooms || ['Rules/Announcements', 'chat']).filter(r => r !== 'Matchmaking').map(r =>
+        r === 'Rules/Announcements' ? { name: r, category: 'INFO', adminOnly: true } : { name: r, category: 'TEXT CHANNELS' });
+};
+window.channelOf = function(sq, name) { return window.squadChannels(sq).find(c => c.name === name) || null; };
+
+window.uidNow = function() { return window.currentUser ? window.currentUser.uid : null; };
+window.isSquadOwner = function(sq) {
+    if (!sq || !window.currentUser) return false;
+    if (window.isAppAdmin) return true;
+    return sq.ownerUid ? sq.ownerUid === window.uidNow() : (sq.owner || sq.leader || '').toLowerCase() === window.meLower();
+};
+window.isSquadAdmin = function(sq) {
+    if (!sq || !window.currentUser) return false;
+    return window.isSquadOwner(sq) || (sq.adminUids || []).includes(window.uidNow());
+};
+window.isSquadBanned = function(sq) { return !!(window.currentUser && (sq.bannedUids || []).includes(window.uidNow())); };
+window.mutedUntilMe = function(sq) { const t = (sq.mutedUntil || {})[window.uidNow()] || 0; return t > Date.now() ? t : 0; };
+window.roleOf = function(sq, tag, uid) {
+    const t = (tag || '').toLowerCase();
+    if ((sq.ownerUid && uid && sq.ownerUid === uid) || (sq.owner || sq.leader || '').toLowerCase() === t) return 'owner';
+    if ((uid && (sq.adminUids || []).includes(uid)) || (sq.admins || []).some(a => (a || '').toLowerCase() === t)) return 'admin';
+    return 'member';
+};
+window.roleBadge = function(role) {
+    return role === 'owner' ? '<span class="text-[9px] text-amber-400 ml-1" title="Owner">👑</span>' : role === 'admin' ? '<span class="text-[9px] text-cyan-400 ml-1" title="Admin">🛡️</span>' : '';
+};
+
+// ---------- Open a squad ----------
+window.openSquadDetailsModal = function(squadId) {
+    const sq = window.clansData.find(c => c.id === squadId);
+    if (!sq) return;
+    window.activeSquadDetails = sq;
+    sq.rooms = sq.rooms || {};
+    window.activeSquadRooms = {};
+    const chans = window.squadChannels(sq);
+    window.activeSquadSubRoom = chans.some(c => c.name === 'chat') ? 'chat' : (chans.find(c => !c.staff) || chans[0] || { name: 'chat' }).name;
+    document.getElementById('squadDetailsModal').classList.remove('hidden');
+    window.renderSquadHeader();
+    window.renderSquadChannel();
+    window.listenToSquadMessages(sq);
+};
+
+window.closeSquadDetailsModal = function() {
+    if (window.squadMsgUnsub) { window.squadMsgUnsub(); window.squadMsgUnsub = null; }
+    if (window.squadStaffUnsub) { window.squadStaffUnsub(); window.squadStaffUnsub = null; }
+    document.getElementById('squadDetailsModal').classList.add('hidden');
+    ['squadChannelSheet', 'squadSettingsSheet'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    window.activeSquadDetails = null;
+};
+
+window.renderSquadHeader = function() {
+    const sq = window.activeSquadDetails;
+    if (!sq) return;
+    document.getElementById('squadDetailTitle').innerHTML = `${escapeHTML(sq.name)} <span class="text-cyan-400">[${escapeHTML(sq.tag || '')}]</span>${!sq.isPublic ? ' <i class="fa-solid fa-lock text-[10px] text-gray-400"></i>' : ''}`;
+    document.getElementById('squadDetailLeader').innerText = `${(sq.members || []).length} member${(sq.members || []).length === 1 ? '' : 's'} · ${window.dnText(sq.owner || sq.leader || 'Owner')} 👑`;
+    document.getElementById('squadSettingsBtn').classList.toggle('hidden', !window.isSquadAdmin(sq));
+    document.getElementById('hostSquadTournamentBtn').classList.toggle('hidden', !window.isSquadAdmin(sq));
+    const ch = window.activeSquadSubRoom;
+    const chan = window.channelOf(sq, ch);
+    const icon = ch === 'Members' ? '👥' : ch === 'Matchmaking' ? '⚔️' : chan && chan.staff ? '🔒' : chan && chan.adminOnly ? '📢' : '#';
+    document.getElementById('squadSubRoomsNav').innerHTML = `
+        <button onclick="window.openChannelSheet()" class="flex items-center space-x-2 px-3 py-2 rounded-xl bg-gg-900 border border-cyan-500/25 text-sm font-bold text-white min-w-0 flex-1">
+            <i class="fa-solid fa-bars text-gray-400 text-xs"></i><span class="truncate">${icon} ${escapeHTML(ch === 'Rules/Announcements' ? 'rules' : ch)}</span><i class="fa-solid fa-chevron-down text-[10px] text-gray-500 ml-auto"></i>
+        </button>
+        <button onclick="window.switchSquadSubRoom('Members')" class="px-3 py-2 rounded-xl text-xs font-bold ${ch === 'Members' ? 'bg-cyan-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'}">👥</button>
+        <button onclick="window.switchSquadSubRoom('Matchmaking')" class="px-3 py-2 rounded-xl text-xs font-bold ${ch === 'Matchmaking' ? 'bg-cyan-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'}">⚔️</button>`;
+};
+
+window.switchSquadSubRoom = function(room) {
+    window.activeSquadSubRoom = room;
+    document.getElementById('squadChannelSheet').classList.add('hidden');
+    window.renderSquadHeader();
+    window.renderSquadChannel();
+};
+
+// ---------- Channel list (Discord-style sheet) ----------
+window.openChannelSheet = function() {
+    const sq = window.activeSquadDetails;
+    if (!sq) return;
+    const admin = window.isSquadAdmin(sq);
+    const groups = {};
+    window.squadChannels(sq).forEach(c => { if (c.staff && !admin) return; (groups[c.category || 'TEXT CHANNELS'] = groups[c.category || 'TEXT CHANNELS'] || []).push(c); });
+    document.getElementById('squadChannelList').innerHTML = Object.entries(groups).map(([cat, list]) => `
+        <div class="pt-2">
+            <p class="text-[10px] font-black text-gray-500 tracking-wider px-2 pb-1">${escapeHTML(cat)}</p>
+            ${list.map(c => `
+                <div class="flex items-center rounded-xl ${window.activeSquadSubRoom === c.name ? 'bg-gg-800' : ''}">
+                    <button onclick="window.switchSquadSubRoom('${escapeHTML(c.name)}')" class="flex-1 text-left px-3 py-2.5 text-sm font-bold ${window.activeSquadSubRoom === c.name ? 'text-white' : 'text-gray-300'}">
+                        <span class="text-gray-500 mr-1.5">${c.staff ? '🔒' : c.adminOnly ? '📢' : '#'}</span>${escapeHTML(c.name === 'Rules/Announcements' ? 'rules' : c.name)}
+                    </button>
+                    ${admin ? `<button onclick="window.editChannel('${escapeHTML(c.name)}')" class="px-3 text-gray-500 hover:text-white"><i class="fa-solid fa-gear text-xs"></i></button>` : ''}
+                </div>`).join('')}
+        </div>`).join('') + (admin ? `
+        <button onclick="window.editChannel(null)" class="w-full mt-3 py-2.5 rounded-xl border border-dashed border-cyan-500/40 text-cyan-400 text-xs font-black">+ Create channel</button>` : '');
+    document.getElementById('squadChannelSheet').classList.remove('hidden');
+};
+
+// Create or edit a channel (name, category, admins-only posting, private staff room)
+window.editChannel = function(name) {
+    const sq = window.activeSquadDetails;
+    const c = name ? window.channelOf(sq, name) : { name: '', category: 'TEXT CHANNELS' };
+    const cats = [...new Set([...window.squadChannels(sq).map(x => x.category || 'TEXT CHANNELS'), 'INFO', 'TEXT CHANNELS', 'RESULTS', 'STAFF'])];
+    document.getElementById('channelEditTitle').innerText = name ? `Edit #${name}` : 'Create channel';
+    document.getElementById('channelNameInput').value = c.name === 'Rules/Announcements' ? 'rules' : (c.name || '');
+    document.getElementById('channelNameInput').dataset.original = name || '';
+    document.getElementById('channelCategoryInput').value = c.category || 'TEXT CHANNELS';
+    document.getElementById('channelCategoryList').innerHTML = cats.map(x => `<option value="${escapeHTML(x)}">`).join('');
+    document.getElementById('channelAdminOnly').checked = !!c.adminOnly;
+    document.getElementById('channelStaff').checked = !!c.staff;
+    document.getElementById('channelDeleteBtn').classList.toggle('hidden', !name);
+    document.getElementById('channelEditSheet').classList.remove('hidden');
+};
+window.closeChannelEdit = function() { document.getElementById('channelEditSheet').classList.add('hidden'); };
+
+window.saveChannel = async function() {
+    const sq = window.activeSquadDetails;
+    const inp = document.getElementById('channelNameInput');
+    const original = inp.dataset.original;
+    const name = inp.value.trim().toLowerCase().replace(/[^a-z0-9\- _]/g, '').replace(/\s+/g, '-').slice(0, 24);
+    if (!name) { showToast('Give the channel a name.'); return; }
+    const category = (document.getElementById('channelCategoryInput').value || 'TEXT CHANNELS').trim().toUpperCase().slice(0, 20);
+    const staff = document.getElementById('channelStaff').checked;
+    const adminOnly = document.getElementById('channelAdminOnly').checked && !staff;
+    let chans = window.squadChannels(sq).map(c => ({ ...c }));
+    if (!original && chans.some(c => c.name === name)) { showToast('That channel already exists.'); return; }
+    const keepName = original === 'Rules/Announcements' && name === 'rules' ? original : name;
+    const entry = { name: keepName, category, ...(adminOnly ? { adminOnly: true } : {}), ...(staff ? { staff: true } : {}) };
+    chans = original ? chans.map(c => c.name === original ? entry : c) : [...chans, entry];
+    await window.saveSquadChannels(sq, chans, original ? `#${keepName} updated.` : `#${keepName} created!`);
+    window.closeChannelEdit();
+    window.switchSquadSubRoom(keepName);
+};
+
+window.deleteChannel = async function() {
+    const sq = window.activeSquadDetails;
+    const name = document.getElementById('channelNameInput').dataset.original;
+    if (!name) return;
+    if (window.squadChannels(sq).filter(c => !c.staff).length <= 1) { showToast('A squad needs at least one channel.'); return; }
+    const ok = await window.sgConfirm(`#${name} will be removed from the channel list.`, { title: 'Delete channel?', okText: 'Delete', danger: true });
+    if (!ok) return;
+    const chans = window.squadChannels(sq).filter(c => c.name !== name);
+    await window.saveSquadChannels(sq, chans, `#${name} deleted.`);
+    window.closeChannelEdit();
+    window.switchSquadSubRoom((chans.find(c => c.name === 'chat') || chans[0]).name);
+};
+
+window.saveSquadChannels = async function(sq, chans, msg) {
+    sq.channels = chans;
+    sq.subRooms = chans.map(c => c.name);
+    sq.adminOnlyRooms = chans.filter(c => c.adminOnly).map(c => c.name);
+    await window.updateSquadCloud(sq, { channels: chans, subRooms: sq.subRooms, adminOnlyRooms: sq.adminOnlyRooms }, msg);
+    window.openChannelSheet && document.getElementById('squadChannelSheet').classList.contains('hidden') || window.openChannelSheet();
+};
+
+// ---------- Live messages (normal channels + private staff room) ----------
+window.listenToSquadMessages = function(sq) {
+    if (window.squadMsgUnsub) { window.squadMsgUnsub(); window.squadMsgUnsub = null; }
+    if (window.squadStaffUnsub) { window.squadStaffUnsub(); window.squadStaffUnsub = null; }
+    if (!window.db || !window.cloudSquadIds.has(sq.id)) return;
+    const collect = (snap, staff) => {
+        const now = Date.now();
+        const rooms = {};
+        snap.forEach(d => {
+            const m = { id: d.id, staff, ...d.data() };
+            if (window.isBlocked(m.sender)) return;
+            if (m.isImage && now - (m.timestamp || 0) > 86400000) return;
+            (rooms[m.room] = rooms[m.room] || []).unshift(m);
+        });
+        return rooms;
+    };
+    let normal = {}, staffRooms = {};
+    const merge = () => {
+        sq.rooms = { ...normal, ...staffRooms };
+        if (window.activeSquadDetails && window.activeSquadDetails.id === sq.id) {
+            window.activeSquadRooms = sq.rooms;
+            window.activeSquadDetails.rooms = sq.rooms;
+            if (!['Members', 'Matchmaking'].includes(window.activeSquadSubRoom)) window.renderSquadChannel();
+        }
+    };
+    window.squadMsgUnsub = onSnapshot(query(collection(window.db, 'squads', sq.id, 'messages'), orderBy('createdAt', 'desc'), limit(300)),
+        (snap) => { normal = collect(snap, false); merge(); },
+        (e) => { if (e && e.code === 'permission-denied') { normal = {}; merge(); } });
+    if (window.isSquadAdmin(sq)) {
+        window.squadStaffUnsub = onSnapshot(query(collection(window.db, 'squads', sq.id, 'staff'), orderBy('createdAt', 'desc'), limit(200)),
+            (snap) => { staffRooms = collect(snap, true); merge(); }, () => {});
+    }
+};
+
+// ---------- Draw the current channel ----------
+window.renderSquadChannel = function() {
+    const sq = window.activeSquadDetails;
+    if (!sq) return;
+    const room = window.activeSquadSubRoom;
+    const box = document.getElementById('squadRoomMsgsBox');
+    const input = document.getElementById('squadInputContainer');
+    const lock = document.getElementById('squadLockedBar');
+    const pinnedBar = document.getElementById('squadPinnedBar');
+    const showLock = (html) => { input.style.display = 'none'; lock.innerHTML = html; lock.classList.remove('hidden'); };
+    lock.classList.add('hidden'); input.style.display = 'flex'; pinnedBar.classList.add('hidden');
+
+    if (room === 'Members') { input.style.display = 'none'; window.renderSquadMembers(); return; }
+    if (room === 'Matchmaking') { input.style.display = 'none'; window.renderSquadMatchmaking(); return; }
+
+    const chan = window.channelOf(sq, room) || { name: room };
+    const member = window.isSquadMember(sq);
+    const admin = window.isSquadAdmin(sq);
+
+    if (chan.staff && !admin) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">🔒 Staff only.</p>`; input.style.display = 'none'; return; }
+    if (!sq.isPublic && !member && !admin) {
+        box.innerHTML = `<div class="text-center py-12 space-y-2"><i class="fa-solid fa-lock text-3xl text-cyan-400/70"></i><p class="text-sm font-bold text-white">Private squad</p><p class="text-xs text-gray-400">Join with an invite code to read and chat.</p></div>`;
+        showLock(`🔒 Private squad <button onclick="window.toggleSquadMembership('${sq.id}')" class="ml-2 px-3 py-1 bg-emerald-500 text-slate-950 rounded-lg font-black text-[10px] uppercase">Join with code</button>`);
+        return;
+    }
+
+    // pinned messages
+    const pins = (sq.pinned || []).filter(p => p.room === room);
+    if (pins.length) {
+        pinnedBar.innerHTML = `<button onclick="this.nextElementSibling.classList.toggle('hidden')" class="w-full text-left text-[11px] font-bold text-amber-300"><i class="fa-solid fa-thumbtack mr-1"></i> ${pins.length} pinned message${pins.length === 1 ? '' : 's'}</button>
+            <div class="hidden mt-2 space-y-1.5">${pins.map(p => `<div class="text-xs text-gray-200 bg-gg-950 rounded-lg px-2.5 py-1.5"><b class="text-white">${window.dn(p.sender)}:</b> ${escapeHTML(p.text || '📷 Photo')}</div>`).join('')}</div>`;
+        pinnedBar.classList.remove('hidden');
+    }
+
+    const rooms = window.activeSquadRooms || sq.rooms || {};
+    const msgs = rooms[room] || [];
+    if (!msgs.length) {
+        box.innerHTML = `<div class="text-center py-12"><p class="text-3xl">${chan.staff ? '🔒' : chan.adminOnly ? '📢' : '👋'}</p><p class="text-sm font-bold text-white mt-1">Welcome to #${escapeHTML(room === 'Rules/Announcements' ? 'rules' : room)}</p><p class="text-xs text-gray-400">${chan.staff ? 'Private room for the owner and admins.' : chan.adminOnly ? 'Only admins can post here.' : 'This is the start of the channel.'}</p></div>`;
+    } else {
+        let prev = null;
+        box.innerHTML = msgs.map(m => {
+            const role = window.roleOf(sq, m.sender, m.senderUid);
+            const compact = prev && prev.sender === m.sender && (m.timestamp || 0) - (prev.timestamp || 0) < 5 * 60000;
+            prev = m;
+            const body = m.isImage
+                ? `<img src="${window.cldSized(m.imageUrl, 600)}" class="mt-1 max-h-60 rounded-xl object-contain bg-black cursor-pointer" onclick="event.stopPropagation(); window.openMediaZoomModal('image', '${m.imageUrl}')"><p class="text-[9px] text-gray-500 mt-0.5">📷 disappears after 24h</p>`
+                : `<p class="text-sm text-gray-200 whitespace-pre-wrap break-words">${formatMentions(m.text || '')}</p>`;
+            const pinned = (sq.pinned || []).some(p => p.id === m.id);
+            return compact
+                ? `<div class="pl-11 pr-1 py-0.5 rounded-lg hover:bg-gg-900/40 cursor-pointer" onclick="window.openSquadMessageActions('${m.id}')">${body}</div>`
+                : `<div class="flex space-x-2.5 pt-2.5 pr-1 rounded-lg hover:bg-gg-900/40 cursor-pointer" onclick="window.openSquadMessageActions('${m.id}')">
+                       ${window.avatarHtml(m.sender, 'w-8 h-8', 'rounded-full', 'text-[10px]')}
+                       <div class="flex-1 min-w-0">
+                           <div class="flex items-center">${window.nameLink(m.sender, `text-xs font-bold ${role === 'owner' ? 'text-amber-300' : role === 'admin' ? 'text-cyan-300' : 'text-white'}`)}${window.roleBadge(role)}<span class="text-[9px] text-gray-500 ml-2">${m.timestamp ? window.timeAgo(m.timestamp) : ''}</span>${pinned ? '<i class="fa-solid fa-thumbtack text-[9px] text-amber-400 ml-1.5"></i>' : ''}</div>
+                           ${body}
+                       </div>
+                   </div>`;
+        }).join('');
+        box.scrollTop = box.scrollHeight;
+    }
+
+    // who can type here?
+    if (window.isSquadBanned(sq)) return showLock('🚫 You were banned from this squad.');
+    if (!member && !admin) return showLock(`Join ${escapeHTML(sq.name)} to chat <button onclick="window.toggleSquadMembership('${sq.id}')" class="ml-2 px-3 py-1 bg-emerald-500 text-slate-950 rounded-lg font-black text-[10px] uppercase">Join</button>`);
+    const mutedTill = window.mutedUntilMe(sq);
+    if (mutedTill && !admin) return showLock(`🔇 You're muted until ${new Date(mutedTill).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}.`);
+    if (chan.adminOnly && !admin) return showLock(`📢 Only admins can post in #${escapeHTML(room === 'Rules/Announcements' ? 'rules' : room)}. <button onclick="window.switchSquadSubRoom('chat')" class="underline text-cyan-400 ml-1">Go to #chat</button>`);
+    document.getElementById('squadSubRoomInput').placeholder = `Message #${room === 'Rules/Announcements' ? 'rules' : room}`;
+};
+
+// ---------- Sending ----------
+window.sendSquadMessage = async function(payload) {
+    const sq = window.activeSquadDetails;
+    const room = window.activeSquadSubRoom;
+    if (!sq || !room || window.needSignIn('chat in squads')) return;
+    const admin = window.isSquadAdmin(sq);
+    const chan = window.channelOf(sq, room) || {};
+    if (window.isSquadBanned(sq)) { showToast("You're banned from this squad."); return; }
+    if (!window.isSquadMember(sq) && !admin) { showToast("Join this squad first."); return; }
+    if (window.mutedUntilMe(sq) && !admin) { showToast("🔇 You're muted."); return; }
+    if (chan.adminOnly && !admin) { showToast("Only admins can post here."); return; }
+    if (!(sq.memberUids || []).includes(window.uidNow())) {
+        try { await updateDoc(doc(window.db, 'squads', sq.id), { memberUids: arrayUnion(window.uidNow()), members: arrayUnion(window.me()) }); sq.memberUids = [...(sq.memberUids || []), window.uidNow()]; } catch (e) {}
+    }
+    const msg = { room, sender: window.me(), senderUid: window.uidNow(), timestamp: Date.now(), ...payload };
+    window.activeSquadRooms = window.activeSquadRooms || sq.rooms || {};
+    (window.activeSquadRooms[room] = window.activeSquadRooms[room] || []).push({ ...msg, id: 'tmp' + Date.now() });
+    window.renderSquadChannel();
+    try {
+        await addDoc(collection(window.db, 'squads', sq.id, chan.staff ? 'staff' : 'messages'), window.cleanForCloud({ ...msg, createdAt: serverTimestamp() }));
+        if (payload.text) window.notifyMentions(payload.text, null, `${sq.name} #${room}`);
+    } catch (e) { showToast("⚠️ Message not sent."); }
+};
+
+// ---------- Tap a message ----------
+window.findSquadMsg = function(id) {
+    const sq = window.activeSquadDetails;
+    for (const list of Object.values(window.activeSquadRooms || (sq && sq.rooms) || {})) { const m = list.find(x => x.id === id); if (m) return m; }
+    return null;
+};
+window.openSquadMessageActions = function(id) {
+    const sq = window.activeSquadDetails;
+    const m = window.findSquadMsg(id);
+    if (!sq || !m || String(id).startsWith('tmp')) return;
+    const admin = window.isSquadAdmin(sq);
+    const mine = m.senderUid === window.uidNow();
+    const targetRole = window.roleOf(sq, m.sender, m.senderUid);
+    const canModerate = admin && !mine && targetRole !== 'owner' && (window.isSquadOwner(sq) || targetRole === 'member');
+    const pinned = (sq.pinned || []).some(p => p.id === id);
+    const items = [];
+    if (m.text) items.push({ icon: 'fa-copy', label: 'Copy text', run: () => { navigator.clipboard && navigator.clipboard.writeText(m.text); showToast('Copied'); } });
+    items.push({ icon: 'fa-user', label: `View ${window.dnText(m.sender)}'s profile`, run: () => window.openUserProfileModal(m.sender) });
+    if (admin) items.push({ icon: 'fa-thumbtack', label: pinned ? 'Unpin message' : 'Pin message', run: () => window.togglePin(m) });
+    if (mine || admin) items.push({ icon: 'fa-trash', label: 'Delete message', danger: true, run: () => window.deleteSquadMessage(m) });
+    if (canModerate && m.senderUid) {
+        items.push({ icon: 'fa-volume-xmark', label: `Mute ${window.dnText(m.sender)}…`, run: () => window.openMuteMenu(m.senderUid, m.sender) });
+        items.push({ icon: 'fa-door-open', label: `Kick ${window.dnText(m.sender)}`, danger: true, run: () => window.kickMember(m.senderUid, m.sender) });
+        items.push({ icon: 'fa-ban', label: `Ban ${window.dnText(m.sender)}`, danger: true, run: () => window.banMember(m.senderUid, m.sender) });
+    }
+    window.openActionSheet(m.text ? `“${m.text.slice(0, 40)}${m.text.length > 40 ? '…' : ''}”` : 'Photo', items);
+};
+
+window.deleteSquadMessage = async function(m) {
+    const sq = window.activeSquadDetails;
+    try {
+        await deleteDoc(doc(window.db, 'squads', sq.id, m.staff ? 'staff' : 'messages', m.id));
+        if ((sq.pinned || []).some(p => p.id === m.id)) await window.updateSquadCloud(sq, { pinned: sq.pinned.filter(p => p.id !== m.id) });
+        showToast('Message deleted.');
+    } catch (e) { showToast("Couldn't delete that message."); }
+};
+
+window.togglePin = async function(m) {
+    const sq = window.activeSquadDetails;
+    const pinned = (sq.pinned || []).some(p => p.id === m.id);
+    sq.pinned = pinned ? sq.pinned.filter(p => p.id !== m.id) : [{ id: m.id, room: m.room, text: (m.text || '').slice(0, 200), sender: m.sender, at: Date.now() }, ...(sq.pinned || [])].slice(0, 25);
+    await window.updateSquadCloud(sq, { pinned: sq.pinned }, pinned ? 'Unpinned.' : '📌 Pinned!');
+    window.renderSquadChannel();
+};
+
+// ---------- Moderation ----------
+window.openMuteMenu = function(uid, tag) {
+    const set = (mins) => () => window.muteMember(uid, tag, mins);
+    window.openActionSheet(`Mute ${window.dnText(tag)}`, [
+        { icon: 'fa-clock', label: '10 minutes', run: set(10) },
+        { icon: 'fa-clock', label: '1 hour', run: set(60) },
+        { icon: 'fa-clock', label: '24 hours', run: set(1440) },
+        { icon: 'fa-clock', label: '7 days', run: set(10080) },
+        ...(((window.activeSquadDetails.mutedUntil || {})[uid] || 0) > Date.now() ? [{ icon: 'fa-volume-high', label: 'Unmute', run: set(0) }] : [])
+    ]);
+};
+window.muteMember = async function(uid, tag, mins) {
+    const sq = window.activeSquadDetails;
+    const mutedUntil = { ...(sq.mutedUntil || {}) };
+    if (mins) mutedUntil[uid] = Date.now() + mins * 60000; else delete mutedUntil[uid];
+    sq.mutedUntil = mutedUntil;
+    await window.updateSquadCloud(sq, { mutedUntil }, mins ? `🔇 ${window.dnText(tag)} muted.` : `🔊 ${window.dnText(tag)} unmuted.`);
+    window.renderSquadChannel();
+};
+window.kickMember = async function(uid, tag) {
+    const sq = window.activeSquadDetails;
+    const ok = await window.sgConfirm(`${window.dnText(tag)} will be removed from ${sq.name}. They can join again later.`, { title: 'Kick member?', okText: 'Kick', danger: true });
+    if (!ok) return;
+    sq.members = (sq.members || []).filter(m => m.toLowerCase() !== tag.toLowerCase());
+    sq.memberUids = (sq.memberUids || []).filter(u => u !== uid);
+    sq.adminUids = (sq.adminUids || []).filter(u => u !== uid);
+    sq.admins = (sq.admins || []).filter(a => a.toLowerCase() !== tag.toLowerCase());
+    const fields = { members: sq.members, memberUids: sq.memberUids };
+    if (window.isSquadOwner(sq)) { fields.adminUids = sq.adminUids; fields.admins = sq.admins; }
+    await window.updateSquadCloud(sq, fields, `👢 ${window.dnText(tag)} was kicked.`);
+    window.renderSquadHeader(); window.renderSquadChannel();
+};
+window.banMember = async function(uid, tag) {
+    const sq = window.activeSquadDetails;
+    const ok = await window.sgConfirm(`${window.dnText(tag)} will be removed and can't join ${sq.name} again unless you unban them.`, { title: 'Ban member?', okText: 'Ban', danger: true });
+    if (!ok) return;
+    sq.members = (sq.members || []).filter(m => m.toLowerCase() !== tag.toLowerCase());
+    sq.memberUids = (sq.memberUids || []).filter(u => u !== uid);
+    sq.bannedUids = [...new Set([...(sq.bannedUids || []), uid])];
+    sq.bannedNames = [...new Set([...(sq.bannedNames || []), tag])];
+    sq.adminUids = (sq.adminUids || []).filter(u => u !== uid);
+    sq.admins = (sq.admins || []).filter(a => a.toLowerCase() !== tag.toLowerCase());
+    const fields = { members: sq.members, memberUids: sq.memberUids, bannedUids: sq.bannedUids, bannedNames: sq.bannedNames };
+    if (window.isSquadOwner(sq)) { fields.adminUids = sq.adminUids; fields.admins = sq.admins; }
+    await window.updateSquadCloud(sq, fields, `🚫 ${window.dnText(tag)} banned from the squad.`);
+    window.renderSquadHeader(); window.renderSquadChannel();
+};
+window.unbanMember = async function(i) {
+    const sq = window.activeSquadDetails;
+    const uid = (sq.bannedUids || [])[i], tag = (sq.bannedNames || [])[i] || 'member';
+    sq.bannedUids = (sq.bannedUids || []).filter((_, j) => j !== i);
+    sq.bannedNames = (sq.bannedNames || []).filter((_, j) => j !== i);
+    await window.updateSquadCloud(sq, { bannedUids: sq.bannedUids, bannedNames: sq.bannedNames }, `${window.dnText(tag)} unbanned.`);
+    window.renderSquadChannel();
+};
+window.setSquadAdmin = async function(uid, tag, on) {
+    const sq = window.activeSquadDetails;
+    if (!window.isSquadOwner(sq)) { showToast('Only the owner can change admins.'); return; }
+    sq.adminUids = on ? [...new Set([...(sq.adminUids || []), uid])] : (sq.adminUids || []).filter(u => u !== uid);
+    sq.admins = on ? [...new Set([...(sq.admins || []), tag])] : (sq.admins || []).filter(a => a.toLowerCase() !== tag.toLowerCase());
+    await window.updateSquadCloud(sq, { adminUids: sq.adminUids, admins: sq.admins }, on ? `🛡️ ${window.dnText(tag)} is now an admin!` : `${window.dnText(tag)} is no longer an admin.`);
+    window.renderSquadChannel();
+};
+window.transferOwnership = async function(tag, uid) {
+    const sq = window.activeSquadDetails;
+    if (!window.isSquadOwner(sq)) return;
+    const ok = await window.sgConfirm(`${window.dnText(tag)} becomes the owner of ${sq.name}. You'll stay as an admin.`, { title: 'Transfer ownership?', okText: 'Transfer', danger: true });
+    if (!ok) return;
+    if (!uid) { const p = await window.getProfile(tag); uid = p && p.uid; }
+    if (!uid) { showToast(`${window.dnText(tag)} needs to sign in once first.`); return; }
+    const adminUids = [...new Set([...(sq.adminUids || []), window.uidNow(), uid])];
+    const admins = [...new Set([...(sq.admins || []), window.me(), tag])];
+    await window.updateSquadCloud(sq, { owner: tag, leader: tag, ownerUid: uid, adminUids, admins }, `👑 ${window.dnText(tag)} now owns ${sq.name}!`);
+};
+
+// ---------- Members list ----------
+window.renderSquadMembers = async function() {
+    const sq = window.activeSquadDetails;
+    const box = document.getElementById('squadRoomMsgsBox');
+    const admin = window.isSquadAdmin(sq);
+    const members = [...new Set(sq.members || [])];
+    const rows = members.map(tag => ({ tag, uid: (window.profileFor(tag) || {}).uid || null }));
+    rows.forEach(r => r.role = window.roleOf(sq, r.tag, r.uid));
+    const order = { owner: 0, admin: 1, member: 2 };
+    rows.sort((a, b) => order[a.role] - order[b.role] || window.dnText(a.tag).localeCompare(window.dnText(b.tag)));
+    const section = (title, list) => list.length ? `<p class="text-[10px] font-black text-gray-500 tracking-wider px-1 pt-3 pb-1">${title} — ${list.length}</p>` + list.map(r => {
+        const muted = r.uid && ((sq.mutedUntil || {})[r.uid] || 0) > Date.now();
+        return `
+            <div class="flex items-center justify-between p-2 rounded-xl hover:bg-gg-900/60 cursor-pointer" onclick="window.openMemberActions('${escapeHTML(r.tag)}')">
+                <div class="flex items-center space-x-2.5 min-w-0">
+                    ${window.avatarHtml(r.tag, 'w-9 h-9', 'rounded-full', 'text-[10px]').replace(/onclick="[^"]*"/, '')}
+                    <span class="text-sm font-bold truncate ${r.role === 'owner' ? 'text-amber-300' : r.role === 'admin' ? 'text-cyan-300' : 'text-white'}">${window.dn(r.tag)}</span>${window.roleBadge(r.role)}${muted ? '<span class="text-[10px] ml-1">🔇</span>' : ''}
+                </div>
+                <i class="fa-solid fa-ellipsis text-gray-500"></i>
+            </div>`;
+    }).join('') : '';
+    const banned = admin && (sq.bannedUids || []).length ? `<p class="text-[10px] font-black text-red-400 tracking-wider px-1 pt-4 pb-1">BANNED — ${sq.bannedUids.length}</p>` +
+        sq.bannedUids.map((u, i) => `<div class="flex items-center justify-between p-2 text-sm"><span class="text-gray-400">${window.dn((sq.bannedNames || [])[i] || 'Unknown')}</span><button onclick="window.unbanMember(${i})" class="text-xs font-bold text-cyan-400">Unban</button></div>`).join('') : '';
+    box.innerHTML = `<div class="max-w-lg mx-auto w-full">
+        ${section('OWNER', rows.filter(r => r.role === 'owner'))}
+        ${section('ADMINS', rows.filter(r => r.role === 'admin'))}
+        ${section('MEMBERS', rows.filter(r => r.role === 'member'))}
+        ${banned}
+        ${!members.length ? '<p class="text-xs text-gray-400 text-center py-10">No members yet.</p>' : ''}
+    </div>`;
+    // make sure we know everyone's account id for moderation
+    for (const r of rows) if (!r.uid) await window.getProfile(r.tag);
+};
+
+window.openMemberActions = async function(tag) {
+    const sq = window.activeSquadDetails;
+    const prof = window.profileFor(tag) || await window.getProfile(tag);
+    const uid = prof && prof.uid;
+    const role = window.roleOf(sq, tag, uid);
+    const me = uid && uid === window.uidNow();
+    const owner = window.isSquadOwner(sq), admin = window.isSquadAdmin(sq);
+    const items = [
+        { icon: 'fa-user', label: 'View profile', run: () => window.openUserProfileModal(tag) },
+        ...(!me ? [{ icon: 'fa-envelope', label: 'Send message', run: () => window.openDmModal(tag) }] : [])
+    ];
+    if (!me && uid) {
+        if (owner && role !== 'owner') items.push(role === 'admin'
+            ? { icon: 'fa-shield-halved', label: 'Remove admin', run: () => window.setSquadAdmin(uid, tag, false) }
+            : { icon: 'fa-shield-halved', label: 'Make admin', run: () => window.setSquadAdmin(uid, tag, true) });
+        if (owner && role !== 'owner') items.push({ icon: 'fa-crown', label: 'Transfer ownership', run: () => window.transferOwnership(tag, uid) });
+        if (admin && role !== 'owner' && (owner || role === 'member')) {
+            items.push({ icon: 'fa-volume-xmark', label: 'Mute…', run: () => window.openMuteMenu(uid, tag) });
+            items.push({ icon: 'fa-door-open', label: 'Kick', danger: true, run: () => window.kickMember(uid, tag) });
+            items.push({ icon: 'fa-ban', label: 'Ban', danger: true, run: () => window.banMember(uid, tag) });
+        }
+    }
+    window.openActionSheet(window.dnText(tag), items);
+};
+
+// ---------- Matchmaking view ----------
+window.renderSquadMatchmaking = function() {
+    const sq = window.activeSquadDetails;
+    const box = document.getElementById('squadRoomMsgsBox');
+    const q = sq.matchmakingQueue || [];
+    box.innerHTML = `<div class="space-y-3 max-w-lg mx-auto w-full pt-2">
+        <div class="glass-panel p-4 rounded-2xl border border-cyan-500/30 space-y-2 text-center">
+            <h4 class="text-xs font-black text-cyan-400 uppercase tracking-widest">⚔️ Challenge Queue</h4>
+            <p class="text-[11px] text-gray-300">Post a challenge — anyone in the squad can accept it and you'll chat to set up the match.</p>
+            <button onclick="window.bookSquadMatchmakingFixture()" class="px-4 py-2 bg-emerald-500 text-slate-950 font-black rounded-xl text-xs uppercase">Post a challenge</button>
+        </div>
+        ${q.length ? q.map(e => `
+            <div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs border border-cyan-500/20">
+                <div class="flex items-center space-x-2">${window.avatarHtml(e.challenger, 'w-8 h-8', 'rounded-full', 'text-[10px]')}<div>${window.nameLink(e.challenger, 'font-bold text-white')}<span class="text-[10px] text-cyan-400 block">${escapeHTML(e.format)} · ${e.at ? window.timeAgo(e.at) : ''}</span></div></div>
+                <button onclick="window.acceptSquadChallenge('${e.id}')" class="px-3 py-1.5 bg-cyan-400 text-slate-950 font-black text-[10px] rounded-xl uppercase">Accept</button>
+            </div>`).join('') : `<p class="text-xs text-gray-400 text-center py-6">No challenges yet.</p>`}
+    </div>`;
+};
+
+// ---------- Join / leave (bans + private invite codes) ----------
+window._baseToggleSquadMembership13 = window._baseToggleSquadMembership13 || window.toggleSquadMembership;
+window.toggleSquadMembership = async function(squadId) {
+    if (window.needSignIn('join squads')) return;
+    const sq = window.clansData.find(c => c.id === squadId);
+    if (!sq) return;
+    if (!window.isSquadMember(sq)) {
+        if (window.isSquadBanned(sq)) { showToast("🚫 You're banned from this squad."); return; }
+        if (!sq.isPublic && !window.isSquadOwner(sq)) {
+            const code = await window.sgPrompt(`${sq.name} is private. Enter the invite code:`, { title: '🔒 Invite code', placeholder: 'SQ-XXXXX', okText: 'Join' });
+            if (!code) return;
+            if (code.trim().toUpperCase() !== (sq.inviteCode || '').toUpperCase()) { showToast('❌ Wrong invite code.'); return; }
+        }
+    }
+    await window._baseToggleSquadMembership13(squadId);
+    if (window.activeSquadDetails && window.activeSquadDetails.id === squadId) { window.renderSquadHeader(); window.renderSquadChannel(); window.listenToSquadMessages(sq); }
+};
+
+// ---------- Create squad (with default channels & roles) ----------
+window.submitNewSquad = async function() {
+    if (window.needSignIn('create squads')) return;
+    const name = document.getElementById('squadNameInput').value.trim();
+    const tag = document.getElementById('squadTagInput').value.trim().toUpperCase();
+    if (!name || !tag) { showToast("⚠️ Please enter a squad name and tag!"); return; }
+    const me = window.me(), uid = window.uidNow();
+    const id = 'squad_' + Date.now();
+    const channels = window.DEFAULT_CHANNELS;
+    const sq = {
+        name, tag, game: document.getElementById('squadGameSelect').value,
+        isPublic: document.getElementById('squadPrivacySelect').value === 'public', isOfficial: false,
+        inviteCode: 'SQ-' + Math.random().toString(36).substr(2, 5).toUpperCase(),
+        bio: document.getElementById('squadBioInput').value.trim() || 'Squad on Sinless GG!',
+        owner: me, leader: me, ownerUid: uid, admins: [me], adminUids: [uid], members: [me], memberUids: [uid],
+        channels, subRooms: channels.map(c => c.name), adminOnlyRooms: channels.filter(c => c.adminOnly).map(c => c.name),
+        bannedUids: [], bannedNames: [], mutedUntil: {}, pinned: [], matchmakingQueue: []
+    };
+    try {
+        await setDoc(doc(window.db, 'squads', id), window.cleanForCloud({ ...sq, createdAt: serverTimestamp() }));
+        await addDoc(collection(window.db, 'squads', id, 'messages'), { room: 'rules', sender: me, senderUid: uid, text: `Welcome to ${name}! 🎮 Be respectful, no spam, have fun.`, timestamp: Date.now(), createdAt: serverTimestamp() });
+        showToast(`🔥 ${name} created! Invite code: ${sq.inviteCode}`);
+        ['squadNameInput', 'squadTagInput', 'squadBioInput'].forEach(x => document.getElementById(x).value = '');
+        window.closeCreateClanModal();
+        setTimeout(() => window.openSquadDetailsModal(id), 600);
+    } catch (e) { showToast("⚠️ Couldn't create squad. Try again."); }
+};
+
+// ---------- Squad settings ----------
+window.openSquadSettings = function() {
+    const sq = window.activeSquadDetails;
+    if (!sq || !window.isSquadAdmin(sq)) return;
+    const owner = window.isSquadOwner(sq);
+    document.getElementById('ssName').value = sq.name || '';
+    document.getElementById('ssTag').value = sq.tag || '';
+    document.getElementById('ssBio').value = sq.bio || '';
+    document.getElementById('ssPrivacy').value = sq.isPublic ? 'public' : 'private';
+    document.getElementById('ssCode').innerText = sq.inviteCode || '—';
+    ['ssName', 'ssTag', 'ssBio', 'ssPrivacy'].forEach(id => document.getElementById(id).disabled = !owner);
+    document.getElementById('ssOwnerOnly').classList.toggle('hidden', !owner);
+    document.getElementById('ssDisband').classList.toggle('hidden', !owner || sq.isOfficial);
+    document.getElementById('squadSettingsSheet').classList.remove('hidden');
+};
+window.closeSquadSettings = function() { document.getElementById('squadSettingsSheet').classList.add('hidden'); };
+window.saveSquadSettings = async function() {
+    const sq = window.activeSquadDetails;
+    const fields = {
+        name: document.getElementById('ssName').value.trim().slice(0, 40) || sq.name,
+        tag: document.getElementById('ssTag').value.trim().toUpperCase().slice(0, 5) || sq.tag,
+        bio: document.getElementById('ssBio').value.trim().slice(0, 300),
+        isPublic: document.getElementById('ssPrivacy').value === 'public'
+    };
+    Object.assign(sq, fields);
+    await window.updateSquadCloud(sq, fields, '✅ Squad updated.');
+    window.closeSquadSettings(); window.renderSquadHeader(); window.renderClansList();
+};
+window.newInviteCode = async function() {
+    const sq = window.activeSquadDetails;
+    sq.inviteCode = 'SQ-' + Math.random().toString(36).substr(2, 5).toUpperCase();
+    document.getElementById('ssCode').innerText = sq.inviteCode;
+    await window.updateSquadCloud(sq, { inviteCode: sq.inviteCode }, 'New invite code made. The old one no longer works.');
+};
+window.shareInviteCode = function() {
+    const sq = window.activeSquadDetails;
+    window.activeShare = { link: `${location.origin}${location.pathname}#squad=${sq.id}`, text: `Join my squad ${sq.name} [${sq.tag}] on Sinless GG 🎮${!sq.isPublic ? ` Invite code: ${sq.inviteCode}` : ''}` };
+    if (navigator.share) navigator.share({ title: sq.name, text: window.activeShare.text, url: window.activeShare.link }).catch(() => {});
+    else window.copyShareLink();
+};
+
+// Opening a squad link (…#squad=ID)
+window.openSquadFromLink = function() {
+    const m = location.hash.match(/^#squad=([A-Za-z0-9_\-]+)/);
+    if (!m) return;
+    const sq = (window.clansData || []).find(c => c.id === m[1]);
+    if (sq) { window.switchView('clans'); window.openSquadDetailsModal(sq.id); }
+};
+window.addEventListener('hashchange', window.openSquadFromLink);
+
+// keep the open squad fresh when its settings change in the cloud
+window._baseListenSquads13 = window._baseListenSquads13 || window.listenToFirestoreSquads;
+window.listenToFirestoreSquads = function() {
+    window._baseListenSquads13();
+    setTimeout(() => window.openSquadFromLink(), 1500);
+};
+window._baseRenderClansList13 = window._baseRenderClansList13 || window.renderClansList;
+window.renderClansList = function() {
+    window._baseRenderClansList13();
+    if (window.activeSquadDetails) {
+        const fresh = window.clansData.find(c => c.id === window.activeSquadDetails.id);
+        if (fresh && fresh !== window.activeSquadDetails) {
+            fresh.rooms = window.activeSquadDetails.rooms;
+            window.activeSquadDetails = fresh;
+            window.renderSquadHeader();
+            if (['Members', 'Matchmaking'].includes(window.activeSquadSubRoom)) window.renderSquadChannel();
+        }
+    }
+};
+
+// ======================================================================
+// v13: POLLS & MATCH PREDICTIONS
+// post.poll = { kind: 'poll'|'prediction', options: [..], endsAt: ms, correct: index|null }
+// post.pollCounts = { '0': n, '1': n, ... }   post.pollVoters = [uid, ...]
+// ======================================================================
+window.pollDraft = null;
+
+window.togglePollEditor = function() {
+    const ed = document.getElementById('pollEditor');
+    const on = ed.classList.contains('hidden');
+    ed.classList.toggle('hidden', !on);
+    document.getElementById('pollToggleBtn').classList.toggle('ring-2', on);
+    if (on) window.setPollKind(document.getElementById('pollKind').value || 'poll');
+};
+window.setPollKind = function(kind) {
+    document.getElementById('pollKind').value = kind;
+    const pred = kind === 'prediction';
+    document.querySelectorAll('[data-pollkind]').forEach(b => {
+        b.className = `flex-1 py-1.5 rounded-lg text-[11px] font-black ${b.dataset.pollkind === kind ? 'bg-magenta text-white' : 'bg-gg-950 text-gray-400'}`;
+    });
+    document.getElementById('pollOptionsBox').classList.toggle('hidden', pred);
+    document.getElementById('predictionBox').classList.toggle('hidden', !pred);
+    const ta = document.getElementById('postTextContent');
+    ta.placeholder = pred ? 'Ask the question, e.g. "Who wins the final? 🏆"' : 'Ask your question…';
+};
+window.addPollOption = function() {
+    const box = document.getElementById('pollOptionInputs');
+    if (box.children.length >= 4) { showToast('Up to 4 options.'); return; }
+    const i = box.children.length + 1;
+    box.insertAdjacentHTML('beforeend', `<input type="text" maxlength="40" placeholder="Option ${i}" class="poll-opt w-full bg-gg-950 border border-cyan-500/25 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">`);
+};
+
+// Read the poll editor when publishing (returns null if no poll)
+window.collectPoll = function() {
+    const ed = document.getElementById('pollEditor');
+    if (!ed || ed.classList.contains('hidden')) return null;
+    const kind = document.getElementById('pollKind').value;
+    const hours = parseInt(document.getElementById('pollDuration').value) || 24;
+    let options;
+    if (kind === 'prediction') {
+        const a = document.getElementById('predTeamA').value.trim(), b = document.getElementById('predTeamB').value.trim();
+        if (!a || !b) return { error: 'Enter both sides of the match.' };
+        options = document.getElementById('predDraw').checked ? [a, 'Draw', b] : [a, b];
+    } else {
+        options = [...document.querySelectorAll('#pollOptionInputs .poll-opt')].map(i => i.value.trim()).filter(Boolean);
+        if (options.length < 2) return { error: 'A poll needs at least 2 options.' };
+    }
+    return { kind, options: options.map(o => o.slice(0, 40)), endsAt: Date.now() + hours * 3600000, correct: null };
+};
+window.resetPollEditor = function() {
+    const ed = document.getElementById('pollEditor');
+    if (!ed) return;
+    ed.classList.add('hidden');
+    document.getElementById('pollToggleBtn').classList.remove('ring-2');
+    document.getElementById('pollOptionInputs').innerHTML = [1, 2].map(i => `<input type="text" maxlength="40" placeholder="Option ${i}" class="poll-opt w-full bg-gg-950 border border-cyan-500/25 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">`).join('');
+    ['predTeamA', 'predTeamB'].forEach(id => document.getElementById(id).value = '');
+};
+
+// Polls must have a question; check before the post goes out
+window._baseSubmitUniversalPost13 = window._baseSubmitUniversalPost13 || window.submitUniversalPost;
+window.submitUniversalPost = async function() {
+    const poll = window.collectPoll();
+    if (poll && poll.error) { showToast('⚠️ ' + poll.error); return; }
+    if (poll && !(document.getElementById('postTextContent').value || '').trim()) { showToast('⚠️ Write your question in the caption box.'); return; }
+    window.pollDraft = poll;
+    await window._baseSubmitUniversalPost13();
+    window.pollDraft = null;
+    if (poll) window.resetPollEditor();
+};
+
+// ---------- Show a poll on a post ----------
+window.myVotes = (() => { try { return JSON.parse(localStorage.getItem('sinless_votes') || '{}'); } catch (e) { return {}; } })();
+
+window.renderPollHtml = function(p) {
+    const poll = p.poll;
+    if (!poll || !Array.isArray(poll.options)) return '';
+    const pId = p.docId || p.id;
+    const counts = p.pollCounts || {};
+    const total = poll.options.reduce((s, _, i) => s + (counts[i] || 0), 0);
+    const uid = window.currentUser && window.currentUser.uid;
+    const voted = (uid && (p.pollVoters || []).includes(uid)) || window.myVotes[pId] !== undefined;
+    const ended = Date.now() > (poll.endsAt || 0);
+    const showResults = voted || ended;
+    const mine = window.myVotes[pId];
+    const pred = poll.kind === 'prediction';
+    const left = Math.max(0, (poll.endsAt || 0) - Date.now());
+    const timeLeft = ended ? 'Final results' : left > 86400000 ? `${Math.ceil(left / 86400000)}d left` : left > 3600000 ? `${Math.ceil(left / 3600000)}h left` : `${Math.ceil(left / 60000)}m left`;
+    const correct = poll.correct;
+    const isOwner = window.isMyPost(p);
+
+    const rows = poll.options.map((o, i) => {
+        const n = counts[i] || 0;
+        const pct = total ? Math.round(n / total * 100) : 0;
+        const isCorrect = correct === i;
+        if (!showResults) return `<button onclick="window.votePoll('${pId}', ${i})" class="w-full py-2.5 rounded-xl border border-cyan-500/40 text-cyan-300 text-sm font-bold hover:bg-cyan-500/10">${escapeHTML(o)}</button>`;
+        return `
+            <div class="relative w-full rounded-xl overflow-hidden bg-gg-950 border ${isCorrect ? 'border-emerald-400' : 'border-cyan-500/15'}">
+                <div class="absolute inset-y-0 left-0 ${isCorrect ? 'bg-emerald-500/30' : mine === i ? 'bg-cyan-500/30' : 'bg-gray-600/25'}" style="width:${pct}%"></div>
+                <div class="relative flex items-center justify-between px-3 py-2.5 text-sm">
+                    <span class="font-bold text-white truncate">${escapeHTML(o)} ${mine === i ? '<i class="fa-solid fa-circle-check text-cyan-400 text-xs"></i>' : ''} ${isCorrect ? '<span class="text-emerald-400 text-xs">✓ Correct</span>' : ''}</span>
+                    <span class="font-black text-white">${pct}%</span>
+                </div>
+            </div>`;
+    }).join('');
+
+    let footer = `${window.formatCount(total)} vote${total === 1 ? '' : 's'} · ${timeLeft}`;
+    if (pred && correct !== null && correct !== undefined) {
+        const right = counts[correct] || 0;
+        footer = `🎯 ${right} of ${total} predicted right` + (mine !== undefined ? (mine === correct ? ' · <span class="text-emerald-400 font-bold">You got it! 🔥</span>' : ' · <span class="text-red-400">Not this time</span>') : '');
+    }
+    const settle = pred && isOwner && (correct === null || correct === undefined) ? `
+        <div class="pt-1"><p class="text-[10px] text-gray-400 mb-1">Match over? Mark the result:</p><div class="flex gap-1.5">${poll.options.map((o, i) => `<button onclick="window.settlePrediction('${pId}', ${i})" class="flex-1 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 text-[10px] font-black">${escapeHTML(o)}</button>`).join('')}</div></div>` : '';
+
+    return `
+        <div class="space-y-2 p-3 rounded-2xl bg-gg-900/60 border ${pred ? 'border-amber-500/30' : 'border-magenta/30'}" data-noexpand>
+            <p class="text-[10px] font-black uppercase tracking-wider ${pred ? 'text-amber-400' : 'text-magenta'}">${pred ? '⚽ Match prediction' : '📊 Poll'}</p>
+            ${rows}
+            <p class="text-[10px] text-gray-400">${footer}</p>
+            ${settle}
+        </div>`;
+};
+
+window.votePoll = async function(postId, i) {
+    if (window.needSignIn('vote')) return;
+    const p = window.findPost(postId);
+    if (!p || !p.poll) return;
+    if (Date.now() > p.poll.endsAt) { showToast('Voting has ended.'); return; }
+    const uid = window.currentUser.uid;
+    if ((p.pollVoters || []).includes(uid) || window.myVotes[postId] !== undefined) return;
+    p.pollCounts = { ...(p.pollCounts || {}), [i]: ((p.pollCounts || {})[i] || 0) + 1 };
+    p.pollVoters = [...(p.pollVoters || []), uid];
+    window.myVotes[postId] = i;
+    try { localStorage.setItem('sinless_votes', JSON.stringify(window.myVotes)); } catch (e) {}
+    window.renderFypFeed();
+    window.activeDetailPostId === postId && window.renderPostDetail(p);
+    if (!String(postId).startsWith('local_')) {
+        try { await updateDoc(doc(window.db, 'posts', postId), { [`pollCounts.${i}`]: increment(1), pollVoters: arrayUnion(uid) }); }
+        catch (e) { showToast("⚠️ Vote didn't save."); }
+    }
+};
+
+window.settlePrediction = async function(postId, i) {
+    const p = window.findPost(postId);
+    if (!p || !p.poll) return;
+    const ok = await window.sgConfirm(`Mark "${p.poll.options[i]}" as the result? Everyone will see who predicted right.`, { title: 'Settle prediction', okText: 'Confirm' });
+    if (!ok) return;
+    p.poll = { ...p.poll, correct: i, endsAt: Math.min(p.poll.endsAt, Date.now()) };
+    window.renderFypFeed();
+    window.activeDetailPostId === postId && window.renderPostDetail(p);
+    try { await updateDoc(doc(window.db, 'posts', postId), { poll: p.poll }); showToast('🎯 Result posted!'); } catch (e) { showToast("⚠️ Couldn't save result."); }
+};

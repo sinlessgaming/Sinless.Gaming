@@ -111,6 +111,47 @@
         </div>
     </div>
 
+    <!-- Suspended account banner -->
+    <div id="bannedBanner" class="hidden fixed bottom-0 inset-x-0 p-3 bg-red-600 text-white text-xs font-bold text-center" style="z-index:150">🚫 Your account is suspended for breaking the rules. You can still browse.</div>
+
+    <!-- Choose your gamertag (first sign-in) -->
+    <div id="gamertagModal" class="hidden fixed inset-0 bg-gg-950/95 backdrop-blur-md flex items-center justify-center p-4" style="z-index:296">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 space-y-4 border border-cyan-500/40 fade-in">
+            <div class="text-center space-y-2">
+                <img src="icon-192.png" class="w-16 h-16 rounded-2xl mx-auto" alt="">
+                <h3 class="text-lg font-black text-white">Choose your gamertag</h3>
+                <p class="text-xs text-gray-400">This is your unique @name — people use it to tag and find you. You can't change it later.</p>
+            </div>
+            <div>
+                <label class="text-[10px] text-gray-400 font-bold">GAMERTAG</label>
+                <div class="flex items-center mt-1 bg-gg-950 border border-cyan-500/40 rounded-xl px-3">
+                    <span class="text-cyan-400 font-black">@</span>
+                    <input id="gamertagInput" maxlength="20" autocomplete="off" autocapitalize="off" spellcheck="false" class="flex-1 bg-transparent px-1 py-3 text-base text-white font-bold focus:outline-none">
+                </div>
+                <p id="gamertagStatus" class="text-[11px] mt-1.5 min-h-[16px]"></p>
+            </div>
+            <div>
+                <label class="text-[10px] text-gray-400 font-bold">DISPLAY NAME (shown on your posts)</label>
+                <input id="gamertagNameInput" maxlength="40" class="w-full mt-1 bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none">
+            </div>
+            <button id="gamertagSaveBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 font-black text-sm opacity-50" disabled>Let's go</button>
+        </div>
+    </div>
+
+    <!-- Admin panel -->
+    <div id="adminModal" class="hidden fixed inset-0 bg-gg-950 flex flex-col" style="z-index:207">
+        <div class="shrink-0 flex items-center justify-between px-3 py-3 border-b border-cyan-500/15 bg-gg-900/95">
+            <h3 class="text-sm font-black text-white"><i class="fa-solid fa-user-shield text-cyan-400 mr-1.5"></i> Admin Panel</h3>
+            <button onclick="window.closeAdminPanel()" class="w-9 h-9 rounded-xl bg-gg-800 text-white">✕</button>
+        </div>
+        <div class="shrink-0 flex border-b border-cyan-500/15">
+            <button data-admintab="reports" onclick="window.setAdminTab('reports')" class="flex-1 py-2 text-xs font-black">🚩 Reports</button>
+            <button data-admintab="users" onclick="window.setAdminTab('users')" class="flex-1 py-2 text-xs font-black">👥 Users</button>
+            <button data-admintab="stats" onclick="window.setAdminTab('stats')" class="flex-1 py-2 text-xs font-black">📈 Stats</button>
+        </div>
+        <div id="adminBody" class="flex-1 overflow-y-auto p-3 space-y-2 max-w-xl w-full mx-auto"></div>
+    </div>
+
     <!-- @tag suggestions -->
     <div id="mentionBox" class="hidden fixed bg-gg-900 border border-cyan-500/40 rounded-2xl shadow-2xl overflow-hidden" style="z-index:295"></div>
 
@@ -191,6 +232,10 @@
             </li>
             <li class="drawer-menu-item" onclick="toggleDrawer(false); window.setupPushNotifications();">
                 <span><i class="fa-solid fa-mobile-screen mr-2"></i> Phone Alerts</span>
+            </li>
+            <li id="adminPanelItem" class="drawer-menu-item hidden" onclick="toggleDrawer(false); window.openAdminPanel();">
+                <span><i class="fa-solid fa-user-shield mr-2"></i> Admin Panel</span>
+                <span class="badge">ADMIN</span>
             </li>
             <li id="installAppItem" class="drawer-menu-item" onclick="toggleDrawer(false); window.installApp();">
                 <span><i class="fa-solid fa-download mr-2"></i> Install App</span>
@@ -350,16 +395,11 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
                     <span class="text-xs font-bold text-cyan-400"># global-gaming-lobby</span>
                 </div>
-                <div class="flex items-center space-x-2">
-                    <span id="voiceStatusLabel" class="text-[9px] text-gray-400 font-extrabold">Voice Disconnected</span>
-                    <button id="voiceLobbyToggleBtn" onclick="toggleVoiceLobbyConnection()" class="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-lg text-[9px] font-extrabold flex items-center space-x-1 hover:bg-emerald-500/30 transition">
-                        <i class="fa-solid fa-microphone"></i><span>Join Voice Channel</span>
-                    </button>
-                </div>
+                <span class="text-[9px] text-gray-400 font-bold">Everyone on Sinless GG · be kind 🤝</span>
             </div>
             <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-3.5 space-y-3"></div>
             <div class="p-3 border-t border-cyan-500/15 bg-gg-950 flex items-center space-x-2">
-                <input type="text" id="chatInputMsg" placeholder="Chat in global lobby..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400" onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                <input type="text" id="chatInputMsg" placeholder="Chat in global lobby..." class="flex-1 bg-gg-900 border border-cyan-500/25 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400" onkeydown="if(event.key === 'Enter') window.sendChatMessage()">
                 <button onclick="sendChatMessage()" class="px-4 py-2.5 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 font-black rounded-xl text-xs uppercase shadow"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
@@ -462,6 +502,34 @@
             <div class="flex items-center justify-between text-[10px] text-gray-400">
                 <span id="mediaCountIndicator">0 / 10 selected</span>
                 <span id="selectedSoundLabel" class="text-amber-400 font-bold truncate max-w-[180px] cursor-pointer" onclick="openAudioSelector()">🎵 Choose Background Music</span>
+            </div>
+
+            <button type="button" id="pollToggleBtn" onclick="window.togglePollEditor()" class="w-full py-2 rounded-xl bg-gg-900 border border-amber-500/40 text-amber-400 text-xs font-extrabold ring-amber-400"><i class="fa-solid fa-square-poll-horizontal mr-1.5"></i> Add poll / match prediction</button>
+            <div id="pollEditor" class="hidden space-y-2 p-3 rounded-xl bg-gg-950 border border-amber-500/30">
+                <input type="hidden" id="pollKind" value="poll">
+                <div class="flex space-x-1.5">
+                    <button type="button" data-pollkind="poll" onclick="window.setPollKind('poll')" class="flex-1 py-1.5 rounded-lg text-[11px] font-black bg-magenta text-white">📊 Poll</button>
+                    <button type="button" data-pollkind="prediction" onclick="window.setPollKind('prediction')" class="flex-1 py-1.5 rounded-lg text-[11px] font-black bg-gg-950 text-gray-400">⚽ Prediction</button>
+                </div>
+                <div id="pollOptionsBox" class="space-y-1.5">
+                    <div id="pollOptionInputs" class="space-y-1.5">
+                        <input type="text" maxlength="40" placeholder="Option 1" class="poll-opt w-full bg-gg-950 border border-cyan-500/25 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
+                        <input type="text" maxlength="40" placeholder="Option 2" class="poll-opt w-full bg-gg-950 border border-cyan-500/25 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
+                    </div>
+                    <button type="button" onclick="window.addPollOption()" class="text-[11px] text-cyan-400 font-bold">+ Add option</button>
+                </div>
+                <div id="predictionBox" class="hidden space-y-1.5">
+                    <div class="flex items-center space-x-2">
+                        <input id="predTeamA" type="text" maxlength="30" placeholder="Player / team A" class="flex-1 bg-gg-950 border border-cyan-500/25 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                        <span class="text-xs font-black text-amber-400">VS</span>
+                        <input id="predTeamB" type="text" maxlength="30" placeholder="Player / team B" class="flex-1 bg-gg-950 border border-cyan-500/25 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                    </div>
+                    <label class="flex items-center space-x-2 text-[11px] text-gray-300"><input id="predDraw" type="checkbox" checked class="accent-amber-400"><span>Allow "Draw"</span></label>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-gray-400">
+                    <span>Voting closes in</span>
+                    <select id="pollDuration" class="bg-gg-900 border border-cyan-500/25 rounded-lg px-2 py-1 text-white"><option value="1">1 hour</option><option value="6">6 hours</option><option value="24" selected>1 day</option><option value="72">3 days</option><option value="168">7 days</option></select>
+                </div>
             </div>
 
             <div id="mediaPreviewThumbnails" class="grid grid-cols-5 gap-1.5 max-h-28 overflow-y-auto p-1 bg-gg-950 rounded-xl border border-cyan-500/15"></div>
@@ -630,38 +698,82 @@
         </div>
     </div>
 
-    <!-- Squad / Clan Details & Sub-Channels Modal -->
-    <div id="squadDetailsModal" class="hidden fixed inset-0 bg-gg-950 z-[170] flex justify-center">
-        <div class="w-full max-w-xl p-3 flex flex-col space-y-3 h-[100dvh] bg-gg-950">
-            <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-                <div>
-                    <h3 id="squadDetailTitle" class="text-xs font-black text-white uppercase tracking-wider">Squad Name</h3>
-                    <p class="text-[9px] text-cyan-400">Owner: <span id="squadDetailLeader">@Owner</span></p>
+    <!-- Squad (Discord-style) -->
+    <div id="squadDetailsModal" class="hidden fixed inset-0 bg-gg-950 flex justify-center" style="z-index:170">
+        <div class="w-full max-w-xl flex flex-col h-[100dvh] bg-gg-950">
+            <div class="shrink-0 flex items-center space-x-2 px-3 pt-3 pb-2">
+                <button onclick="window.closeSquadDetailsModal()" class="w-9 h-9 shrink-0 rounded-xl bg-gg-800 text-white"><i class="fa-solid fa-arrow-left"></i></button>
+                <div class="flex-1 min-w-0">
+                    <h3 id="squadDetailTitle" class="text-sm font-black text-white truncate">Squad</h3>
+                    <p id="squadDetailLeader" class="text-[10px] text-gray-400 truncate"></p>
                 </div>
-                <div class="flex items-center space-x-1.5">
-                    <button id="addCustomSubRoomBtn" onclick="promptCreateSubRoom()" class="hidden px-2 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-[9px] font-black rounded-xl hover:bg-cyan-500/30">+ Channel</button>
-                    <button id="hostSquadTournamentBtn" onclick="openCreateSquadSquadTournamentModal()" class="hidden px-2 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[9px] font-black rounded-xl hover:bg-amber-500/30">🏆 Host League</button>
-                    <button id="disbandSquadBtn" onclick="deleteActiveSquad()" class="hidden px-2 py-1 bg-red-600/20 text-red-400 border border-red-500/40 text-[9px] font-black rounded-xl hover:bg-red-600/30">Disband</button>
-                    <button onclick="closeSquadDetailsModal()" class="text-gray-400 hover:text-white text-xs font-bold ml-1">✕</button>
-                </div>
+                <button onclick="window.shareInviteCode()" class="w-9 h-9 shrink-0 rounded-xl bg-gg-800 text-gray-300" title="Invite"><i class="fa-solid fa-user-plus"></i></button>
+                <button id="hostSquadTournamentBtn" onclick="openCreateSquadSquadTournamentModal()" class="hidden w-9 h-9 shrink-0 rounded-xl bg-amber-500/15 text-amber-400" title="Host a league"><i class="fa-solid fa-trophy"></i></button>
+                <button id="squadSettingsBtn" onclick="window.openSquadSettings()" class="hidden w-9 h-9 shrink-0 rounded-xl bg-gg-800 text-gray-300" title="Squad settings"><i class="fa-solid fa-gear"></i></button>
+                <span id="addCustomSubRoomBtn" class="hidden"></span><span id="disbandSquadBtn" class="hidden"></span>
             </div>
-
-            <!-- Sub-Rooms Nav Bar -->
-            <div id="squadSubRoomsNav" class="flex space-x-1.5 overflow-x-auto scrollbar-none pb-1 border-b border-cyan-500/15"></div>
-
-            <!-- Messages Box -->
-            <div id="squadRoomMsgsBox" class="flex-1 overflow-y-auto p-2 space-y-2.5 bg-gg-950/60 rounded-xl border border-cyan-500/10"></div>
-
-            <!-- Message Input Area -->
-            <div id="squadLockedBar" class="hidden shrink-0 p-3 rounded-xl bg-gg-900 border border-amber-500/30 text-[11px] text-amber-400 font-bold text-center"></div>
-            <div id="squadInputContainer" class="shrink-0 flex items-center space-x-2 pt-1 pb-1">
-                <label class="p-2.5 bg-gg-900 border border-cyan-500/30 text-cyan-400 rounded-xl cursor-pointer hover:bg-cyan-500/20 transition shrink-0" title="Send 24h Image">
+            <div id="squadSubRoomsNav" class="shrink-0 flex items-center space-x-2 px-3 pb-2 border-b border-cyan-500/15"></div>
+            <div id="squadPinnedBar" class="hidden shrink-0 mx-3 mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30"></div>
+            <div id="squadRoomMsgsBox" class="flex-1 overflow-y-auto px-3 py-2"></div>
+            <div id="squadLockedBar" class="hidden shrink-0 mx-3 mb-3 p-3 rounded-xl bg-gg-900 border border-amber-500/30 text-[11px] text-amber-400 font-bold text-center"></div>
+            <div id="squadInputContainer" class="shrink-0 flex items-center space-x-2 p-3 border-t border-cyan-500/15 bg-gg-900/95">
+                <label class="w-10 h-10 shrink-0 rounded-full bg-gg-800 border border-cyan-500/30 text-cyan-400 flex items-center justify-center cursor-pointer" title="Send photo (vanishes in 24h)">
                     <i class="fa-solid fa-camera"></i>
-                    <input type="file" id="squadChatImageInput" accept="image/*" class="hidden" onchange="sendInChatImage('squad')">
+                    <input type="file" id="squadChatImageInput" accept="image/*" class="hidden" onchange="window.sendInChatImage('squad')">
                 </label>
-                <input type="text" id="squadSubRoomInput" placeholder="Message channel..." class="flex-1 bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400" onkeypress="if(event.key === 'Enter') sendSquadRoomMessage()">
-                <button onclick="sendSquadRoomMessage()" class="px-3.5 py-2 bg-cyan-400 text-slate-950 font-black rounded-xl text-xs uppercase shadow"><i class="fa-solid fa-paper-plane"></i></button>
+                <input type="text" id="squadSubRoomInput" placeholder="Message #chat" class="flex-1 bg-gg-950 border border-cyan-500/30 rounded-full px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400" onkeydown="if(event.key === 'Enter') window.sendSquadRoomMessage()">
+                <button onclick="window.sendSquadRoomMessage()" class="w-10 h-10 shrink-0 rounded-full bg-cyan-400 text-slate-950"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
+        </div>
+    </div>
+
+    <!-- Squad channel list -->
+    <div id="squadChannelSheet" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex flex-col justify-end" style="z-index:230" onclick="if(event.target === this) this.classList.add('hidden')">
+        <div class="w-full max-w-md mx-auto bg-gg-900 rounded-t-3xl p-4 max-h-[75vh] overflow-y-auto border-t border-cyan-500/30 fade-in">
+            <div class="w-10 h-1 rounded-full bg-gray-600 mx-auto mb-2"></div>
+            <h3 class="text-sm font-black text-white px-2">Channels</h3>
+            <div id="squadChannelList"></div>
+        </div>
+    </div>
+
+    <!-- Create / edit channel -->
+    <div id="channelEditSheet" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex flex-col justify-end" style="z-index:236" onclick="if(event.target === this) window.closeChannelEdit()">
+        <div class="w-full max-w-md mx-auto bg-gg-900 rounded-t-3xl p-5 space-y-3 border-t border-cyan-500/30 fade-in">
+            <h3 id="channelEditTitle" class="text-sm font-black text-white">Create channel</h3>
+            <div><label class="text-[10px] text-gray-400 font-bold">CHANNEL NAME</label>
+                <input id="channelNameInput" type="text" maxlength="24" placeholder="e.g. week-1-results" class="w-full mt-1 bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"></div>
+            <div><label class="text-[10px] text-gray-400 font-bold">CATEGORY (pick or type a new one)</label>
+                <input id="channelCategoryInput" list="channelCategoryList" type="text" maxlength="20" class="w-full mt-1 bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-sm text-white uppercase focus:outline-none"><datalist id="channelCategoryList"></datalist></div>
+            <label class="flex items-center justify-between bg-gg-950 rounded-xl px-3 py-2.5 border border-cyan-500/15"><span class="text-xs text-gray-200"><b>📢 Only admins can post</b><br><span class="text-[10px] text-gray-500">Great for rules, results, announcements</span></span><input id="channelAdminOnly" type="checkbox" class="w-5 h-5 accent-cyan-400"></label>
+            <label class="flex items-center justify-between bg-gg-950 rounded-xl px-3 py-2.5 border border-cyan-500/15"><span class="text-xs text-gray-200"><b>🔒 Staff room</b><br><span class="text-[10px] text-gray-500">Only the owner & admins can see it</span></span><input id="channelStaff" type="checkbox" class="w-5 h-5 accent-cyan-400"></label>
+            <div class="flex space-x-2 pt-1">
+                <button id="channelDeleteBtn" onclick="window.deleteChannel()" class="px-4 py-2.5 rounded-xl bg-red-600/20 text-red-400 text-xs font-bold">Delete</button>
+                <button onclick="window.closeChannelEdit()" class="flex-1 py-2.5 rounded-xl bg-gg-800 text-gray-300 text-xs font-bold">Cancel</button>
+                <button onclick="window.saveChannel()" class="flex-1 py-2.5 rounded-xl bg-cyan-400 text-slate-950 text-xs font-black">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Squad settings -->
+    <div id="squadSettingsSheet" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex flex-col justify-end" style="z-index:235" onclick="if(event.target === this) window.closeSquadSettings()">
+        <div class="w-full max-w-md mx-auto bg-gg-900 rounded-t-3xl p-5 space-y-3 max-h-[85vh] overflow-y-auto border-t border-cyan-500/30 fade-in">
+            <h3 class="text-sm font-black text-white"><i class="fa-solid fa-gear text-cyan-400 mr-1"></i> Squad settings</h3>
+            <div class="bg-gg-950 rounded-xl p-3 border border-cyan-500/15 flex items-center justify-between">
+                <div><p class="text-[10px] text-gray-400 font-bold">INVITE CODE</p><p id="ssCode" class="text-lg font-black text-cyan-400 tracking-wider">—</p></div>
+                <div class="flex space-x-1.5"><button onclick="window.shareInviteCode()" class="px-3 py-2 rounded-lg bg-cyan-400 text-slate-950 text-[11px] font-black">Share</button><button onclick="window.newInviteCode()" class="px-3 py-2 rounded-lg bg-gg-800 text-gray-300 text-[11px] font-bold" title="Make a new code">↻</button></div>
+            </div>
+            <div><label class="text-[10px] text-gray-400 font-bold">NAME</label><input id="ssName" maxlength="40" class="w-full mt-1 bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-sm text-white disabled:opacity-50"></div>
+            <div class="grid grid-cols-2 gap-2">
+                <div><label class="text-[10px] text-gray-400 font-bold">TAG</label><input id="ssTag" maxlength="5" class="w-full mt-1 bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-sm text-white uppercase disabled:opacity-50"></div>
+                <div><label class="text-[10px] text-gray-400 font-bold">PRIVACY</label><select id="ssPrivacy" class="w-full mt-1 bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-sm text-white disabled:opacity-50"><option value="public">Public</option><option value="private">Private (code)</option></select></div>
+            </div>
+            <div><label class="text-[10px] text-gray-400 font-bold">ABOUT</label><textarea id="ssBio" maxlength="300" class="w-full mt-1 h-20 bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-2 text-sm text-white resize-none disabled:opacity-50"></textarea></div>
+            <div id="ssOwnerOnly" class="space-y-2">
+                <button onclick="window.saveSquadSettings()" class="w-full py-2.5 rounded-xl bg-cyan-400 text-slate-950 text-xs font-black">Save changes</button>
+            </div>
+            <p class="text-[10px] text-gray-500">Manage people from 👥 Members — tap anyone to make admin, mute, kick or ban. Tap any message to pin or delete it. Tap the channel name to add channels & categories.</p>
+            <button id="ssDisband" onclick="window.closeSquadSettings(); window.deleteActiveSquad()" class="w-full py-2.5 rounded-xl bg-red-600/20 text-red-400 text-xs font-bold">Disband squad</button>
+            <button onclick="window.closeSquadSettings()" class="w-full py-2.5 rounded-xl bg-gg-800 text-gray-300 text-xs font-bold">Close</button>
         </div>
     </div>
 
@@ -933,6 +1045,10 @@
                 <button onclick="closeAccountModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕</button>
             </div>
             <p id="accountModalStatusText" class="text-xs text-gray-300">Connect with Google Cloud to sync posts across devices.</p>
+            <div class="text-left bg-gg-950 rounded-xl px-3 py-2 border border-cyan-500/10">
+                <p class="text-[9px] text-gray-500 font-bold">YOUR USER ID</p>
+                <div class="flex items-center justify-between"><span id="myUidText" class="text-[10px] text-gray-300 font-mono truncate">Sign in to see it</span><button onclick="window.copyMyUid()" class="text-[10px] text-cyan-400 font-bold ml-2">Copy</button></div>
+            </div>
             <button id="googleAuthBtn" class="w-full py-2.5 bg-gg-900 border border-cyan-500/30 rounded-xl text-xs font-bold text-white flex items-center justify-center space-x-2 hover:bg-cyan-500/10">
                 <i class="fa-brands fa-google text-red-500"></i>
                 <span>Continue with Google Cloud</span>
