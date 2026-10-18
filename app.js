@@ -15,19 +15,19 @@ import {
     getMessaging, getToken, onMessage 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
-// GG Coins Local Initialization
-window.myGGCoins = parseInt(localStorage.getItem('sinless_gg_coins') || '100');
+// Tips balance (real balance will come from the payments server; nothing is stored on the phone)
+window.myGGCoins = 0;
+try { localStorage.removeItem('sinless_gg_coins'); } catch (e) {}
 
 window.updateCoinDisplay = function() {
     const coinBadge = document.getElementById('headerCoinBalanceText');
     const drawerBadge = document.getElementById('drawerCoinBadge');
     if (coinBadge) {
-        coinBadge.innerText = `${window.myGGCoins} GG Coins`;
+        coinBadge.innerText = `${window.myGGCoins} Tips`;
     }
     if (drawerBadge) {
         drawerBadge.innerText = window.myGGCoins;
     }
-    localStorage.setItem('sinless_gg_coins', window.myGGCoins);
 };
 
 window.toggleDrawer = function(open) {
@@ -978,7 +978,7 @@ window.openUserProfileModal = function(username, e = null) {
         const mine = (window.myUsername || '').replace('@', '').toLowerCase() === cleanUser.toLowerCase();
         walletRow.classList.toggle('hidden', !mine);
         const bal = document.getElementById('profileWalletBalance');
-        if (bal) bal.innerText = `${window.formatCount(window.myGGCoins)} GG Coins`;
+        if (bal) bal.innerText = `${window.formatCount(window.myGGCoins)} Tips`;
     }
 
     let baseFollowers = Math.max(12, userPosts.length * 14 + totalGGs * 8);
@@ -9732,3 +9732,214 @@ window.toggleDataSaver = function() {
     showToast(window.dataSaver ? '📶 Data Saver ON: smaller pictures, videos play only when you tap' : '📶 Data Saver OFF');
 };
 setTimeout(() => window.applyDataSaver(), 300);
+
+// ======================================================================
+// v18: LOCAL CURRENCY (everything is priced in US dollars, shown in your own money too)
+// ======================================================================
+window.TZ_CURRENCY = {
+    'Africa/Accra': 'GHS', 'Africa/Lagos': 'NGN', 'Africa/Nairobi': 'KES', 'Africa/Johannesburg': 'ZAR', 'Africa/Kampala': 'UGX', 'Africa/Dar_es_Salaam': 'TZS',
+    'Africa/Kigali': 'RWF', 'Africa/Cairo': 'EGP', 'Africa/Casablanca': 'MAD', 'Africa/Abidjan': 'XOF', 'Africa/Dakar': 'XOF', 'Africa/Lome': 'XOF', 'Africa/Douala': 'XAF',
+    'Africa/Lusaka': 'ZMW', 'Africa/Harare': 'USD', 'Africa/Addis_Ababa': 'ETB', 'Africa/Freetown': 'SLE', 'Africa/Monrovia': 'LRD', 'Africa/Banjul': 'GMD', 'Africa/Tunis': 'TND', 'Africa/Algiers': 'DZD',
+    'Europe/London': 'GBP', 'Europe/Dublin': 'EUR', 'Europe/Zurich': 'CHF', 'Europe/Stockholm': 'SEK', 'Europe/Oslo': 'NOK', 'Europe/Copenhagen': 'DKK', 'Europe/Warsaw': 'PLN', 'Europe/Istanbul': 'TRY', 'Europe/Moscow': 'RUB', 'Europe/Kyiv': 'UAH', 'Europe/Kiev': 'UAH',
+    'America/Toronto': 'CAD', 'America/Vancouver': 'CAD', 'America/Mexico_City': 'MXN', 'America/Sao_Paulo': 'BRL', 'America/Argentina/Buenos_Aires': 'ARS', 'America/Bogota': 'COP', 'America/Lima': 'PEN', 'America/Santiago': 'CLP', 'America/Jamaica': 'JMD',
+    'Asia/Kolkata': 'INR', 'Asia/Calcutta': 'INR', 'Asia/Karachi': 'PKR', 'Asia/Dhaka': 'BDT', 'Asia/Dubai': 'AED', 'Asia/Riyadh': 'SAR', 'Asia/Qatar': 'QAR', 'Asia/Tokyo': 'JPY', 'Asia/Seoul': 'KRW', 'Asia/Shanghai': 'CNY', 'Asia/Hong_Kong': 'HKD',
+    'Asia/Singapore': 'SGD', 'Asia/Manila': 'PHP', 'Asia/Jakarta': 'IDR', 'Asia/Bangkok': 'THB', 'Asia/Kuala_Lumpur': 'MYR', 'Asia/Ho_Chi_Minh': 'VND', 'Australia/Sydney': 'AUD', 'Australia/Melbourne': 'AUD', 'Pacific/Auckland': 'NZD'
+};
+window.detectCurrency = function() {
+    try { const saved = localStorage.getItem('sg_currency'); if (saved) return saved; } catch (e) {}
+    const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+    if (window.TZ_CURRENCY[tz]) return window.TZ_CURRENCY[tz];
+    if (tz.startsWith('Europe/')) return 'EUR';
+    if (tz.startsWith('America/')) return 'USD';
+    return 'USD';
+};
+window.userCurrency = window.detectCurrency();
+window.fxRates = (() => { try { const c = JSON.parse(localStorage.getItem('sg_fx') || 'null'); return c && c.rates ? c : null; } catch (e) { return null; } })();
+window.loadFx = async function() {
+    if (window.fxRates && Date.now() - window.fxRates.at < 12 * 3600000) return;
+    try {
+        const j = await (await fetch('https://open.er-api.com/v6/latest/USD')).json();
+        if (j && j.rates) { window.fxRates = { at: Date.now(), rates: j.rates }; try { localStorage.setItem('sg_fx', JSON.stringify(window.fxRates)); } catch (e) {} }
+    } catch (e) {}
+};
+// "$1.05 (≈ GH₵ 16.30)"
+window.fmtMoney = function(amount, cur) {
+    try { return new Intl.NumberFormat(navigator.language || 'en', { style: 'currency', currency: cur, maximumFractionDigits: amount < 1 && cur === 'USD' ? 2 : (amount >= 100 ? 0 : 2) }).format(amount); }
+    catch (e) { return cur + ' ' + amount.toFixed(2); }
+};
+window.localPrice = function(usd) {
+    const cur = window.userCurrency;
+    const rate = cur === 'USD' ? 1 : window.fxRates && window.fxRates.rates[cur];
+    return rate ? window.fmtMoney(usd * rate, cur) : null;
+};
+window.priceLabel = function(usd) {
+    const local = window.userCurrency !== 'USD' ? window.localPrice(usd) : null;
+    return `${window.fmtMoney(usd, 'USD')}${local ? ` <span class="text-gray-400 font-bold">≈ ${local}</span>` : ''}`;
+};
+setTimeout(() => window.loadFx(), 2000);
+
+// ======================================================================
+// v18: TIPS (the money). Buy Tips, send them as gifts. 1 Tip ≈ 1 US cent.
+// Buying and cashing out switch on once the payments server + Paystack are set up.
+// ======================================================================
+window.TIPS_LIVE = false;             // becomes true when payments are ready
+window.TIP_USD = 0.0105;              // price of one Tip when buying
+window.TIP_PACKS = [100, 500, 1000, 2500, 5000, 10000, 50000];
+window.TIP_GIFTS = [
+    { id: 'goal', name: 'Goal', emoji: '⚽', tips: 10 },
+    { id: 'fire', name: 'Fire', emoji: '🔥', tips: 50 },
+    { id: 'gloves', name: 'Clean Sheet', emoji: '🧤', tips: 99 },
+    { id: 'boot', name: 'Golden Boot', emoji: '👟', tips: 199 },
+    { id: 'controller', name: 'Pro Controller', emoji: '🎮', tips: 299 },
+    { id: 'trophy', name: 'Trophy', emoji: '🏆', tips: 500 },
+    { id: 'mvp', name: 'MVP', emoji: '⭐', tips: 999 },
+    { id: 'goldenball', name: 'Golden Ball', emoji: '🥇', tips: 2999 },
+    { id: 'crown', name: 'Champions Crown', emoji: '👑', tips: 9999 },
+    { id: 'stadium', name: 'Stadium', emoji: '🏟️', tips: 19999 },
+    { id: 'goat', name: 'The GOAT', emoji: '🐐', tips: 44999 }
+];
+window.tipsUsd = (n) => n * window.TIP_USD;
+
+window.openTipSheet = function(target) {
+    if (window.needSignIn('send tips')) return;
+    if (target.to && target.to.toLowerCase() === window.meLower()) { showToast("You can't tip yourself 😄"); return; }
+    window.tipTarget = target;
+    window.panelKind = 'tip';
+    const bal = window.myGGCoins || 0;
+    window.openPanel(`🎁 Send a Tip to ${escapeHTML(window.dnText(target.to))}`, `
+        ${!window.TIPS_LIVE ? `<div class="rounded-2xl p-3 bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 font-bold text-center">🚀 Tips are launching soon! Here's a preview of what you'll be able to send.</div>` : ''}
+        <div class="flex items-center justify-between glass-panel rounded-2xl p-3 border border-cyan-500/20">
+            <div><p class="text-[10px] text-gray-400 font-bold uppercase">Your balance</p><p class="text-lg font-black text-white">${window.formatCount(bal)} Tips</p></div>
+            <button onclick="window.openBuyTips()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs uppercase">+ Get Tips</button>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+            ${window.TIP_GIFTS.map(g => `<button onclick="window.sendTipGift('${g.id}')" class="glass-panel rounded-2xl p-2.5 border border-cyan-500/15 hover:border-amber-400 text-center active:scale-95 transition">
+                <div class="text-3xl">${g.emoji}</div>
+                <p class="text-[11px] font-black text-white mt-1 leading-tight">${g.name}</p>
+                <p class="text-[10px] font-black text-amber-400">${Number(g.tips).toLocaleString()} Tips</p>
+                <p class="text-[9px] text-gray-500">${window.localPrice(window.tipsUsd(g.tips)) || window.fmtMoney(window.tipsUsd(g.tips), 'USD')}</p>
+            </button>`).join('')}
+        </div>
+        <p class="text-[10px] text-gray-500 text-center">Tips go to the creator. Tip amounts are never shown publicly.</p>`);
+};
+window.sendTipGift = async function(id) {
+    const g = window.TIP_GIFTS.find(x => x.id === id); if (!g) return;
+    if (!window.TIPS_LIVE) {
+        const ok = await window.sgDialog({ title: `${g.emoji} ${g.name} · ${Number(g.tips).toLocaleString()} Tips`, message: `Tips are launching soon! You'll be able to buy Tips with Mobile Money or card and send a ${g.name} to support creators.\n\nFor now, show love with hype 🔥 and GGs 👍`, okText: 'Got it', cancelText: 'Close' });
+        return ok;
+    }
+    if ((window.myGGCoins || 0) < g.tips) { showToast('Not enough Tips. Get more first.'); window.openBuyTips(); return; }
+    // (When payments are live, the server checks your balance and sends the tip.)
+};
+window.openBuyTips = function() {
+    window.panelKind = 'buytips';
+    window.openPanel('💰 Get Tips', `
+        ${!window.TIPS_LIVE ? `<div class="rounded-2xl p-3 bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 font-bold text-center">🚀 Buying Tips launches soon (Mobile Money &amp; cards). Prices preview:</div>` : ''}
+        <div class="space-y-2">${window.TIP_PACKS.map(n => `<button onclick="window.buyTipPack(${n})" class="w-full flex items-center justify-between glass-panel rounded-2xl px-4 py-3 border border-amber-500/20 hover:border-amber-400">
+            <span class="text-sm font-black text-white">🪙 ${Number(n).toLocaleString()} Tips</span>
+            <span class="text-xs font-black text-amber-400 text-right">${window.priceLabel(Math.round(window.tipsUsd(n) * 100) / 100)}</span></button>`).join('')}</div>
+        <p class="text-[10px] text-gray-500 text-center">Prices are in US dollars${window.userCurrency !== 'USD' ? ` and shown in ${window.userCurrency} for your convenience. Your bank or MoMo may convert at a slightly different rate` : ''}.</p>
+        <button onclick="window.openLanguagePicker()" class="w-full text-[11px] text-cyan-400 font-bold">Change currency (${window.userCurrency})</button>`);
+};
+window.buyTipPack = function(n) {
+    if (!window.TIPS_LIVE) { showToast('💰 Buying Tips launches soon!'); return; }
+};
+window.tipCreator = function(postId, to) { window.openTipSheet({ postId, to }); };
+window.tipLive = function() { const r = window.liveRoom; if (!r) return; window.openTipSheet({ liveId: r.id, to: r.data.host }); };
+
+window.openWallet = function() {
+    if (window.needSignIn('open your wallet')) return;
+    window.panelKind = 'wallet';
+    window.openPanel('💼 Tips Wallet', `
+        <div class="glass-panel rounded-2xl p-4 border border-amber-500/30 text-center">
+            <p class="text-[10px] text-gray-400 font-bold uppercase">Balance</p>
+            <p class="text-3xl font-black text-white">${window.formatCount(window.myGGCoins || 0)} <span class="text-amber-400">Tips</span></p>
+            <button onclick="window.openBuyTips()" class="mt-3 w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs uppercase">+ Get Tips</button>
+        </div>
+        <div class="glass-panel rounded-2xl p-4 border border-emerald-500/30">
+            <p class="text-[10px] text-gray-400 font-bold uppercase">Creator earnings</p>
+            <p class="text-2xl font-black text-emerald-400">${window.fmtMoney(0, 'USD')}${window.userCurrency !== 'USD' && window.localPrice(0) ? ` <span class="text-sm text-gray-400">≈ ${window.localPrice(0)}</span>` : ''}</p>
+            <p class="text-[11px] text-gray-400 mt-1">When people tip your posts and lives, your earnings show here. Cash out to Mobile Money or bank from $5.</p>
+            <button disabled class="mt-3 w-full py-3 rounded-xl bg-gg-900 border border-emerald-500/20 text-gray-500 font-black text-xs uppercase">Cash out (from $5)</button>
+        </div>
+        ${!window.TIPS_LIVE ? `<p class="text-[11px] text-amber-300 text-center font-bold">🚀 Tips &amp; cash-outs are launching soon.</p>` : ''}
+        <div class="glass-panel rounded-2xl p-3.5 border border-cyan-500/15 text-[11px] text-gray-400 space-y-1">
+            <p class="font-black text-white text-xs">How Tips work</p>
+            <p>1. Get Tips with Mobile Money or card.</p><p>2. Send gifts like ⚽ Goal or 🐐 The GOAT on posts and lives.</p><p>3. Creators turn the Tips they receive into real money.</p>
+        </div>`);
+};
+
+// ======================================================================
+// v18: EVERY LANGUAGE (Google's free website translator + auto-detect)
+// ======================================================================
+window.LANGS = [['en', 'English'], ['fr', 'Français'], ['es', 'Español'], ['pt', 'Português'], ['ar', 'العربية'], ['ha', 'Hausa'], ['yo', 'Yorùbá'], ['ig', 'Igbo'],
+    ['ak', 'Twi (Akan)'], ['gaa', 'Ga'], ['ee', 'Ewe'], ['sw', 'Kiswahili'], ['zu', 'isiZulu'], ['am', 'አማርኛ'], ['so', 'Soomaali'], ['de', 'Deutsch'], ['it', 'Italiano'], ['nl', 'Nederlands'],
+    ['tr', 'Türkçe'], ['ru', 'Русский'], ['uk', 'Українська'], ['pl', 'Polski'], ['hi', 'हिन्दी'], ['ur', 'اردو'], ['bn', 'বাংলা'], ['id', 'Bahasa Indonesia'], ['ms', 'Bahasa Melayu'],
+    ['tl', 'Filipino'], ['vi', 'Tiếng Việt'], ['th', 'ไทย'], ['zh-CN', '中文 (简体)'], ['zh-TW', '中文 (繁體)'], ['ja', '日本語'], ['ko', '한국어'], ['fa', 'فارسی'], ['he', 'עברית'], ['el', 'Ελληνικά'], ['sv', 'Svenska']];
+window.currentLang = function() {
+    const m = document.cookie.match(/googtrans=\/[^/]+\/([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : 'en';
+};
+window.setLangCookie = function(lang) {
+    const host = location.hostname;
+    const val = lang === 'en' ? '' : `/en/${lang}`;
+    const exp = lang === 'en' ? 'Thu, 01 Jan 1970 00:00:00 GMT' : new Date(Date.now() + 365 * 86400000).toUTCString();
+    document.cookie = `googtrans=${val}; expires=${exp}; path=/`;
+    if (host.includes('.')) document.cookie = `googtrans=${val}; expires=${exp}; path=/; domain=.${host}`;
+};
+window.loadTranslator = function() {
+    if (window._gtLoaded) return; window._gtLoaded = true;
+    window.googleTranslateElementInit = function() {
+        try { new google.translate.TranslateElement({ pageLanguage: 'en', autoDisplay: false }, 'google_translate_element'); } catch (e) {}
+    };
+    const s = document.createElement('script');
+    s.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+    s.async = true;
+    s.onerror = () => { window._gtFailed = true; };
+    document.head.appendChild(s);
+    const st = document.createElement('style');
+    st.textContent = `.goog-te-banner-frame, .skiptranslate iframe, #goog-gt-tt, .goog-te-balloon-frame, .VIpgJd-ZVi9od-ORHb-OEVmcd { display:none !important; } body { top:0 !important; } .goog-text-highlight { background:none !important; box-shadow:none !important; } font { background:transparent !important; }`;
+    document.head.appendChild(st);
+};
+window.setLanguage = function(lang) {
+    try { localStorage.setItem('sg_lang', lang); } catch (e) {}
+    window.setLangCookie(lang);
+    const combo = document.querySelector('.goog-te-combo');
+    if (combo && lang !== 'en' && [...combo.options].some(o => o.value === lang)) { combo.value = lang; combo.dispatchEvent(new Event('change')); window.updateLangBadge(); window.closePanel(); return; }
+    location.reload();   // reload applies the new language everywhere (and switching back to English)
+};
+window.updateLangBadge = function() { const b = document.getElementById('drawerLangBadge'); if (b) b.innerText = (window.currentLang() || 'en').toUpperCase().slice(0, 5) + ' · ' + window.userCurrency; };
+window.openLanguagePicker = function() {
+    window.panelKind = 'lang';
+    const cur = window.currentLang();
+    const curs = [...new Set(['USD', 'GHS', 'NGN', 'KES', 'ZAR', 'XOF', 'XAF', 'EGP', 'GBP', 'EUR', 'CAD', 'INR', 'BRL', 'MXN', 'AED', 'SAR', 'PHP', 'IDR', ...Object.values(window.TZ_CURRENCY)])];
+    window.openPanel('🌐 Language &amp; Currency', `
+        <p class="text-[10px] font-black text-gray-400 uppercase">Language</p>
+        <div class="grid grid-cols-2 gap-2 notranslate" translate="no">${window.LANGS.map(([c, n]) => `<button onclick="window.setLanguage('${c}')" class="py-2.5 px-3 rounded-xl text-left text-xs font-bold ${cur === c ? 'bg-cyan-400 text-slate-950' : 'bg-gg-900 text-gray-200 border border-cyan-500/15'}">${n}</button>`).join('')}</div>
+        <p class="text-[10px] text-gray-500">Translation by Google. Posts and messages are translated too. If a language doesn't load, use your browser's "Translate" option.</p>
+        <p class="text-[10px] font-black text-gray-400 uppercase pt-2">Show prices in</p>
+        <select onchange="window.setCurrency(this.value)" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-sm text-white notranslate" translate="no">${curs.map(c => `<option ${c === window.userCurrency ? 'selected' : ''}>${c}</option>`).join('')}</select>
+        <p class="text-[10px] text-gray-500">Everything is charged in US dollars; this only changes how prices are shown.</p>`);
+};
+window.setCurrency = function(c) {
+    window.userCurrency = c;
+    try { localStorage.setItem('sg_currency', c); } catch (e) {}
+    window.loadFx();
+    window.updateLangBadge();
+    showToast(`Prices now shown in ${c}`);
+};
+// First visit: use the phone's language automatically
+(function autoLanguage() {
+    let saved = null; try { saved = localStorage.getItem('sg_lang'); } catch (e) {}
+    const device = (navigator.language || 'en').toLowerCase();
+    const base = device.split('-')[0];
+    let want = saved;
+    if (!want && base !== 'en') {
+        const match = window.LANGS.find(([c]) => c.toLowerCase() === device) || window.LANGS.find(([c]) => c.split('-')[0] === base);
+        if (match) { want = match[0]; try { localStorage.setItem('sg_lang', want); } catch (e) {} }
+    }
+    if (want && want !== 'en' && window.currentLang() !== want) window.setLangCookie(want);
+    if ((want && want !== 'en') || window.currentLang() !== 'en') window.loadTranslator();
+    else setTimeout(window.loadTranslator, 4000);       // load quietly so switching is instant
+    setTimeout(window.updateLangBadge, 500);
+})();
