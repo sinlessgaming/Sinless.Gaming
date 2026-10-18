@@ -1202,7 +1202,10 @@ window.defaultPublicCategorySquads = [
     { id: 'cat_squad_dls', name: 'DREAM LEAGUE SOCCER HUB', tag: 'DLS', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'DLS', isOfficial: true, isPublic: true, inviteCode: 'SQ-DLS01', members: [], subRooms: ['Rules/Announcements', 'chat', 'transfers', 'Matchmaking'], bio: 'Dream League Soccer tips, kits, and multiplayer hubs.', rooms: { 'Rules/Announcements': [], 'chat': [], 'transfers': [], 'Matchmaking': [] } },
     { id: 'cat_squad_wrestling', name: 'WWE & WRESTLING HUB', tag: 'WWE', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'WRESTLING', isOfficial: true, isPublic: true, inviteCode: 'SQ-WWE01', members: [], subRooms: ['Rules/Announcements', 'chat', 'matches', 'Matchmaking'], bio: 'WWE 2K, wrestling simulation, match cards & discussion.', rooms: { 'Rules/Announcements': [], 'chat': [], 'matches': [], 'Matchmaking': [] } },
     { id: 'cat_squad_cod', name: 'CALL OF DUTY HUB', tag: 'COD', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'CALL OF DUTY', isOfficial: true, isPublic: true, inviteCode: 'SQ-COD01', members: [], subRooms: ['Rules/Announcements', 'chat', 'loadouts', 'Matchmaking'], bio: 'COD Mobile, Warzone & multiplayer competitive team up.', rooms: { 'Rules/Announcements': [], 'chat': [], 'loadouts': [], 'Matchmaking': [] } },
-    { id: 'cat_squad_other', name: 'VARIETY GAMING HUB', tag: 'VAR', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'OTHER GAMES', isOfficial: true, isPublic: true, inviteCode: 'SQ-VAR01', members: [], subRooms: ['Rules/Announcements', 'chat', 'Matchmaking'], bio: 'All other mobile, console & PC games community chat.', rooms: { 'Rules/Announcements': [], 'chat': [], 'Matchmaking': [] } }
+    { id: 'cat_squad_other', name: 'OTHER GAMES HUB', tag: 'OTH', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'OTHER GAMES', isOfficial: true, isPublic: true, inviteCode: 'SQ-OTH01', members: [], subRooms: ['Rules/Announcements', 'chat', 'Matchmaking'], bio: 'Every other game: Free Fire, PUBG, Fortnite, Roblox, Minecraft, GTA, NBA 2K, console & PC.', rooms: { 'Rules/Announcements': [], 'chat': [], 'Matchmaking': [] } },
+    { id: 'cat_squad_movies', name: 'MOVIES & TV HUB', tag: 'MOV', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'MOVIES', isOfficial: true, isPublic: true, inviteCode: 'SQ-MOV01', members: [], subRooms: ['Rules/Announcements', 'chat'], bio: 'Movies, series, trailers, reviews and spoiler talk (mark your spoilers!).', rooms: { 'Rules/Announcements': [], 'chat': [] } },
+    { id: 'cat_squad_anime', name: 'ANIME HUB', tag: 'ANI', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'ANIME', isOfficial: true, isPublic: true, inviteCode: 'SQ-ANI01', members: [], subRooms: ['Rules/Announcements', 'chat'], bio: 'Anime & manga: new episodes, power rankings, recommendations and debates.', rooms: { 'Rules/Announcements': [], 'chat': [] } },
+    { id: 'cat_squad_books', name: 'BOOKS & READERS HUB', tag: 'BKS', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'BOOKS', isOfficial: true, isPublic: true, inviteCode: 'SQ-BKS01', members: [], subRooms: ['Rules/Announcements', 'chat'], bio: 'For readers: what you are reading, book clubs, reviews, novels, comics & webtoons.', rooms: { 'Rules/Announcements': [], 'chat': [] } }
 ];
 
 let savedClans = JSON.parse(localStorage.getItem('sinless_clans_data') || 'null');
@@ -1293,7 +1296,7 @@ window.renderClansList = function() {
                         ${c.isOfficial ? '<span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1.5 py-0.5 rounded font-black">Official</span>' : ''}
                         ${!c.isPublic ? '<span class="text-[8px] bg-red-500/20 text-red-400 border border-red-500/40 px-1.5 py-0.5 rounded font-black"><i class="fa-solid fa-lock mr-0.5"></i>Private</span>' : ''}
                     </div>
-                    <p class="text-[9px] text-gray-400">Owner: <span class="text-cyan-400 font-bold" onclick="event.stopPropagation(); window.openUserProfileModal('${c.owner || c.leader}', event)">${window.dn(c.owner || c.leader)}</span> • ${members.length} Members ${c.inviteCode ? `• Code: ${c.inviteCode}` : ''}</p>
+                    <p class="text-[9px] text-gray-400">${c.isOfficial ? `Run by <span class="text-cyan-400 font-bold">Sinless GG</span> <i class="fa-solid fa-circle-check text-cyan-400"></i>` : `Owner: <span class="text-cyan-400 font-bold" onclick="event.stopPropagation(); window.openUserProfileModal('${c.owner || c.leader}', event)">${window.dn(c.owner || c.leader)}</span>`} • ${members.length} Members ${c.inviteCode ? `• Code: ${c.inviteCode}` : ''}</p>
                 </div>
                 <button onclick="event.stopPropagation(); window.toggleSquadMembership('${c.id}')" class="px-3.5 py-1.5 rounded-xl font-black text-[10px] uppercase transition shadow ${isMember ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'}">
                     ${isMember ? 'Leave' : 'Join'}
@@ -2560,7 +2563,7 @@ function generateTournamentsHTML() {
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                 <div>
                     <h3 class="text-xs font-black text-white uppercase tracking-wider">${current.title}</h3>
-                    <p class="text-[9px] text-cyan-400">Host: ${window.nameLink(current.host, 'font-bold text-cyan-400')} • ${current.game} • ${current.players.length}/${current.maxPlayers} Registered</p>
+                    <p class="text-[9px] text-cyan-400">Host: ${window.nameLink(current.host, 'font-bold text-cyan-400')}${current.squadId && window.squadTournLabel ? window.squadTournLabel(current.squadId) : ''} • ${current.game} • ${current.players.length}/${current.maxPlayers} Registered</p>
                     <div class="flex items-center space-x-2 mt-1">
                         <span class="inline-block text-[8px] bg-magenta/20 text-magenta font-extrabold px-2 py-0.5 rounded-md">${formatBadge}</span>
                         <span class="inline-block text-[8px] bg-amber-500/20 text-amber-300 font-extrabold px-2 py-0.5 rounded-md border border-amber-500/30">🏆 Prize Pool: ${current.prizePool || 'Bragging Rights'}</span>
@@ -5066,6 +5069,12 @@ window.listenToFirestoreSquads = function() {
         window.defaultPublicCategorySquads.forEach(s => { map[s.id] = { ...s, members: [], memberUids: [] }; });
         (window.clansData || []).forEach(s => { if (s.id && !map[s.id] && !String(s.id).startsWith('squad_')) map[s.id] = s; });
         cloud.forEach(s => { map[s.id] = { ...(map[s.id] || {}), ...s }; });
+        // Official hubs always use the latest name/description from the app
+        window.defaultPublicCategorySquads.forEach(h => {
+            const m = map[h.id]; if (!m) return;
+            ['name', 'tag', 'bio', 'game', 'inviteCode'].forEach(k => { m[k] = h[k]; });
+            m.isOfficial = true; m.isPublic = true;
+        });
         window.clansData = Object.values(map);
         try { localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData)); } catch (e) {}
         window.squadsLoadedOnce = true;
@@ -6947,3 +6956,698 @@ window.settlePrediction = async function(postId, i) {
     window.activeDetailPostId === postId && window.renderPostDetail(p);
     try { await updateDoc(doc(window.db, 'posts', postId), { poll: p.poll }); showToast('🎯 Result posted!'); } catch (e) { showToast("⚠️ Couldn't save result."); }
 };
+
+// ======================================================================
+// v14: OFFICIAL HUBS RUN BY THE APP, SQUAD TOURNAMENTS, NEWS & GIST,
+//      SMARTER "FOR YOU" (learns what each person likes)
+// ======================================================================
+
+// ---------- Official hubs belong to Sinless GG (app admins are the owners) ----------
+window.appAdminUids = window.appAdminUids || [];
+window._baseCheckAdminAndBan14 = window._baseCheckAdminAndBan14 || window.checkAdminAndBan;
+window.checkAdminAndBan = async function(user) {
+    await window._baseCheckAdminAndBan14(user);
+    if (!user || !window.db) return;
+    try { const c = await getDoc(doc(window.db, 'config', 'admins')); window.appAdminUids = c.exists() ? (c.data().uids || []) : []; } catch (e) {}
+    window.syncOfficialHubInfo && window.syncOfficialHubInfo();
+};
+
+// An admin's phone quietly updates hub names/descriptions in the cloud (e.g. Variety → Other Games)
+window.syncOfficialHubInfo = function() {
+    if (!window.isAppAdmin || !window.squadsLoadedOnce || window.hubInfoSynced) return;
+    window.hubInfoSynced = true;
+    window.defaultPublicCategorySquads.forEach(h => {
+        if (!window.cloudSquadIds.has(h.id)) return;
+        updateDoc(doc(window.db, 'squads', h.id), { name: h.name, tag: h.tag, bio: h.bio, game: h.game, inviteCode: h.inviteCode }).catch(() => {});
+    });
+};
+
+window._baseRoleOf14 = window._baseRoleOf14 || window.roleOf;
+window.roleOf = function(sq, tag, uid) {
+    if (sq && sq.isOfficial) {
+        if (uid && window.appAdminUids.includes(uid)) return 'owner';
+        if ((tag || '').toLowerCase() === 'sinlessgaming') return 'member';
+    }
+    return window._baseRoleOf14(sq, tag, uid);
+};
+
+// Anyone in an official hub can host a tournament there; in normal squads, owner + admins
+window.canHostInSquad = function(sq) {
+    if (!sq || !window.currentUser) return false;
+    if (window.isSquadAdmin(sq)) return true;
+    return !!sq.isOfficial && window.isSquadMember(sq);
+};
+
+window._baseRenderSquadHeader14 = window._baseRenderSquadHeader14 || window.renderSquadHeader;
+window.renderSquadHeader = function() {
+    window._baseRenderSquadHeader14();
+    const sq = window.activeSquadDetails;
+    if (!sq) return;
+    const n = (sq.members || []).length;
+    if (sq.isOfficial) {
+        document.getElementById('squadDetailLeader').innerHTML = `${n} member${n === 1 ? '' : 's'} · Official hub · run by <b class="text-cyan-400">Sinless GG</b> <i class="fa-solid fa-circle-check text-cyan-400"></i>`;
+    }
+    document.getElementById('hostSquadTournamentBtn').classList.toggle('hidden', !window.canHostInSquad(sq));
+    // 🏆 tournaments room button next to 👥 and ⚔️
+    const nav = document.getElementById('squadSubRoomsNav');
+    const on = window.activeSquadSubRoom === 'Tournaments';
+    const count = (window.tournamentsList || []).filter(t => t.squadId === sq.id).length;
+    nav.insertAdjacentHTML('beforeend', `<button onclick="window.switchSquadSubRoom('Tournaments')" class="relative px-3 py-2 rounded-xl text-xs font-bold ${on ? 'bg-amber-400 text-slate-950' : 'bg-gg-900 text-amber-400 border border-amber-500/30'}">🏆${count ? `<span class="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-magenta text-white text-[9px] font-black flex items-center justify-center">${count}</span>` : ''}</button>`);
+};
+
+window._baseRenderSquadChannel14 = window._baseRenderSquadChannel14 || window.renderSquadChannel;
+window.renderSquadChannel = function() {
+    if (window.activeSquadSubRoom === 'Tournaments') {
+        const input = document.getElementById('squadInputContainer');
+        input.style.display = 'none';
+        document.getElementById('squadLockedBar').classList.add('hidden');
+        document.getElementById('squadPinnedBar').classList.add('hidden');
+        window.renderSquadTournaments();
+        return;
+    }
+    window._baseRenderSquadChannel14();
+};
+
+window.renderSquadTournaments = function() {
+    const sq = window.activeSquadDetails;
+    const box = document.getElementById('squadRoomMsgsBox');
+    if (!sq || !box) return;
+    const me = window.meLower ? window.meLower() : '';
+    const list = (window.tournamentsList || []).filter(t => t.squadId === sq.id);
+    const canHost = window.canHostInSquad(sq);
+    const fmt = (t) => t.format === 'WORLD_CUP' ? '🌍 World Cup' : t.format === 'CHAMPIONS_LEAGUE' ? '🏆 Swiss' : t.format === 'LEAGUE' ? '📊 League' : '⚡ Knockout';
+    const hostBtn = canHost
+        ? `<button onclick="window.openCreateSquadSquadTournamentModal()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs uppercase shadow-lg"><i class="fa-solid fa-trophy mr-1.5"></i> Host a tournament in this squad</button>`
+        : `<p class="text-[11px] text-gray-400 text-center">${window.isSquadMember(sq) ? 'Only squad admins can host tournaments here.' : 'Join this squad to take part in its tournaments.'}</p>`;
+    box.innerHTML = `<div class="space-y-3 py-2">
+        ${hostBtn}
+        ${list.length ? list.map(t => {
+            const players = (t.players || []).filter(p => p && !/^Club_\d+$/.test(p) && p !== 'Open Spot' && p !== 'TBD');
+            const joined = (t.players || []).some(p => (p || '').toLowerCase() === me);
+            const full = (t.players || []).length >= t.maxPlayers && !(t.players || []).some(p => /^Club_\d+$/.test(p));
+            return `<div class="glass-panel rounded-2xl p-3.5 border border-amber-500/30 space-y-2">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0">
+                        <p class="text-sm font-black text-white truncate">${escapeHTML(t.title)}</p>
+                        <p class="text-[10px] text-gray-400">Host: ${window.nameLink(t.host, 'text-cyan-400 font-bold')} · ${escapeHTML(t.game || '')}</p>
+                    </div>
+                    <span class="shrink-0 text-[9px] font-black px-2 py-1 rounded-lg bg-magenta/20 text-magenta">${fmt(t)}</span>
+                </div>
+                <div class="flex items-center justify-between text-[10px]">
+                    <span class="text-gray-300"><i class="fa-solid fa-users text-cyan-400 mr-1"></i>${players.length}/${t.maxPlayers} players</span>
+                    <span class="text-amber-300 font-bold">🏆 ${escapeHTML(t.prizePool || 'Bragging Rights')}</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="window.openTournamentFromSquad('${t.id}')" class="flex-1 py-2 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-[11px] font-black">View bracket / table</button>
+                    ${joined ? `<span class="flex-1 py-2 rounded-xl bg-cyan-500/10 text-cyan-400 text-[11px] font-black text-center">✓ Registered</span>`
+                        : full ? `<span class="flex-1 py-2 rounded-xl bg-red-500/10 text-red-400 text-[11px] font-black text-center">Full</span>`
+                        : `<button onclick="window.registerSquadTournament('${t.id}')" class="flex-1 py-2 rounded-xl bg-emerald-500 text-slate-950 text-[11px] font-black uppercase">Register</button>`}
+                </div>
+            </div>`;
+        }).join('') : `<div class="text-center py-10 space-y-2"><div class="text-4xl">🏆</div><p class="text-sm font-bold text-white">No tournaments yet</p><p class="text-xs text-gray-400">Squad tournaments show up here and in the Tournaments tab.</p></div>`}
+    </div>`;
+};
+
+window.registerSquadTournament = async function(id) {
+    const sq = window.activeSquadDetails;
+    if (sq && !window.isSquadMember(sq)) { showToast('Join the squad first, then register.'); return; }
+    await window.joinActiveTournament(id);
+    window.renderSquadTournaments();
+};
+
+window.openTournamentFromSquad = function(id) {
+    const t = (window.tournamentsList || []).find(x => x.id === id);
+    if (!t) return;
+    window.activeTournament = t;
+    window.returnToSquadId = window.activeSquadDetails && window.activeSquadDetails.id;
+    window.closeSquadDetailsModal();
+    window.switchView('tournaments');
+    window.scrollTo({ top: 0 });
+};
+
+window.squadTournLabel = function(squadId) {
+    const sq = (window.clansData || []).find(c => c.id === squadId);
+    if (!sq) return '';
+    return ` • <span onclick="window.openSquadDetailsModal('${sq.id}')" class="text-amber-300 font-bold cursor-pointer">🛡️ ${escapeHTML(sq.name)}</span>`;
+};
+
+// Pre-fill the host form from the squad (and make sure its game is in the list)
+window.openCreateSquadSquadTournamentModal = function() {
+    const sq = window.activeSquadDetails;
+    if (!sq) return;
+    if (window.needSignIn('host tournaments')) return;
+    if (!window.canHostInSquad(sq)) { showToast(sq.isOfficial ? 'Join the hub first to host here.' : 'Only squad admins can host here.'); return; }
+    const sel = document.getElementById('tournGameSelect');
+    const game = sq.game || 'FC MOBILE';
+    if (![...sel.options].some(o => o.value === game)) sel.insertAdjacentHTML('beforeend', `<option value="${escapeHTML(game)}">${escapeHTML(game)}</option>`);
+    sel.value = game;
+    document.getElementById('tournTitleInput').value = `${sq.name.replace(/ HUB$/i, '')} Cup`;
+    window.activeSquadForTournament = sq.id;
+    window.openCreateTournamentModal();
+};
+
+// The general "+ Host Tournament" button should not attach to a squad
+window._baseOpenCreateTournamentModal14 = window._baseOpenCreateTournamentModal14 || window.openCreateTournamentModal;
+window.openCreateTournamentModal = function() {
+    const fromSquad = !!(window.activeSquadDetails && window.activeSquadForTournament === window.activeSquadDetails.id &&
+        !document.getElementById('squadDetailsModal').classList.contains('hidden'));
+    if (!fromSquad) window.activeSquadForTournament = null;
+    window._baseOpenCreateTournamentModal14();
+};
+
+// After launching from a squad, jump back into the squad's 🏆 room
+window._baseSubmitNewTournament14 = window._baseSubmitNewTournament14 || window.submitNewTournament;
+window.submitNewTournament = async function() {
+    const squadId = window.activeSquadForTournament;
+    const before = (window.tournamentsList || []).length;
+    await window._baseSubmitNewTournament14();
+    window.activeSquadForTournament = null;
+    if (squadId && (window.tournamentsList || []).length > before && window.activeSquadDetails && window.activeSquadDetails.id === squadId) {
+        window.activeSquadSubRoom = 'Tournaments';
+        window.renderSquadHeader();
+        window.renderSquadChannel();
+    }
+};
+
+// Keep the squad 🏆 room fresh when tournaments change
+window._baseRenderTournamentsTabDedicated14 = window._baseRenderTournamentsTabDedicated14 || window.renderTournamentsTabDedicated;
+window.renderTournamentsTabDedicated = function() {
+    window._baseRenderTournamentsTabDedicated14();
+    const box = document.getElementById('tournamentsDedicatedContainer');
+    if (box && window.returnToSquadId) {
+        const sq = (window.clansData || []).find(c => c.id === window.returnToSquadId);
+        if (sq) box.insertAdjacentHTML('afterbegin', `<button onclick="window.backToSquadFromTournament()" class="w-full text-left px-3.5 py-2.5 rounded-2xl bg-gg-900 border border-amber-500/30 text-xs font-bold text-amber-300"><i class="fa-solid fa-arrow-left mr-2"></i>Back to ${escapeHTML(sq.name)}</button>`);
+    }
+    const sqOpen = window.activeSquadDetails && !document.getElementById('squadDetailsModal').classList.contains('hidden');
+    if (sqOpen) {
+        if (window.activeSquadSubRoom === 'Tournaments') window.renderSquadTournaments();
+        window.renderSquadHeader();
+    }
+};
+window.backToSquadFromTournament = function() {
+    const id = window.returnToSquadId;
+    window.returnToSquadId = null;
+    if (!id) return;
+    window.openSquadDetailsModal(id);
+    window.activeSquadSubRoom = 'Tournaments';
+    window.renderSquadHeader();
+    window.renderSquadChannel();
+};
+
+// ======================================================================
+// TASTE ENGINE: learns what you like from what you watch, GG, comment, share and follow
+// Saved on this phone only. Old interests slowly fade so the feed follows your current mood.
+// ======================================================================
+window.TASTE_KEY = 'sg_taste_v1';
+window.loadTaste = function() {
+    let t;
+    try { t = JSON.parse(localStorage.getItem(window.TASTE_KEY) || 'null'); } catch (e) {}
+    if (!t || typeof t !== 'object') {
+        t = { cats: {}, creators: {}, tags: {}, news: {}, seen: {}, hidden: [], at: Date.now() };
+        // carry over the old simple category counts
+        try { Object.entries(JSON.parse(localStorage.getItem('sinless_category_interests') || '{}')).forEach(([k, v]) => { t.cats[k] = Math.min(20, Number(v) || 0); }); } catch (e) {}
+    }
+    ['cats', 'creators', 'tags', 'news', 'seen'].forEach(k => { t[k] = t[k] || {}; });
+    t.hidden = t.hidden || [];
+    const days = (Date.now() - (t.at || Date.now())) / 86400000;
+    if (days > 0.25) {                                   // fade ~4% a day
+        const f = Math.pow(0.96, days);
+        ['cats', 'creators', 'tags', 'news'].forEach(k => { for (const x in t[k]) { t[k][x] *= f; if (Math.abs(t[k][x]) < 0.05) delete t[k][x]; } });
+        t.at = Date.now();
+    }
+    return t;
+};
+window.taste = window.loadTaste();
+window.saveTasteSoon = function() {
+    clearTimeout(window._tasteSaveT);
+    window._tasteSaveT = setTimeout(() => {
+        const t = window.taste;
+        const trim = (o, n) => { const e = Object.entries(o); if (e.length > n) { e.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])); return Object.fromEntries(e.slice(0, n)); } return o; };
+        t.creators = trim(t.creators, 300); t.tags = trim(t.tags, 300); t.seen = trim(t.seen, 1500);
+        t.hidden = t.hidden.slice(-500);
+        try { localStorage.setItem(window.TASTE_KEY, JSON.stringify(t)); } catch (e) {}
+    }, 800);
+};
+
+window.postTags = function(p) {
+    return [...new Set(((p.caption || p.text || '').match(/#[\p{L}\p{N}_]{2,30}/gu) || []).map(x => x.slice(1).toLowerCase()))].slice(0, 5);
+};
+window.POST_TO_NEWS_CAT = { 'FOOTBALL': 'football', 'FC MOBILE': 'gaming', 'EA SPORTS FC': 'gaming', 'EFOOTBALL': 'gaming', 'DLS': 'gaming', 'CALL OF DUTY': 'gaming', 'OTHER GAMES': 'gaming', 'LIVE STREAM': 'gaming', 'WRESTLING': 'wrestling', 'MOVIES': 'movies', 'ANIME': 'anime', 'BOOKS': 'books' };
+
+// weight > 0 = liked it, < 0 = not for me
+window.tasteAdd = function(p, w) {
+    if (!p || !w) return;
+    const t = window.taste;
+    const clamp = (v) => Math.max(-15, Math.min(60, v));
+    const cat = (p.game || '').toUpperCase();
+    if (cat) t.cats[cat] = clamp((t.cats[cat] || 0) + w);
+    const who = (p.user || '').toLowerCase();
+    if (who && !window.isMyPost(p)) t.creators[who] = clamp((t.creators[who] || 0) + w);
+    window.postTags(p).forEach(tag => { t.tags[tag] = clamp((t.tags[tag] || 0) + w * 0.6); });
+    const nc = window.POST_TO_NEWS_CAT[cat];
+    if (nc) t.news[nc] = clamp((t.news[nc] || 0) + w * 0.5);
+    window.saveTasteSoon();
+};
+
+// How much this person seems to like a post (roughly -1 … +3)
+window.tasteScore = function(p) {
+    const t = window.taste;
+    const maxOf = (o) => Math.max(1, ...Object.values(o).map(Math.abs));
+    const norm = (o, k) => k ? Math.max(-1, Math.min(1, (o[k] || 0) / maxOf(o))) : 0;
+    let s = norm(t.cats, (p.game || '').toUpperCase()) + 0.9 * norm(t.creators, (p.user || '').toLowerCase());
+    const tags = window.postTags(p);
+    if (tags.length) s += 0.6 * Math.max(...tags.map(x => norm(t.tags, x)));
+    if (window.amFollowing && window.amFollowing(p.user)) s += 0.5;
+    return s;
+};
+
+// New ranking: quality + freshness + personal taste, and things you've already seen sink
+window.feedScore = function(p) {
+    const ageDays = (Date.now() - window.postTimeValue(p)) / 86400000;
+    const quality = 4 * Math.log1p(p.ggsCount || 0) + 5 * Math.log1p(p.commentsCount || 0) + 1.5 * Math.log1p(p.viewsCount || 0);
+    const freshness = 12 / (1 + ageDays);
+    let s = quality + freshness + 9 * window.tasteScore(p) + 9;
+    const seen = window.taste.seen[p.docId || p.id] || 0;
+    if (seen >= 2) s *= 0.5; else if (seen === 1) s *= 0.8;
+    return Math.max(0.5, s);
+};
+
+// "Not interested" posts disappear from your feed
+window._baseGetOrderedFeed14 = window._baseGetOrderedFeed14 || window.getOrderedFeed;
+window.getOrderedFeed = function() {
+    const hidden = new Set(window.taste.hidden);
+    return window._baseGetOrderedFeed14().filter(p => !hidden.has(p.docId || p.id));
+};
+
+// --- signals ---
+window.viewStart14 = {};
+window._baseStartViewStay14 = window._baseStartViewStay14 || window.startViewStay;
+window.startViewStay = function(id) {
+    if (!window.viewStart14[id]) window.viewStart14[id] = Date.now();
+    return window._baseStartViewStay14(id);
+};
+window._baseEndViewStay14 = window._baseEndViewStay14 || window.endViewStay;
+window.endViewStay = function(id) {
+    const t0 = window.viewStart14[id];
+    delete window.viewStart14[id];
+    if (t0) {
+        const secs = (Date.now() - t0) / 1000;
+        const p = window.findPost(id);
+        if (p && secs >= 1) { window.taste.seen[id] = (window.taste.seen[id] || 0) + 1; window.saveTasteSoon(); }
+        if (p && secs >= 3) window.tasteAdd(p, Math.min(2.5, secs / 6));      // stayed to watch/read
+        else if (p && secs < 1.2) window.tasteAdd(p, -0.1);                    // scrolled straight past
+    }
+    return window._baseEndViewStay14(id);
+};
+
+window._baseToggleGGPost14 = window._baseToggleGGPost14 || window.toggleGGPost;
+window.toggleGGPost = async function(postId) {
+    const p = window.findPost(postId);
+    const uid = window.currentUser ? window.currentUser.uid : 'guest_user';
+    const had = p && (p.ggsBy || []).includes(uid);
+    const r = await window._baseToggleGGPost14(postId);
+    if (p && window.currentUser) window.tasteAdd(p, had ? -3 : 3);
+    return r;
+};
+window._baseSubmitCommentReply14 = window._baseSubmitCommentReply14 || window.submitCommentReply;
+window.submitCommentReply = async function() {
+    const p = window.findPost(window.activeCommentPostId);
+    const had = (document.getElementById('commentInputText') || {}).value;
+    const r = await window._baseSubmitCommentReply14();
+    if (p && had && had.trim() && window.currentUser) window.tasteAdd(p, 4);
+    return r;
+};
+window._baseSharePost14 = window._baseSharePost14 || window.sharePost;
+window.sharePost = function(postId) { window.tasteAdd(window.findPost(postId), 5); return window._baseSharePost14(postId); };
+window._baseOpenPostDetail14 = window._baseOpenPostDetail14 || window.openPostDetail;
+window.openPostDetail = function(postId, focusReply) { window.tasteAdd(window.findPost(postId), 1.5); return window._baseOpenPostDetail14(postId, focusReply); };
+window._baseVotePoll14 = window._baseVotePoll14 || window.votePoll;
+window.votePoll = async function(postId, i) { const p = window.findPost(postId); const r = await window._baseVotePoll14(postId, i); if (p && window.currentUser) window.tasteAdd(p, 2); return r; };
+window._baseToggleFollowUser14 = window._baseToggleFollowUser14 || window.toggleFollowUser;
+window.toggleFollowUser = async function(tag) {
+    const was = window.amFollowing(tag);
+    const r = await window._baseToggleFollowUser14(tag);
+    const k = (tag || '').toLowerCase();
+    window.taste.creators[k] = Math.max(-15, Math.min(60, (window.taste.creators[k] || 0) + (was ? -8 : 8)));
+    window.saveTasteSoon();
+    return r;
+};
+window._baseFilterByCategory14 = window._baseFilterByCategory14 || window.filterByCategory;
+window.filterByCategory = function(cat, btn) {
+    if (cat && !['ALL', 'LIVE STREAM'].includes(cat)) { window.taste.cats[cat] = Math.min(60, (window.taste.cats[cat] || 0) + 0.5); window.saveTasteSoon(); }
+    return window._baseFilterByCategory14(cat, btn);
+};
+
+// "Show more like this" / "Not interested" in the post ••• menu
+window._baseOpenPostActions14 = window._baseOpenPostActions14 || window.openPostActions;
+window.openPostActions = function(postId) {
+    const orig = window.openActionSheet;
+    window.openActionSheet = (title, items) => orig(title, [
+        { icon: 'fa-heart', label: 'Show more like this', run: () => { window.tasteAdd(window.findPost(postId), 6); showToast('👍 Got it — more like this.'); } },
+        { icon: 'fa-eye-slash', label: 'Not interested', run: () => window.notInterested(postId) },
+        ...items
+    ]);
+    try { window._baseOpenPostActions14(postId); } finally { window.openActionSheet = orig; }
+};
+window.notInterested = function(postId) {
+    const p = window.findPost(postId);
+    if (p) window.tasteAdd(p, -6);
+    window.taste.hidden.push(postId);
+    window.saveTasteSoon();
+    window.renderFypFeed();
+    showToast("🙈 Hidden. You'll see less like this.");
+};
+
+// ======================================================================
+// NEWS & GIST: free headlines from football, gaming, movies, anime, books & wrestling.
+// Refreshes by itself every 10 minutes; live scores every 30 seconds while games are on.
+// ======================================================================
+window.NEWS_CATS = [
+    { id: 'foryou', label: '✨ For You' },
+    { id: 'football', label: '⚽ Football', color: 'text-emerald-400', post: 'FOOTBALL' },
+    { id: 'gaming', label: '🎮 Gaming', color: 'text-cyan-300', post: 'OTHER GAMES' },
+    { id: 'movies', label: '🎬 Movies & TV', color: 'text-rose-400', post: 'MOVIES' },
+    { id: 'anime', label: '🍥 Anime', color: 'text-pink-400', post: 'ANIME' },
+    { id: 'books', label: '📚 Books', color: 'text-yellow-300', post: 'BOOKS' },
+    { id: 'wrestling', label: '🤼 Wrestling', color: 'text-amber-400', post: 'WRESTLING' }
+];
+window.NEWS_SOURCES = {
+    football: [
+        ['BBC Sport', 'https://feeds.bbci.co.uk/sport/football/rss.xml'],
+        ['The Guardian', 'https://www.theguardian.com/football/rss'],
+        ['Sky Sports', 'https://www.skysports.com/rss/12040']
+    ],
+    gaming: [
+        ['GameSpot', 'https://www.gamespot.com/feeds/game-news'],
+        ['IGN', 'https://feeds.feedburner.com/ign/games-all'],
+        ['Guardian Games', 'https://www.theguardian.com/games/rss'],
+        ['Eurogamer', 'https://www.eurogamer.net/feed']
+    ],
+    movies: [
+        ['The Guardian', 'https://www.theguardian.com/film/rss'],
+        ['Variety', 'https://variety.com/v/film/feed/'],
+        ['Deadline', 'https://deadline.com/feed/'],
+        ['Guardian TV', 'https://www.theguardian.com/tv-and-radio/rss']
+    ],
+    anime: [
+        ['Anime News Network', 'https://www.animenewsnetwork.com/all/rss.xml?ann-edition=w'],
+        ['MyAnimeList', 'https://myanimelist.net/rss/news.xml']
+    ],
+    books: [
+        ['The Guardian', 'https://www.theguardian.com/books/rss'],
+        ['Book Riot', 'https://bookriot.com/feed/'],
+        ['Literary Hub', 'https://lithub.com/feed/']
+    ],
+    wrestling: [
+        ['Wrestling Inc', 'https://www.wrestlinginc.com/feed/'],
+        ['Ringside News', 'https://www.ringsidenews.com/feed/']
+    ]
+};
+window.NEWS_TTL = 10 * 60000;
+window.newsByCat = {};
+window.activeNewsCat = 'foryou';
+window.newsLoadedAt = 0;
+
+window.newsText = function(html) {
+    const d = document.createElement('div');
+    d.innerHTML = String(html || '').replace(/<(script|style)[\s\S]*?<\/\1>/gi, '');
+    return (d.textContent || '').replace(/\s+/g, ' ').trim();
+};
+window.newsImageFrom = function(it, descHtml) {
+    let img = it.thumbnail || (it.enclosure && (it.enclosure.link || it.enclosure.thumbnail)) || '';
+    if (!img && descHtml) { const m = /<img[^>]+src=["']([^"']+)["']/i.exec(descHtml); if (m) img = m[1]; }
+    if (!img || !/^https?:\/\//.test(img) || /\.(mp3|mp4|m4a)(\?|$)/i.test(img)) return '';
+    return img.replace(/([?&])width=\d+/, '$1width=700').replace('/ace/standard/240/', '/ace/standard/624/');
+};
+
+// 1st try: rss2json (free). 2nd: read the RSS ourselves through a public relay.
+window.fetchFeedItems = async function(source, url) {
+    const cacheKey = 'sg_news_' + url;
+    try {
+        const c = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+        if (c && Date.now() - c.at < window.NEWS_TTL && c.items && c.items.length) return c.items;
+    } catch (e) {}
+    const tidy = (arr) => arr.map(it => ({
+        title: window.newsText(it.title).slice(0, 200),
+        link: it.link,
+        date: new Date((it.date || '').replace(' ', 'T') + ((it.date || '').length === 19 ? 'Z' : '')).getTime() || Date.now(),
+        img: it.img,
+        desc: window.newsText(it.desc).slice(0, 220),
+        source
+    })).filter(x => x.title && /^https?:\/\//.test(x.link || ''));
+    let items = null;
+    try {
+        const r = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url));
+        const j = await r.json();
+        if (j.status === 'ok' && (j.items || []).length) {
+            items = tidy(j.items.map(it => ({ title: it.title, link: it.link, date: it.pubDate, img: window.newsImageFrom(it, it.description || it.content), desc: it.description })));
+        }
+    } catch (e) {}
+    if (!items) {
+        for (const relay of ['https://api.allorigins.win/raw?url=', 'https://api.codetabs.com/v1/proxy?quest=']) {
+            try {
+                const r = await fetch(relay + encodeURIComponent(url));
+                const xml = new DOMParser().parseFromString(await r.text(), 'text/xml');
+                const nodes = [...xml.querySelectorAll('item, entry')].slice(0, 15);
+                if (!nodes.length) continue;
+                const get = (n, sel) => { const e = n.getElementsByTagName(sel)[0]; return e ? e.textContent : ''; };
+                items = tidy(nodes.map(n => {
+                    const linkEl = n.getElementsByTagName('link')[0];
+                    const link = linkEl ? (linkEl.getAttribute('href') || linkEl.textContent) : '';
+                    const desc = get(n, 'description') || get(n, 'summary') || get(n, 'content');
+                    const media = n.getElementsByTagName('media:content')[0] || n.getElementsByTagName('media:thumbnail')[0] || n.getElementsByTagName('enclosure')[0];
+                    const pub = get(n, 'pubDate') || get(n, 'published') || get(n, 'updated');
+                    return { title: get(n, 'title'), link: link.trim(), date: pub ? new Date(pub).toISOString() : '', img: window.newsImageFrom({ thumbnail: media ? media.getAttribute('url') : '' }, desc), desc };
+                }));
+                if (items.length) break;
+            } catch (e) {}
+        }
+    }
+    if (items && items.length) {
+        try { localStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), items })); } catch (e) {}
+        return items;
+    }
+    // fall back to an older saved copy rather than nothing
+    try { const c = JSON.parse(localStorage.getItem(cacheKey) || 'null'); if (c && c.items) return c.items; } catch (e) {}
+    return [];
+};
+
+window.loadNewsCat = async function(cat) {
+    const lists = await Promise.all((window.NEWS_SOURCES[cat] || []).map(([name, url]) => window.fetchFeedItems(name, url)));
+    const seen = new Set();
+    const out = lists.flat().filter(x => {
+        const k = x.title.toLowerCase().slice(0, 60);
+        if (seen.has(k)) return false; seen.add(k); return true;
+    }).map(x => ({ ...x, cat })).sort((a, b) => b.date - a.date).slice(0, 40);
+    if (out.length) window.newsByCat[cat] = out;
+    return out;
+};
+
+window.loadNews = async function(force) {
+    if (window.newsLoading) return;
+    if (!force && Date.now() - window.newsLoadedAt < window.NEWS_TTL && Object.keys(window.newsByCat).length) { window.renderNews(); return; }
+    window.newsLoading = true;
+    const icon = document.getElementById('newsRefreshIcon');
+    if (icon) icon.classList.add('fa-spin');
+    if (force) Object.values(window.NEWS_SOURCES).flat().forEach(([, url]) => { try { const k = 'sg_news_' + url; const c = JSON.parse(localStorage.getItem(k) || 'null'); if (c) { c.at = 0; localStorage.setItem(k, JSON.stringify(c)); } } catch (e) {} });
+    try {
+        await Promise.all(Object.keys(window.NEWS_SOURCES).map(c => window.loadNewsCat(c).then(() => window.renderNews())));
+        window.newsLoadedAt = Date.now();
+        window.newsMix = null;
+    } finally {
+        window.newsLoading = false;
+        if (icon) icon.classList.remove('fa-spin');
+    }
+    const u = document.getElementById('newsUpdatedText');
+    if (u) u.innerText = 'Updated ' + new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) + ' · refreshes by itself';
+    window.renderNews();
+    window.renderTrendingHeadlines();
+    if (!document.getElementById('view-fyp').classList.contains('hidden')) window.renderFypFeed();
+};
+
+// "For You" news: more from what you like, but a bit of everything
+window.newsForYou = function() {
+    if (window.newsMix) return window.newsMix;
+    const t = window.taste.news;
+    const cats = Object.keys(window.NEWS_SOURCES).filter(c => (window.newsByCat[c] || []).length);
+    const w = {};
+    cats.forEach(c => { w[c] = 1 + Math.max(0, t[c] || 0); });
+    const ptr = {}; cats.forEach(c => { ptr[c] = 0; });
+    const credit = {}; cats.forEach(c => { credit[c] = 0; });
+    const total = cats.reduce((a, c) => a + w[c], 0) || 1;
+    const out = [];
+    const max = cats.reduce((a, c) => a + window.newsByCat[c].length, 0);
+    while (out.length < Math.min(60, max)) {
+        cats.forEach(c => { credit[c] += w[c] / total; });
+        const pick = cats.filter(c => ptr[c] < window.newsByCat[c].length).sort((a, b) => credit[b] - credit[a])[0];
+        if (!pick) break;
+        credit[pick] -= 1;
+        out.push(window.newsByCat[pick][ptr[pick]++]);
+    }
+    window.newsMix = out;
+    return out;
+};
+window.newsListFor = function(cat) { return cat === 'foryou' ? window.newsForYou() : (window.newsByCat[cat] || []); };
+
+window.newsCatInfo = function(id) { return window.NEWS_CATS.find(c => c.id === id) || {}; };
+window.newsCardHtml = function(n, opts = {}) {
+    const info = window.newsCatInfo(n.cat);
+    const idx = window.newsRegister(n);
+    return `<div class="glass-panel rounded-2xl overflow-hidden border ${opts.inFeed ? 'border-cyan-500/40' : 'border-cyan-500/20'} shadow-lg">
+        ${opts.inFeed ? `<div class="px-3.5 pt-2.5 text-[10px] font-black text-cyan-400 uppercase tracking-wider"><i class="fa-solid fa-newspaper mr-1"></i> News for you</div>` : ''}
+        <div onclick="window.openNews(${idx})" class="cursor-pointer">
+            ${n.img ? `<img src="${escapeHTML(n.img)}" loading="lazy" alt="" class="w-full ${opts.small ? 'h-36' : 'h-48'} object-cover bg-gg-900 mt-2" onerror="this.remove()">` : ''}
+            <div class="p-3.5 space-y-1.5">
+                <p class="text-[10px] font-bold ${info.color || 'text-cyan-300'}">${info.label ? info.label.split(' ')[0] : '📰'} ${escapeHTML(n.source)} · <span class="text-gray-500">${window.timeAgo(n.date)}</span></p>
+                <h4 class="text-sm font-black text-white leading-snug">${escapeHTML(n.title)}</h4>
+                ${n.desc && !opts.small ? `<p class="text-xs text-gray-400 leading-relaxed line-clamp-3">${escapeHTML(n.desc)}</p>` : ''}
+            </div>
+        </div>
+        <div class="flex border-t border-cyan-500/10 text-[11px] font-bold text-gray-400">
+            <button onclick="window.openNews(${idx})" class="flex-1 py-2.5 hover:text-cyan-400"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> Read</button>
+            <button onclick="window.discussNews(${idx})" class="flex-1 py-2.5 hover:text-magenta"><i class="fa-solid fa-comment-dots mr-1"></i> Post about it</button>
+            <button onclick="window.shareNews(${idx})" class="flex-1 py-2.5 hover:text-emerald-400"><i class="fa-solid fa-share-nodes mr-1"></i> Share</button>
+        </div>
+    </div>`;
+};
+// news items are referenced by number so titles with quotes never break buttons
+window.newsRegistry = [];
+window.newsRegister = function(n) {
+    let i = window.newsRegistry.indexOf(n);
+    if (i < 0) { window.newsRegistry.push(n); i = window.newsRegistry.length - 1; }
+    return i;
+};
+window.openNews = function(i) {
+    const n = window.newsRegistry[i];
+    if (!n) return;
+    window.taste.news[n.cat] = Math.min(60, (window.taste.news[n.cat] || 0) + 1.5);
+    window.saveTasteSoon();
+    window.open(n.link, '_blank', 'noopener');
+};
+window.shareNews = async function(i) {
+    const n = window.newsRegistry[i];
+    if (!n) return;
+    try {
+        if (navigator.share) { await navigator.share({ title: n.title, text: n.title + ' (via Sinless GG)', url: n.link }); return; }
+    } catch (e) { return; }
+    try { await navigator.clipboard.writeText(n.link); showToast('🔗 Link copied'); } catch (e) { showToast(n.link); }
+};
+window.discussNews = function(i) {
+    const n = window.newsRegistry[i];
+    if (!n) return;
+    if (window.needSignIn('post')) return;
+    window.openCreatePostModal();
+    document.getElementById('postTextContent').value = `📰 ${n.title}\n\n${n.link}\n\nWhat do you think? 👇`;
+    const sel = document.getElementById('postCategorySelect');
+    const pc = window.newsCatInfo(n.cat).post;
+    if (pc && [...sel.options].some(o => o.value === pc)) sel.value = pc;
+};
+
+window.renderNews = function() {
+    const chips = document.getElementById('newsCatChips');
+    const box = document.getElementById('newsListContainer');
+    if (!chips || !box) return;
+    chips.innerHTML = window.NEWS_CATS.map(c => `<button onclick="window.setNewsCat('${c.id}')" class="shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-extrabold whitespace-nowrap ${window.activeNewsCat === c.id ? 'bg-cyan-400 text-slate-950 shadow' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'}">${c.label}</button>`).join('');
+    const list = window.newsListFor(window.activeNewsCat);
+    if (!list.length) {
+        box.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center space-y-2">
+            <i class="fa-solid ${window.newsLoading ? 'fa-spinner fa-spin' : 'fa-newspaper'} text-3xl text-cyan-400 opacity-70"></i>
+            <p class="text-xs font-bold text-white">${window.newsLoading ? 'Getting the latest news…' : "Couldn't load news right now"}</p>
+            ${window.newsLoading ? '' : `<button onclick="window.loadNews(true)" class="text-cyan-400 text-xs font-bold underline">Try again</button>`}
+        </div>`;
+        return;
+    }
+    box.innerHTML = list.slice(0, 40).map(n => window.newsCardHtml(n)).join('');
+    window.renderNewsTicker();
+};
+window.setNewsCat = function(id) {
+    window.activeNewsCat = id;
+    if (id !== 'foryou') { window.taste.news[id] = Math.min(60, (window.taste.news[id] || 0) + 0.5); window.saveTasteSoon(); }
+    window.renderNews();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+// Live scores strip on the News page (only games that are on now or today)
+window.renderNewsTicker = function() {
+    const el = document.getElementById('newsLiveTicker');
+    if (!el) return;
+    const today = new Date().toDateString();
+    const list = (window.liveMatchesCache || []).filter(m => m.state === 'in' || new Date(m.date).toDateString() === today).slice(0, 15);
+    if (!list.length || !['foryou', 'football'].includes(window.activeNewsCat)) { el.classList.add('hidden'); return; }
+    el.className = 'flex space-x-2 overflow-x-auto scrollbar-none pb-1';
+    el.innerHTML = list.map(m => {
+        const live = m.state === 'in';
+        const mid = m.state === 'pre' ? new Date(m.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : `${escapeHTML(m.home.score ?? '')} - ${escapeHTML(m.away.score ?? '')}`;
+        return `<button onclick="window.switchView('trending')" class="shrink-0 glass-panel rounded-xl px-3 py-2 border ${live ? 'border-red-500/50' : 'border-cyan-500/20'} text-left">
+            <p class="text-[8px] font-black ${live ? 'text-red-400' : 'text-gray-500'} uppercase">${live ? `● ${escapeHTML(m.clock || 'LIVE')}` : m.state === 'post' ? 'FT' : 'Today'} · ${escapeHTML(m.leagueShort)}</p>
+            <p class="text-xs font-black text-white whitespace-nowrap">${escapeHTML(m.home.abbr)} <span class="${live ? 'text-red-300' : 'text-cyan-300'}">${mid}</span> ${escapeHTML(m.away.abbr)}</p>
+        </button>`;
+    }).join('');
+};
+
+// Top headlines on the Trending page
+window.renderTrendingHeadlines = function() {
+    const box = document.getElementById('trendingHeadlinesBox');
+    if (!box) return;
+    const list = window.newsForYou().slice(0, 5);
+    if (!list.length) { box.innerHTML = `<p class="text-xs text-gray-400"><i class="fa-solid fa-newspaper text-cyan-400 mr-1"></i> Loading headlines…</p>`; return; }
+    box.innerHTML = `<div class="flex items-center justify-between"><h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-newspaper text-cyan-400 mr-1.5"></i> Headlines</h3>
+        <button onclick="window.switchView('news')" class="text-[10px] text-cyan-400 font-bold">See all ›</button></div>
+        ${list.map(n => `<button onclick="window.openNews(${window.newsRegister(n)})" class="w-full flex items-center space-x-3 text-left py-1.5">
+            ${n.img ? `<img src="${escapeHTML(n.img)}" loading="lazy" class="w-14 h-14 rounded-xl object-cover shrink-0 bg-gg-900" alt="" onerror="this.style.visibility='hidden'">` : `<div class="w-14 h-14 rounded-xl bg-gg-900 shrink-0 flex items-center justify-center text-xl">${(window.newsCatInfo(n.cat).label || '📰').split(' ')[0]}</div>`}
+            <div class="min-w-0"><p class="text-xs font-bold text-white leading-snug line-clamp-2">${escapeHTML(n.title)}</p><p class="text-[10px] text-gray-500 mt-0.5">${escapeHTML(n.source)} · ${window.timeAgo(n.date)}</p></div>
+        </button>`).join('')}`;
+};
+
+// News cards mixed into the For You feed (more when there are only a few posts)
+window._baseRenderFypFeed14 = window._baseRenderFypFeed14 || window.renderFypFeed;
+window.renderFypFeed = function() {
+    window._baseRenderFypFeed14();
+    const box = document.getElementById('fypFeedContainer');
+    if (!box || window.feedMode === 'following') return;
+    const f = window.activeCategoryFilter || 'ALL';
+    if (f === 'LIVE STREAM') return;
+    const nc = f === 'ALL' ? null : window.POST_TO_NEWS_CAT[f];
+    if (f !== 'ALL' && !nc) return;
+    const news = nc ? (window.newsByCat[nc] || []) : window.newsForYou();
+    if (!news.length) return;
+    const cards = [...box.children].filter(el => el.querySelector('[data-post-id]') || el.hasAttribute('data-post-id'));
+    const every = cards.length < 8 ? 2 : 5;
+    let k = 0;
+    const make = () => { const d = document.createElement('div'); d.setAttribute('data-news-card', '1'); d.innerHTML = window.newsCardHtml(news[k++], { inFeed: true, small: true }); return d; };
+    if (!cards.length) {
+        // nothing posted here yet: show the news so the page is never empty
+        box.insertAdjacentHTML('beforeend', `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">Meanwhile, in the news</p>`);
+        while (k < Math.min(6, news.length)) box.appendChild(make());
+        return;
+    }
+    cards.forEach((c, i) => { if ((i + 1) % every === 0 && k < news.length && k < 12) c.after(make()); });
+    if (cards.length < 6) while (k < Math.min(news.length, 6)) box.appendChild(make());
+};
+
+// Show the News page / refresh when opened
+window._baseSwitchView14 = window._baseSwitchView14 || window.switchView;
+window.switchView = function(v) {
+    window._baseSwitchView14(v);
+    if (v === 'news') { window.renderNews(); window.loadNews(false); if (!(window.liveMatchesCache || []).length) window.loadLiveMatches(); }
+    if (v === 'trending') { window.renderTrendingHeadlines(); window.loadNews(false); }
+};
+
+// Background refreshing: news every 10 min, scores every 30s when matches are live,
+// trending lists every minute. Also refresh when you come back to the app.
+setInterval(() => { if (document.visibilityState === 'visible') window.loadNews(false); }, 60000);
+setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    const onNews = !document.getElementById('view-news').classList.contains('hidden');
+    const onTrend = !document.getElementById('view-trending').classList.contains('hidden');
+    const anyLive = (window.liveMatchesCache || []).some(m => m.state === 'in');
+    if (onNews && (anyLive || !window._tickerAt || Date.now() - window._tickerAt > 120000)) { window._tickerAt = Date.now(); window.loadLiveMatches().then(() => window.renderNewsTicker()); }
+    if (onTrend && anyLive) window.loadLiveMatches();
+}, 30000);
+setInterval(() => {
+    if (document.visibilityState === 'visible' && !document.getElementById('view-trending').classList.contains('hidden')) window.renderTrendingTopics();
+}, 60000);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { window.loadNews(false); }
+});
+setTimeout(() => window.loadNews(false), 2500);

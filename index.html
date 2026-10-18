@@ -252,6 +252,7 @@
         <!-- Navigation View Bar -->
         <div class="glass-panel p-1.5 rounded-2xl flex shadow-xl overflow-x-auto scrollbar-none border border-cyan-500/20">
             <button onclick="switchView('fyp')" id="nav-fyp" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap"><i class="fa-solid fa-fire mr-1"></i> Feed</button>
+            <button onclick="switchView('news')" id="nav-news" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-newspaper mr-1"></i> News</button>
             <button onclick="switchView('trending')" id="nav-trending" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-chart-line mr-1"></i> Trending</button>
             <button onclick="switchView('market')" id="nav-market" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-store mr-1"></i> Market</button>
             <button onclick="switchView('clans')" id="nav-clans" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-shield-halved mr-1"></i> Squads</button>
@@ -305,11 +306,28 @@
                 <button onclick="filterByCategory('DLS', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-emerald-400 border border-emerald-500/20 whitespace-nowrap transition">🏆 DLS</button>
                 <button onclick="filterByCategory('WRESTLING', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-amber-400 border border-amber-500/30 whitespace-nowrap transition">🤼 Wrestling</button>
                 <button onclick="filterByCategory('CALL OF DUTY', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-orange-400 border border-orange-500/30 whitespace-nowrap transition">🎯 Call of Duty</button>
-                <button onclick="filterByCategory('OTHER GAMES', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-purple-400 border border-purple-500/30 whitespace-nowrap transition">🎮 Other Games</button>
+                <button onclick="filterByCategory('OTHER GAMES', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-purple-400 border border-purple-500/30 whitespace-nowrap transition">🕹️ Other Games</button>
+                <button onclick="filterByCategory('MOVIES', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-rose-400 border border-rose-500/30 whitespace-nowrap transition">🎬 Movies &amp; TV</button>
+                <button onclick="filterByCategory('ANIME', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-pink-400 border border-pink-500/30 whitespace-nowrap transition">🍥 Anime</button>
+                <button onclick="filterByCategory('BOOKS', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-yellow-300 border border-yellow-500/30 whitespace-nowrap transition">📚 Books</button>
             </div>
 
             <!-- Posts Feed Container -->
             <div id="fypFeedContainer" class="space-y-4"></div>
+        </div>
+
+        <!-- VIEW: NEWS & GIST -->
+        <div id="view-news" class="view-section hidden flex-1 flex flex-col space-y-3 pb-6">
+            <div class="glass-panel p-3.5 rounded-2xl flex items-center justify-between border border-cyan-500/30 shadow-xl">
+                <div class="min-w-0">
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider flex items-center"><i class="fa-solid fa-newspaper text-cyan-400 mr-1.5"></i> News &amp; Gist</h3>
+                    <p id="newsUpdatedText" class="text-[9px] text-gray-400">Football, games, movies, anime, books &amp; wrestling. Updates by itself.</p>
+                </div>
+                <button onclick="window.loadNews(true)" class="w-9 h-9 shrink-0 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-400" title="Refresh"><i id="newsRefreshIcon" class="fa-solid fa-rotate"></i></button>
+            </div>
+            <div id="newsLiveTicker" class="hidden"></div>
+            <div id="newsCatChips" class="flex space-x-2 overflow-x-auto scrollbar-none py-1"></div>
+            <div id="newsListContainer" class="space-y-3"></div>
         </div>
 
         <!-- VIEW 2: TOURNAMENTS ARENA -->
@@ -342,6 +360,9 @@
                 <div id="liveLeagueChips" class="flex space-x-2 overflow-x-auto scrollbar-none pb-1"></div>
                 <div id="liveMatchesStrip" class="flex space-x-2.5 overflow-x-auto scrollbar-none pb-1"></div>
             </div>
+
+            <!-- Headlines -->
+            <div id="trendingHeadlinesBox" class="glass-panel p-3.5 rounded-2xl space-y-2.5 border border-cyan-500/30"></div>
 
             <!-- What people are talking about -->
             <div id="communityPulseBox" class="glass-panel p-3.5 rounded-2xl space-y-2.5 border border-magenta/30"></div>
@@ -488,7 +509,10 @@
                     <option value="DLS">🏆 DLS</option>
                     <option value="WRESTLING">🤼 WRESTLING</option>
                     <option value="CALL OF DUTY">🎯 CALL OF DUTY</option>
-                    <option value="OTHER GAMES">🎮 OTHER GAMES</option>
+                    <option value="OTHER GAMES">🕹️ OTHER GAMES</option>
+                    <option value="MOVIES">🎬 MOVIES &amp; TV</option>
+                    <option value="ANIME">🍥 ANIME</option>
+                    <option value="BOOKS">📚 BOOKS</option>
                 </select>
                 <button type="button" onclick="window.startTagging()" class="bg-gg-900 border border-magenta/40 text-magenta hover:bg-magenta/10 px-3 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center transition">
                     <i class="fa-solid fa-at mr-1.5"></i> Tag people
@@ -554,7 +578,10 @@
                 <option value="DLS">🏆 DLS</option>
                 <option value="WRESTLING">🤼 WRESTLING</option>
                 <option value="CALL OF DUTY">🎯 CALL OF DUTY</option>
-                <option value="OTHER GAMES">🎮 OTHER GAMES</option>
+                <option value="OTHER GAMES">🕹️ OTHER GAMES</option>
+                    <option value="MOVIES">🎬 MOVIES &amp; TV</option>
+                    <option value="ANIME">🍥 ANIME</option>
+                    <option value="BOOKS">📚 BOOKS</option>
             </select>
             <div class="flex space-x-2 pt-2">
                 <button onclick="closeEditPostModal()" class="flex-1 py-2 bg-gg-900 border border-cyan-500/30 text-gray-300 rounded-xl text-xs font-bold">Cancel</button>
@@ -610,6 +637,10 @@
                         <option value="FOOTBALL">FOOTBALL</option>
                         <option value="WRESTLING">WRESTLING</option>
                         <option value="CALL OF DUTY">CALL OF DUTY</option>
+                        <option value="OTHER GAMES">OTHER GAMES</option>
+                        <option value="MOVIES">MOVIES &amp; TV</option>
+                        <option value="ANIME">ANIME</option>
+                        <option value="BOOKS">BOOKS</option>
                     </select>
                 </div>
                 <div>
@@ -799,6 +830,10 @@
                         <option value="FOOTBALL">FOOTBALL</option>
                         <option value="WRESTLING">WRESTLING</option>
                         <option value="CALL OF DUTY">CALL OF DUTY</option>
+                        <option value="OTHER GAMES">OTHER GAMES</option>
+                        <option value="MOVIES">MOVIES &amp; TV</option>
+                        <option value="ANIME">ANIME</option>
+                        <option value="BOOKS">BOOKS</option>
                     </select>
                 </div>
                 <div>
