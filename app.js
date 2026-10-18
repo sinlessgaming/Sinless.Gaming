@@ -1206,7 +1206,8 @@ window.openSquadDetailsModal = function(squadId) {
     if (disbandBtn) disbandBtn.className = (isOwner && !squad.isOfficial) ? 'px-2 py-1 bg-red-600/20 text-red-400 border border-red-500/40 text-[9px] font-black rounded-xl hover:bg-red-600/30' : 'hidden';
 
     renderSquadSubRoomsNav();
-    window.switchSquadSubRoom(squad.subRooms[0] || 'chat');
+    // Open the chat channel first so people can type straight away
+    window.switchSquadSubRoom(squad.subRooms.includes('chat') ? 'chat' : (squad.subRooms[0] || 'chat'));
 
     document.getElementById('squadDetailsModal').classList.remove('hidden');
 };
@@ -1305,6 +1306,8 @@ window.switchSquadSubRoom = function(room) {
 
     const msgsBox = document.getElementById('squadRoomMsgsBox');
     const inputContainer = document.getElementById('squadInputContainer');
+    const lockedBar = document.getElementById('squadLockedBar');
+    if (lockedBar) { lockedBar.classList.add('hidden'); lockedBar.innerHTML = ''; }
     msgsBox.innerHTML = '';
 
     const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
@@ -1383,6 +1386,10 @@ window.switchSquadSubRoom = function(room) {
 
     if (!isMember) {
         if (inputContainer) inputContainer.style.display = 'none';
+        if (lockedBar) {
+            lockedBar.innerHTML = `🔒 Join this squad to chat &nbsp;<button onclick="window.toggleSquadMembership('${squad.id}'); window.switchSquadSubRoom('${room}')" class="ml-1 px-3 py-1 bg-emerald-500 text-slate-950 rounded-lg font-black text-[10px] uppercase">Join</button>`;
+            lockedBar.classList.remove('hidden');
+        }
         msgsBox.innerHTML = `
             <div class="flex flex-col items-center justify-center text-center p-8 space-y-3 my-auto">
                 <i class="fa-solid fa-lock text-3xl text-cyan-400 opacity-80"></i>
@@ -1417,7 +1424,7 @@ window.switchSquadSubRoom = function(room) {
                     <div class="bg-gg-900 p-2.5 rounded-2xl border border-cyan-500/10 space-y-0.5 max-w-xl">
                         <div class="flex items-center justify-between">
                             <span class="text-[10px] font-bold text-cyan-400 cursor-pointer" onclick="window.closeSquadDetailsModal(); window.openUserProfileModal('${m.sender}', event)">@${m.sender}</span>
-                            <span class="text-[8px] text-gray-500">${m.time || 'Today'}</span>
+                            <span class="text-[8px] text-gray-500">${m.timestamp ? window.timeAgo(m.timestamp) : (m.time || '')}</span>
                         </div>
                         <p class="text-xs text-gray-200">${formatMentions(m.text)}</p>
                     </div>
@@ -1428,7 +1435,10 @@ window.switchSquadSubRoom = function(room) {
 
     if (room === 'Rules/Announcements' && !isAdmin) {
         if (inputContainer) inputContainer.style.display = 'none';
-        msgsBox.innerHTML += `<p class="text-[10px] text-amber-400 text-center font-bold py-2">🔒 Only Squad Owner and Admins can post in #${room}.</p>`;
+        if (lockedBar) {
+            lockedBar.innerHTML = `🔒 Only the owner and admins can post in #${room}. <button onclick="window.switchSquadSubRoom('chat')" class="ml-1 underline text-cyan-400">Go to #chat</button>`;
+            lockedBar.classList.remove('hidden');
+        }
     }
 
     msgsBox.scrollTop = msgsBox.scrollHeight;
@@ -1889,6 +1899,40 @@ window.joinActiveTournament = function(tournId) {
     window.renderTournamentsTabDedicated();
 };
 
+window.leaveTournament = async function(tournId) {
+    const tourn = window.tournamentsList.find(t => t.id === tournId);
+    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    if (!tourn) return;
+
+    const isMe = (name) => (name || '').toLowerCase() === me.toLowerCase();
+    if (!tourn.players.some(isMe)) {
+        showToast("You're not registered in this tournament.");
+        return;
+    }
+
+    // Can't drop out once you've already played a match
+    const isNum = v => v !== null && v !== undefined && v !== '' && !isNaN(v);
+    const alreadyPlayed = tourn.matches.some(m => (isMe(m.p1) || isMe(m.p2)) && isNum(m.s1) && isNum(m.s2));
+    if (alreadyPlayed) {
+        showToast("⚠️ You've already played a match, so you can't leave now. Ask the host.");
+        return;
+    }
+
+    const ok = await window.sgConfirm(`You'll be removed from ${tourn.title} and your spot will open up for someone else.`, { title: 'Leave Tournament?', okText: 'Leave', danger: true });
+    if (!ok) return;
+
+    tourn.players = tourn.players.filter(p => !isMe(p));
+    tourn.matches.forEach(m => {
+        if (isMe(m.p1)) m.p1 = 'Open Spot';
+        if (isMe(m.p2)) m.p2 = 'Open Spot';
+    });
+
+    localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
+    showToast(`You left ${tourn.title}.`);
+    window.renderTournamentsTab();
+    window.renderTournamentsTabDedicated();
+};
+
 window.activeManualAddContext = null;
 window.manualAddPlayer = function(tournId, matchId, slot) {
     window.activeManualAddContext = { tournId, matchId, slot };
@@ -2141,7 +2185,11 @@ function generateTournamentsHTML() {
                 </div>
                 <div class="flex items-center space-x-1.5">
                     ${isHost ? `<button onclick="window.deleteTournament('${current.id}')" class="px-2 py-1 bg-red-600/20 text-red-400 border border-red-500/30 text-[9px] font-bold rounded-lg"><i class="fa-solid fa-trash mr-1"></i>Delete</button>` : ''}
-                    ${!isJoined ? `<button onclick="window.joinActiveTournament('${current.id}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Join League</button>` : `<span class="text-[9px] bg-cyan-500/10 text-cyan-400 font-extrabold px-2.5 py-1 rounded-full">✓ Registered</span>`}
+                    ${!isJoined
+                        ? (current.players.length >= current.maxPlayers
+                            ? `<span class="text-[9px] bg-red-500/10 text-red-400 font-extrabold px-2.5 py-1 rounded-full">Full</span>`
+                            : `<button onclick="window.joinActiveTournament('${current.id}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Register</button>`)
+                        : `<div class="flex flex-col items-end space-y-1"><span class="text-[9px] bg-cyan-500/10 text-cyan-400 font-extrabold px-2.5 py-1 rounded-full">✓ Registered</span><button onclick="window.leaveTournament('${current.id}')" class="text-[9px] text-red-400 font-bold underline">Leave</button></div>`}
                 </div>
             </div>
     `;
@@ -2914,7 +2962,193 @@ function escapeHTML(str) {
     return String(str).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
 }
 
+// ================= LIVE FOOTBALL MATCHES (free ESPN scoreboard feed) =================
+window.liveLeagues = [
+    { id: 'all', name: 'All' },
+    { id: 'eng.1', name: 'Premier League', short: 'EPL' },
+    { id: 'esp.1', name: 'LaLiga', short: 'LaLiga' },
+    { id: 'uefa.champions', name: 'Champions League', short: 'UCL' },
+    { id: 'ita.1', name: 'Serie A', short: 'Serie A' },
+    { id: 'ger.1', name: 'Bundesliga', short: 'Bundesliga' },
+    { id: 'fra.1', name: 'Ligue 1', short: 'Ligue 1' }
+];
+window.activeLiveLeague = 'all';
+window.liveMatchesCache = [];
+window.liveMatchesError = false;
+
+window.loadLiveMatches = async function() {
+    const leagues = window.liveLeagues.filter(l => l.id !== 'all');
+    const results = await Promise.all(leagues.map(async (lg) => {
+        try {
+            const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.id}/scoreboard`);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return (data.events || []).map(e => {
+                const comp = (e.competitions || [])[0] || {};
+                const teams = comp.competitors || [];
+                const home = teams.find(t => t.homeAway === 'home') || teams[0] || {};
+                const away = teams.find(t => t.homeAway === 'away') || teams[1] || {};
+                const st = (e.status && e.status.type) || {};
+                return {
+                    id: e.id,
+                    league: lg.id,
+                    leagueShort: lg.short,
+                    date: e.date,
+                    state: st.state,                      // 'pre' | 'in' | 'post'
+                    detail: st.shortDetail || '',
+                    clock: (e.status && e.status.displayClock) || '',
+                    link: (e.links && e.links[0] && e.links[0].href) || '',
+                    home: { abbr: (home.team && home.team.abbreviation) || '', logo: (home.team && home.team.logo) || '', score: home.score },
+                    away: { abbr: (away.team && away.team.abbreviation) || '', logo: (away.team && away.team.logo) || '', score: away.score }
+                };
+            });
+        } catch (e) {
+            return null; // network/CORS problem
+        }
+    }));
+
+    window.liveMatchesError = results.every(r => r === null);
+    const order = { in: 0, pre: 1, post: 2 };
+    window.liveMatchesCache = results.flat().filter(Boolean).sort((a, b) =>
+        (order[a.state] ?? 3) - (order[b.state] ?? 3) ||
+        (a.state === 'post' ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date))
+    );
+
+    const upd = document.getElementById('liveMatchesUpdated');
+    if (upd) upd.innerText = 'Updated ' + new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    window.renderLiveMatches();
+    if (window.renderCommunityPulse) window.renderCommunityPulse();
+};
+
+window.setLiveLeague = function(id) {
+    window.activeLiveLeague = id;
+    window.renderLiveMatches();
+};
+
+window.renderLiveMatches = function() {
+    const chips = document.getElementById('liveLeagueChips');
+    const strip = document.getElementById('liveMatchesStrip');
+    if (!chips || !strip) return;
+
+    const liveCount = window.liveMatchesCache.filter(m => m.state === 'in').length;
+    chips.innerHTML = window.liveLeagues.map(l => {
+        const active = window.activeLiveLeague === l.id;
+        const label = l.id === 'all' ? (liveCount ? `🔴 Live (${liveCount})` : 'All') : l.short;
+        return `<button onclick="window.setLiveLeague('${l.id}')" class="shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold whitespace-nowrap ${active ? 'bg-white text-slate-950' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'}">${label}</button>`;
+    }).join('');
+
+    let list = window.liveMatchesCache;
+    if (window.activeLiveLeague !== 'all') list = list.filter(m => m.league === window.activeLiveLeague);
+
+    if (window.liveMatchesError) {
+        strip.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-xs text-gray-400 w-full text-center">Couldn't load matches right now. <button onclick="window.loadLiveMatches()" class="text-cyan-400 font-bold underline ml-1">Try again</button></div>`;
+        return;
+    }
+    if (list.length === 0) {
+        strip.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-xs text-gray-400 w-full text-center">${window.liveMatchesCache.length ? 'No matches in this league right now.' : 'Loading matches…'}</div>`;
+        return;
+    }
+
+    const teamRow = (t, showScore, winning) => `
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2 min-w-0">
+                ${t.logo ? `<img src="${t.logo}" class="w-5 h-5 object-contain" loading="lazy" alt="">` : '<span class="w-5 h-5"></span>'}
+                <span class="text-sm font-bold ${winning ? 'text-white' : 'text-gray-300'}">${escapeHTML(t.abbr)}</span>
+            </div>
+            <span class="text-sm font-black ${winning ? 'text-white' : 'text-gray-400'}">${showScore ? escapeHTML(t.score ?? '') : ''}</span>
+        </div>`;
+
+    strip.innerHTML = list.slice(0, 20).map(m => {
+        const kickoff = new Date(m.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        const kickDay = new Date(m.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+        const isToday = new Date(m.date).toDateString() === new Date().toDateString();
+        let badge, right;
+        if (m.state === 'in') { badge = `<span class="flex items-center text-[10px] font-black text-red-400"><span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1.5"></span>LIVE</span>`; right = escapeHTML(m.clock || m.detail); }
+        else if (m.state === 'post') { badge = `<span class="text-[10px] font-black text-gray-400">FT</span>`; right = isToday ? 'Today' : kickDay; }
+        else { badge = `<span class="text-[10px] font-black text-cyan-400">${isToday ? 'TODAY' : 'UPCOMING'}</span>`; right = isToday ? kickoff : `${kickDay} ${kickoff}`; }
+
+        const showScore = m.state !== 'pre';
+        const h = parseInt(m.home.score), a = parseInt(m.away.score);
+        const open = m.link ? `onclick="window.open('${m.link}', '_blank')"` : '';
+        return `
+            <div ${open} class="shrink-0 w-44 glass-panel p-3 rounded-2xl space-y-2 cursor-pointer border ${m.state === 'in' ? 'border-red-500/40' : 'border-cyan-500/15'}">
+                <div class="flex items-center justify-between pb-1.5 border-b border-dashed border-gray-600/50">
+                    ${badge}
+                    <span class="text-[10px] text-gray-400 font-bold">${right}</span>
+                </div>
+                ${teamRow(m.home, showScore, showScore && h > a)}
+                ${teamRow(m.away, showScore, showScore && a > h)}
+                <p class="text-[8px] text-gray-500 font-bold uppercase">${escapeHTML(m.leagueShort)}</p>
+            </div>`;
+    }).join('');
+};
+
+// Refresh scores every minute while the Trending page is open
+setInterval(() => {
+    const view = document.getElementById('view-trending');
+    if (view && !view.classList.contains('hidden')) window.loadLiveMatches();
+}, 60000);
+
+// ================= "WHAT PEOPLE ARE TALKING ABOUT" (built from real posts) =================
+window.renderCommunityPulse = function() {
+    const box = document.getElementById('communityPulseBox');
+    if (!box) return;
+
+    const all = window.fypposts || [];
+    const DAY = 86400000;
+    let recent = all.filter(p => Date.now() - window.postTimeValue(p) < 7 * DAY);
+    if (recent.length < 3) recent = all;   // not much this week? use everything
+
+    if (recent.length === 0) {
+        box.innerHTML = `<h3 class="text-xs font-black text-white uppercase tracking-wider">✨ What people are talking about</h3><p class="text-xs text-gray-400">It's quiet right now. Be the first to post!</p>`;
+        return;
+    }
+
+    // Hottest game
+    const games = {};
+    recent.forEach(p => { const g = p.game || 'OTHER GAMES'; games[g] = (games[g] || 0) + 1; });
+    const [topGame, topGameCount] = Object.entries(games).sort((a, b) => b[1] - a[1])[0];
+
+    // Hashtags and mentions
+    const tags = {}, mentions = {};
+    recent.forEach(p => {
+        ((p.caption || '').match(/#[A-Za-z0-9_]{2,}/g) || []).forEach(t => { const k = t.toLowerCase(); tags[k] = (tags[k] || 0) + 1; });
+        ((p.caption || '').match(/@[A-Za-z0-9_]{2,}/g) || []).forEach(t => { mentions[t] = (mentions[t] || 0) + 1; });
+    });
+    const topTags = Object.entries(tags).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const topMention = Object.entries(mentions).sort((a, b) => b[1] - a[1])[0];
+
+    // Most engaging post (GGs + replies count double + tips)
+    const score = p => (p.ggsCount || 0) + 2 * (p.commentsCount || 0) + (p.tipsTotal || 0) / 10;
+    const topPost = [...recent].sort((a, b) => score(b) - score(a))[0];
+
+    // Most active creator
+    const creators = {};
+    recent.forEach(p => { if (p.user) creators[p.user] = (creators[p.user] || 0) + 1; });
+    const [topCreator, topCreatorCount] = Object.entries(creators).sort((a, b) => b[1] - a[1])[0] || [];
+
+    // Live football tie-in
+    const liveNow = (window.liveMatchesCache || []).filter(m => m.state === 'in');
+
+    const lines = [];
+    lines.push(`🔥 <b class="text-white">${escapeHTML(topGame)}</b> is the hottest game with ${topGameCount} post${topGameCount === 1 ? '' : 's'}.`);
+    if (topPost && topPost.caption) {
+        const pid = topPost.docId || topPost.id;
+        const snippet = topPost.caption.length > 70 ? topPost.caption.slice(0, 70) + '…' : topPost.caption;
+        lines.push(`💬 Most talked-about: <span class="text-cyan-400 font-bold cursor-pointer" onclick="window.openUserProfileModal('${escapeHTML(topPost.user)}', event)">@${escapeHTML(topPost.user)}</span> — <span class="cursor-pointer underline decoration-dotted" onclick="window.openMediaZoomModal('text', '', '${pid}')">"${escapeHTML(snippet)}"</span> (${topPost.ggsCount || 0} GG, ${topPost.commentsCount || 0} replies)`);
+    }
+    if (topCreator && topCreatorCount > 1) lines.push(`⭐ <span class="text-cyan-400 font-bold">@${escapeHTML(topCreator)}</span> is the most active creator (${topCreatorCount} posts).`);
+    if (topTags.length) lines.push(`#️⃣ Trending tags: ${topTags.map(([t, n]) => `<span class="text-cyan-400 font-bold">${escapeHTML(t)}</span> (${n})`).join(', ')}`);
+    if (topMention && topMention[1] > 1) lines.push(`👀 Everyone's tagging <span class="text-cyan-400 font-bold">${escapeHTML(topMention[0])}</span>.`);
+    if (liveNow.length) lines.push(`⚽ ${liveNow.length} real match${liveNow.length === 1 ? ' is' : 'es are'} live right now — e.g. ${escapeHTML(liveNow[0].home.abbr)} ${escapeHTML(liveNow[0].home.score)}-${escapeHTML(liveNow[0].away.score)} ${escapeHTML(liveNow[0].away.abbr)}.`);
+
+    box.innerHTML = `
+        <h3 class="text-xs font-black text-white uppercase tracking-wider">✨ What people are talking about</h3>
+        <div class="space-y-2">${lines.map(l => `<p class="text-xs text-gray-300 leading-relaxed">${l}</p>`).join('')}</div>`;
+};
+
 window.renderTrendingTopics = function() {
+    if (window.renderCommunityPulse) window.renderCommunityPulse();
     const container = document.getElementById('dynamicTrendingTopicsList');
     if (!container) return;
 
@@ -3012,7 +3246,15 @@ window.openMediaZoomModal = function(type, mediaUrl, postId = null, caption = ''
     } else if (type === 'image') {
         stage.innerHTML = `<img src="${mediaUrl}" class="max-w-full max-h-full object-contain rounded-2xl">`;
     } else {
-        stage.innerHTML = `<div class="p-6 bg-gg-900 rounded-2xl border border-cyan-500/30 text-white text-sm max-w-md text-center">${caption}</div>`;
+        // Text-only post: fill the screen, bigger text for shorter posts
+        const tp = postId ? (window.fypposts || []).find(p => p.id === postId || p.docId === postId) : null;
+        const text = (tp && tp.caption) || caption || '';
+        const size = text.length <= 40 ? 'text-4xl' : text.length <= 120 ? 'text-2xl' : text.length <= 300 ? 'text-lg' : 'text-base';
+        stage.innerHTML = `
+            <div class="w-full h-full max-w-lg mx-auto flex flex-col items-center justify-center p-6 rounded-3xl bg-gradient-to-br from-gg-900 via-cyan-950/40 to-magenta/20 border border-cyan-500/20 overflow-y-auto">
+                ${tp && tp.game ? `<span class="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-4">${tp.game}</span>` : ''}
+                <p class="${size} font-extrabold text-white text-center leading-snug break-words whitespace-pre-wrap w-full">${formatMentions(text)}</p>
+            </div>`;
     }
 
     window.renderZoomInteractions(postId);
@@ -3193,4 +3435,5 @@ window.initApp = async function() {
     if (window.renderTournamentsTabDedicated) window.renderTournamentsTabDedicated();
     if (window.renderMarketList) window.renderMarketList();
     if (window.renderTrendingTopics) window.renderTrendingTopics();
+    if (window.loadLiveMatches) window.loadLiveMatches();
 };
