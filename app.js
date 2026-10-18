@@ -51,8 +51,108 @@ window.showToast = function(msg) {
     }
 };
 
+// ================= SITE-STYLED POPUPS (replace browser prompt/confirm) =================
+window.sgDialog = function({ title = '', message = '', note = '', input = false, inputType = 'text', defaultValue = '', placeholder = '', okText = 'OK', cancelText = 'Cancel', danger = false }) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('sgDialogModal');
+        const titleEl = document.getElementById('sgDialogTitle');
+        const msgEl = document.getElementById('sgDialogMessage');
+        const noteEl = document.getElementById('sgDialogNote');
+        const inputEl = document.getElementById('sgDialogInput');
+        const okBtn = document.getElementById('sgDialogOk');
+        const cancelBtn = document.getElementById('sgDialogCancel');
+
+        if (!modal) {
+            // Fallback if the popup HTML is missing
+            resolve(input ? window.prompt(message, defaultValue) : window.confirm(message));
+            return;
+        }
+
+        titleEl.innerText = title;
+        titleEl.classList.toggle('hidden', !title);
+        msgEl.innerText = message;
+        noteEl.innerText = note;
+        noteEl.classList.toggle('hidden', !note);
+
+        inputEl.classList.toggle('hidden', !input);
+        inputEl.type = inputType;
+        inputEl.value = defaultValue;
+        inputEl.placeholder = placeholder;
+
+        okBtn.innerText = okText;
+        cancelBtn.innerText = cancelText;
+        okBtn.className = danger
+            ? 'flex-1 py-2.5 bg-red-600 text-white font-black rounded-xl text-xs uppercase shadow'
+            : 'flex-1 py-2.5 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 font-black rounded-xl text-xs uppercase shadow';
+
+        const finish = (result) => {
+            modal.classList.add('hidden');
+            okBtn.onclick = null;
+            cancelBtn.onclick = null;
+            inputEl.onkeydown = null;
+            resolve(result);
+        };
+
+        okBtn.onclick = () => finish(input ? inputEl.value : true);
+        cancelBtn.onclick = () => finish(input ? null : false);
+        inputEl.onkeydown = (e) => { if (e.key === 'Enter') finish(inputEl.value); };
+
+        modal.classList.remove('hidden');
+        if (input) setTimeout(() => { inputEl.focus(); inputEl.select(); }, 50);
+    });
+};
+
+window.sgPrompt = function(message, opts = {}) {
+    return window.sgDialog({ ...opts, message, input: true });
+};
+
+window.sgConfirm = function(message, opts = {}) {
+    return window.sgDialog({ ...opts, message, input: false });
+};
+
+// ================= "TIME AGO" FORMATTER =================
+window.timeAgo = function(value) {
+    if (!value) return 'Just now';
+    let date;
+    if (typeof value.toDate === 'function') date = value.toDate();            // Firestore Timestamp
+    else if (typeof value.seconds === 'number') date = new Date(value.seconds * 1000);
+    else date = new Date(value);                                               // ISO string or number
+    if (isNaN(date.getTime())) return '';
+
+    const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (secs < 60) return 'Just now';
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d ago`;
+
+    const sameYear = date.getFullYear() === new Date().getFullYear();
+    return date.toLocaleDateString(undefined, sameYear
+        ? { day: 'numeric', month: 'short' }
+        : { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+window.postTimeValue = function(p) {
+    const v = p && p.createdAt;
+    if (!v) return Date.now();
+    if (typeof v.toDate === 'function') return v.toDate().getTime();
+    if (typeof v.seconds === 'number') return v.seconds * 1000;
+    const t = new Date(v).getTime();
+    return isNaN(t) ? 0 : t;
+};
+
+// Refresh the "time ago" labels every minute without reloading the feed
+setInterval(() => {
+    document.querySelectorAll('[data-time]').forEach(el => {
+        const t = parseInt(el.getAttribute('data-time'));
+        if (t) el.innerText = window.timeAgo(t);
+    });
+}, 60000);
+
 window.tipCreator = async function(postId, creatorUsername) {
-    const tipAmount = prompt(`How many GG Coins would you like to tip @${creatorUsername}? (Available Balance: ${window.myGGCoins} coins):`, "10");
+    const tipAmount = await window.sgPrompt(`How many GG Coins do you want to tip @${creatorUsername}?`, { title: '🪙 Tip Creator', defaultValue: '10', inputType: 'number', note: `Your balance: ${window.myGGCoins} GG Coins`, okText: 'Send Tip' });
     const amount = parseInt(tipAmount);
 
     if (isNaN(amount) || amount <= 0) return;
@@ -502,9 +602,9 @@ function loadCommentsForPost(postId) {
                     <div class="bg-gg-900/80 p-2.5 rounded-xl space-y-1 border border-cyan-500/10">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center space-x-1">
-                                <span class="text-xs font-bold text-cyan-400 cursor-pointer" onclick="openUserProfileModal('${c.user}', event)">@${c.user}</span>
+                                <span class="text-xs font-bold text-cyan-400 cursor-pointer" onclick="closeCommentsModal(); closeMediaZoomModal(); openUserProfileModal('${c.user}', event)">@${c.user}</span>
                             </div>
-                            <span class="text-[9px] text-gray-400">Reply</span>
+                            <span class="text-[9px] text-gray-400" data-time="${window.postTimeValue(c)}">${window.timeAgo(window.postTimeValue(c))}</span>
                         </div>
                         <p class="text-xs text-gray-200">${formatMentions(c.text)}</p>
                     </div>
@@ -832,7 +932,7 @@ window.saveUserProfileChanges = function() {
 };
 
 window.deleteAccountData = async function() {
-    if (!confirm("⚠️ PERMANENT DELETION: Are you sure you want to delete your account data and reset your profile?")) return;
+    if (!(await window.sgConfirm('This deletes your profile data on this device and signs you out. This cannot be undone.', { title: 'Delete Account?', okText: 'Delete', danger: true }))) return;
 
     const cleanUser = (window.myUsername || '@SinlessGaming').replace('@','').toLowerCase();
     delete window.userProfiles[cleanUser];
@@ -1160,11 +1260,11 @@ function renderSquadSubRoomsNav() {
     `;
 }
 
-window.promptCreateSubRoom = function() {
+window.promptCreateSubRoom = async function() {
     const squad = window.activeSquadDetails;
     if (!squad) return;
 
-    const name = prompt("Enter new sub-channel name (e.g. tactics, highlights, transfers):");
+    const name = await window.sgPrompt('Name your new channel (e.g. tactics, highlights, transfers)', { title: '# New Channel', placeholder: 'channel-name', okText: 'Create' });
     if (!name) return;
 
     const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-');
@@ -1183,9 +1283,9 @@ window.promptCreateSubRoom = function() {
     showToast(`Sub-channel #${cleanName} created!`);
 };
 
-window.deleteSubRoom = function(room) {
+window.deleteSubRoom = async function(room) {
     const squad = window.activeSquadDetails;
-    if (!squad || !confirm(`Delete sub-channel #${room}?`)) return;
+    if (!squad || !(await window.sgConfirm(`All messages in #${room} will be removed.`, { title: 'Delete Channel?', okText: 'Delete', danger: true }))) return;
 
     squad.subRooms = squad.subRooms.filter(r => r !== room);
     if (squad.rooms) delete squad.rooms[room];
@@ -1375,9 +1475,9 @@ window.toggleSquadAdmin = function(member) {
     window.switchSquadSubRoom('Roster');
 };
 
-window.transferOwnership = function(newOwner) {
+window.transferOwnership = async function(newOwner) {
     const squad = window.activeSquadDetails;
-    if (!squad || !confirm(`⚠️ TRANSFER OWNERSHIP: Transfer complete ownership of squad ${squad.name} to @${newOwner}?`)) return;
+    if (!squad || !(await window.sgConfirm(`@${newOwner} will become the owner of ${squad.name}. You will no longer be the owner.`, { title: 'Transfer Ownership?', okText: 'Transfer', danger: true }))) return;
 
     squad.owner = newOwner;
     squad.leader = newOwner;
@@ -1422,7 +1522,7 @@ window.sendSquadRoomMessage = function() {
 
 window.deleteActiveSquad = async function() {
     const squad = window.activeSquadDetails;
-    if (!squad || !confirm(`Disband squad ${squad.name}? This cannot be undone.`)) return;
+    if (!squad || !(await window.sgConfirm(`${squad.name} and all its channels will be deleted. This cannot be undone.`, { title: 'Disband Squad?', okText: 'Disband', danger: true }))) return;
 
     window.clansData = window.clansData.filter(c => c.id !== squad.id);
     localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
@@ -1518,7 +1618,7 @@ window.uploadProfileStory = async function(input) {
     if (input.files && input.files[0]) {
         const file = input.files[0];
         const isVideo = file.type.includes('video');
-        const caption = prompt("Add a caption to your 24-hour Story (optional):") || '';
+        const caption = (await window.sgPrompt('Add a caption (optional)', { title: '✨ New Story', placeholder: 'Say something...', okText: 'Post Story', cancelText: 'Skip' })) || '';
 
         const saveStory = async (mediaUrl, type) => {
             const newStory = {
@@ -2327,7 +2427,8 @@ window.renderFypFeed = function() {
         posts.sort((a, b) => {
             const scoreA = (window.categoryInterests[(a.game || '').toUpperCase()] || 0) + (a.ggsCount || 0);
             const scoreB = (window.categoryInterests[(b.game || '').toUpperCase()] || 0) + (b.ggsCount || 0);
-            return scoreB - scoreA;
+            // Same score? Show the newest post first
+            return (scoreB - scoreA) || (window.postTimeValue(b) - window.postTimeValue(a));
         });
     }
 
@@ -2400,7 +2501,7 @@ window.renderFypFeed = function() {
                                 <h4 class="font-bold text-xs text-white hover:text-cyan-400 transition">@${p.user}</h4>
                                 ${badges}
                             </div>
-                            <p class="text-[9px] text-cyan-400 uppercase font-black tracking-wider">${p.game || 'GAMING'}</p>
+                            <p class="text-[9px] uppercase font-black tracking-wider"><span class="text-cyan-400">${p.game || 'GAMING'}</span> <span class="text-gray-500 normal-case font-bold tracking-normal">· <span data-time="${window.postTimeValue(p)}">${window.timeAgo(window.postTimeValue(p))}</span></span></p>
                         </div>
                     </div>
                     <div class="flex items-center space-x-2">
@@ -2901,7 +3002,10 @@ window.openMediaZoomModal = function(type, mediaUrl, postId = null, caption = ''
     const title = document.getElementById('mediaZoomTitle');
     if (!stage) return;
 
-    if (title) title.innerText = 'Media Lightbox Preview';
+    if (title) {
+        const zp = postId ? (window.fypposts || []).find(p => p.id === postId || p.docId === postId) : null;
+        title.innerText = zp ? `@${zp.user} · ${window.timeAgo(window.postTimeValue(zp))}` : '';
+    }
 
     if (type === 'video') {
         stage.innerHTML = `<video src="${mediaUrl}" class="max-w-full max-h-full object-contain rounded-2xl" controls autoplay></video>`;
