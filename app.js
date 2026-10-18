@@ -7612,17 +7612,24 @@ window.renderFypFeed = function() {
     const news = nc ? (window.newsByCat[nc] || []) : window.newsForYou();
     if (!news.length) return;
     const cards = [...box.children].filter(el => el.querySelector('[data-post-id]') || el.hasAttribute('data-post-id'));
-    const every = cards.length < 8 ? 2 : 5;
+    // Plenty of posts → news only now and then. Few posts → news fills the gaps.
+    const n = cards.length;
+    const every = n < 8 ? 2 : n < 20 ? 3 : n < 40 ? 5 : 8;
+    const maxNews = n < 8 ? 40 : n < 20 ? 30 : n < 40 ? 15 : 8;
     let k = 0;
     const make = () => { const d = document.createElement('div'); d.setAttribute('data-news-card', '1'); d.innerHTML = window.newsCardHtml(news[k++], { inFeed: true, small: true }); return d; };
     if (!cards.length) {
         // nothing posted here yet: show the news so the page is never empty
         box.insertAdjacentHTML('beforeend', `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">Meanwhile, in the news</p>`);
-        while (k < Math.min(6, news.length)) box.appendChild(make());
+        while (k < Math.min(40, news.length)) box.appendChild(make());
         return;
     }
-    cards.forEach((c, i) => { if ((i + 1) % every === 0 && k < news.length && k < 12) c.after(make()); });
-    if (cards.length < 6) while (k < Math.min(news.length, 6)) box.appendChild(make());
+    cards.forEach((c, i) => { if ((i + 1) % every === 0 && k < news.length && k < maxNews) c.after(make()); });
+    // ran out of posts? keep the feed going with more news
+    if (n < 40 && k < Math.min(news.length, maxNews)) {
+        box.insertAdjacentHTML('beforeend', `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">You're all caught up · more from the news</p>`);
+        while (k < Math.min(news.length, maxNews)) box.appendChild(make());
+    }
 };
 
 // Show the News page / refresh when opened
