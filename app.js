@@ -6,7 +6,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { 
     getFirestore, collection, addDoc, doc, deleteDoc, updateDoc, 
     arrayUnion, arrayRemove, increment, query, orderBy, limit, 
-    onSnapshot, serverTimestamp 
+    onSnapshot, serverTimestamp, where, getDocs, getDoc 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { 
     getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged 
@@ -741,6 +741,7 @@ window.toggleGGPost = async function(postId) {
     if(window.activeZoomPostId === postId && typeof window.renderZoomInteractions === 'function') {
         window.renderZoomInteractions(postId);
     }
+    if (window.refreshPostDetailStats) window.refreshPostDetailStats(postId);
 
     const targetId = post.docId || post.id;
     if (window.db && targetId && !post.isLocalFallback && !String(targetId).startsWith('local_')) {
@@ -827,6 +828,7 @@ window.submitCommentReply = async function() {
     const postId = window.activeCommentPostId;
 
     if (!text || !postId) return;
+    if (!window.currentUser) { showToast("🔐 Sign in with Google (side menu → Account) to reply."); return; }
 
     const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
     if(post && window.boostCategoryInterest) window.boostCategoryInterest(post.game);
@@ -1839,83 +1841,232 @@ window.sendInChatImage = async function(context) {
     }
 };
 
+// ================= STORIES (shared with everyone, gone after 24h like WhatsApp) =================
+window.STORY_LIFETIME_MS = 24 * 3600000;
 window.profileStories = [];
+window.cloudStories = [];
+window.localOnlyStories = [];
+
+window.storyExpiresAt = function(s) {
+    if (s.expiresAt) {
+        if (typeof s.expiresAt.toDate === 'function') return s.expiresAt.toDate().getTime();
+        if (typeof s.expiresAt.seconds === 'number') return s.expiresAt.seconds * 1000;
+        return new Date(s.expiresAt).getTime();
+    }
+    return (s.timestamp || 0) + window.STORY_LIFETIME_MS;
+};
+
+window.mergeStories = function() {
+    const now = Date.now();
+    window.profileStories = [...window.cloudStories, ...window.localOnlyStories]
+        .filter(s => window.storyExpiresAt(s) > now)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    window.renderStoriesBar();
+};
+
+window.initStories = async function() {
+    // Old on-device stories: keep only unexpired ones, delete the rest for good
+    try {
+        const local = await window.loadLocalStoriesFromDB();
+        const now = Date.now();
+        window.localOnlyStories = [];
+        for (const st of (local || [])) {
+            if (window.storyExpiresAt(st) > now) window.localOnlyStories.push(st);
+            else await window.deleteLocalStory(st.id);
+        }
+    } catch (e) {}
+    window.mergeStories();
+
+    if (window.db) {
+        try {
+            const q = query(collection(window.db, 'stories'), where('expiresAt', '>', new Date()), orderBy('expiresAt', 'asc'), limit(150));
+            onSnapshot(q, (snap) => {
+                window.cloudStories = [];
+                snap.forEach(d => {
+                    const data = d.data();
+                    window.cloudStories.push({ id: d.id, ...data, timestamp: window.postTimeValue(data) });
+                });
+                window.mergeStories();
+            }, (err) => console.warn('Stories listener:', err));
+        } catch (e) { console.warn('Stories setup failed', e); }
+    }
+};
+
+// Permanently delete expired stories from the database (anyone signed in can tidy up expired ones)
+window.cleanupExpiredStories = async function() {
+    if (!window.db || !window.currentUser) return;
+    try {
+        const snap = await getDocs(query(collection(window.db, 'stories'), where('expiresAt', '<=', new Date()), limit(25)));
+        snap.forEach(d => deleteDoc(doc(window.db, 'stories', d.id)).catch(() => {}));
+    } catch (e) {}
+};
+
+window.deleteLocalStory = async function(id) {
+    try {
+        const db = await openPostDB();
+        db.transaction('local_stories', 'readwrite').objectStore('local_stories').delete(id);
+    } catch (e) {}
+};
+
+// Every minute: drop anything that just turned 24h old
+setInterval(() => {
+    const before = window.profileStories.length;
+    window.mergeStories();
+    if (window.profileStories.length !== before) {
+        const viewer = document.getElementById('storyViewerModal');
+        if (viewer && !viewer.classList.contains('hidden') && !window.profileStories.some(s => s.id === window.storyViewer.list[window.storyViewer.index]?.id)) window.closeStoryViewer();
+        window.cleanupExpiredStories();
+    }
+}, 60000);
 
 window.triggerStoryUpload = function() {
+    if (!window.currentUser) { showToast("🔐 Sign in with Google (side menu → Account) to post stories."); return; }
     document.getElementById('storyFileInput').click();
 };
 
 window.uploadProfileStory = async function(input) {
-    if (input.files && input.files[0]) {
-        const file = input.files[0];
-        const isVideo = file.type.includes('video');
-        const caption = (await window.sgPrompt('Add a caption (optional)', { title: '✨ New Story', placeholder: 'Say something...', okText: 'Post Story', cancelText: 'Skip' })) || '';
+    if (!(input.files && input.files[0])) return;
+    const file = input.files[0];
+    if (!window.currentUser) { showToast("🔐 Sign in to post stories."); input.value = ''; return; }
+    const caption = (await window.sgPrompt('Add a caption (optional)', { title: '✨ New Story', placeholder: 'Say something...', okText: 'Post Story', cancelText: 'Skip' })) || '';
 
-        const saveStory = async (mediaUrl, type) => {
-            const newStory = {
-                id: 'story_' + Date.now(),
-                user: (window.myUsername || '@SinlessGaming').replace('@', ''),
-                type: type,
-                mediaUrl: mediaUrl,
-                caption: caption,
-                timestamp: Date.now()
-            };
-            window.profileStories.unshift(newStory);
-            await saveStoryToIndexedDB(newStory);
-            window.renderStoriesBar();
-            input.value = '';
-            showToast(`✨ Profile Story Posted (${type === 'video' ? 'Video' : 'Image'})!`);
-        };
-
-        showToast("Uploading story...");
-        try {
-            const up = await window.prepareAndUpload(file, null, 1080, 1920);
-            await saveStory(up.url, up.type);
-        } catch (err) {
-            console.warn("Story cloud upload failed, saving on this device:", err);
-            if (isVideo) {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => saveStory(reader.result, 'video');
-            } else {
-                const compressedUrl = await compressImage(file, 1080, 1920, 0.85);
-                saveStory(compressedUrl, 'image');
-            }
-        }
+    showToast("Uploading story...");
+    try {
+        const up = await window.prepareAndUpload(file, null, 1080, 1920);
+        await addDoc(collection(window.db, 'stories'), {
+            user: (window.myUsername || '@SinlessGaming').replace('@', ''),
+            uid: window.currentUser.uid,
+            type: up.type,
+            mediaUrl: up.url,
+            caption: caption,
+            createdAt: serverTimestamp(),
+            expiresAt: new Date(Date.now() + window.STORY_LIFETIME_MS)
+        });
+        showToast("✨ Story posted! It disappears in 24 hours.");
+    } catch (err) {
+        console.error('Story upload failed:', err);
+        showToast(`⚠️ Story failed: ${err.message || 'try again'}`);
     }
+    input.value = '';
 };
 
+// One bubble per person (your own first), like WhatsApp status
 window.renderStoriesBar = function() {
     const container = document.getElementById('activeStoriesContainer');
     if (!container) return;
-    container.innerHTML = '';
-
-    window.profileStories.forEach(story => {
-        let thumbContent = story.type === 'video'
-            ? `<video src="${story.mediaUrl}" class="w-12 h-12 rounded-full object-cover border-2 border-slate-950 pointer-events-none" autoplay loop muted></video>`
-            : `<img src="${story.mediaUrl}" class="w-12 h-12 rounded-full object-cover border-2 border-slate-950">`;
-
-        container.innerHTML += `
-            <div class="flex flex-col items-center shrink-0 cursor-pointer space-y-1 group" onclick="window.openStoryViewer('${story.id}')">
-                <div class="w-13 h-13 rounded-full p-0.5 bg-gradient-to-tr from-cyan-400 via-magenta to-amber-400 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                    ${thumbContent}
-                </div>
-                <span class="text-[8px] font-extrabold text-gray-300 truncate max-w-[60px]">@${story.user}</span>
-            </div>
-        `;
+    const me = (window.myUsername || '').replace('@', '').toLowerCase();
+    const groups = {};
+    window.profileStories.forEach(st => { (groups[st.user] = groups[st.user] || []).push(st); });
+    const users = Object.keys(groups).sort((a, b) => {
+        if (a.toLowerCase() === me) return -1;
+        if (b.toLowerCase() === me) return 1;
+        return Math.max(...groups[b].map(x => x.timestamp || 0)) - Math.max(...groups[a].map(x => x.timestamp || 0));
     });
+    const seen = (() => { try { return JSON.parse(localStorage.getItem('sinless_seen_stories') || '{}'); } catch (e) { return {}; } })();
+
+    container.innerHTML = users.map(u => {
+        const list = groups[u].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        const latest = list[list.length - 1];
+        const allSeen = list.every(x => seen[x.id]);
+        const thumb = latest.type === 'video'
+            ? (window.cldPoster(latest.mediaUrl, 160) || '')
+            : window.cldSized(latest.mediaUrl, 160);
+        const ring = allSeen ? 'bg-gray-600' : 'bg-gradient-to-tr from-cyan-400 via-magenta to-amber-400';
+        return `
+            <div class="flex flex-col items-center shrink-0 cursor-pointer space-y-1 group" onclick="window.openStoryViewer('${u}')">
+                <div class="w-14 h-14 rounded-full p-0.5 ${ring} flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                    ${thumb ? `<img src="${thumb}" class="w-full h-full rounded-full object-cover border-2 border-slate-950" loading="lazy">`
+                            : `<div class="w-full h-full rounded-full bg-gg-900 border-2 border-slate-950 flex items-center justify-center text-[10px] font-black text-cyan-400">${u.slice(0, 2).toUpperCase()}</div>`}
+                </div>
+                <span class="text-[8px] font-extrabold text-gray-300 truncate max-w-[60px]">${u.toLowerCase() === me ? 'Your story' : '@' + u}</span>
+            </div>`;
+    }).join('');
 };
 
-window.openStoryViewer = function(storyId) {
-    const story = window.profileStories.find(s => s.id === storyId);
-    if (!story) return;
+// ---------- Story viewer: progress bars, tap left/right, auto-advance ----------
+window.storyViewer = { list: [], index: 0, timer: null };
 
-    const timerBadge = getRemainingTimeBadge(story.timestamp);
-    window.openMediaZoomModal(story.type || 'image', story.mediaUrl);
-
-    const title = document.getElementById('mediaZoomTitle');
-    if (title) title.innerText = `@${story.user}'s Story • ${timerBadge}`;
+window.openStoryViewer = function(user) {
+    const list = window.profileStories.filter(s => s.user === user).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    if (!list.length) return;
+    const seen = (() => { try { return JSON.parse(localStorage.getItem('sinless_seen_stories') || '{}'); } catch (e) { return {}; } })();
+    const firstUnseen = list.findIndex(s => !seen[s.id]);
+    window.storyViewer = { list, index: firstUnseen >= 0 ? firstUnseen : 0, timer: null };
+    window.pauseFeedVideos && window.pauseFeedVideos();
+    document.getElementById('storyViewerModal').classList.remove('hidden');
+    window.showStory();
 };
+
+window.showStory = function() {
+    const sv = window.storyViewer;
+    clearTimeout(sv.timer);
+    const st = sv.list[sv.index];
+    if (!st) { window.closeStoryViewer(); return; }
+    try {
+        const seen = JSON.parse(localStorage.getItem('sinless_seen_stories') || '{}');
+        seen[st.id] = Date.now();
+        localStorage.setItem('sinless_seen_stories', JSON.stringify(seen));
+    } catch (e) {}
+
+    const me = (window.myUsername || '').replace('@', '').toLowerCase();
+    const mine = (window.currentUser && st.uid === window.currentUser.uid) || (st.user || '').toLowerCase() === me;
+    const left = Math.max(0, window.storyExpiresAt(st) - Date.now());
+    const hrs = Math.floor(left / 3600000), mins = Math.floor((left % 3600000) / 60000);
+
+    document.getElementById('storyProgress').innerHTML = sv.list.map((_, i) =>
+        `<div class="flex-1 h-0.5 rounded bg-white/30 overflow-hidden"><div id="storyBar${i}" class="h-full bg-white" style="width:${i < sv.index ? 100 : 0}%"></div></div>`).join('');
+    document.getElementById('storyHeader').innerHTML = `
+        <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-[10px]">${(st.user || '?').slice(0, 2).toUpperCase()}</div>
+            <div><p class="text-xs font-bold text-white">@${st.user}</p><p class="text-[9px] text-gray-300">${window.timeAgo(st.timestamp)} · disappears in ${hrs}h ${mins}m</p></div>
+        </div>
+        <div class="flex items-center space-x-2">
+            ${mine ? `<button onclick="window.deleteMyStory('${st.id}')" class="w-8 h-8 rounded-full bg-black/50 text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>` : ''}
+            <button onclick="window.closeStoryViewer()" class="w-8 h-8 rounded-full bg-black/50 text-white text-sm">✕</button>
+        </div>`;
+
+    const stage = document.getElementById('storyStage');
+    const bar = () => document.getElementById('storyBar' + sv.index);
+    if (st.type === 'video') {
+        stage.innerHTML = `<video id="storyVideo" src="${window.cldSized(st.mediaUrl, 1080, 'video')}" class="max-w-full max-h-full object-contain" autoplay playsinline></video>`;
+        const v = document.getElementById('storyVideo');
+        v.ontimeupdate = () => { if (v.duration && bar()) bar().style.width = (v.currentTime / v.duration * 100) + '%'; };
+        v.onended = () => window.nextStory();
+        v.onerror = () => { sv.timer = setTimeout(window.nextStory, 3000); };
+    } else {
+        stage.innerHTML = `<img src="${window.cldSized(st.mediaUrl, 1080)}" class="max-w-full max-h-full object-contain">`;
+        requestAnimationFrame(() => { const b = bar(); if (b) { b.style.transition = 'width 5s linear'; b.style.width = '100%'; } });
+        sv.timer = setTimeout(window.nextStory, 5000);
+    }
+    document.getElementById('storyCaption').innerHTML = st.caption ? `<p class="text-sm text-white text-center font-semibold bg-black/40 rounded-xl px-3 py-2">${formatMentions(st.caption)}</p>` : '';
+};
+
+window.nextStory = function() { window.storyViewer.index++; window.showStory(); };
+window.prevStory = function() { window.storyViewer.index = Math.max(0, window.storyViewer.index - 1); window.showStory(); };
+
+window.closeStoryViewer = function() {
+    clearTimeout(window.storyViewer.timer);
+    const v = document.getElementById('storyVideo'); if (v) v.pause();
+    document.getElementById('storyStage').innerHTML = '';
+    document.getElementById('storyViewerModal').classList.add('hidden');
+    window.renderStoriesBar();
+    window.pickFeedVideoToPlay && setTimeout(window.pickFeedVideoToPlay, 100);
+};
+
+window.deleteMyStory = async function(id) {
+    clearTimeout(window.storyViewer.timer);
+    const ok = await window.sgConfirm('This story will be removed for everyone.', { title: 'Delete Story?', okText: 'Delete', danger: true });
+    if (!ok) { window.showStory(); return; }
+    try { await deleteDoc(doc(window.db, 'stories', id)); } catch (e) {}
+    window.localOnlyStories = window.localOnlyStories.filter(s => s.id !== id);
+    window.deleteLocalStory(id);
+    window.cloudStories = window.cloudStories.filter(s => s.id !== id);
+    window.storyViewer.list = window.storyViewer.list.filter(s => s.id !== id);
+    window.mergeStories();
+    showToast('Story deleted.');
+    window.showStory();
+};
+
 // ======================================================================
 // SINLESS GG - APP LOGIC (MODULE VERSION - PART 2)
 // ======================================================================
@@ -2687,138 +2838,602 @@ window.filterByCategory = function(cat, btnElem) {
     window.renderFypFeed();
 };
 
+// ================= FEED ORDER (fresh on top, shuffle when content is thin) =================
+window.feedOrder = null;              // list of post ids in the order shown
+window.pendingNewIds = new Set();     // new posts waiting behind the "New posts" pill
+window.FEED_FRESH_MS = 6 * 3600000;   // posts newer than 6h always go on top (newest first)
+window.FEED_SHUFFLE_BELOW = 60;       // fewer posts than this = shuffle the rest on every refresh
+
+window.isMyPost = function(p) {
+    const me = (window.myUsername || '').replace('@', '').toLowerCase();
+    return (window.currentUser && p.uid === window.currentUser.uid) || (p.user || '').toLowerCase() === me;
+};
+
+window.feedScore = function(p) {
+    const ageDays = (Date.now() - window.postTimeValue(p)) / 86400000;
+    return (window.categoryInterests[(p.game || '').toUpperCase()] || 0)
+        + 2 * (p.ggsCount || 0) + 3 * (p.commentsCount || 0) + 0.05 * (p.viewsCount || 0)
+        + 10 / (1 + ageDays);
+};
+
+window.rebuildFeedOrder = function() {
+    const all = window.fypposts || [];
+    const now = Date.now();
+    const fresh = all.filter(p => now - window.postTimeValue(p) < window.FEED_FRESH_MS)
+        .sort((a, b) => window.postTimeValue(b) - window.postTimeValue(a));
+    const freshIds = new Set(fresh.map(p => p.docId || p.id));
+    const few = all.length < window.FEED_SHUFFLE_BELOW;
+    const rest = all.filter(p => !freshIds.has(p.docId || p.id))
+        .map(p => ({ p, s: window.feedScore(p) * (few ? (0.3 + Math.random() * 1.4) : (0.9 + Math.random() * 0.2)) }))
+        .sort((a, b) => b.s - a.s).map(x => x.p);
+    window.feedOrder = [...fresh, ...rest].map(p => p.docId || p.id);
+    window.pendingNewIds.clear();
+    window.updateNewPostsPill();
+};
+
+window.isFeedNearTop = function() {
+    const view = document.getElementById('view-fyp');
+    return view && !view.classList.contains('hidden') && (window.scrollY || document.documentElement.scrollTop) < 150;
+};
+
+// Works out which posts to show, in which order. New arrivals go straight to the top
+// if you're at the top of the feed (or it's your own post); otherwise they wait behind the pill.
+window.getOrderedFeed = function() {
+    const all = window.fypposts || [];
+    if (!window.feedOrder) window.rebuildFeedOrder();
+    const byId = {};
+    all.forEach(p => { byId[p.docId || p.id] = p; });
+    const known = new Set(window.feedOrder);
+    const arrivals = all.filter(p => !known.has(p.docId || p.id))
+        .sort((a, b) => window.postTimeValue(b) - window.postTimeValue(a));
+    const atTop = window.isFeedNearTop();
+    const toTop = [];
+    arrivals.forEach(p => {
+        const id = p.docId || p.id;
+        if (atTop || window.isMyPost(p)) toTop.push(id);
+        else window.pendingNewIds.add(id);
+    });
+    if (toTop.length) window.feedOrder = [...toTop, ...window.feedOrder];
+    window.updateNewPostsPill();
+    return window.feedOrder.filter(id => byId[id] && !window.pendingNewIds.has(id)).map(id => byId[id]);
+};
+
+window.updateNewPostsPill = function() {
+    const pill = document.getElementById('newPostsPill');
+    if (!pill) return;
+    const n = window.pendingNewIds.size;
+    if (!n) { pill.classList.add('hidden'); return; }
+    const users = [...window.pendingNewIds].map(id => (window.fypposts || []).find(p => (p.docId || p.id) === id)).filter(Boolean).map(p => p.user).slice(0, 3);
+    pill.innerHTML = `<i class="fa-solid fa-arrow-up mr-1.5"></i>${users.map(u => `<span class="inline-flex w-5 h-5 -ml-1 first:ml-0 rounded-full bg-gradient-to-tr from-cyan-400 to-magenta text-slate-950 text-[8px] font-black items-center justify-center border border-gg-950">${(u || 'SG').slice(0, 2).toUpperCase()}</span>`).join('')}<span class="ml-1.5">${n} new post${n === 1 ? '' : 's'}</span>`;
+    pill.classList.remove('hidden');
+};
+
+window.showNewPosts = function() {
+    window.rebuildFeedOrder();
+    window.renderFypFeed();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+// Full refresh (pull-to-refresh, coming back to the app)
+window.refreshFeed = function(silent) {
+    window.rebuildFeedOrder();
+    window.renderFypFeed();
+    if (!silent) showToast("✨ Feed refreshed");
+};
+
+// ================= FEED CARD =================
+window.feedMuted = true;
+
+window.renderFeedCard = function(p, me) {
+    const pId = p.docId || p.id;
+    const isOwner = p.user && p.user.toLowerCase() === me;
+    const hasGGed = p.ggsBy && p.ggsBy.includes(window.currentUser ? window.currentUser.uid : 'guest_user');
+
+    let mediaHtml = '';
+    if (p.mediaList && p.mediaList.length > 0) {
+        if (p.mediaList.length === 1) {
+            const m = p.mediaList[0];
+            if (m.type === 'video') {
+                mediaHtml = `
+                    <div class="relative rounded-2xl overflow-hidden bg-black border border-cyan-500/20">
+                        <video data-feed-video="${pId}" data-src-raw="${m.url}" src="${window.cldSized(m.url, 720, 'video')}" poster="${window.cldPoster(m.url)}" class="w-full max-h-[28rem] object-contain bg-black" muted loop playsinline preload="none"></video>
+                        <div class="absolute bottom-2 right-2 flex space-x-1.5">
+                            <button onclick="window.toggleFeedMute()" class="feed-mute-btn w-8 h-8 rounded-full bg-black/60 text-white text-xs flex items-center justify-center"><i class="fa-solid ${window.feedMuted ? 'fa-volume-xmark' : 'fa-volume-high'}"></i></button>
+                            <button onclick="window.floatVideo('${pId}', '${m.url}', this)" class="w-8 h-8 rounded-full bg-black/60 text-white text-xs flex items-center justify-center" title="Float video"><i class="fa-solid fa-clone"></i></button>
+                        </div>
+                    </div>`;
+            } else {
+                mediaHtml = `
+                    <div class="relative rounded-2xl overflow-hidden bg-black max-h-[28rem] border border-cyan-500/20">
+                        <img src="${window.cldSized(m.url, 1080)}" loading="lazy" class="w-full max-h-[28rem] object-cover">
+                    </div>`;
+            }
+        } else {
+            mediaHtml = `
+                <div class="grid grid-cols-2 gap-1.5 rounded-2xl overflow-hidden border border-cyan-500/20">
+                    ${p.mediaList.slice(0, 4).map((m, i) => {
+                        const more = (i === 3 && p.mediaList.length > 4) ? `<div class="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-black text-lg">+${p.mediaList.length - 4}</div>` : '';
+                        return m.type === 'video'
+                            ? `<div class="relative h-40 bg-black"><img src="${window.cldPoster(m.url, 480)}" class="w-full h-40 object-cover" loading="lazy" onerror="this.style.display='none'"><i class="fa-solid fa-circle-play absolute inset-0 m-auto w-8 h-8 text-3xl text-white/90 flex items-center justify-center"></i>${more}</div>`
+                            : `<div class="relative h-40"><img src="${window.cldSized(m.url, 600)}" loading="lazy" class="w-full h-40 object-cover bg-black">${more}</div>`;
+                    }).join('')}
+                </div>`;
+        }
+    }
+
+    const audioTrackHtml = p.audioTrack ? `
+        <div class="flex items-center space-x-2 p-2 bg-gg-900/90 rounded-xl border border-cyan-500/20 text-[10px] text-cyan-300">
+            <i class="fa-solid fa-music animate-spin text-magenta"></i>
+            <span class="font-bold truncate">${p.audioTrack.title || 'Background Sound'}</span>
+        </div>` : '';
+
+    const badges = window.getProfileBadges ? window.getProfileBadges(p.user) : '';
+    const caption = p.caption || '';
+    const longCaption = caption.length > 280;
+
+    return `
+        <div class="post-card-item glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/20 hover:border-cyan-500/40 transition cursor-pointer" data-post-id="${pId}" onclick="window.onPostCardTap(event, '${pId}')">
+            <div class="flex items-center justify-between">
+                <div data-noexpand class="flex items-center space-x-2.5 cursor-pointer" onclick="window.openUserProfileModal('${p.user}', event)">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-xs shadow-md">
+                        ${(p.user || 'SG').substring(0,2).toUpperCase()}
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-1.5">
+                            <h4 class="font-bold text-xs text-white hover:text-cyan-400 transition">@${p.user}</h4>
+                            ${badges}
+                        </div>
+                        <p class="text-[9px] uppercase font-black tracking-wider"><span class="text-cyan-400">${p.game || 'GAMING'}</span> <span class="text-gray-500 normal-case font-bold tracking-normal">· <span data-time="${window.postTimeValue(p)}">${window.timeAgo(window.postTimeValue(p))}</span></span></p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    ${isOwner ? `
+                        <button onclick="window.openEditPostModal('${pId}')" class="text-gray-400 hover:text-cyan-400 text-xs px-1.5"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="window.deletePost('${pId}')" class="text-gray-400 hover:text-red-400 text-xs px-1.5"><i class="fa-solid fa-trash"></i></button>
+                    ` : ''}
+                </div>
+            </div>
+
+            ${caption ? `<p class="text-xs text-gray-200 leading-relaxed font-medium whitespace-pre-wrap break-words">${formatMentions(longCaption ? caption.slice(0, 280) + '…' : caption)}${longCaption ? ' <span class="text-cyan-400 font-bold">Show more</span>' : ''}</p>` : ''}
+
+            ${mediaHtml}
+            ${audioTrackHtml}
+
+            <div class="flex items-center justify-between pt-2 border-t border-cyan-500/15 text-xs text-gray-300 font-bold">
+                <button onclick="window.toggleGGPost('${pId}')" class="flex items-center space-x-1.5 ${hasGGed ? 'text-cyan-400' : 'hover:text-cyan-400'} transition">
+                    <i class="fa-solid fa-thumbs-up"></i>
+                    <span>${window.formatCount(p.ggsCount || 0)}</span>
+                </button>
+                <button onclick="window.openPostDetail('${pId}', true)" class="flex items-center space-x-1.5 hover:text-cyan-400 transition">
+                    <i class="fa-solid fa-comment"></i>
+                    <span>${window.formatCount(p.commentsCount || 0)}</span>
+                </button>
+                <span class="flex items-center space-x-1.5 text-gray-400">
+                    <i class="fa-solid fa-eye"></i>
+                    <span id="viewsCounterBadge_${pId}">${window.formatCount(p.viewsCount || 0)}</span>
+                </span>
+                <button onclick="window.tipCreator('${pId}', '${p.user}')" class="flex items-center space-x-1.5 text-amber-400 hover:text-amber-300 transition">
+                    <i class="fa-solid fa-coins"></i>
+                    <span>Tip</span>
+                </button>
+                <button onclick="window.sharePost('${pId}')" class="flex items-center space-x-1.5 hover:text-cyan-400 transition">
+                    <i class="fa-solid fa-share-nodes"></i>
+                </button>
+            </div>
+        </div>
+    `;
+};
+
+// Tapping anywhere on a post (except its buttons) opens the full post view
+window.onPostCardTap = function(e, pId) {
+    if (e.target.closest('button, a, input, textarea, [data-noexpand]')) return;
+    window.openPostDetail(pId);
+};
+
 window.renderFypFeed = function() {
     const feedContainer = document.getElementById('fypFeedContainer');
     if (!feedContainer) return;
 
-    let posts = [...(window.fypposts || [])];
+    // Remember a playing video so re-drawing the feed doesn't restart it
+    const playing = [...feedContainer.querySelectorAll('video[data-feed-video]')].find(v => !v.paused);
+    const resume = playing ? { id: playing.getAttribute('data-feed-video'), t: playing.currentTime } : null;
 
-    if (window.activeCategoryFilter !== 'ALL') {
+    let posts = window.getOrderedFeed();
+
+    if (window.activeCategoryFilter && window.activeCategoryFilter !== 'ALL') {
         if (window.activeCategoryFilter === 'LIVE STREAM') {
             posts = posts.filter(p => p.isLive || p.game === 'LIVE STREAM');
         } else {
             posts = posts.filter(p => (p.game || '').toUpperCase() === window.activeCategoryFilter);
         }
-    } else {
-        posts.sort((a, b) => {
-            const scoreA = (window.categoryInterests[(a.game || '').toUpperCase()] || 0) + (a.ggsCount || 0);
-            const scoreB = (window.categoryInterests[(b.game || '').toUpperCase()] || 0) + (b.ggsCount || 0);
-            // Same score? Show the newest post first
-            return (scoreB - scoreA) || (window.postTimeValue(b) - window.postTimeValue(a));
-        });
     }
 
     if (posts.length === 0) {
         feedContainer.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center space-y-2">
             <i class="fa-solid fa-gamepad text-3xl text-cyan-400 opacity-60"></i>
-            <p class="text-xs font-bold text-white">No posts found in ${window.activeCategoryFilter}</p>
+            <p class="text-xs font-bold text-white">No posts found in ${window.activeCategoryFilter || 'the feed'}</p>
             <p class="text-[10px] text-gray-400">Be the first gamer to post a clip or match update!</p>
         </div>`;
         return;
     }
 
     const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+    feedContainer.innerHTML = posts.map(p => window.renderFeedCard(p, me)).join('');
 
-    feedContainer.innerHTML = posts.map(p => {
-        const pId = p.docId || p.id;
-        const isOwner = p.user && p.user.toLowerCase() === me;
-        const hasGGed = p.ggsBy && p.ggsBy.includes(window.currentUser ? window.currentUser.uid : 'guest_user');
-
-        let mediaHtml = '';
-        if (p.mediaList && p.mediaList.length > 0) {
-            if (p.mediaList.length === 1) {
-                const m = p.mediaList[0];
-                if (m.type === 'video') {
-                    mediaHtml = `
-                        <div class="relative rounded-2xl overflow-hidden bg-black max-h-96 border border-cyan-500/20 group">
-                            <video src="${window.cldSized(m.url, 1280, 'video')}" poster="${window.cldPoster(m.url)}" class="w-full max-h-96 object-contain bg-black" controls playsinline preload="none" controlsList="nodownload"></video>
-                            <button onclick="window.openMediaZoomModal('video', '${m.url}', '${pId}')" class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white text-xs flex items-center justify-center" title="Full screen"><i class="fa-solid fa-expand"></i></button>
-                        </div>
-                    `;
-                } else {
-                    mediaHtml = `
-                        <div class="relative rounded-2xl overflow-hidden bg-black max-h-96 border border-cyan-500/20 group cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.url}', '${pId}')">
-                            <img src="${window.cldSized(m.url, 1080)}" loading="lazy" class="w-full h-full object-cover">
-                        </div>
-                    `;
-                }
-            } else {
-                mediaHtml = `
-                    <div class="grid grid-cols-2 gap-1.5 rounded-2xl overflow-hidden max-h-96 border border-cyan-500/20">
-                        ${p.mediaList.map(m => m.type === 'video' 
-                            ? `<div class="relative h-36 bg-black cursor-pointer" onclick="window.openMediaZoomModal('video', '${m.url}', '${pId}')"><img src="${window.cldPoster(m.url, 480)}" class="w-full h-36 object-cover" loading="lazy" onerror="this.style.display='none'"><i class="fa-solid fa-circle-play absolute inset-0 m-auto w-8 h-8 text-3xl text-white/90 flex items-center justify-center"></i></div>` 
-                            : `<img src="${window.cldSized(m.url, 600)}" loading="lazy" class="w-full h-36 object-cover bg-black cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.url}', '${pId}')">`
-                        ).join('')}
-                    </div>
-                `;
-            }
-        }
-
-        let audioTrackHtml = '';
-        if (p.audioTrack) {
-            audioTrackHtml = `
-                <div class="flex items-center space-x-2 p-2 bg-gg-900/90 rounded-xl border border-cyan-500/20 text-[10px] text-cyan-300">
-                    <i class="fa-solid fa-music animate-spin text-magenta"></i>
-                    <span class="font-bold truncate">${p.audioTrack.title || 'Background Sound'}</span>
-                </div>
-            `;
-        }
-
-        const badges = window.getProfileBadges ? window.getProfileBadges(p.user) : '';
-
-        return `
-            <div class="post-card-item glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/20 hover:border-cyan-500/40 transition" data-post-id="${pId}">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2.5 cursor-pointer" onclick="window.openUserProfileModal('${p.user}', event)">
-                        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-xs shadow-md">
-                            ${(p.user || 'SG').substring(0,2).toUpperCase()}
-                        </div>
-                        <div>
-                            <div class="flex items-center space-x-1.5">
-                                <h4 class="font-bold text-xs text-white hover:text-cyan-400 transition">@${p.user}</h4>
-                                ${badges}
-                            </div>
-                            <p class="text-[9px] uppercase font-black tracking-wider"><span class="text-cyan-400">${p.game || 'GAMING'}</span> <span class="text-gray-500 normal-case font-bold tracking-normal">· <span data-time="${window.postTimeValue(p)}">${window.timeAgo(window.postTimeValue(p))}</span></span></p>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        ${isOwner ? `
-                            <button onclick="window.openEditPostModal('${pId}')" class="text-gray-400 hover:text-cyan-400 text-xs px-1.5"><i class="fa-solid fa-pen"></i></button>
-                            <button onclick="window.deletePost('${pId}')" class="text-gray-400 hover:text-red-400 text-xs px-1.5"><i class="fa-solid fa-trash"></i></button>
-                        ` : ''}
-                        <button onclick="window.shareContent('Sinless GG Post', 'Check out @${p.user}\'s post on Sinless GG!', window.location.href)" class="text-gray-400 hover:text-white text-xs px-1.5"><i class="fa-solid fa-share-nodes"></i></button>
-                    </div>
-                </div>
-
-                ${p.caption ? `<p class="text-xs text-gray-200 leading-relaxed font-medium">${formatMentions(p.caption)}</p>` : ''}
-
-                ${mediaHtml}
-                ${audioTrackHtml}
-
-                <div class="flex items-center justify-between pt-2 border-t border-cyan-500/15 text-xs text-gray-300 font-bold">
-                    <button onclick="window.toggleGGPost('${pId}')" class="flex items-center space-x-1.5 ${hasGGed ? 'text-cyan-400' : 'hover:text-cyan-400'} transition">
-                        <i class="fa-solid fa-thumbs-up"></i>
-                        <span>${p.ggsCount || 0} GG</span>
-                    </button>
-                    <button onclick="window.openCommentsModal('${pId}')" class="flex items-center space-x-1.5 hover:text-cyan-400 transition">
-                        <i class="fa-solid fa-comment"></i>
-                        <span>${p.commentsCount || 0} Replies</span>
-                    </button>
-                    <button onclick="window.tipCreator('${pId}', '${p.user}')" class="flex items-center space-x-1.5 text-amber-400 hover:text-amber-300 transition">
-                        <i class="fa-solid fa-coins"></i>
-                        <span>Tip</span>
-                    </button>
-                    <span class="flex items-center space-x-1.5 text-gray-400">
-                        <i class="fa-solid fa-eye"></i>
-                        <span id="viewsCounterBadge_${pId}">${window.formatCount(p.viewsCount || 0)}</span>
-                    </span>
-                </div>
-            </div>
-        `;
-    }).join('');
-
+    if (resume) {
+        const v = feedContainer.querySelector(`video[data-feed-video="${resume.id}"]`);
+        if (v) { v.preload = 'auto'; v.currentTime = resume.t; }
+    }
     if (window.observePostViews) window.observePostViews();
+    if (window.setupFeedAutoplay) window.setupFeedAutoplay();
 };
+
+// ================= TIKTOK-STYLE AUTOPLAY =================
+// The video that's most on screen plays (muted until you tap the speaker); others pause.
+window.setupFeedAutoplay = function() {
+    if (!('IntersectionObserver' in window)) return;
+    if (!window.feedVideoObserver) {
+        window.feedVideoRatios = new Map();
+        window.feedVideoObserver = new IntersectionObserver((entries) => {
+            entries.forEach(en => window.feedVideoRatios.set(en.target, en.intersectionRatio));
+            window.pickFeedVideoToPlay();
+        }, { threshold: [0, 0.25, 0.5, 0.6, 0.75, 1] });
+    }
+    window.feedVideoObserver.disconnect();
+    window.feedVideoRatios.clear();
+    document.querySelectorAll('video[data-feed-video]').forEach(v => {
+        v.muted = window.feedMuted;
+        window.feedVideoObserver.observe(v);
+    });
+};
+
+window.pickFeedVideoToPlay = function() {
+    const feedVisible = !document.getElementById('view-fyp').classList.contains('hidden');
+    const overlayOpen = ['postDetailModal', 'mediaZoomModal', 'storyViewerModal', 'userProfileModal'].some(id => {
+        const el = document.getElementById(id); return el && !el.classList.contains('hidden');
+    });
+    let best = null, bestRatio = 0.6;
+    if (feedVisible && !overlayOpen) {
+        window.feedVideoRatios.forEach((r, v) => { if (r >= bestRatio && document.body.contains(v)) { best = v; bestRatio = r; } });
+    }
+    document.querySelectorAll('video[data-feed-video]').forEach(v => {
+        if (v === best) { if (v.paused) { v.preload = 'auto'; v.muted = window.feedMuted; v.play().catch(() => {}); } }
+        else if (!v.paused) v.pause();
+    });
+};
+
+window.pauseFeedVideos = function() {
+    document.querySelectorAll('video[data-feed-video]').forEach(v => { if (!v.paused) v.pause(); });
+};
+
+window.toggleFeedMute = function() {
+    window.feedMuted = !window.feedMuted;
+    document.querySelectorAll('video[data-feed-video]').forEach(v => { v.muted = window.feedMuted; });
+    document.querySelectorAll('.feed-mute-btn i').forEach(i => { i.className = `fa-solid ${window.feedMuted ? 'fa-volume-xmark' : 'fa-volume-high'}`; });
+};
+
+window.addEventListener('scroll', () => { if (window.feedVideoRatios) window.pickFeedVideoToPlay(); }, { passive: true });
+
+// ================= PULL TO REFRESH + AUTO REFRESH =================
+(function setupPullToRefresh() {
+    let startY = null, pulling = false;
+    const ind = () => document.getElementById('pullRefreshIndicator');
+    window.addEventListener('touchstart', (e) => {
+        const view = document.getElementById('view-fyp');
+        const anyModal = document.querySelector('.fixed.inset-0:not(.hidden)');
+        if (view && !view.classList.contains('hidden') && !anyModal && window.scrollY <= 0) { startY = e.touches[0].clientY; pulling = true; }
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+        if (!pulling || startY === null) return;
+        const dy = Math.max(0, Math.min(120, e.touches[0].clientY - startY));
+        const el = ind();
+        if (el) { el.style.height = (dy * 0.6) + 'px'; el.style.opacity = Math.min(1, dy / 80); el.querySelector('i').style.transform = `rotate(${dy * 3}deg)`; }
+    }, { passive: true });
+    window.addEventListener('touchend', (e) => {
+        if (!pulling) return;
+        const el = ind();
+        const dy = startY === null ? 0 : (e.changedTouches[0].clientY - startY);
+        pulling = false; startY = null;
+        if (dy > 80) {
+            if (el) { el.style.height = '44px'; el.querySelector('i').classList.add('fa-spin'); }
+            setTimeout(() => {
+                window.refreshFeed();
+                if (window.loadLiveMatches) window.loadLiveMatches();
+                if (el) { el.style.height = '0px'; el.style.opacity = 0; el.querySelector('i').classList.remove('fa-spin'); }
+            }, 600);
+        } else if (el) { el.style.height = '0px'; el.style.opacity = 0; }
+    });
+})();
+
+// Coming back to the app after 3+ minutes: fresh, re-shuffled feed (like X)
+(function setupAutoRefresh() {
+    let hiddenAt = 0;
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); window.pauseFeedVideos(); }
+        else if (hiddenAt && Date.now() - hiddenAt > 3 * 60000) {
+            if (window.isFeedNearTop()) window.refreshFeed(true);
+            else { (window.fypposts || []).forEach(p => { if (!window.feedOrder.includes(p.docId || p.id)) window.pendingNewIds.add(p.docId || p.id); }); window.updateNewPostsPill(); }
+        }
+    });
+})();
+
+// ================= FULL POST VIEW (tap any post) =================
+window.activeDetailPostId = null;
+window.detailCommentsUnsub = null;
+
+window.findPost = function(id) { return (window.fypposts || []).find(p => p.id === id || p.docId === id); };
+
+window.openPostDetail = function(postId, focusReply = false) {
+    const post = window.findPost(postId);
+    if (!post) return;
+    window.pauseFeedVideos();
+    window.activeDetailPostId = postId;
+    window.renderPostDetail(post);
+    document.getElementById('postDetailModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    if (window.countPostView) window.countPostView(postId);
+    try { history.replaceState(null, '', '#post=' + postId); } catch (e) {}
+    window.loadDetailComments(postId);
+    if (focusReply) setTimeout(() => {
+        document.getElementById('postDetailComments').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('postDetailReplyInput').focus();
+    }, 250);
+};
+
+window.closePostDetail = function() {
+    const modal = document.getElementById('postDetailModal');
+    modal.querySelectorAll('video').forEach(v => v.pause());
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+    if (window.activeDetailPostId && window.endViewStay) window.endViewStay(window.activeDetailPostId);
+    window.activeDetailPostId = null;
+    if (window.detailCommentsUnsub) { window.detailCommentsUnsub(); window.detailCommentsUnsub = null; }
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    if (window.pickFeedVideoToPlay) setTimeout(window.pickFeedVideoToPlay, 100);
+};
+
+window.renderPostDetail = function(p) {
+    const pId = p.docId || p.id;
+    const me = (window.myUsername || '').replace('@', '').toLowerCase();
+    const isOwner = (p.user || '').toLowerCase() === me;
+    const badges = window.getProfileBadges ? window.getProfileBadges(p.user) : '';
+    const when = new Date(window.postTimeValue(p));
+
+    const media = (p.mediaList || []).map(m => m.type === 'video'
+        ? `<div class="relative bg-black rounded-2xl overflow-hidden border border-cyan-500/20">
+               <video src="${window.cldSized(m.url, 1280, 'video')}" poster="${window.cldPoster(m.url, 1080)}" class="w-full max-h-[75vh] object-contain bg-black" controls autoplay playsinline controlsList="nodownload"></video>
+               <button onclick="window.floatVideo('${pId}', '${m.url}', this)" class="absolute top-2 right-2 px-2.5 py-1.5 rounded-full bg-black/70 text-white text-[10px] font-bold"><i class="fa-solid fa-clone mr-1"></i>Float</button>
+           </div>`
+        : `<img src="${window.cldSized(m.url, 1600)}" class="w-full rounded-2xl border border-cyan-500/20 bg-black cursor-zoom-in" onclick="window.openMediaZoomModal('image', '${m.url}', '${pId}')">`
+    ).join('');
+
+    const big = !(p.mediaList && p.mediaList.length) && (p.caption || '').length < 140;
+
+    document.getElementById('postDetailBody').innerHTML = `
+        <div class="max-w-xl mx-auto p-4 space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3 cursor-pointer" onclick="window.closePostDetail(); window.openUserProfileModal('${p.user}', event)">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-sm shadow-lg">${(p.user || 'SG').slice(0, 2).toUpperCase()}</div>
+                    <div>
+                        <div class="flex items-center flex-wrap gap-1.5"><span class="font-black text-sm text-white">@${p.user}</span>${badges}</div>
+                        <span class="text-[10px] font-black text-cyan-400 uppercase tracking-wider">${p.game || 'GAMING'}</span>
+                    </div>
+                </div>
+                ${isOwner ? `<div class="flex items-center space-x-1">
+                    <button onclick="window.closePostDetail(); window.openEditPostModal('${pId}')" class="w-9 h-9 rounded-xl bg-gg-900 text-gray-300 text-xs"><i class="fa-solid fa-pen"></i></button>
+                    <button onclick="window.closePostDetail(); window.deletePost('${pId}')" class="w-9 h-9 rounded-xl bg-gg-900 text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>
+                </div>` : ''}
+            </div>
+
+            ${p.caption ? `<p class="${big ? 'text-xl font-extrabold leading-snug' : 'text-[15px] leading-relaxed'} text-white whitespace-pre-wrap break-words">${formatMentions(p.caption)}</p>` : ''}
+            ${media ? `<div class="space-y-2">${media}</div>` : ''}
+            ${p.audioTrack ? `<div class="flex items-center space-x-2 p-2.5 bg-gg-900 rounded-xl border border-cyan-500/20 text-xs text-cyan-300"><i class="fa-solid fa-music text-magenta"></i><span class="font-bold truncate">${p.audioTrack.title || 'Sound'}</span></div>` : ''}
+
+            <p class="text-[11px] text-gray-400 font-semibold">${when.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} · ${when.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+
+            <div class="flex items-center space-x-4 py-2.5 border-y border-cyan-500/15 text-xs">
+                <span><b id="pdViews" class="text-white">${window.formatCount(p.viewsCount || 0)}</b> <span class="text-gray-400">Views</span></span>
+                <span><b id="pdGGs" class="text-white">${window.formatCount(p.ggsCount || 0)}</b> <span class="text-gray-400">GGs</span></span>
+                <span><b id="pdReplies" class="text-white">${window.formatCount(p.commentsCount || 0)}</b> <span class="text-gray-400">Replies</span></span>
+            </div>
+
+            <div class="grid grid-cols-4 gap-2 text-xs font-bold">
+                <button id="pdGGBtn" onclick="window.toggleGGPost('${pId}')" class="py-2.5 rounded-xl bg-gg-900 border border-cyan-500/20 flex flex-col items-center gap-1"><i class="fa-solid fa-thumbs-up text-base"></i><span>GG</span></button>
+                <button onclick="document.getElementById('postDetailReplyInput').focus()" class="py-2.5 rounded-xl bg-gg-900 border border-cyan-500/20 text-gray-300 flex flex-col items-center gap-1"><i class="fa-solid fa-comment text-base"></i><span>Reply</span></button>
+                <button onclick="window.sharePost('${pId}')" class="py-2.5 rounded-xl bg-gg-900 border border-cyan-500/20 text-gray-300 flex flex-col items-center gap-1"><i class="fa-solid fa-share-nodes text-base"></i><span>Share</span></button>
+                <button onclick="window.tipCreator('${pId}', '${p.user}')" class="py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex flex-col items-center gap-1"><i class="fa-solid fa-coins text-base"></i><span>Tip</span></button>
+            </div>
+
+            <div id="postDetailComments" class="space-y-2.5 pb-24">
+                <h4 class="text-[11px] font-black text-white uppercase tracking-wider">Replies</h4>
+                <div id="postDetailCommentsList" class="space-y-2.5"><p class="text-xs text-gray-500 py-3">Loading replies…</p></div>
+            </div>
+        </div>`;
+    window.refreshPostDetailStats(pId);
+};
+
+window.refreshPostDetailStats = function(postId) {
+    if (window.activeDetailPostId !== postId) return;
+    const p = window.findPost(postId);
+    if (!p) return;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = window.formatCount(v || 0); };
+    set('pdViews', p.viewsCount); set('pdGGs', p.ggsCount); set('pdReplies', p.commentsCount);
+    const btn = document.getElementById('pdGGBtn');
+    if (btn) {
+        const on = p.ggsBy && p.ggsBy.includes(window.currentUser ? window.currentUser.uid : 'guest_user');
+        btn.className = `py-2.5 rounded-xl border flex flex-col items-center gap-1 ${on ? 'bg-cyan-400 text-slate-950 border-cyan-400' : 'bg-gg-900 text-gray-300 border-cyan-500/20'}`;
+    }
+};
+
+window.loadDetailComments = function(postId) {
+    const list = document.getElementById('postDetailCommentsList');
+    if (window.detailCommentsUnsub) { window.detailCommentsUnsub(); window.detailCommentsUnsub = null; }
+    if (!window.db || String(postId).startsWith('local_')) {
+        list.innerHTML = `<p class="text-xs text-gray-500 py-3">Replies work on posts saved to the cloud.</p>`;
+        return;
+    }
+    const q = query(collection(window.db, "posts", postId, "comments"), orderBy("createdAt", "asc"), limit(100));
+    window.detailCommentsUnsub = onSnapshot(q, (snap) => {
+        if (snap.empty) { list.innerHTML = `<p class="text-xs text-gray-500 py-3">No replies yet. Start the conversation 👇</p>`; return; }
+        list.innerHTML = '';
+        snap.forEach(d => {
+            const c = d.data();
+            list.innerHTML += `
+                <div class="flex space-x-2.5">
+                    <div class="w-8 h-8 shrink-0 rounded-xl bg-gradient-to-tr from-cyan-400/70 to-magenta/70 flex items-center justify-center text-slate-950 font-black text-[10px] cursor-pointer" onclick="window.closePostDetail(); window.openUserProfileModal('${c.user}', event)">${(c.user || '?').slice(0, 2).toUpperCase()}</div>
+                    <div class="flex-1 bg-gg-900/80 rounded-2xl rounded-tl-sm px-3 py-2 border border-cyan-500/10">
+                        <div class="flex items-center justify-between"><span class="text-[11px] font-bold text-cyan-400">@${c.user}</span><span class="text-[9px] text-gray-500" data-time="${window.postTimeValue(c)}">${window.timeAgo(window.postTimeValue(c))}</span></div>
+                        <p class="text-xs text-gray-200 mt-0.5 whitespace-pre-wrap break-words">${formatMentions(c.text)}</p>
+                    </div>
+                </div>`;
+        });
+    }, () => { list.innerHTML = `<p class="text-xs text-gray-500 py-3">Couldn't load replies.</p>`; });
+};
+
+window.sendDetailReply = async function() {
+    const input = document.getElementById('postDetailReplyInput');
+    const text = input.value.trim();
+    if (!text || !window.activeDetailPostId) return;
+    const hidden = document.getElementById('commentInputText');
+    window.activeCommentPostId = window.activeDetailPostId;
+    hidden.value = text;
+    input.value = '';
+    await window.submitCommentReply();
+};
+
+// ================= FLOATING VIDEO =================
+window.floatVideo = function(postId, rawUrl, btn) {
+    // Continue from where the video was, if it was already playing
+    const wrap = btn ? btn.closest('.relative') : null;
+    const near = wrap ? wrap.querySelector('video') : null;
+    const t = near ? near.currentTime : 0;
+    if (near) near.pause();
+    if (window.activeDetailPostId) window.closePostDetail();
+
+    const box = document.getElementById('floatingPlayer');
+    const v = document.getElementById('floatingVideo');
+    const p = window.findPost(postId);
+    document.getElementById('floatingPlayerLabel').innerText = p ? '@' + p.user : 'Video';
+    box.dataset.postId = postId;
+    v.src = window.cldSized(rawUrl, 720, 'video');
+    v.muted = false;
+    v.addEventListener('loadedmetadata', function once() { v.removeEventListener('loadedmetadata', once); if (t) v.currentTime = t; }, { once: true });
+    box.classList.remove('hidden');
+    v.play().catch(() => {});
+    window.pickFeedVideoToPlay && window.pickFeedVideoToPlay();
+};
+
+window.closeFloatingVideo = function() {
+    const box = document.getElementById('floatingPlayer');
+    const v = document.getElementById('floatingVideo');
+    v.pause(); v.removeAttribute('src'); v.load();
+    box.classList.add('hidden');
+};
+
+window.expandFloatingVideo = function() {
+    const id = document.getElementById('floatingPlayer').dataset.postId;
+    window.closeFloatingVideo();
+    if (id) window.openPostDetail(id);
+};
+
+(function setupFloatingDrag() {
+    let dragging = false, ox = 0, oy = 0;
+    document.addEventListener('pointerdown', (e) => {
+        const handle = e.target.closest('#floatingPlayerHandle');
+        if (!handle || e.target.closest('button')) return;
+        const box = document.getElementById('floatingPlayer');
+        const r = box.getBoundingClientRect();
+        dragging = true; ox = e.clientX - r.left; oy = e.clientY - r.top;
+        box.style.right = 'auto'; box.style.bottom = 'auto';
+        box.style.left = r.left + 'px'; box.style.top = r.top + 'px';
+        handle.setPointerCapture && handle.setPointerCapture(e.pointerId);
+    });
+    document.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const box = document.getElementById('floatingPlayer');
+        const x = Math.max(4, Math.min(window.innerWidth - box.offsetWidth - 4, e.clientX - ox));
+        const y = Math.max(4, Math.min(window.innerHeight - box.offsetHeight - 4, e.clientY - oy));
+        box.style.left = x + 'px'; box.style.top = y + 'px';
+    });
+    document.addEventListener('pointerup', () => { dragging = false; });
+})();
+
+// ================= SHARE (apps + link) =================
+window.postLink = function(postId) {
+    return `${location.origin}${location.pathname}#post=${postId}`;
+};
+
+window.sharePost = function(postId) {
+    const p = window.findPost(postId);
+    const link = window.postLink(postId);
+    const snippet = p && p.caption ? (p.caption.length > 100 ? p.caption.slice(0, 100) + '…' : p.caption) : '';
+    const text = p ? `${snippet ? `"${snippet}" — ` : ''}@${p.user} on Sinless GG 🎮` : 'Check this out on Sinless GG 🎮';
+    window.activeShare = { link, text };
+
+    const enc = encodeURIComponent;
+    const apps = [
+        { name: 'WhatsApp', icon: 'fa-brands fa-whatsapp', color: 'bg-[#25D366]', url: `https://wa.me/?text=${enc(text + ' ' + link)}` },
+        { name: 'Telegram', icon: 'fa-brands fa-telegram', color: 'bg-[#229ED9]', url: `https://t.me/share/url?url=${enc(link)}&text=${enc(text)}` },
+        { name: 'X', icon: 'fa-brands fa-x-twitter', color: 'bg-black border border-gray-600', url: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(link)}` },
+        { name: 'Facebook', icon: 'fa-brands fa-facebook-f', color: 'bg-[#1877F2]', url: `https://www.facebook.com/sharer/sharer.php?u=${enc(link)}` },
+        { name: 'Messages', icon: 'fa-solid fa-comment-sms', color: 'bg-emerald-600', url: `sms:?&body=${enc(text + ' ' + link)}` },
+        { name: 'Email', icon: 'fa-solid fa-envelope', color: 'bg-gray-600', url: `mailto:?subject=${enc('Sinless GG post')}&body=${enc(text + '\n' + link)}` }
+    ];
+    document.getElementById('shareApps').innerHTML = apps.map(a => `
+        <button onclick="window.open('${a.url}', '_blank'); window.closeShareSheet()" class="flex flex-col items-center gap-1.5">
+            <span class="w-12 h-12 rounded-full ${a.color} text-white text-xl flex items-center justify-center"><i class="${a.icon}"></i></span>
+            <span class="text-[10px] text-gray-300 font-bold">${a.name}</span>
+        </button>`).join('') + (navigator.share ? `
+        <button onclick="window.shareWithMoreApps()" class="flex flex-col items-center gap-1.5">
+            <span class="w-12 h-12 rounded-full bg-gg-800 border border-cyan-500/30 text-cyan-400 text-xl flex items-center justify-center"><i class="fa-solid fa-ellipsis"></i></span>
+            <span class="text-[10px] text-gray-300 font-bold">More apps</span>
+        </button>` : '');
+    document.getElementById('shareLinkText').innerText = link;
+    document.getElementById('shareSheet').classList.remove('hidden');
+};
+
+window.closeShareSheet = function() { document.getElementById('shareSheet').classList.add('hidden'); };
+
+window.shareWithMoreApps = function() {
+    const s = window.activeShare || {};
+    window.closeShareSheet();
+    navigator.share({ title: 'Sinless GG', text: s.text, url: s.link }).catch(() => {});
+};
+
+window.copyShareLink = async function() {
+    const s = window.activeShare || {};
+    try { await navigator.clipboard.writeText(s.link); }
+    catch (e) {
+        const t = document.createElement('textarea'); t.value = s.link; document.body.appendChild(t); t.select();
+        try { document.execCommand('copy'); } catch (err) {} t.remove();
+    }
+    showToast("🔗 Link copied!");
+    window.closeShareSheet();
+};
+
+// Older share buttons elsewhere in the app now use the same sheet
+window.shareContent = function(title, text, url) {
+    window.activeShare = { link: url || location.href, text: text || 'Check this out on Sinless GG 🎮' };
+    if (navigator.share) navigator.share({ title: title || 'Sinless GG', text: window.activeShare.text, url: window.activeShare.link }).catch(() => {});
+    else window.copyShareLink();
+};
+
+// Opening a shared link (…#post=ID) jumps straight to that post
+window.openPostFromLink = async function() {
+    const m = location.hash.match(/^#post=([A-Za-z0-9_\-]+)/);
+    if (!m || window.activeDetailPostId === m[1] || window.linkPostOpened === m[1]) return;
+    const id = m[1];
+    let p = window.findPost(id);
+    if (!p && window.db && !id.startsWith('local_')) {
+        try {
+            const snap = await getDoc(doc(window.db, 'posts', id));
+            if (snap.exists()) { p = { id: snap.id, docId: snap.id, ...snap.data() }; window.fypposts.push(p); }
+        } catch (e) {}
+    }
+    if (p) { window.linkPostOpened = id; window.openPostDetail(id); }
+    else if (window.cloudFeedLoaded) { window.linkPostOpened = id; showToast("That post isn't available anymore."); }
+};
+window.addEventListener('hashchange', () => { window.linkPostOpened = null; window.openPostFromLink(); });
 
 window.listenToCloudPosts = function() {
     if (!window.db || typeof query !== 'function') return;
@@ -2840,7 +3455,10 @@ window.listenToCloudPosts = function() {
             localPosts.forEach(p => { if (p.id && !mergedMap[p.id]) mergedMap[p.id] = p; });
 
             window.fypposts = Object.values(mergedMap);
+            if (!window.cloudFeedLoaded) { window.cloudFeedLoaded = true; window.rebuildFeedOrder(); }
             window.renderFypFeed();
+            if (window.refreshPostDetailStats && window.activeDetailPostId) window.refreshPostDetailStats(window.activeDetailPostId);
+            if (window.openPostFromLink) window.openPostFromLink();
             if (window.renderLadder) window.renderLadder();
             if (window.renderTrendingTopics) window.renderTrendingTopics();
         }, (error) => {
@@ -3386,31 +4004,106 @@ window.renderTrendingTopics = function() {
     if (window.renderCommunityPulse) window.renderCommunityPulse();
     const container = document.getElementById('dynamicTrendingTopicsList');
     if (!container) return;
+    window.renderTrendingTopicsList(container);
+};
 
-    const counts = {};
-    (window.fypposts || []).forEach(p => {
-        const g = p.game || 'OTHER GAMES';
-        counts[g] = (counts[g] || 0) + 1;
+window.TREND_STOPWORDS = new Set(('a an the and or but if then so of to in on at for from by with without about as is are was were be been being am do does did have has had i me my mine you your yours he him his she her it its we us our they them their this that these those there here what which who whom whose when where why how all any both each few more most other some such no nor not only own same than too very can will just dont should now im ive youre thats its lets get got go going gonna wanna really one two also like yes yeah ok okay lol omg pls please hey hi hello guys bro man today tomorrow yesterday time day week still even much many make made see seen know need want new good great nice best well back out up down over into off again ever every way thing things post posts game games play played playing').split(' '));
+
+window.computeTrends = function() {
+    const posts = window.fypposts || [];
+    const now = Date.now();
+    const terms = {};
+    const add = (key, label, weight, post, kind) => {
+        const t = terms[key] || (terms[key] = { label, score: 0, posts: new Set(), kind, games: {} });
+        const ageH = (now - window.postTimeValue(post)) / 3600000;
+        const engagement = 1 + ((post.ggsCount || 0) + 2 * (post.commentsCount || 0)) / 5;
+        t.score += weight * engagement / (1 + ageH / 24);
+        t.posts.add(post.docId || post.id);
+        const g = post.game || 'GAMING'; t.games[g] = (t.games[g] || 0) + 1;
+    };
+
+    posts.forEach(p => {
+        const text = (p.caption || '').replace(/https?:\/\/\S+/g, ' ');
+        const seen = new Set();
+        const once = (key, ...rest) => { if (!seen.has(key)) { seen.add(key); add(key, ...rest); } };
+
+        (text.match(/#[A-Za-z0-9_]{2,}/g) || []).forEach(h => once('#' + h.slice(1).toLowerCase(), h, 3, p, 'tag'));
+        (text.match(/@[A-Za-z0-9_]{2,}/g) || []).forEach(m => once('@' + m.slice(1).toLowerCase(), m, 2, p, 'person'));
+        // Names & phrases: runs of Capitalised words, e.g. "Don Prime", "Real Madrid"
+        (text.match(/\b[A-Z][a-zA-Z0-9']+(?:\s+[A-Z][a-zA-Z0-9']+){0,2}\b/g) || []).forEach(ph => {
+            const words = ph.split(/\s+/).filter(w => !window.TREND_STOPWORDS.has(w.toLowerCase()));
+            if (!words.length) return;
+            const clean = words.join(' ');
+            if (clean.length < 3) return;
+            once('p:' + clean.toLowerCase(), clean, words.length > 1 ? 2.5 : 1.5, p, words.length > 1 ? 'phrase' : 'name1');
+        });
+        // Everyday words and word pairs people keep using
+        const words = text.toLowerCase().replace(/[#@][a-z0-9_]+/g, ' ').match(/[a-z][a-z0-9']{3,}/g) || [];
+        const keep = words.filter(w => !window.TREND_STOPWORDS.has(w));
+        keep.forEach(w => once('p:' + w, w, 1, p, 'word'));
+        for (let k = 0; k < keep.length - 1; k++) once('p:' + keep[k] + ' ' + keep[k + 1], keep[k] + ' ' + keep[k + 1], 1.5, p, 'pair');
+        if (p.game) once('g:' + p.game.toLowerCase(), p.game, 0.8, p, 'game');
     });
-    const topics = Object.entries(counts).sort((a, b) => b[1] - a[1]);
 
-    if (topics.length === 0) {
+    let list = Object.values(terms)
+        // single words, word pairs and one-word names must show up in 2+ posts to count as a trend
+        .filter(t => t.posts.size >= (['word', 'pair', 'name1'].includes(t.kind) ? 2 : 1))
+        .sort((a, b) => b.score - a.score);
+
+    // Drop near-duplicates ("prime" when "Don Prime" is already trending)
+    const picked = [];
+    for (const t of list) {
+        const norm = (str) => str.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+        const low = norm(t.label), lowTight = low.replace(/ /g, '');
+        if (picked.some(x => {
+            const xl = norm(x.label), xlTight = xl.replace(/ /g, '');
+            return xlTight === lowTight || xl.includes(low) || (low.includes(xl) && t.posts.size <= x.posts.size);
+        })) continue;
+        picked.push(t);
+        if (picked.length >= 10) break;
+    }
+
+    // Live football fills any gaps so there's always something trending
+    const live = (window.liveMatchesCache || []).filter(m => m.state === 'in');
+    for (const m of live) {
+        if (picked.length >= 10) break;
+        picked.push({ label: `${m.home.abbr} vs ${m.away.abbr}`, score: 0, posts: new Set(), kind: 'live', games: {}, live: `${m.home.score}-${m.away.score} · ${m.clock}`, leagueShort: m.leagueShort });
+    }
+    return picked;
+};
+
+window.renderTrendingTopicsList = function(container) {
+    const trends = window.computeTrends();
+    if (!trends.length) {
         container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">Nothing trending yet. Post something!</p>`;
         return;
     }
-
-    container.innerHTML = '';
-    topics.forEach(([game, n]) => {
-        container.innerHTML += `
-            <div class="glass-panel p-3 rounded-xl flex items-center justify-between cursor-pointer" onclick="switchView('fyp'); filterByCategory('${game}')">
-                <div>
-                    <h4 class="text-xs font-extrabold text-cyan-400">#${game.replace(/\s+/g, '')}</h4>
-                    <p class="text-[9px] text-gray-400">${n} post${n === 1 ? '' : 's'}</p>
+    container.innerHTML = `<h3 class="text-xs font-black text-white uppercase tracking-wider px-1">🔥 Trending now</h3>` + trends.map((t, i) => {
+        const topGame = Object.entries(t.games).sort((a, b) => b[1] - a[1])[0];
+        const context = t.kind === 'live' ? `⚽ Live · ${t.leagueShort}` : `Trending${topGame ? ' in ' + topGame[0] : ''}`;
+        const sub = t.kind === 'live' ? t.live : `${t.posts.size} post${t.posts.size === 1 ? '' : 's'}`;
+        const searchTerm = t.kind === 'live' ? t.label.split(' vs ')[0] : t.label;
+        return `
+            <div class="glass-panel p-3 rounded-xl flex items-center justify-between cursor-pointer hover:border-cyan-400 transition" onclick="window.searchTrend('${escapeHTML(searchTerm).replace(/'/g, "\\'")}', '${t.kind}')">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <span class="text-[11px] font-black text-gray-500 w-4">${i + 1}</span>
+                    <div class="min-w-0">
+                        <p class="text-[9px] text-gray-400 font-bold">${escapeHTML(context)}</p>
+                        <h4 class="text-sm font-extrabold text-white truncate">${escapeHTML(t.label)}</h4>
+                        <p class="text-[9px] text-gray-400">${escapeHTML(sub)}</p>
+                    </div>
                 </div>
                 <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
-            </div>
-        `;
-    });
+            </div>`;
+    }).join('');
+};
+
+window.searchTrend = function(term, kind) {
+    if (kind === 'live') { window.setLiveLeague && window.setLiveLeague('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    const input = document.getElementById('globalSearchInput');
+    if (input) input.value = term;
+    window.handleGlobalSearch(term);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 window.handleGlobalSearch = function(text) {
@@ -3618,52 +4311,98 @@ window.switchView = function(viewId) {
         window.renderLadder();
     } else if (viewId === 'popular') {
         window.renderTopAccounts();
+    } else if (viewId === 'trending') {
+        window.renderTrendingTopics();
     }
+
+    // Videos only play while you're on the feed
+    if (viewId === 'fyp') setTimeout(() => window.pickFeedVideoToPlay && window.pickFeedVideoToPlay(), 100);
+    else if (window.pauseFeedVideos) window.pauseFeedVideos();
 };
 
-window.renderLadder = function() {
+// ================= CREATOR RANKINGS =================
+// Tables = Creators of the Week (last 7 days, top 250). Top = all-time creators by GGs.
+window.rankCache = {};
+
+window.fetchRankingPosts = async function(kind) {
+    const cached = window.rankCache[kind];
+    if (cached && Date.now() - cached.at < 10 * 60000) return cached.posts;
+    let posts = [];
+    if (window.db) {
+        try {
+            const q = kind === 'week'
+                ? query(collection(window.db, 'posts'), where('createdAt', '>=', new Date(Date.now() - 7 * 86400000)), orderBy('createdAt', 'desc'), limit(1000))
+                : query(collection(window.db, 'posts'), orderBy('ggsCount', 'desc'), limit(1000));
+            const snap = await getDocs(q);
+            snap.forEach(d => posts.push({ id: d.id, docId: d.id, ...d.data() }));
+        } catch (e) { console.warn('Ranking fetch failed, using loaded posts:', e); }
+    }
+    // Include posts already on screen (and on-device posts) without double counting
+    const byId = {};
+    posts.forEach(p => byId[p.docId || p.id] = p);
+    (window.fypposts || []).forEach(p => { const id = p.docId || p.id; if (!byId[id]) byId[id] = p; });
+    posts = Object.values(byId);
+    if (kind === 'week') posts = posts.filter(p => Date.now() - window.postTimeValue(p) < 7 * 86400000);
+    window.rankCache[kind] = { at: Date.now(), posts };
+    return posts;
+};
+
+window.buildCreatorStats = function(posts) {
+    const map = {};
+    posts.forEach(p => {
+        const u = p.user || 'Unknown';
+        const k = u.toLowerCase();
+        const c = map[k] || (map[k] = { gamertag: u, posts: 0, ggs: 0, replies: 0, views: 0 });
+        c.posts++; c.ggs += p.ggsCount || 0; c.replies += p.commentsCount || 0; c.views += p.viewsCount || 0;
+    });
+    return Object.values(map);
+};
+
+window.creatorRow = function(c, i, line, score) {
+    const medal = ['🥇', '🥈', '🥉'][i];
+    const top = i < 3;
+    return `
+        <div class="p-3 flex items-center justify-between text-xs cursor-pointer hover:bg-gg-900/60 transition ${top ? 'bg-amber-500/5' : ''}" onclick="window.openUserProfileModal('${c.gamertag}', event)">
+            <div class="flex items-center space-x-3 min-w-0">
+                <span class="w-7 text-center font-black ${top ? 'text-lg' : 'text-amber-400 text-xs'}">${medal || '#' + (i + 1)}</span>
+                <div class="w-9 h-9 shrink-0 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-[10px]">${c.gamertag.slice(0, 2).toUpperCase()}</div>
+                <div class="min-w-0">
+                    <h4 class="font-bold text-white truncate">@${c.gamertag}</h4>
+                    <p class="text-[9px] text-gray-400 truncate">${line}</p>
+                </div>
+            </div>
+            <span class="font-black text-cyan-400 text-xs shrink-0 ml-2">${score}</span>
+        </div>`;
+};
+
+window.renderLadder = async function() {
     const container = document.getElementById('ladderBody');
     if (!container) return;
-
-    const { sortedCreators } = calculateGlobalRanks();
-
-    if (sortedCreators.length === 0) {
-        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No creators ranked yet.</p>`;
-        return;
-    }
-
-    container.innerHTML = sortedCreators.slice(0, 10).map((c, i) => `
-        <div class="p-2.5 flex items-center justify-between text-xs cursor-pointer hover:bg-gg-900/50 transition" onclick="window.openUserProfileModal('${c.gamertag}', event)">
-            <div class="flex items-center space-x-2.5">
-                <span class="font-black text-amber-400 text-xs w-4">#${i + 1}</span>
-                <div>
-                    <h4 class="font-bold text-white">@${c.gamertag}</h4>
-                    <p class="text-[9px] text-gray-400">${c.postsCount} Clips Published</p>
-                </div>
-            </div>
-            <span class="font-black text-cyan-400 text-xs">${c.totalGGs} GGs</span>
-        </div>
-    `).join('');
+    if (!container.innerHTML.trim()) container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Ranking this week's creators…</p>`;
+    const posts = await window.fetchRankingPosts('week');
+    // Weekly score: GGs count most, replies show real conversation, views add a little
+    const list = window.buildCreatorStats(posts)
+        .map(c => ({ ...c, score: Math.round(c.ggs * 3 + c.replies * 2 + c.views * 0.1 + c.posts) }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 250);
+    if (!list.length) { container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">No posts this week yet — be the first creator of the week!</p>`; return; }
+    container.innerHTML = list.map((c, i) => window.creatorRow(c, i,
+        `${c.posts} post${c.posts === 1 ? '' : 's'} · ${window.formatCount(c.ggs)} GGs · ${window.formatCount(c.views)} views this week`,
+        `${window.formatCount(c.score)} pts`)).join('');
+    const count = document.getElementById('ladderCount');
+    if (count) count.innerText = `${list.length} creator${list.length === 1 ? '' : 's'}`;
 };
 
-window.renderTopAccounts = function() {
+window.renderTopAccounts = async function() {
     const container = document.getElementById('topAccountsList');
     if (!container) return;
-
-    const { sortedCreators } = calculateGlobalRanks();
-
-    container.innerHTML = sortedCreators.map((c, i) => `
-        <div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs border border-cyan-500/15 hover:border-cyan-400 transition cursor-pointer" onclick="window.openUserProfileModal('${c.gamertag}', event)">
-            <div class="flex items-center space-x-3">
-                <span class="font-black text-amber-400 w-5">#${i + 1}</span>
-                <div>
-                    <h4 class="font-bold text-white">@${c.gamertag}</h4>
-                    <p class="text-[9px] text-cyan-400 font-semibold">${c.postsCount} Posts • ${c.totalGGs} Total GGs</p>
-                </div>
-            </div>
-            <button class="px-3 py-1 bg-cyan-400 text-slate-950 font-black rounded-lg text-[10px] uppercase shadow">View Profile</button>
-        </div>
-    `).join('');
+    if (!container.innerHTML.trim()) container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading all-time leaders…</p>`;
+    const posts = await window.fetchRankingPosts('all');
+    const list = window.buildCreatorStats(posts).sort((a, b) => b.ggs - a.ggs || b.views - a.views).slice(0, 250);
+    if (!list.length) { container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">No creators yet.</p>`; return; }
+    container.innerHTML = list.map((c, i) => window.creatorRow(c, i,
+        `${c.posts} post${c.posts === 1 ? '' : 's'} · ${window.formatCount(c.views)} views all-time`,
+        `${window.formatCount(c.ggs)} GGs`)).join('');
 };
 
 window.sendChatMessage = function() {
@@ -3712,11 +4451,8 @@ window.initApp = async function() {
     window.updateCoinDisplay();
     pruneExpiredEphemeralData();
 
-    const localStories = await window.loadLocalStoriesFromDB();
-    if (localStories && localStories.length > 0) {
-        window.profileStories = localStories;
-        window.renderStoriesBar();
-    }
+    await window.initStories();
+    setTimeout(() => window.cleanupExpiredStories(), 8000);
 
     if (window.listenToCloudPosts) window.listenToCloudPosts();
     if (window.listenToFirestoreSquads) window.listenToFirestoreSquads();
