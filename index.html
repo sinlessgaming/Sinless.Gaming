@@ -62,9 +62,6 @@
             <button onclick="openUniversalCreateModal()" class="px-2 py-1.5 rounded-xl font-bold bg-gradient-to-r from-cyan-400 to-magenta text-black text-xs">
                 <i class="fa-solid fa-plus mr-0.5"></i> Post
             </button>
-            <button id="openDrawerBtn" onclick="toggleDrawer(true)" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-zinc-700/50 flex items-center justify-center text-zinc-400 hover:bg-zinc-700 hover:text-white transition group">
-                <i class="fa-solid fa-user"></i>
-            </button>
             <button onclick="window.setupPushNotifications()" class="relative w-7 h-7 rounded-xl bg-gg-800 border border-zinc-700/50 flex items-center justify-center text-zinc-400 hover:bg-zinc-700 hover:text-white transition group">
                 <i class="fa-solid fa-bell"></i>
             </button>
@@ -176,6 +173,20 @@
                     <input type="text" id="globalSearchInput" onkeyup="handleGlobalSearch(this.value)" placeholder="Search Gamertag, posts, or tags..." class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400">
                 </div>
             </div>
+
+            <!-- Live football matches -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between px-1">
+                    <h3 class="text-xs font-black text-white uppercase tracking-wider flex items-center"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse mr-2"></span>Live Matches</h3>
+                    <span id="liveMatchesUpdated" class="text-[9px] text-gray-500 font-bold"></span>
+                </div>
+                <div id="liveLeagueChips" class="flex space-x-2 overflow-x-auto scrollbar-none pb-1"></div>
+                <div id="liveMatchesStrip" class="flex space-x-2.5 overflow-x-auto scrollbar-none pb-1"></div>
+            </div>
+
+            <!-- What people are talking about -->
+            <div id="communityPulseBox" class="glass-panel p-3.5 rounded-2xl space-y-2.5 border border-magenta/30"></div>
+
             <div id="dynamicTrendingTopicsList" class="space-y-2.5"></div>
         </div>
 
@@ -486,8 +497,8 @@
     </div>
 
     <!-- Squad / Clan Details & Sub-Channels Modal -->
-    <div id="squadDetailsModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[170] flex items-center justify-center p-3">
-        <div class="glass-panel w-full max-w-xl rounded-2xl p-4 flex flex-col space-y-3 h-[85vh] shadow-2xl border border-cyan-500/40">
+    <div id="squadDetailsModal" class="hidden fixed inset-0 bg-gg-950 z-[170] flex justify-center">
+        <div class="w-full max-w-xl p-3 flex flex-col space-y-3 h-[100dvh] bg-gg-950">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                 <div>
                     <h3 id="squadDetailTitle" class="text-xs font-black text-white uppercase tracking-wider">Squad Name</h3>
@@ -508,7 +519,8 @@
             <div id="squadRoomMsgsBox" class="flex-1 overflow-y-auto p-2 space-y-2.5 bg-gg-950/60 rounded-xl border border-cyan-500/10"></div>
 
             <!-- Message Input Area -->
-            <div id="squadInputContainer" class="flex items-center space-x-2 pt-1">
+            <div id="squadLockedBar" class="hidden shrink-0 p-3 rounded-xl bg-gg-900 border border-amber-500/30 text-[11px] text-amber-400 font-bold text-center"></div>
+            <div id="squadInputContainer" class="shrink-0 flex items-center space-x-2 pt-1 pb-1">
                 <label class="p-2.5 bg-gg-900 border border-cyan-500/30 text-cyan-400 rounded-xl cursor-pointer hover:bg-cyan-500/20 transition shrink-0" title="Send 24h Image">
                     <i class="fa-solid fa-camera"></i>
                     <input type="file" id="squadChatImageInput" accept="image/*" class="hidden" onchange="sendInChatImage('squad')">
@@ -559,8 +571,8 @@
     </div>
 
     <!-- User Profile Modal -->
-    <div id="userProfileModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[170] flex items-center justify-center p-3 overflow-y-auto">
-        <div class="glass-panel w-full max-w-lg rounded-2xl overflow-hidden flex flex-col shadow-2xl border border-cyan-500/40 my-auto">
+    <div id="userProfileModal" class="hidden fixed inset-0 bg-gg-950 z-[170] overflow-y-auto">
+        <div class="w-full max-w-lg mx-auto min-h-full flex flex-col bg-gg-950">
             <!-- Cover Header -->
             <div id="profileBannerHeader" class="h-32 bg-gradient-to-r from-gg-900 via-cyan-950 to-magenta/40 relative bg-cover bg-center">
                 <button onclick="closeUserProfileModal(event)" class="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center text-xs font-bold z-10 hover:bg-black">✕</button>
@@ -613,7 +625,7 @@
 
                 <div class="space-y-2 pt-1">
                     <h4 class="text-[10px] font-black text-white uppercase tracking-wider border-b border-cyan-500/15 pb-1"><i class="fa-solid fa-photo-film text-cyan-400 mr-1"></i> Published Clips & Posts</h4>
-                    <div id="profileUserPostsList" class="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto pr-1"></div>
+                    <div id="profileUserPostsList" class="grid grid-cols-3 gap-2 pb-6"></div>
                 </div>
             </div>
         </div>
