@@ -342,14 +342,58 @@ window.loadLocalStoriesFromDB = async function() {
     } catch(e) { return []; }
 };
 
+// ================= CLOUDINARY (photos & videos) =================
+window.CLOUDINARY_CLOUD_NAME = 'gppuryi3';
+window.CLOUDINARY_UPLOAD_PRESET = 'Sinless GG';
+window.CLOUDINARY_FOLDER = 'sinlessgg';
+
+// Uploads a File (or image data URL) and returns { url, type }
+window.uploadToCloudinary = function(fileOrDataUrl, onProgress) {
+    return new Promise((resolve, reject) => {
+        const fd = new FormData();
+        fd.append('file', fileOrDataUrl);
+        fd.append('upload_preset', window.CLOUDINARY_UPLOAD_PRESET);
+        fd.append('folder', window.CLOUDINARY_FOLDER);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CLOUD_NAME}/auto/upload`);
+        xhr.upload.onprogress = (e) => { if (e.lengthComputable && onProgress) onProgress(Math.round(e.loaded / e.total * 100)); };
+        xhr.onload = () => {
+            let data = {};
+            try { data = JSON.parse(xhr.responseText); } catch (e) {}
+            if (xhr.status >= 200 && xhr.status < 300 && data.secure_url) {
+                const type = data.resource_type === 'video' ? 'video' : 'image';
+                // Ask Cloudinary for phone-friendly versions (smaller, faster to load)
+                const url = type === 'image'
+                    ? data.secure_url.replace('/upload/', '/upload/f_auto,q_auto,c_limit,w_1600/')
+                    : data.secure_url.replace('/upload/', '/upload/q_auto/');
+                resolve({ url, type });
+            } else {
+                reject(new Error((data.error && data.error.message) || `Upload failed (${xhr.status})`));
+            }
+        };
+        xhr.onerror = () => reject(new Error('No internet connection'));
+        xhr.send(fd);
+    });
+};
+
+// Prepares a picked file: shrinks big photos first (saves your free storage), checks video size
+window.prepareAndUpload = async function(file, onProgress, maxW = 1600, maxH = 1600) {
+    const isVideo = file.type.includes('video');
+    if (isVideo && file.size > 100 * 1024 * 1024) throw new Error('Video is over 100 MB. Please trim it.');
+    if (isVideo || file.type === 'image/gif') return window.uploadToCloudinary(file, onProgress);
+    const shrunk = await compressImage(file, maxW, maxH, 0.85);
+    return window.uploadToCloudinary(shrunk, onProgress);
+};
+
 window.submitUniversalPost = async function() {
     const publishBtn = document.getElementById('publishPostBtn');
     let text = document.getElementById('postTextContent').value.trim();
     let cat = document.getElementById('postCategorySelect').value;
     let audioTrack = window.selectedAudioTrack || null;
-    let mediaList = (window.uploadedMediaBlobs || []).map(m => ({ type: m.type, url: m.url }));
+    const picked = window.uploadedMediaBlobs || [];
 
-    if(!text && mediaList.length === 0) {
+    if(!text && picked.length === 0) {
         showToast("⚠️ Write a caption or select media to post!");
         return;
     }
@@ -358,6 +402,28 @@ window.submitUniversalPost = async function() {
         publishBtn.disabled = true;
         publishBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Publishing...`;
     }
+
+    // Upload photos/videos to Cloudinary first, so everyone can see them
+    let mediaList = [];
+    try {
+        for (let i = 0; i < picked.length; i++) {
+            const m = picked[i];
+            if (!m.file) { mediaList.push({ type: m.type, url: m.url }); continue; }
+            const uploaded = await window.prepareAndUpload(m.file, (pct) => {
+                if (publishBtn) publishBtn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up mr-1"></i> Uploading ${i + 1}/${picked.length} · ${pct}%`;
+            });
+            mediaList.push(uploaded);
+        }
+    } catch (err) {
+        console.error("Media upload failed:", err);
+        showToast(`⚠️ Upload failed: ${err.message}`);
+        if (publishBtn) {
+            publishBtn.disabled = false;
+            publishBtn.innerHTML = `🚀 Publish Post with Media`;
+        }
+        return;
+    }
+    if (publishBtn) publishBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Publishing...`;
 
     const meClean = (window.myUsername || '@SinlessGaming').replace('@','');
     const isVerifiedUser = meClean.toLowerCase() === 'sinlessgaming';
@@ -897,17 +963,27 @@ function compressImage(file, maxWidth, maxHeight, quality) {
 
 window.handlePfpUpload = async function(input) {
     if (input.files && input.files[0]) {
-        const compressed = await compressImage(input.files[0], 500, 500, 0.85);
-        window.tempProfilePfp = compressed;
-        showToast("Profile Picture Selected!");
+        showToast("Uploading profile picture...");
+        try {
+            const up = await window.prepareAndUpload(input.files[0], null, 500, 500);
+            window.tempProfilePfp = up.url;
+        } catch (e) {
+            window.tempProfilePfp = await compressImage(input.files[0], 300, 300, 0.8);
+        }
+        showToast("Profile Picture Ready! Tap Save.");
     }
 };
 
 window.handleCoverUpload = async function(input) {
     if (input.files && input.files[0]) {
-        const compressed = await compressImage(input.files[0], 1200, 600, 0.85);
-        window.tempProfileCover = compressed;
-        showToast("Cover Photo Selected!");
+        showToast("Uploading cover photo...");
+        try {
+            const up = await window.prepareAndUpload(input.files[0], null, 1500, 800);
+            window.tempProfileCover = up.url;
+        } catch (e) {
+            window.tempProfileCover = await compressImage(input.files[0], 900, 450, 0.8);
+        }
+        showToast("Cover Photo Ready! Tap Save.");
     }
 };
 
@@ -1646,13 +1722,20 @@ window.uploadProfileStory = async function(input) {
             showToast(`✨ Profile Story Posted (${type === 'video' ? 'Video' : 'Image'})!`);
         };
 
-        if (isVideo) {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => saveStory(reader.result, 'video');
-        } else {
-            const compressedUrl = await compressImage(file, 1080, 1920, 0.85);
-            saveStory(compressedUrl, 'image');
+        showToast("Uploading story...");
+        try {
+            const up = await window.prepareAndUpload(file, null, 1080, 1920);
+            await saveStory(up.url, up.type);
+        } catch (err) {
+            console.warn("Story cloud upload failed, saving on this device:", err);
+            if (isVideo) {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => saveStory(reader.result, 'video');
+            } else {
+                const compressedUrl = await compressImage(file, 1080, 1920, 0.85);
+                saveStory(compressedUrl, 'image');
+            }
         }
     }
 };
