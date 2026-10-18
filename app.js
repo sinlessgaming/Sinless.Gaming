@@ -364,9 +364,8 @@ window.uploadToCloudinary = function(fileOrDataUrl, onProgress) {
             if (xhr.status >= 200 && xhr.status < 300 && data.secure_url) {
                 const type = data.resource_type === 'video' ? 'video' : 'image';
                 // Ask Cloudinary for phone-friendly versions (smaller, faster to load)
-                const url = type === 'image'
-                    ? data.secure_url.replace('/upload/', '/upload/f_auto,q_auto,c_limit,w_1600/')
-                    : data.secure_url.replace('/upload/', '/upload/q_auto/');
+                // Store the clean original link; sizes/quality are chosen when showing it (see cldSized)
+                const url = data.secure_url;
                 resolve({ url, type });
             } else {
                 reject(new Error((data.error && data.error.message) || `Upload failed (${xhr.status})`));
@@ -378,12 +377,146 @@ window.uploadToCloudinary = function(fileOrDataUrl, onProgress) {
 };
 
 // Prepares a picked file: shrinks big photos first (saves your free storage), checks video size
-window.prepareAndUpload = async function(file, onProgress, maxW = 1600, maxH = 1600) {
+window.prepareAndUpload = async function(file, onProgress, maxW = 2048, maxH = 2048) {
     const isVideo = file.type.includes('video');
     if (isVideo && file.size > 100 * 1024 * 1024) throw new Error('Video is over 100 MB. Please trim it.');
     if (isVideo || file.type === 'image/gif') return window.uploadToCloudinary(file, onProgress);
-    const shrunk = await compressImage(file, maxW, maxH, 0.85);
+    const shrunk = await window.compressImageSharp(file, maxW, maxH);
     return window.uploadToCloudinary(shrunk, onProgress);
+};
+
+// High-quality phone-side compression: WebP at 0.86 looks practically identical to the original
+// but is usually 5-10x smaller than a phone camera photo. Falls back to JPEG 0.9.
+window.compressImageSharp = function(file, maxW = 2048, maxH = 2048) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        const objUrl = URL.createObjectURL(file);
+        img.onload = () => {
+            let w = img.naturalWidth, h = img.naturalHeight;
+            const scale = Math.min(1, maxW / w, maxH / h);
+            w = Math.round(w * scale); h = Math.round(h * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, w, h);
+            URL.revokeObjectURL(objUrl);
+            let out = canvas.toDataURL('image/webp', 0.86);
+            if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', 0.9);
+            // If our version is somehow bigger than the original, keep the original
+            resolve(out.length * 0.75 > file.size ? file : out);
+        };
+        img.onerror = () => { URL.revokeObjectURL(objUrl); resolve(file); };
+        img.src = objUrl;
+    });
+};
+
+// Builds the best Cloudinary link for where the media is shown.
+// f_auto = best format for the phone, q_auto:good = sharp but light, c_limit,w_ = never bigger than needed
+window.cldSized = function(url, width, kind = 'image') {
+    if (!url || !url.includes('res.cloudinary.com') || !url.includes('/upload/')) return url;
+    const [base, rest] = url.split('/upload/');
+    // drop any older transformation segment so we don't stack them
+    const parts = rest.split('/');
+    if (parts.length > 1 && /(^|,)(f_|q_|w_|c_|vc_|so_)/.test(parts[0])) parts.shift();
+    const t = kind === 'video'
+        ? `f_auto:video,q_auto:good,vc_auto,c_limit,w_${width}`
+        : `f_auto,q_auto:good,c_limit,w_${width}`;
+    return `${base}/upload/${t}/${parts.join('/')}`;
+};
+
+// Still frame used as the video cover, so the video itself only downloads when someone taps play
+window.cldPoster = function(url, width = 720) {
+    if (!url || !url.includes('res.cloudinary.com') || !url.includes('/video/upload/')) return '';
+    const sized = window.cldSized(url, width, 'image').replace('/video/upload/f_auto,', '/video/upload/so_0,f_auto,');
+    return sized.replace(/\.[a-z0-9]+$/i, '.jpg');
+};
+
+// 1234 -> 1.2K, 1500000 -> 1.5M
+window.formatCount = function(n) {
+    n = Number(n) || 0;
+    if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(n >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'K';
+    return String(n);
+};
+
+// ================= POST VIEWS =================
+// How views are counted (generous, but always from real people looking at posts):
+//  • A post counts 1 view after it's ~60% on screen for 1 second.
+//  • While someone keeps looking, it counts again every few seconds (like replays), up to 4 per stay.
+//  • Scrolling away and coming back after 20+ seconds counts again.
+//  • Opening a post full screen counts too, and keeps counting while it stays open.
+// Views are saved in small batches (not one save per view) to protect the free Firebase limits.
+window.VIEW_RULES = { firstAfterMs: 1000, repeatEveryMs: 4500, maxPerStay: 4, revisitAfterMs: 20000, saveEveryMs: 15000 };
+window.viewState = {};          // per post: { lastStayEnd, timer, interval, countThisStay }
+window.pendingViewSaves = {};   // per post: views not yet saved to the cloud
+
+window.addPostViews = function(postId, n = 1) {
+    if (!postId || n <= 0) return;
+    const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
+    if (!post) return;
+    post.viewsCount = (post.viewsCount || 0) + n;
+    const badge = document.getElementById(`viewsCounterBadge_${postId}`);
+    if (badge) badge.innerText = window.formatCount(post.viewsCount);
+    const targetId = post.docId || post.id;
+    if (targetId && !String(targetId).startsWith('local_')) {
+        window.pendingViewSaves[targetId] = (window.pendingViewSaves[targetId] || 0) + n;
+    }
+};
+
+window.flushViewSaves = function() {
+    if (!window.db) return;
+    const batch = window.pendingViewSaves;
+    window.pendingViewSaves = {};
+    Object.entries(batch).forEach(([id, n]) => {
+        if (n > 0) updateDoc(doc(window.db, "posts", id), { viewsCount: increment(n) }).catch(() => {});
+    });
+};
+setInterval(() => window.flushViewSaves(), window.VIEW_RULES.saveEveryMs);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') window.flushViewSaves(); });
+window.addEventListener('pagehide', () => window.flushViewSaves());
+
+window.startViewStay = function(id) {
+    const R = window.VIEW_RULES;
+    const st = window.viewState[id] || (window.viewState[id] = {});
+    if (st.timer || st.interval) return;                                       // already counting
+    if (st.lastStayEnd && Date.now() - st.lastStayEnd < R.revisitAfterMs) return; // came back too quickly
+    st.countThisStay = 0;
+    st.timer = setTimeout(() => {
+        st.timer = null;
+        window.addPostViews(id, 1); st.countThisStay = 1;
+        st.interval = setInterval(() => {
+            if (st.countThisStay >= R.maxPerStay) { clearInterval(st.interval); st.interval = null; return; }
+            window.addPostViews(id, 1); st.countThisStay++;
+        }, R.repeatEveryMs);
+    }, R.firstAfterMs);
+};
+
+window.endViewStay = function(id) {
+    const st = window.viewState[id];
+    if (!st) return;
+    if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+    if (st.interval) { clearInterval(st.interval); st.interval = null; }
+    if (st.countThisStay > 0) st.lastStayEnd = Date.now();
+};
+
+// Kept for older calls (e.g. opening a post full screen)
+window.countPostView = function(postId) { window.startViewStay(postId); };
+
+window.observePostViews = function() {
+    if (!('IntersectionObserver' in window)) return;
+    if (!window.postViewObserver) {
+        window.postViewObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const id = entry.target.getAttribute('data-post-id');
+                if (!id) return;
+                if (entry.isIntersecting) window.startViewStay(id); else window.endViewStay(id);
+            });
+        }, { threshold: 0.6 });
+    }
+    window.postViewObserver.disconnect();
+    document.querySelectorAll('[data-post-id]').forEach(el => window.postViewObserver.observe(el));
 };
 
 window.submitUniversalPost = async function() {
@@ -829,6 +962,18 @@ window.openUserProfileModal = function(username, e = null) {
     document.getElementById('profilePostCount').innerText = userPosts.length;
     document.getElementById('profileGGsCount').innerText = totalGGs;
     document.getElementById('profileRankBadge').innerText = `#${userRank}`;
+    const coinsEarned = userPosts.reduce((sum, p) => sum + (p.tipsTotal || 0), 0);
+    const tipsEl = document.getElementById('profileTipsReceived');
+    if (tipsEl) tipsEl.innerText = `${window.formatCount(coinsEarned)} received in tips`;
+    const viewsEl = document.getElementById('profileViewsCount');
+    if (viewsEl) viewsEl.innerText = window.formatCount(userPosts.reduce((sum, p) => sum + (p.viewsCount || 0), 0));
+    const walletRow = document.getElementById('profileWalletRow');
+    if (walletRow) {
+        const mine = (window.myUsername || '').replace('@', '').toLowerCase() === cleanUser.toLowerCase();
+        walletRow.classList.toggle('hidden', !mine);
+        const bal = document.getElementById('profileWalletBalance');
+        if (bal) bal.innerText = `${window.formatCount(window.myGGCoins)} GG Coins`;
+    }
 
     let baseFollowers = Math.max(12, userPosts.length * 14 + totalGGs * 8);
     let isFollowing = !!window.userFollowsState[cleanUser.toLowerCase()];
@@ -869,16 +1014,16 @@ window.openUserProfileModal = function(username, e = null) {
             if (p.mediaList && p.mediaList.length > 0) {
                 const m = p.mediaList[0];
                 if (m.type === 'video') {
-                    mediaThumbnail = `<video src="${m.url}" class="w-full h-full object-cover pointer-events-none"></video>`;
+                    mediaThumbnail = window.cldPoster(m.url, 400) ? `<img src="${window.cldPoster(m.url, 400)}" loading="lazy" class="w-full h-full object-cover pointer-events-none">` : `<video src="${m.url}" preload="metadata" class="w-full h-full object-cover pointer-events-none"></video>`;
                 } else {
-                    mediaThumbnail = `<img src="${m.url}" class="w-full h-full object-cover">`;
+                    mediaThumbnail = `<img src="${window.cldSized(m.url, 400)}" loading="lazy" class="w-full h-full object-cover">`;
                 }
                 postsContainer.innerHTML += `
                     <div class="relative aspect-[3/4] rounded-xl overflow-hidden bg-gg-950 border border-cyan-500/20 group cursor-pointer hover:border-cyan-400 transition" onclick="event.stopPropagation(); window.openMediaZoomModal('${firstMediaType}', '${firstMediaUrl}', '${pId}')">
                         ${mediaThumbnail}
                         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent opacity-90 pointer-events-none"></div>
                         <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between text-[10px] text-white font-extrabold z-10">
-                            <span class="flex items-center text-cyan-400"><i class="fa-solid fa-thumbs-up mr-1 text-[8px]"></i>${p.ggsCount || 0}</span>
+                            <span class="flex items-center space-x-2"><span class="flex items-center text-cyan-400"><i class="fa-solid fa-thumbs-up mr-1 text-[8px]"></i>${p.ggsCount || 0}</span><span class="flex items-center text-gray-200"><i class="fa-solid fa-eye mr-1 text-[8px]"></i>${window.formatCount(p.viewsCount || 0)}</span></span>
                             <span class="text-[8px] text-gray-300 uppercase">${p.game || 'POST'}</span>
                         </div>
                     </div>
@@ -894,7 +1039,7 @@ window.openUserProfileModal = function(username, e = null) {
                         ${mediaThumbnail}
                         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent opacity-90 pointer-events-none"></div>
                         <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between text-[10px] text-white font-extrabold z-10">
-                            <span class="flex items-center text-cyan-400"><i class="fa-solid fa-thumbs-up mr-1 text-[8px]"></i>${p.ggsCount || 0}</span>
+                            <span class="flex items-center space-x-2"><span class="flex items-center text-cyan-400"><i class="fa-solid fa-thumbs-up mr-1 text-[8px]"></i>${p.ggsCount || 0}</span><span class="flex items-center text-gray-200"><i class="fa-solid fa-eye mr-1 text-[8px]"></i>${window.formatCount(p.viewsCount || 0)}</span></span>
                             <span class="text-[8px] text-gray-300 uppercase">${p.game || 'POST'}</span>
                         </div>
                     </div>
@@ -2585,14 +2730,15 @@ window.renderFypFeed = function() {
                 const m = p.mediaList[0];
                 if (m.type === 'video') {
                     mediaHtml = `
-                        <div class="relative rounded-2xl overflow-hidden bg-black max-h-96 border border-cyan-500/20 group cursor-pointer" onclick="window.openMediaZoomModal('video', '${m.url}', '${pId}')">
-                            <video src="${m.url}" class="w-full h-full object-cover" controls playsinline></video>
+                        <div class="relative rounded-2xl overflow-hidden bg-black max-h-96 border border-cyan-500/20 group">
+                            <video src="${window.cldSized(m.url, 1280, 'video')}" poster="${window.cldPoster(m.url)}" class="w-full max-h-96 object-contain bg-black" controls playsinline preload="none" controlsList="nodownload"></video>
+                            <button onclick="window.openMediaZoomModal('video', '${m.url}', '${pId}')" class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white text-xs flex items-center justify-center" title="Full screen"><i class="fa-solid fa-expand"></i></button>
                         </div>
                     `;
                 } else {
                     mediaHtml = `
                         <div class="relative rounded-2xl overflow-hidden bg-black max-h-96 border border-cyan-500/20 group cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.url}', '${pId}')">
-                            <img src="${m.url}" class="w-full h-full object-cover">
+                            <img src="${window.cldSized(m.url, 1080)}" loading="lazy" class="w-full h-full object-cover">
                         </div>
                     `;
                 }
@@ -2600,8 +2746,8 @@ window.renderFypFeed = function() {
                 mediaHtml = `
                     <div class="grid grid-cols-2 gap-1.5 rounded-2xl overflow-hidden max-h-96 border border-cyan-500/20">
                         ${p.mediaList.map(m => m.type === 'video' 
-                            ? `<video src="${m.url}" class="w-full h-36 object-cover bg-black cursor-pointer" onclick="window.openMediaZoomModal('video', '${m.url}', '${pId}')"></video>` 
-                            : `<img src="${m.url}" class="w-full h-36 object-cover bg-black cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.url}', '${pId}')">`
+                            ? `<div class="relative h-36 bg-black cursor-pointer" onclick="window.openMediaZoomModal('video', '${m.url}', '${pId}')"><img src="${window.cldPoster(m.url, 480)}" class="w-full h-36 object-cover" loading="lazy" onerror="this.style.display='none'"><i class="fa-solid fa-circle-play absolute inset-0 m-auto w-8 h-8 text-3xl text-white/90 flex items-center justify-center"></i></div>` 
+                            : `<img src="${window.cldSized(m.url, 600)}" loading="lazy" class="w-full h-36 object-cover bg-black cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.url}', '${pId}')">`
                         ).join('')}
                     </div>
                 `;
@@ -2621,7 +2767,7 @@ window.renderFypFeed = function() {
         const badges = window.getProfileBadges ? window.getProfileBadges(p.user) : '';
 
         return `
-            <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/20 hover:border-cyan-500/40 transition">
+            <div class="post-card-item glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/20 hover:border-cyan-500/40 transition" data-post-id="${pId}">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-2.5 cursor-pointer" onclick="window.openUserProfileModal('${p.user}', event)">
                         <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-xs shadow-md">
@@ -2660,12 +2806,18 @@ window.renderFypFeed = function() {
                     </button>
                     <button onclick="window.tipCreator('${pId}', '${p.user}')" class="flex items-center space-x-1.5 text-amber-400 hover:text-amber-300 transition">
                         <i class="fa-solid fa-coins"></i>
-                        <span>${p.tipsTotal || 0} Tip</span>
+                        <span>Tip</span>
                     </button>
+                    <span class="flex items-center space-x-1.5 text-gray-400">
+                        <i class="fa-solid fa-eye"></i>
+                        <span id="viewsCounterBadge_${pId}">${window.formatCount(p.viewsCount || 0)}</span>
+                    </span>
                 </div>
             </div>
         `;
     }).join('');
+
+    if (window.observePostViews) window.observePostViews();
 };
 
 window.listenToCloudPosts = function() {
@@ -3315,6 +3467,7 @@ window.activeZoomPostId = null;
 
 window.openMediaZoomModal = function(type, mediaUrl, postId = null, caption = '') {
     window.activeZoomPostId = postId;
+    if (postId) window.countPostView(postId);
     const stage = document.getElementById('mediaZoomStage');
     const title = document.getElementById('mediaZoomTitle');
     if (!stage) return;
@@ -3325,9 +3478,10 @@ window.openMediaZoomModal = function(type, mediaUrl, postId = null, caption = ''
     }
 
     if (type === 'video') {
-        stage.innerHTML = `<video src="${mediaUrl}" class="max-w-full max-h-full object-contain rounded-2xl" controls autoplay></video>`;
+        stage.innerHTML = `<video src="${window.cldSized(mediaUrl, 1920, 'video')}" poster="${window.cldPoster(mediaUrl, 1080)}" class="max-w-full max-h-full object-contain rounded-2xl" controls autoplay playsinline controlsList="nodownload"></video>`;
     } else if (type === 'image') {
-        stage.innerHTML = `<img src="${mediaUrl}" class="max-w-full max-h-full object-contain rounded-2xl">`;
+        stage.innerHTML = `<img id="zoomableImage" src="${window.cldSized(mediaUrl, 2048)}" class="max-w-full max-h-full object-contain rounded-2xl select-none" draggable="false" style="max-width:100%;max-height:100%;transform-origin:center center;transition:transform .15s ease-out;touch-action:none">`;
+        window.enablePinchZoom(document.getElementById('zoomableImage'));
     } else {
         // Text-only post: fill the screen, bigger text for shorter posts
         const tp = postId ? (window.fypposts || []).find(p => p.id === postId || p.docId === postId) : null;
@@ -3344,7 +3498,60 @@ window.openMediaZoomModal = function(type, mediaUrl, postId = null, caption = ''
     document.getElementById('mediaZoomModal').classList.remove('hidden');
 };
 
+// Pinch with two fingers to zoom (up to 5x), drag to move around, double-tap to zoom in/out
+window.enablePinchZoom = function(img) {
+    if (!img) return;
+    let scale = 1, x = 0, y = 0;
+    let startDist = 0, startScale = 1, lastX = 0, lastY = 0, lastTap = 0;
+    const pts = new Map();
+    const apply = (animate) => {
+        img.style.transition = animate ? 'transform .2s ease-out' : 'none';
+        img.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    };
+    const clampPan = () => {
+        const maxX = (img.clientWidth * (scale - 1)) / 2, maxY = (img.clientHeight * (scale - 1)) / 2;
+        x = Math.max(-maxX, Math.min(maxX, x)); y = Math.max(-maxY, Math.min(maxY, y));
+    };
+    const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+
+    img.addEventListener('pointerdown', (e) => {
+        img.setPointerCapture(e.pointerId);
+        pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pts.size === 2) { startDist = dist(); startScale = scale; }
+        if (pts.size === 1) {
+            lastX = e.clientX; lastY = e.clientY;
+            const now = Date.now();
+            if (now - lastTap < 300) {                       // double tap
+                if (scale > 1) { scale = 1; x = 0; y = 0; } else { scale = 2.5; }
+                apply(true);
+            }
+            lastTap = now;
+        }
+    });
+    img.addEventListener('pointermove', (e) => {
+        if (!pts.has(e.pointerId)) return;
+        pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pts.size === 2 && startDist) {
+            scale = Math.max(1, Math.min(5, startScale * dist() / startDist));
+            if (scale === 1) { x = 0; y = 0; }
+            clampPan(); apply(false);
+        } else if (pts.size === 1 && scale > 1) {
+            x += e.clientX - lastX; y += e.clientY - lastY;
+            lastX = e.clientX; lastY = e.clientY;
+            clampPan(); apply(false);
+        }
+    });
+    const end = (e) => {
+        pts.delete(e.pointerId);
+        if (pts.size < 2) startDist = 0;
+        if (pts.size === 1) { const p = [...pts.values()][0]; lastX = p.x; lastY = p.y; }
+    };
+    img.addEventListener('pointerup', end);
+    img.addEventListener('pointercancel', end);
+};
+
 window.closeMediaZoomModal = function() {
+    if (window.activeZoomPostId) window.endViewStay(window.activeZoomPostId);
     document.getElementById('mediaZoomModal').classList.add('hidden');
     window.activeZoomPostId = null;
 };
@@ -3380,6 +3587,10 @@ window.renderZoomInteractions = function(postId) {
                 <i class="fa-solid fa-comment"></i>
                 <span>${post.commentsCount || 0}</span>
             </button>
+            <span class="flex items-center space-x-1 text-gray-400 font-bold">
+                <i class="fa-solid fa-eye"></i>
+                <span>${window.formatCount(post.viewsCount || 0)}</span>
+            </span>
         </div>
     `;
 };
