@@ -153,6 +153,93 @@
         <div id="adminBody" class="flex-1 overflow-y-auto p-3 space-y-2 max-w-xl w-full mx-auto"></div>
     </div>
 
+    <!-- v17: Go Live setup -->
+    <div id="goLiveModal" class="hidden fixed inset-0 bg-gg-950 overflow-y-auto" style="z-index:250">
+        <div class="w-full max-w-lg mx-auto p-3 space-y-3">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-black text-white"><span class="w-2 h-2 inline-block rounded-full bg-red-500 animate-pulse mr-2"></span>Go Live</h3>
+                <button onclick="window.closeGoLive()" class="w-9 h-9 rounded-xl bg-gg-800 text-white">✕</button>
+            </div>
+            <input id="goLiveTitle" maxlength="80" placeholder="Stream title, e.g. FC Mobile H2H grind 🔥" class="w-full bg-gg-900 border border-red-500/30 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-red-400">
+            <select id="goLiveCat" class="w-full bg-gg-900 border border-red-500/30 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"></select>
+            <div id="goLiveModes" class="grid grid-cols-3 gap-2"></div>
+            <div id="goLiveBody" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- v17: Live room (watching or hosting) -->
+    <div id="liveRoomModal" class="hidden fixed inset-0 bg-black flex flex-col" style="z-index:252">
+        <div class="relative w-full max-w-2xl mx-auto bg-black shrink-0">
+            <div id="liveStage" class="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden"></div>
+            <div class="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
+                <div class="flex items-center gap-1.5 pointer-events-auto">
+                    <span class="px-2 py-0.5 rounded-md bg-red-600 text-white text-[10px] font-black">LIVE</span>
+                    <span id="liveViewerCount" class="px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-bold"><i class="fa-solid fa-eye mr-1"></i>0</span>
+                </div>
+                <button onclick="window.closeLiveRoom()" class="pointer-events-auto w-8 h-8 rounded-full bg-black/60 text-white">✕</button>
+            </div>
+            <div id="liveHypeLayer" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+        </div>
+        <div class="w-full max-w-2xl mx-auto flex-1 flex flex-col min-h-0 bg-gg-950">
+            <div class="shrink-0 px-3 py-2 flex items-center gap-2 border-b border-cyan-500/15">
+                <div id="liveHostAvatar"></div>
+                <div class="min-w-0 flex-1">
+                    <p id="liveTitleText" class="text-sm font-black text-white truncate"></p>
+                    <p id="liveHostText" class="text-[10px] text-gray-400 truncate"></p>
+                </div>
+                <button onclick="window.tipLive()" class="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-400 text-[11px] font-black"><i class="fa-solid fa-coins mr-1"></i>Tip</button>
+                <button onclick="window.shareLive()" class="w-8 h-8 rounded-xl bg-gg-800 text-gray-200"><i class="fa-solid fa-share-nodes"></i></button>
+            </div>
+            <div id="liveHostControls" class="hidden shrink-0 px-3 py-2 flex gap-2 border-b border-red-500/20 overflow-x-auto scrollbar-none"></div>
+            <div id="liveChatBox" class="flex-1 overflow-y-auto px-3 py-2 space-y-1.5"></div>
+            <div class="shrink-0 px-3 pt-1 flex gap-1.5 overflow-x-auto scrollbar-none" id="liveHypeBar"></div>
+            <div class="shrink-0 p-3 flex items-center gap-2">
+                <input id="liveChatInput" maxlength="200" placeholder="Say something…" class="flex-1 bg-gg-900 border border-cyan-500/30 rounded-full px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400" onkeydown="if(event.key === 'Enter') window.sendLiveChat()">
+                <button onclick="window.sendLiveChat()" class="w-10 h-10 shrink-0 rounded-full bg-cyan-400 text-slate-950"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- v17: Match lounge -->
+    <div id="loungeModal" class="hidden fixed inset-0 bg-gg-950 flex flex-col" style="z-index:248">
+        <div class="w-full max-w-xl mx-auto flex flex-col h-[100dvh]">
+            <div class="shrink-0 flex items-center gap-2 px-3 pt-3 pb-2">
+                <button onclick="window.closeLounge()" class="w-9 h-9 shrink-0 rounded-xl bg-gg-800 text-white"><i class="fa-solid fa-arrow-left"></i></button>
+                <div class="flex-1 min-w-0"><p class="text-sm font-black text-white truncate">💬 Match Lounge</p><p id="loungeSub" class="text-[10px] text-gray-400 truncate"></p></div>
+                <button onclick="window.predictFromLounge()" class="px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-[11px] font-black"><i class="fa-solid fa-bullseye mr-1"></i>Predict</button>
+            </div>
+            <div id="loungeScore" class="shrink-0 mx-3 mb-2"></div>
+            <div id="loungeMsgs" class="flex-1 overflow-y-auto px-3 py-2 space-y-1.5"></div>
+            <div class="shrink-0 px-3 flex gap-1.5 overflow-x-auto scrollbar-none" id="loungeQuick"></div>
+            <div class="shrink-0 p-3 flex items-center gap-2 border-t border-cyan-500/15 bg-gg-900/95">
+                <input id="loungeInput" maxlength="200" placeholder="Talk about the match…" class="flex-1 bg-gg-950 border border-cyan-500/30 rounded-full px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400" onkeydown="if(event.key === 'Enter') window.sendLounge()">
+                <button onclick="window.sendLounge()" class="w-10 h-10 shrink-0 rounded-full bg-cyan-400 text-slate-950"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- v17: General full-screen panel (progress, invite, saved, shelf, group info) -->
+    <div id="sgPanel" class="hidden fixed inset-0 bg-gg-950 flex flex-col" style="z-index:264">
+        <div class="w-full max-w-xl mx-auto flex flex-col h-[100dvh]">
+            <div class="shrink-0 flex items-center gap-2 px-3 py-3 border-b border-cyan-500/15">
+                <button onclick="window.closePanel()" class="w-9 h-9 shrink-0 rounded-xl bg-gg-800 text-white"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3 id="sgPanelTitle" class="text-sm font-black text-white truncate"></h3>
+            </div>
+            <div id="sgPanelBody" class="flex-1 overflow-y-auto p-3 space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- v17: Voice note recorder -->
+    <div id="voiceRecBar" class="hidden fixed left-0 right-0 bottom-0 p-3" style="z-index:292">
+        <div class="max-w-xl mx-auto bg-gg-900 border border-magenta/50 rounded-2xl p-3 flex items-center gap-3 shadow-2xl">
+            <span class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
+            <span id="voiceRecTime" class="text-sm font-black text-white tabular-nums">0:00</span>
+            <span class="text-xs text-gray-400 flex-1">Recording voice note…</span>
+            <button onclick="window.cancelVoiceNote()" class="px-3 py-2 rounded-xl bg-gg-800 text-gray-300 text-xs font-black">Cancel</button>
+            <button onclick="window.finishVoiceNote()" class="px-3 py-2 rounded-xl bg-magenta text-white text-xs font-black"><i class="fa-solid fa-paper-plane mr-1"></i>Send</button>
+        </div>
+    </div>
+
     <!-- @tag suggestions -->
     <div id="mentionBox" class="hidden fixed bg-gg-900 border border-cyan-500/40 rounded-2xl shadow-2xl overflow-hidden" style="z-index:295"></div>
 
@@ -231,6 +318,20 @@
             <li class="drawer-menu-item" onclick="toggleDrawer(false); window.openDmModal();">
                 <span><i class="fa-solid fa-envelope mr-2"></i> Messages</span>
             </li>
+            <li class="drawer-menu-item" onclick="toggleDrawer(false); window.openProgress();">
+                <span><i class="fa-solid fa-medal mr-2"></i> Level &amp; Challenges</span>
+                <span class="badge" id="drawerLevelBadge">Lv 1</span>
+            </li>
+            <li class="drawer-menu-item" onclick="toggleDrawer(false); window.openInvite();">
+                <span><i class="fa-solid fa-user-plus mr-2"></i> Invite Friends</span>
+            </li>
+            <li class="drawer-menu-item" onclick="toggleDrawer(false); window.openSaved();">
+                <span><i class="fa-solid fa-bookmark mr-2"></i> Saved Posts</span>
+            </li>
+            <li class="drawer-menu-item" onclick="window.toggleDataSaver();">
+                <span><i class="fa-solid fa-signal mr-2"></i> Data Saver</span>
+                <span class="badge" id="drawerDataSaverBadge">OFF</span>
+            </li>
             <li class="drawer-menu-item" onclick="toggleDrawer(false); window.setupPushNotifications();">
                 <span><i class="fa-solid fa-mobile-screen mr-2"></i> Phone Alerts</span>
             </li>
@@ -262,6 +363,7 @@
             <button onclick="switchView('fyp')" id="nav-fyp" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap"><i class="fa-solid fa-fire mr-1"></i> Feed</button>
             <button onclick="switchView('news')" id="nav-news" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-newspaper mr-1"></i> News</button>
             <button onclick="switchView('trending')" id="nav-trending" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-chart-line mr-1"></i> Trending</button>
+            <button onclick="switchView('predict')" id="nav-predict" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-bullseye mr-1"></i> Predict</button>
             <button onclick="switchView('market')" id="nav-market" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-store mr-1"></i> Market</button>
             <button onclick="switchView('clans')" id="nav-clans" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-shield-halved mr-1"></i> Squads</button>
             <button onclick="switchView('chat')" id="nav-chat" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-comments mr-1"></i> Lobbies</button>
@@ -299,6 +401,9 @@
             </div>
             <input type="file" id="storyFileInput" accept="image/*,video/*" class="hidden" onchange="uploadProfileStory(this)">
 
+            <!-- Who's live now -->
+            <div id="liveNowStrip" class="hidden"></div>
+
             <!-- Category Game Filters -->
             <div class="flex glass-panel rounded-2xl overflow-hidden border border-cyan-500/20">
                 <button id="feedTab_foryou" onclick="window.setFeedMode('foryou')" class="flex-1 py-2 text-xs font-black transition border-b-2 text-white border-cyan-400">For You</button>
@@ -322,6 +427,20 @@
 
             <!-- Posts Feed Container -->
             <div id="fypFeedContainer" class="space-y-4"></div>
+        </div>
+
+        <!-- VIEW: SCORE PREDICTOR -->
+        <div id="view-predict" class="view-section hidden flex-1 flex flex-col space-y-3 pb-6">
+            <div class="glass-panel p-3.5 rounded-2xl border border-emerald-500/30 shadow-xl">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-bullseye text-emerald-400 mr-1.5"></i> Score Predictor League</h3>
+                <p class="text-[10px] text-gray-400">Predict real matches before kick-off. <b class="text-emerald-400">3 pts</b> exact score · <b class="text-cyan-400">1 pt</b> right result. Free to play, no betting.</p>
+            </div>
+            <div class="flex glass-panel rounded-2xl overflow-hidden border border-cyan-500/20">
+                <button data-predtab="matches" onclick="window.setPredictTab('matches')" class="flex-1 py-2 text-xs font-black">Matches</button>
+                <button data-predtab="mine" onclick="window.setPredictTab('mine')" class="flex-1 py-2 text-xs font-black">My picks</button>
+                <button data-predtab="table" onclick="window.setPredictTab('table')" class="flex-1 py-2 text-xs font-black">🏆 Table</button>
+            </div>
+            <div id="predictBody" class="space-y-2.5"></div>
         </div>
 
         <!-- VIEW: NEWS & GIST -->
@@ -762,6 +881,7 @@
                     <input type="file" id="squadChatImageInput" accept="image/*" class="hidden" onchange="window.sendInChatImage('squad')">
                 </label>
                 <input type="text" id="squadSubRoomInput" placeholder="Message #chat" class="flex-1 bg-gg-950 border border-cyan-500/30 rounded-full px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400" onkeydown="if(event.key === 'Enter') window.sendSquadRoomMessage()">
+                <button onclick="window.startVoiceNote('squad')" class="w-10 h-10 shrink-0 rounded-full bg-gg-800 border border-magenta/40 text-magenta" title="Voice note"><i class="fa-solid fa-microphone"></i></button>
                 <button onclick="window.sendSquadRoomMessage()" class="w-10 h-10 shrink-0 rounded-full bg-cyan-400 text-slate-950"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
@@ -939,7 +1059,7 @@
 
     <!-- Edit Profile Modal -->
     <div id="editProfileModal" style="z-index:270" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[180] flex items-center justify-center p-4">
-        <div class="glass-panel w-full max-w-md rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
+        <div class="glass-panel w-full max-w-md rounded-2xl p-4 flex flex-col space-y-3 max-h-[92vh] overflow-y-auto shadow-2xl border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                 <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-user-pen text-cyan-400 mr-1.5"></i> Edit Profile Details</h3>
                 <button onclick="closeEditProfileModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕</button>
@@ -960,6 +1080,7 @@
                 </label>
             </div>
 
+            <div id="editGameIdsBox"></div>
             <button onclick="saveUserProfileChanges()" class="w-full py-2.5 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 font-black rounded-xl text-xs uppercase shadow mt-2">Save Profile Changes</button>
         </div>
     </div>
@@ -1000,13 +1121,14 @@
         <div class="shrink-0 flex items-center justify-between px-3 py-3 border-b border-cyan-500/15 bg-gg-900/95">
             <div class="flex items-center space-x-2">
                 <button id="dmBackBtn" onclick="window.showDmInbox()" class="hidden w-9 h-9 rounded-xl bg-gg-800 text-white"><i class="fa-solid fa-arrow-left"></i></button>
-                <h3 class="text-sm font-black text-white">Messages <span id="dmHeaderUser" class="text-cyan-400 cursor-pointer" onclick="window.activeDm && (window.closeDmModal(), window.openUserProfileModal(window.activeDm.partnerTag))"></span></h3>
+                <h3 class="text-sm font-black text-white">Messages <span id="dmHeaderUser" class="text-cyan-400 cursor-pointer" onclick="window.dmHeaderTap()"></span></h3>
             </div>
             <button onclick="window.closeDmModal()" class="w-9 h-9 rounded-xl bg-gg-800 text-white">✕</button>
         </div>
         <div id="dmNewChatRow" class="shrink-0 p-3 flex items-center space-x-2 border-b border-cyan-500/10">
             <input id="dmNewChatInput" type="text" placeholder="Start a chat: type a @gamertag" class="flex-1 bg-gg-900 border border-cyan-500/30 rounded-full px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400" onkeydown="if(event.key === 'Enter') window.startDmFromInput()">
             <button onclick="window.startDmFromInput()" class="px-4 py-2.5 rounded-full bg-cyan-400 text-slate-950 text-xs font-black">Chat</button>
+            <button onclick="window.openNewGroup()" class="w-10 h-10 shrink-0 rounded-full bg-gg-800 border border-magenta/40 text-magenta" title="New group"><i class="fa-solid fa-users"></i></button>
         </div>
         <div id="dmMessagesContainer" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
         <div id="dmComposer" class="hidden shrink-0 p-3 border-t border-cyan-500/15 bg-gg-900/95 flex items-center space-x-2">
@@ -1015,6 +1137,7 @@
                 <input type="file" id="dmChatImageInput" accept="image/*" class="hidden" onchange="window.sendInChatImage('dm')">
             </label>
             <input type="text" id="dmInputText" placeholder="Message…" class="flex-1 bg-gg-950 border border-cyan-500/30 rounded-full px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400" onkeydown="if(event.key === 'Enter') window.sendDirectMessage()">
+            <button onclick="window.startVoiceNote('dm')" class="w-10 h-10 shrink-0 rounded-full bg-gg-800 border border-magenta/40 text-magenta" title="Voice note"><i class="fa-solid fa-microphone"></i></button>
             <button onclick="window.sendDirectMessage()" class="w-10 h-10 shrink-0 rounded-full bg-cyan-400 text-slate-950"><i class="fa-solid fa-paper-plane"></i></button>
         </div>
     </div>
