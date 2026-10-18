@@ -2191,4 +2191,902 @@ function generateTournamentsHTML() {
                         <h5 class="text-[10px] font-black text-red-400 uppercase flex items-center"><i class="fa-solid fa-shield mr-1.5"></i> Red Conference Tree</h5>
                         <span class="text-[8px] text-gray-400">Playoff Rounds</span>
                     </div>
-                    <div class="space-y-2 max-h-[300px] o
+                    <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+        `;
+        redConferenceMatches.forEach(m => {
+            bodyHtml += renderBracketMatchCardHex(m, current.id, isHost, 'red');
+        });
+        bodyHtml += `</div></div>`;
+
+        bodyHtml += `
+            <div class="md:col-span-1 flex flex-col items-center justify-center my-2 md:my-0 space-y-2">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/40 animate-pulse" title="Final Game">
+                    <i class="fa-solid fa-trophy text-xs"></i>
+                </div>
+                <span class="text-[8px] font-black uppercase text-amber-400 tracking-widest text-center">VS</span>
+            </div>
+        `;
+
+        bodyHtml += `
+            <div class="md:col-span-5 bg-blue-950/20 border border-blue-500/30 rounded-2xl p-3 space-y-2.5">
+                <div class="flex items-center justify-between border-b border-blue-500/20 pb-1.5">
+                    <h5 class="text-[10px] font-black text-blue-400 uppercase flex items-center"><i class="fa-solid fa-shield mr-1.5"></i> Blue Conference Tree</h5>
+                    <span class="text-[8px] text-gray-400">Playoff Rounds</span>
+                </div>
+                <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+        `;
+        blueConferenceMatches.forEach(m => {
+            bodyHtml += renderBracketMatchCardHex(m, current.id, isHost, 'blue');
+        });
+        bodyHtml += `</div></div>`;
+
+        bodyHtml += `</div>`;
+
+        bodyHtml += `
+            <div class="bg-gradient-to-r from-amber-950/50 via-amber-900/40 to-amber-950/50 border border-amber-500/50 rounded-2xl p-3.5 space-y-2 mt-3 shadow-2xl">
+                <div class="flex items-center justify-between border-b border-amber-500/30 pb-1.5">
+                    <span class="text-[9px] font-black text-amber-400 uppercase flex items-center"><i class="fa-solid fa-crown mr-1.5"></i> Championship Final Showdown</span>
+                    <span class="text-[8px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-black">🏆 FINAL GAME</span>
+                </div>
+                <div class="space-y-2">
+        `;
+        finalMatches.forEach(m => {
+            bodyHtml += renderBracketMatchCardHex(m, current.id, isHost, 'gold');
+        });
+        bodyHtml += `</div></div>`;
+    }
+
+    bodyHtml += `</div></div>`;
+    return selectorHtml + bodyHtml;
+}
+
+function renderBracketMatchCardHex(m, tournId, isHost, theme = 'red') {
+    const isCompleted = m.winner !== null && m.status === 'approved';
+    const isDisputed = m.status === 'disputed';
+    const hasStream = !!m.streamUrl;
+    
+    let borderStyle = 'border-cyan-500/20 hover:border-cyan-400';
+    if (theme === 'red') borderStyle = 'border-red-500/30 hover:border-red-400 bg-red-950/10';
+    if (theme === 'blue') borderStyle = 'border-blue-500/30 hover:border-blue-400 bg-blue-950/10';
+    if (theme === 'gold') borderStyle = 'border-amber-500/50 hover:border-amber-400 bg-amber-950/20';
+    if (theme === 'league') borderStyle = 'border-cyan-500/20 hover:border-cyan-400 bg-gg-950';
+
+    let p1Html = `<span class="font-extrabold ${m.winner === m.p1 ? 'text-cyan-400 font-black' : 'text-gray-100'}">${m.p1 || 'Open Spot'}</span>`;
+    let p2Html = `<span class="font-extrabold ${m.winner === m.p2 ? 'text-cyan-400 font-black' : 'text-gray-100'}">${m.p2 || 'Open Spot'}</span>`;
+
+    return `
+        <div class="glass-panel p-2.5 rounded-xl border ${borderStyle} transition shadow-md cursor-pointer space-y-1.5" onclick="window.openMatchReportModal('${m.id}')">
+            <div class="flex items-center justify-between text-[9px]">
+                <span class="text-cyan-400 font-black uppercase tracking-wider">${m.stage || 'Fixture'}</span>
+                <div class="flex items-center space-x-1">
+                    ${hasStream ? '<span class="text-[8px] bg-red-600 text-white font-extrabold px-1.5 py-0.5 rounded animate-pulse">🔴 Live Stream</span>' : ''}
+                    ${isDisputed ? '<span class="text-[8px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.5 rounded">⚠️ Disputed</span>' : (isCompleted ? '<span class="text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black px-1.5 py-0.5 rounded">✓ Final</span>' : '<span class="text-[8px] text-gray-400">Report Score</span>')}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs bg-gg-950/80 p-2 rounded-lg border border-cyan-500/10">
+                <div class="flex items-center justify-between pr-1 border-r border-cyan-500/10">
+                    ${p1Html}
+                    <span class="font-black text-amber-400 ml-1">${m.s1 !== null ? m.s1 : '-'}</span>
+                </div>
+                <div class="flex items-center justify-between pl-1">
+                    ${p2Html}
+                    <span class="font-black text-amber-400 ml-1">${m.s2 !== null ? m.s2 : '-'}</span>
+                </div>
+            </div>
+
+            ${isHost && (m.p1 === 'Open Spot' || m.p2 === 'Open Spot') ? `
+                <div class="flex space-x-1 pt-0.5">
+                    ${m.p1 === 'Open Spot' ? `<button onclick="event.stopPropagation(); window.manualAddPlayer('${tournId}', '${m.id}', 'p1')" class="flex-1 py-1 bg-cyan-500/20 text-cyan-300 rounded text-[8px] font-bold">+ Add P1</button>` : ''}
+                    ${m.p2 === 'Open Spot' ? `<button onclick="event.stopPropagation(); window.manualAddPlayer('${tournId}', '${m.id}', 'p2')" class="flex-1 py-1 bg-cyan-500/20 text-cyan-300 rounded text-[8px] font-bold">+ Add P2</button>` : ''}
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+// FYP Feed & Dynamic Feed State
+window.fypposts = [];
+window.activeCategoryFilter = 'ALL';
+window.uploadedMediaBlobs = [];
+window.selectedAudioTrack = null;
+
+window.categoryInterests = JSON.parse(localStorage.getItem('sinless_category_interests') || '{}');
+
+window.boostCategoryInterest = function(category) {
+    if (!category) return;
+    const cat = category.toUpperCase();
+    window.categoryInterests[cat] = (window.categoryInterests[cat] || 0) + 1;
+    localStorage.setItem('sinless_category_interests', JSON.stringify(window.categoryInterests));
+};
+
+window.filterByCategory = function(cat, btnElem) {
+    window.activeCategoryFilter = cat;
+    document.querySelectorAll('.cat-btn').forEach(b => {
+        b.className = "cat-btn px-3 py-1.5 rounded-xl text-[10px] font-bold bg-gg-900 text-gray-400 border border-cyan-500/20 whitespace-nowrap transition";
+    });
+    if (btnElem) {
+        btnElem.className = "cat-btn px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-cyan-400 text-slate-950 whitespace-nowrap shadow transition";
+    }
+    window.renderFypFeed();
+};
+
+window.renderFypFeed = function() {
+    const feedContainer = document.getElementById('fypFeedContainer');
+    if (!feedContainer) return;
+
+    let posts = [...(window.fypposts || [])];
+
+    if (window.activeCategoryFilter !== 'ALL') {
+        if (window.activeCategoryFilter === 'LIVE STREAM') {
+            posts = posts.filter(p => p.isLive || p.game === 'LIVE STREAM');
+        } else {
+            posts = posts.filter(p => (p.game || '').toUpperCase() === window.activeCategoryFilter);
+        }
+    } else {
+        posts.sort((a, b) => {
+            const scoreA = (window.categoryInterests[(a.game || '').toUpperCase()] || 0) + (a.ggsCount || 0);
+            const scoreB = (window.categoryInterests[(b.game || '').toUpperCase()] || 0) + (b.ggsCount || 0);
+            return scoreB - scoreA;
+        });
+    }
+
+    if (posts.length === 0) {
+        feedContainer.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center space-y-2">
+            <i class="fa-solid fa-gamepad text-3xl text-cyan-400 opacity-60"></i>
+            <p class="text-xs font-bold text-white">No posts found in ${window.activeCategoryFilter}</p>
+            <p class="text-[10px] text-gray-400">Be the first gamer to post a clip or match update!</p>
+        </div>`;
+        return;
+    }
+
+    const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+
+    feedContainer.innerHTML = posts.map(p => {
+        const pId = p.docId || p.id;
+        const isOwner = p.user && p.user.toLowerCase() === me;
+        const hasGGed = p.ggsBy && p.ggsBy.includes(window.currentUser ? window.currentUser.uid : 'guest_user');
+
+        let mediaHtml = '';
+        if (p.mediaList && p.mediaList.length > 0) {
+            if (p.mediaList.length === 1) {
+                const m = p.mediaList[0];
+                if (m.type === 'video') {
+                    mediaHtml = `
+                        <div class="relative rounded-2xl overflow-hidden bg-black max-h-96 border border-cyan-500/20 group cursor-pointer" onclick="window.openMediaZoomModal('video', '${m.url}', '${pId}')">
+                            <video src="${m.url}" class="w-full h-full object-cover" controls playsinline></video>
+                        </div>
+                    `;
+                } else {
+                    mediaHtml = `
+                        <div class="relative rounded-2xl overflow-hidden bg-black max-h-96 border border-cyan-500/20 group cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.url}', '${pId}')">
+                            <img src="${m.url}" class="w-full h-full object-cover">
+                        </div>
+                    `;
+                }
+            } else {
+                mediaHtml = `
+                    <div class="grid grid-cols-2 gap-1.5 rounded-2xl overflow-hidden max-h-96 border border-cyan-500/20">
+                        ${p.mediaList.map(m => m.type === 'video' 
+                            ? `<video src="${m.url}" class="w-full h-36 object-cover bg-black cursor-pointer" onclick="window.openMediaZoomModal('video', '${m.url}', '${pId}')"></video>` 
+                            : `<img src="${m.url}" class="w-full h-36 object-cover bg-black cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.url}', '${pId}')">`
+                        ).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        let audioTrackHtml = '';
+        if (p.audioTrack) {
+            audioTrackHtml = `
+                <div class="flex items-center space-x-2 p-2 bg-gg-900/90 rounded-xl border border-cyan-500/20 text-[10px] text-cyan-300">
+                    <i class="fa-solid fa-music animate-spin text-magenta"></i>
+                    <span class="font-bold truncate">${p.audioTrack.title || 'Background Sound'}</span>
+                </div>
+            `;
+        }
+
+        const badges = window.getProfileBadges ? window.getProfileBadges(p.user) : '';
+
+        return `
+            <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/20 hover:border-cyan-500/40 transition">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2.5 cursor-pointer" onclick="window.openUserProfileModal('${p.user}', event)">
+                        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-xs shadow-md">
+                            ${(p.user || 'SG').substring(0,2).toUpperCase()}
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-1.5">
+                                <h4 class="font-bold text-xs text-white hover:text-cyan-400 transition">@${p.user}</h4>
+                                ${badges}
+                            </div>
+                            <p class="text-[9px] text-cyan-400 uppercase font-black tracking-wider">${p.game || 'GAMING'}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        ${isOwner ? `
+                            <button onclick="window.openEditPostModal('${pId}')" class="text-gray-400 hover:text-cyan-400 text-xs px-1.5"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="window.deletePost('${pId}')" class="text-gray-400 hover:text-red-400 text-xs px-1.5"><i class="fa-solid fa-trash"></i></button>
+                        ` : ''}
+                        <button onclick="window.shareContent('Sinless GG Post', 'Check out @${p.user}\'s post on Sinless GG!', window.location.href)" class="text-gray-400 hover:text-white text-xs px-1.5"><i class="fa-solid fa-share-nodes"></i></button>
+                    </div>
+                </div>
+
+                ${p.caption ? `<p class="text-xs text-gray-200 leading-relaxed font-medium">${formatMentions(p.caption)}</p>` : ''}
+
+                ${mediaHtml}
+                ${audioTrackHtml}
+
+                <div class="flex items-center justify-between pt-2 border-t border-cyan-500/15 text-xs text-gray-300 font-bold">
+                    <button onclick="window.toggleGGPost('${pId}')" class="flex items-center space-x-1.5 ${hasGGed ? 'text-cyan-400' : 'hover:text-cyan-400'} transition">
+                        <i class="fa-solid fa-thumbs-up"></i>
+                        <span>${p.ggsCount || 0} GG</span>
+                    </button>
+                    <button onclick="window.openCommentsModal('${pId}')" class="flex items-center space-x-1.5 hover:text-cyan-400 transition">
+                        <i class="fa-solid fa-comment"></i>
+                        <span>${p.commentsCount || 0} Replies</span>
+                    </button>
+                    <button onclick="window.tipCreator('${pId}', '${p.user}')" class="flex items-center space-x-1.5 text-amber-400 hover:text-amber-300 transition">
+                        <i class="fa-solid fa-coins"></i>
+                        <span>${p.tipsTotal || 0} Tip</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+};
+
+window.listenToCloudPosts = function() {
+    if (!window.db || typeof query !== 'function') return;
+
+    try {
+        const postsRef = collection(window.db, "posts");
+        const q = query(postsRef, orderBy("createdAt", "desc"), limit(40));
+
+        onSnapshot(q, async (snapshot) => {
+            let cloudPosts = [];
+            snapshot.forEach(docSnap => {
+                cloudPosts.push({ id: docSnap.id, docId: docSnap.id, ...docSnap.data() });
+            });
+
+            const localPosts = await window.loadLocalPostsFromDB();
+            let mergedMap = {};
+
+            cloudPosts.forEach(p => { if (p.id) mergedMap[p.id] = p; });
+            localPosts.forEach(p => { if (p.id && !mergedMap[p.id]) mergedMap[p.id] = p; });
+
+            window.fypposts = Object.values(mergedMap);
+            window.renderFypFeed();
+            if (window.renderLadder) window.renderLadder();
+            if (window.renderTrendingTopics) window.renderTrendingTopics();
+        }, (error) => {
+            console.warn("Cloud posts listener error:", error);
+        });
+    } catch (e) {
+        console.error("Firestore feed setup failed:", e);
+    }
+};
+
+window.handleMediaUploadSelect = function(input) {
+    if (!input.files) return;
+    const files = Array.from(input.files).slice(0, 10);
+    window.uploadedMediaBlobs = [];
+    const previewBox = document.getElementById('mediaPreviewThumbnails');
+    if (previewBox) previewBox.innerHTML = '';
+
+    files.forEach(file => {
+        const isVideo = file.type.includes('video');
+        const url = URL.createObjectURL(file);
+        window.uploadedMediaBlobs.push({ type: isVideo ? 'video' : 'image', url: url, file: file });
+
+        if (previewBox) {
+            previewBox.innerHTML += isVideo
+                ? `<div class="aspect-square rounded-lg bg-black overflow-hidden relative border border-cyan-500/20"><video src="${url}" class="w-full h-full object-cover"></video><span class="absolute top-1 right-1 text-[8px] bg-red-600 text-white font-bold px-1 rounded">VID</span></div>`
+                : `<div class="aspect-square rounded-lg bg-black overflow-hidden relative border border-cyan-500/20"><img src="${url}" class="w-full h-full object-cover"></div>`;
+        }
+    });
+
+    const indicator = document.getElementById('mediaCountIndicator');
+    if (indicator) indicator.innerText = `${window.uploadedMediaBlobs.length} / 10 selected`;
+};
+
+window.audioTracksPreset = [
+    { id: 'track_1', title: 'Sinless GG Tournament Theme', artist: 'Sinless Productions', url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73421.mp3' },
+    { id: 'track_2', title: 'Cyberpunk Esports Hype', artist: 'Gaming Audio', url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3' },
+    { id: 'track_3', title: 'Champions League Anthem Remix', artist: 'FIFA Beat', url: 'https://cdn.pixabay.com/download/audio/2021/08/09/audio_884b2c15a5.mp3' }
+];
+
+window.openAudioSelector = function() {
+    const list = document.getElementById('audioTracksList');
+    if (!list) return;
+
+    list.innerHTML = window.audioTracksPreset.map(t => `
+        <div class="p-2.5 bg-gg-900 rounded-xl border border-amber-500/20 flex items-center justify-between cursor-pointer hover:border-amber-400 transition" onclick="window.selectAudioTrack('${t.id}')">
+            <div>
+                <h4 class="text-xs font-bold text-white">${t.title}</h4>
+                <p class="text-[9px] text-amber-400">${t.artist}</p>
+            </div>
+            <button class="px-3 py-1 bg-amber-400 text-slate-950 font-black rounded-lg text-[10px] uppercase shadow">Select</button>
+        </div>
+    `).join('');
+
+    document.getElementById('audioSelectorModal').classList.remove('hidden');
+};
+
+window.closeAudioSelector = function() {
+    document.getElementById('audioSelectorModal').classList.add('hidden');
+};
+
+window.selectAudioTrack = function(trackId) {
+    const track = window.audioTracksPreset.find(t => t.id === trackId);
+    if (!track) return;
+
+    window.selectedAudioTrack = track;
+    const label = document.getElementById('selectedSoundLabel');
+    if (label) label.innerText = `🎵 Sound: ${track.title}`;
+
+    const player = document.getElementById('previewAudioPlayer');
+    if (player) {
+        player.src = track.url;
+        player.play().catch(() => {});
+    }
+
+    window.closeAudioSelector();
+    showToast(`🎵 Background Track Attached!`);
+};
+
+window.stopAudioPreview = function() {
+    const player = document.getElementById('previewAudioPlayer');
+    if (player) {
+        player.pause();
+        player.currentTime = 0;
+    }
+};
+
+window.activeLiveMediaStream = null;
+window.activeLiveMediaRecorder = null;
+
+window.openLiveBroadcastModal = function() {
+    document.getElementById('liveStreamModal').classList.remove('hidden');
+};
+
+window.closeLiveBroadcastModal = function() {
+    if (window.activeLiveMediaStream) {
+        window.activeLiveMediaStream.getTracks().forEach(track => track.stop());
+        window.activeLiveMediaStream = null;
+    }
+    document.getElementById('liveStreamModal').classList.add('hidden');
+};
+
+window.startLiveStream = async function(mode) {
+    const video = document.getElementById('liveStreamPreviewVideo');
+    const placeholder = document.getElementById('streamPlaceholder');
+    const label = document.getElementById('liveStreamStatusLabel');
+
+    if (mode === 'camera') {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            window.activeLiveMediaStream = stream;
+            video.srcObject = stream;
+            video.classList.remove('hidden');
+            if (placeholder) placeholder.classList.add('hidden');
+            if (label) label.innerHTML = `<i class="fa-solid fa-tower-broadcast mr-1.5 animate-pulse text-red-500"></i> LIVE ON CAMERA`;
+            showToast("🎥 Camera Broadcast Started!");
+        } catch (e) {
+            console.error("Camera access error:", e);
+            showToast("⚠️ Unable to access camera device.");
+        }
+    }
+};
+
+window.flipCamera = async function() {
+    if (!window.activeLiveMediaStream) return;
+    window.activeLiveMediaStream.getTracks().forEach(track => track.stop());
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
+        window.activeLiveMediaStream = stream;
+        const video = document.getElementById('liveStreamPreviewVideo');
+        video.srcObject = stream;
+        showToast("📷 Switched Camera Facing");
+    } catch (e) {
+        showToast("Unable to flip camera.");
+    }
+};
+
+window.togglePauseStream = function() {
+    if (!window.activeLiveMediaStream) return;
+    const videoTrack = window.activeLiveMediaStream.getVideoTracks()[0];
+    if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        showToast(videoTrack.enabled ? "▶️ Video Resumed" : "⏸️ Video Paused");
+    }
+};
+
+window.toggleAudioMute = function() {
+    if (!window.activeLiveMediaStream) return;
+    const audioTrack = window.activeLiveMediaStream.getAudioTracks()[0];
+    if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        showToast(audioTrack.enabled ? "🎙️ Audio Unmuted" : "🔇 Audio Muted");
+    }
+};
+
+window.embedExternalStreamLink = function() {
+    const url = document.getElementById('streamUrlInput').value.trim();
+    if (!url) return;
+
+    let embedUrl = url.replace('watch?v=', 'embed/').replace('twitch.tv/', 'player.twitch.tv/?channel=');
+    const iframe = document.getElementById('liveStreamEmbedIframe');
+    const video = document.getElementById('liveStreamPreviewVideo');
+    const placeholder = document.getElementById('streamPlaceholder');
+
+    iframe.src = embedUrl;
+    iframe.classList.remove('hidden');
+    video.classList.add('hidden');
+    if (placeholder) placeholder.classList.add('hidden');
+
+    showToast("📡 External Live Stream Embedded!");
+};
+
+window.activeDmUser = null;
+window.dmMessagesList = JSON.parse(localStorage.getItem('sinless_dm_messages') || '{}');
+
+window.openDmModal = function(username = 'SinlessGaming', e = null) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    const cleanUser = username.replace('@', '');
+    window.activeDmUser = cleanUser;
+
+    const headerUser = document.getElementById('dmHeaderUser');
+    if (headerUser) headerUser.innerText = `@${cleanUser}`;
+
+    window.renderDmThread();
+    document.getElementById('dmModal').classList.remove('hidden');
+};
+
+window.closeDmModal = function() {
+    document.getElementById('dmModal').classList.add('hidden');
+    window.activeDmUser = null;
+};
+
+window.renderDmThread = function() {
+    const container = document.getElementById('dmMessagesContainer');
+    if (!container || !window.activeDmUser) return;
+
+    const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+    const partner = window.activeDmUser.toLowerCase();
+    const threadKey = [me, partner].sort().join('_');
+
+    const msgs = window.dmMessagesList[threadKey] || [];
+
+    if (msgs.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Start a private chat with @${window.activeDmUser}!</p>`;
+        return;
+    }
+
+    container.innerHTML = msgs.map(m => {
+        const isMine = m.sender.toLowerCase() === me;
+        if (m.isImage) {
+            return `
+                <div class="flex flex-col ${isMine ? 'items-end' : 'items-start'} my-1">
+                    <div class="p-2 bg-gg-900 rounded-2xl border border-cyan-500/20 max-w-xs space-y-1">
+                        <span class="text-[9px] text-cyan-400 font-bold block">@${m.sender}</span>
+                        <img src="${m.imageUrl}" class="max-h-48 rounded-xl object-contain cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.imageUrl}')">
+                    </div>
+                </div>
+            `;
+        }
+        return `
+            <div class="flex flex-col ${isMine ? 'items-end' : 'items-start'} my-1">
+                <div class="px-3 py-2 ${isMine ? 'bg-cyan-500 text-slate-950 font-bold' : 'bg-gg-900 text-white'} rounded-2xl max-w-xs text-xs shadow-md">
+                    <p>${formatMentions(m.text)}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.scrollTop = container.scrollHeight;
+};
+
+window.sendDirectMessage = function() {
+    const input = document.getElementById('dmInputText');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text || !window.activeDmUser) return;
+
+    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const partner = window.activeDmUser;
+    const threadKey = [me.toLowerCase(), partner.toLowerCase()].sort().join('_');
+
+    if (!window.dmMessagesList[threadKey]) window.dmMessagesList[threadKey] = [];
+
+    window.dmMessagesList[threadKey].push({
+        sender: me,
+        text: text,
+        timestamp: Date.now()
+    });
+
+    localStorage.setItem('sinless_dm_messages', JSON.stringify(window.dmMessagesList));
+    input.value = '';
+    window.renderDmThread();
+};
+
+window.toggleDirectVoiceCall = function() {
+    showToast(`📞 Direct Voice Call Connected with @${window.activeDmUser || 'Gamer'}!`);
+};
+
+window.openMarketModal = function() { document.getElementById('marketModal').classList.remove('hidden'); };
+window.closeMarketModal = function() { document.getElementById('marketModal').classList.add('hidden'); };
+
+window.submitMarketListingToCloud = async function() {
+    const title = document.getElementById('marketTitleInput').value.trim();
+    const price = document.getElementById('marketPriceInput').value.trim();
+
+    if (!title || !price) {
+        showToast("⚠️ Enter title and price!");
+        return;
+    }
+
+    const listing = {
+        id: 'local_mkt_' + Date.now(),
+        title: title,
+        price: price,
+        user: (window.myUsername || '@SinlessGaming').replace('@', ''),
+        uid: window.currentUser ? window.currentUser.uid : 'guest',
+        createdAt: new Date().toISOString()
+    };
+
+    let savedToCloud = false;
+    if (window.db && typeof addDoc === 'function') {
+        try {
+            await addDoc(collection(window.db, "market"), { ...listing, createdAt: serverTimestamp() });
+            savedToCloud = true;
+        } catch (e) {
+            console.error("Market cloud save failed:", e);
+        }
+    }
+
+    if (!savedToCloud) {
+        window.marketListings = [listing, ...(window.marketListings || [])];
+        localStorage.setItem('sinless_market_listings', JSON.stringify(window.marketListings.filter(m => String(m.id).startsWith('local_'))));
+        window.renderMarketList();
+    }
+
+    showToast(savedToCloud ? "🛍️ Listed on Cloud Market!" : "🛍️ Listing saved on this device!");
+    document.getElementById('marketTitleInput').value = '';
+    document.getElementById('marketPriceInput').value = '';
+    window.closeMarketModal();
+};
+
+// ================= MARKET LIST (restored) =================
+window.marketListings = JSON.parse(localStorage.getItem('sinless_market_listings') || '[]');
+
+window.renderMarketList = function() {
+    const container = document.getElementById('marketListContainer');
+    if (!container) return;
+
+    const listings = window.marketListings || [];
+    if (listings.length === 0) {
+        container.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No listings yet. Tap "+ List Item" to sell something!</div>`;
+        return;
+    }
+
+    container.innerHTML = '';
+    listings.forEach(m => {
+        container.innerHTML += `
+            <div class="glass-panel p-3.5 rounded-2xl flex items-center justify-between shadow-lg border border-cyan-500/20">
+                <div class="min-w-0 pr-2">
+                    <h4 class="text-xs font-extrabold text-white truncate">${escapeHTML(m.title)}</h4>
+                    <p class="text-[9px] text-cyan-400">Seller: @${escapeHTML(m.user)}</p>
+                </div>
+                <div class="text-right shrink-0">
+                    <span class="text-xs font-black text-amber-400 block">${escapeHTML(m.price)}</span>
+                    <button onclick="openDmModal('${escapeHTML(m.user)}', event)" class="px-3 py-1 bg-cyan-400 text-slate-950 font-black text-[9px] rounded-lg uppercase shadow mt-1">Contact</button>
+                </div>
+            </div>
+        `;
+    });
+};
+
+window.listenToFirestoreMarket = function() {
+    if (!window.db || typeof query !== 'function') return;
+    try {
+        const q = query(collection(window.db, "market"), orderBy("createdAt", "desc"), limit(30));
+        onSnapshot(q, (snapshot) => {
+            const cloud = [];
+            snapshot.forEach(d => cloud.push({ id: d.id, ...d.data() }));
+            const local = JSON.parse(localStorage.getItem('sinless_market_listings') || '[]');
+            window.marketListings = [...local, ...cloud];
+            window.renderMarketList();
+        }, (error) => console.warn("Market listener error:", error));
+    } catch (e) {
+        console.error("Market listener setup failed:", e);
+    }
+};
+
+// ================= TRENDING & SEARCH (restored) =================
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+}
+
+window.renderTrendingTopics = function() {
+    const container = document.getElementById('dynamicTrendingTopicsList');
+    if (!container) return;
+
+    const counts = {};
+    (window.fypposts || []).forEach(p => {
+        const g = p.game || 'OTHER GAMES';
+        counts[g] = (counts[g] || 0) + 1;
+    });
+    const topics = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+    if (topics.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">Nothing trending yet. Post something!</p>`;
+        return;
+    }
+
+    container.innerHTML = '';
+    topics.forEach(([game, n]) => {
+        container.innerHTML += `
+            <div class="glass-panel p-3 rounded-xl flex items-center justify-between cursor-pointer" onclick="switchView('fyp'); filterByCategory('${game}')">
+                <div>
+                    <h4 class="text-xs font-extrabold text-cyan-400">#${game.replace(/\s+/g, '')}</h4>
+                    <p class="text-[9px] text-gray-400">${n} post${n === 1 ? '' : 's'}</p>
+                </div>
+                <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
+            </div>
+        `;
+    });
+};
+
+window.handleGlobalSearch = function(text) {
+    const q = (text || '').trim().toLowerCase();
+    const container = document.getElementById('dynamicTrendingTopicsList');
+    if (!container) return;
+    if (!q) { window.renderTrendingTopics(); return; }
+
+    const matches = (window.fypposts || []).filter(p =>
+        (p.user && p.user.toLowerCase().includes(q)) ||
+        (p.caption && p.caption.toLowerCase().includes(q)) ||
+        (p.game && p.game.toLowerCase().includes(q))
+    );
+
+    if (matches.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No results for "${escapeHTML(q)}".</p>`;
+        return;
+    }
+
+    container.innerHTML = '';
+    matches.forEach(p => {
+        container.innerHTML += `
+            <div class="glass-panel p-3 rounded-xl space-y-1 cursor-pointer border border-cyan-500/20" onclick="openUserProfileModal('${escapeHTML(p.user)}', event)">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="font-extrabold text-cyan-400">@${escapeHTML(p.user)}</span>
+                    <span class="text-[9px] text-gray-400 uppercase">${escapeHTML(p.game)}</span>
+                </div>
+                <p class="text-xs text-gray-200 truncate">${escapeHTML(p.caption) || 'Media Clip'}</p>
+            </div>
+        `;
+    });
+};
+
+// ================= SMALL MISSING HELPERS (restored) =================
+window.toggleTournamentFormatOptions = function(val) {
+    const box = document.getElementById('leagueH2HOptionBox');
+    if (box) box.classList.toggle('hidden', val !== 'LEAGUE');
+};
+
+window.closeStickyMediaViewer = function() {
+    const viewer = document.getElementById('stickyMediaViewer');
+    if (viewer) viewer.classList.add('hidden');
+    const content = document.getElementById('stickyMediaContent');
+    if (content) content.innerHTML = '';
+};
+
+window.openAccountModal = function() { document.getElementById('accountModal').classList.remove('hidden'); };
+window.closeAccountModal = function() { document.getElementById('accountModal').classList.add('hidden'); };
+
+window.openCreatePostModal = function() { document.getElementById('createPostModal').classList.remove('hidden'); };
+window.closeCreatePostModal = function() { document.getElementById('createPostModal').classList.add('hidden'); };
+
+window.activeZoomPostId = null;
+
+window.openMediaZoomModal = function(type, mediaUrl, postId = null, caption = '') {
+    window.activeZoomPostId = postId;
+    const stage = document.getElementById('mediaZoomStage');
+    const title = document.getElementById('mediaZoomTitle');
+    if (!stage) return;
+
+    if (title) title.innerText = 'Media Lightbox Preview';
+
+    if (type === 'video') {
+        stage.innerHTML = `<video src="${mediaUrl}" class="max-w-full max-h-full object-contain rounded-2xl" controls autoplay></video>`;
+    } else if (type === 'image') {
+        stage.innerHTML = `<img src="${mediaUrl}" class="max-w-full max-h-full object-contain rounded-2xl">`;
+    } else {
+        stage.innerHTML = `<div class="p-6 bg-gg-900 rounded-2xl border border-cyan-500/30 text-white text-sm max-w-md text-center">${caption}</div>`;
+    }
+
+    window.renderZoomInteractions(postId);
+    document.getElementById('mediaZoomModal').classList.remove('hidden');
+};
+
+window.closeMediaZoomModal = function() {
+    document.getElementById('mediaZoomModal').classList.add('hidden');
+    window.activeZoomPostId = null;
+};
+
+window.renderZoomInteractions = function(postId) {
+    const bar = document.getElementById('mediaZoomInteractionsBar');
+    if (!bar) return;
+
+    if (!postId) {
+        bar.innerHTML = '';
+        return;
+    }
+
+    const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
+    if (!post) {
+        bar.innerHTML = '';
+        return;
+    }
+
+    const hasGGed = post.ggsBy && post.ggsBy.includes(window.currentUser ? window.currentUser.uid : 'guest_user');
+
+    bar.innerHTML = `
+        <div class="flex items-center space-x-2 text-xs text-white">
+            <span class="font-bold text-cyan-400">@${post.user}</span>
+            <span class="text-[9px] text-gray-400 uppercase">${post.game || 'POST'}</span>
+        </div>
+        <div class="flex items-center space-x-3 text-xs">
+            <button onclick="window.toggleGGPost('${postId}')" class="flex items-center space-x-1 ${hasGGed ? 'text-cyan-400' : 'text-gray-300'} font-bold">
+                <i class="fa-solid fa-thumbs-up"></i>
+                <span>${post.ggsCount || 0}</span>
+            </button>
+            <button onclick="window.openCommentsModal('${postId}')" class="flex items-center space-x-1 text-gray-300 font-bold">
+                <i class="fa-solid fa-comment"></i>
+                <span>${post.commentsCount || 0}</span>
+            </button>
+        </div>
+    `;
+};
+
+window.switchView = function(viewId) {
+    document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
+    const target = document.getElementById(`view-${viewId}`);
+    if (target) target.classList.remove('hidden');
+
+    document.querySelectorAll('[id^="nav-"]').forEach(b => {
+        b.className = "flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap";
+    });
+
+    const activeNav = document.getElementById(`nav-${viewId}`);
+    if (activeNav) {
+        activeNav.className = "flex-1 py-2 px-2.5 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap";
+    }
+
+    if (viewId === 'tournaments') {
+        window.renderTournamentsTabDedicated();
+    } else if (viewId === 'clans') {
+        window.renderClansList();
+    } else if (viewId === 'standings') {
+        window.renderTournamentsTab();
+        window.renderLadder();
+    } else if (viewId === 'popular') {
+        window.renderTopAccounts();
+    }
+};
+
+window.renderLadder = function() {
+    const container = document.getElementById('ladderBody');
+    if (!container) return;
+
+    const { sortedCreators } = calculateGlobalRanks();
+
+    if (sortedCreators.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No creators ranked yet.</p>`;
+        return;
+    }
+
+    container.innerHTML = sortedCreators.slice(0, 10).map((c, i) => `
+        <div class="p-2.5 flex items-center justify-between text-xs cursor-pointer hover:bg-gg-900/50 transition" onclick="window.openUserProfileModal('${c.gamertag}', event)">
+            <div class="flex items-center space-x-2.5">
+                <span class="font-black text-amber-400 text-xs w-4">#${i + 1}</span>
+                <div>
+                    <h4 class="font-bold text-white">@${c.gamertag}</h4>
+                    <p class="text-[9px] text-gray-400">${c.postsCount} Clips Published</p>
+                </div>
+            </div>
+            <span class="font-black text-cyan-400 text-xs">${c.totalGGs} GGs</span>
+        </div>
+    `).join('');
+};
+
+window.renderTopAccounts = function() {
+    const container = document.getElementById('topAccountsList');
+    if (!container) return;
+
+    const { sortedCreators } = calculateGlobalRanks();
+
+    container.innerHTML = sortedCreators.map((c, i) => `
+        <div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs border border-cyan-500/15 hover:border-cyan-400 transition cursor-pointer" onclick="window.openUserProfileModal('${c.gamertag}', event)">
+            <div class="flex items-center space-x-3">
+                <span class="font-black text-amber-400 w-5">#${i + 1}</span>
+                <div>
+                    <h4 class="font-bold text-white">@${c.gamertag}</h4>
+                    <p class="text-[9px] text-cyan-400 font-semibold">${c.postsCount} Posts • ${c.totalGGs} Total GGs</p>
+                </div>
+            </div>
+            <button class="px-3 py-1 bg-cyan-400 text-slate-950 font-black rounded-lg text-[10px] uppercase shadow">View Profile</button>
+        </div>
+    `).join('');
+};
+
+window.sendChatMessage = function() {
+    const input = document.getElementById('chatInputMsg');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+
+    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const box = document.getElementById('chatMessagesBox');
+
+    if (box) {
+        box.innerHTML += `
+            <div class="bg-gg-900 p-2.5 rounded-xl border border-cyan-500/15 space-y-0.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-cyan-400 cursor-pointer" onclick="window.openUserProfileModal('${me}', event)">@${me}</span>
+                    <span class="text-[8px] text-gray-500">Just now</span>
+                </div>
+                <p class="text-xs text-gray-200">${formatMentions(text)}</p>
+            </div>
+        `;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    input.value = '';
+};
+
+window.toggleVoiceLobbyConnection = function() {
+    const label = document.getElementById('voiceStatusLabel');
+    const btn = document.getElementById('voiceLobbyToggleBtn');
+
+    if (label && label.innerText.includes('Disconnected')) {
+        label.innerText = 'Voice Connected (Live)';
+        label.className = 'text-[9px] text-emerald-400 font-extrabold animate-pulse';
+        if (btn) btn.innerHTML = `<i class="fa-solid fa-microphone-slash"></i><span>Leave Voice Channel</span>`;
+        showToast("🎙️ Connected to Global Voice Channel!");
+    } else if (label) {
+        label.innerText = 'Voice Disconnected';
+        label.className = 'text-[9px] text-gray-400 font-extrabold';
+        if (btn) btn.innerHTML = `<i class="fa-solid fa-microphone"></i><span>Join Voice Channel</span>`;
+        showToast("Voice Channel Disconnected.");
+    }
+};
+
+window.initApp = async function() {
+    window.updateCoinDisplay();
+    pruneExpiredEphemeralData();
+
+    const localStories = await window.loadLocalStoriesFromDB();
+    if (localStories && localStories.length > 0) {
+        window.profileStories = localStories;
+        window.renderStoriesBar();
+    }
+
+    if (window.listenToCloudPosts) window.listenToCloudPosts();
+    if (window.listenToFirestoreSquads) window.listenToFirestoreSquads();
+
+    if (window.listenToFirestoreMarket) window.listenToFirestoreMarket();
+
+    if (window.renderFypFeed) window.renderFypFeed();
+    if (window.renderClansList) window.renderClansList();
+    if (window.renderTournamentsTab) window.renderTournamentsTab();
+    if (window.renderTournamentsTabDedicated) window.renderTournamentsTabDedicated();
+    if (window.renderMarketList) window.renderMarketList();
+    if (window.renderTrendingTopics) window.renderTrendingTopics();
+};
