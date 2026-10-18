@@ -6,7 +6,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { 
     getFirestore, collection, addDoc, doc, deleteDoc, updateDoc, 
     arrayUnion, arrayRemove, increment, query, orderBy, limit, 
-    onSnapshot, serverTimestamp, where, getDocs, getDoc 
+    onSnapshot, serverTimestamp, where, getDocs, getDoc, setDoc, getCountFromServer 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { 
     getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged 
@@ -255,12 +255,12 @@ if (window.auth) {
                 authModalBtn.onclick = window.logoutUser;
             }
         } else {
-            window.myUsername = '@SinlessGaming';
-            window.myDisplayName = 'Sinless Gaming';
+            window.myUsername = '@Guest';
+            window.myDisplayName = 'Guest';
             window.currentUser = null;
 
             const headerTag = document.getElementById('headerUserTag');
-            if (headerTag) headerTag.innerText = '@SinlessGaming';
+            if (headerTag) headerTag.innerText = '@Guest';
 
             if (authModalStatus) authModalStatus.innerText = 'Connect with your Google account to post under your real Gamertag.';
             if (authModalBtn) {
@@ -269,6 +269,7 @@ if (window.auth) {
             }
         }
         if(window.renderClansList) window.renderClansList();
+        if (window.afterAuthChange) window.afterAuthChange(user);
     });
 }
 
@@ -987,7 +988,7 @@ window.openUserProfileModal = function(username, e = null) {
     const followBtn = document.getElementById('profileFollowBtn');
     const editBtn = document.getElementById('profileEditBtn');
 
-    if (isMyOwnProfile || cleanUser.toLowerCase() === 'sinlessgaming') {
+    if (isMyOwnProfile) {
         if (followBtn) followBtn.classList.add('hidden');
         if (editBtn) editBtn.classList.remove('hidden');
     } else {
@@ -2990,7 +2991,7 @@ window.renderFeedCard = function(p, me) {
                     ${isOwner ? `
                         <button onclick="window.openEditPostModal('${pId}')" class="text-gray-400 hover:text-cyan-400 text-xs px-1.5"><i class="fa-solid fa-pen"></i></button>
                         <button onclick="window.deletePost('${pId}')" class="text-gray-400 hover:text-red-400 text-xs px-1.5"><i class="fa-solid fa-trash"></i></button>
-                    ` : ''}
+                    ` : `<button onclick="window.openPostActions('${pId}')" class="text-gray-400 hover:text-white text-sm px-2" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button>`}
                 </div>
             </div>
 
@@ -3222,7 +3223,7 @@ window.renderPostDetail = function(p) {
                 ${isOwner ? `<div class="flex items-center space-x-1">
                     <button onclick="window.closePostDetail(); window.openEditPostModal('${pId}')" class="w-9 h-9 rounded-xl bg-gg-900 text-gray-300 text-xs"><i class="fa-solid fa-pen"></i></button>
                     <button onclick="window.closePostDetail(); window.deletePost('${pId}')" class="w-9 h-9 rounded-xl bg-gg-900 text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>
-                </div>` : ''}
+                </div>` : `<button onclick="window.openPostActions('${pId}')" class="w-9 h-9 rounded-xl bg-gg-900 text-gray-300 text-sm"><i class="fa-solid fa-ellipsis"></i></button>`}
             </div>
 
             ${p.caption ? `<p class="${big ? 'text-xl font-extrabold leading-snug' : 'text-[15px] leading-relaxed'} text-white whitespace-pre-wrap break-words">${formatMentions(p.caption)}</p>` : ''}
@@ -4466,4 +4467,1097 @@ window.initApp = async function() {
     if (window.renderMarketList) window.renderMarketList();
     if (window.renderTrendingTopics) window.renderTrendingTopics();
     if (window.loadLiveMatches) window.loadLiveMatches();
+};
+
+// ======================================================================
+// SINLESS GG - CLOUD LAYER (v9)
+// Everything below replaces the old "only on this phone" versions so that
+// tournaments, squads, DMs, profiles, follows and notifications are shared.
+// ======================================================================
+
+window.me = function() { return (window.myUsername || '').replace('@', ''); };
+window.meLower = function() { return window.me().toLowerCase(); };
+window.isSignedIn = function() { return !!(window.currentUser && window.db); };
+window.needSignIn = function(what) {
+    if (window.isSignedIn()) return false;
+    showToast(`🔐 Sign in with Google (side menu → Account) to ${what}.`);
+    return true;
+};
+window.cleanForCloud = function(obj) { return JSON.parse(JSON.stringify(obj, (k, v) => (v === undefined ? null : v))); };
+
+// ================= PUBLIC PROFILES =================
+// profiles/{gamertag-lowercase} = { uid, gamertag, displayName, bio, website, pfp, cover }
+window.profileCache = {};
+
+window.getProfile = async function(tag, force = false) {
+    const key = (tag || '').replace('@', '').toLowerCase();
+    if (!key) return null;
+    const c = window.profileCache[key];
+    if (c && !force && Date.now() - c.at < 5 * 60000) return c.data;
+    let data = null;
+    if (window.db) {
+        try {
+            const snap = await getDoc(doc(window.db, 'profiles', key));
+            if (snap.exists()) data = snap.data();
+        } catch (e) {}
+    }
+    window.profileCache[key] = { at: Date.now(), data };
+    if (data) window.userProfiles[key] = { ...(window.userProfiles[key] || {}), ...data };
+    return data;
+};
+
+// Make sure the signed-in user has a public profile (needed for DMs, follows, notifications)
+window.ensureMyProfile = async function() {
+    if (!window.isSignedIn()) return;
+    const key = window.meLower();
+    try {
+        const ref = doc(window.db, 'profiles', key);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+            const local = window.userProfiles[key] || {};
+            await setDoc(ref, window.cleanForCloud({
+                uid: window.currentUser.uid,
+                gamertag: window.me(),
+                displayName: local.displayName || window.myDisplayName || window.me(),
+                bio: local.bio || 'Gamer on Sinless GG 🎮',
+                website: local.website || '',
+                pfp: (local.pfp && !String(local.pfp).startsWith('data:')) ? local.pfp : (window.currentUser.photoURL || ''),
+                cover: (local.cover && !String(local.cover).startsWith('data:')) ? local.cover : '',
+                createdAt: serverTimestamp()
+            }));
+        } else if (snap.data().uid !== window.currentUser.uid) {
+            showToast(`⚠️ The gamertag @${window.me()} belongs to another account.`);
+        }
+        window.profileCache[key] = null;
+    } catch (e) { console.warn('Profile setup failed', e); }
+};
+
+window.saveUserProfileChanges = async function() {
+    const key = window.meLower();
+    const updated = {
+        displayName: document.getElementById('editDisplayNameInput').value.trim() || window.me(),
+        bio: document.getElementById('editBioInput').value.trim(),
+        website: document.getElementById('editWebsiteInput').value.trim(),
+        pfp: window.tempProfilePfp || '',
+        cover: window.tempProfileCover || ''
+    };
+    window.userProfiles[key] = { ...(window.userProfiles[key] || {}), ...updated };
+    localStorage.setItem('sinless_user_profiles', JSON.stringify(window.userProfiles));
+    if (window.isSignedIn()) {
+        try {
+            await setDoc(doc(window.db, 'profiles', key), window.cleanForCloud({ ...updated, uid: window.currentUser.uid, gamertag: window.me(), updatedAt: serverTimestamp() }), { merge: true });
+            window.profileCache[key] = null;
+            showToast("✅ Profile saved for everyone!");
+        } catch (e) { showToast("⚠️ Couldn't save profile to the cloud."); }
+    } else {
+        showToast("Profile saved on this phone. Sign in to share it.");
+    }
+    window.closeEditProfileModal();
+    window.openUserProfileModal(window.me());
+};
+
+// ================= FOLLOWS =================
+// follows/{fromUid}_{toUid} = { fromUid, toUid, fromUser, toUser, createdAt }
+window.myFollowing = { uids: new Set(), users: new Set() };
+
+window.loadMyFollowing = async function() {
+    window.myFollowing = { uids: new Set(), users: new Set() };
+    if (!window.isSignedIn()) return;
+    try {
+        const snap = await getDocs(query(collection(window.db, 'follows'), where('fromUid', '==', window.currentUser.uid), limit(1000)));
+        snap.forEach(d => { const f = d.data(); window.myFollowing.uids.add(f.toUid); window.myFollowing.users.add((f.toUser || '').toLowerCase()); });
+    } catch (e) {}
+    if (window.feedMode === 'following') window.renderFypFeed();
+};
+
+window.amFollowing = function(tag) { return window.myFollowing.users.has((tag || '').toLowerCase()); };
+
+window.countFollows = async function(field, uid) {
+    if (!window.db || !uid) return 0;
+    try {
+        const res = await getCountFromServer(query(collection(window.db, 'follows'), where(field, '==', uid)));
+        return res.data().count;
+    } catch (e) {
+        try { const s = await getDocs(query(collection(window.db, 'follows'), where(field, '==', uid), limit(1000))); return s.size; } catch (err) { return 0; }
+    }
+};
+
+window.toggleFollowUser = async function(tag) {
+    if (window.needSignIn('follow gamers')) return;
+    const prof = await window.getProfile(tag);
+    if (!prof || !prof.uid) { showToast(`@${tag} hasn't signed in to Sinless GG yet.`); return; }
+    if (prof.uid === window.currentUser.uid) return;
+    const id = `${window.currentUser.uid}_${prof.uid}`;
+    const ref = doc(window.db, 'follows', id);
+    const following = window.amFollowing(tag);
+    try {
+        if (following) {
+            await deleteDoc(ref);
+            window.myFollowing.uids.delete(prof.uid); window.myFollowing.users.delete(tag.toLowerCase());
+            showToast(`Unfollowed @${tag}.`);
+        } else {
+            await setDoc(ref, { fromUid: window.currentUser.uid, toUid: prof.uid, fromUser: window.me(), toUser: prof.gamertag || tag, createdAt: serverTimestamp() });
+            window.myFollowing.uids.add(prof.uid); window.myFollowing.users.add(tag.toLowerCase());
+            showToast(`✅ Following @${tag}!`);
+            window.notify(prof.uid, 'follow', { text: 'started following you' });
+        }
+    } catch (e) { showToast("⚠️ Couldn't update follow. Check your connection."); }
+    window.openUserProfileModal(tag);
+};
+
+// Profile view: after the normal render, fill in real cloud data (photo, bio, followers)
+window._baseOpenUserProfileModal = window._baseOpenUserProfileModal || window.openUserProfileModal;
+window.openUserProfileModal = function(username, e = null) {
+    window._baseOpenUserProfileModal(username, e);
+    const tag = (username || '').replace('@', '');
+    window.enhanceProfileView(tag);
+};
+
+window.enhanceProfileView = async function(tag) {
+    const isMine = window.isSignedIn() && tag.toLowerCase() === window.meLower();
+    const editBtn = document.getElementById('profileEditBtn');
+    if (editBtn) editBtn.classList.toggle('hidden', !isMine);
+
+    ['profileFollowersCount', 'profileFollowingCount'].forEach(id => { const el = document.getElementById(id); if (el) el.innerText = '…'; });
+    const prof = await window.getProfile(tag);
+    if (window.activeProfileUser !== tag) return; // user opened someone else meanwhile
+
+    if (prof) {
+        if (prof.displayName) document.getElementById('profileDisplayName').innerText = prof.displayName;
+        if (prof.bio) document.getElementById('profileBioText').innerText = prof.bio;
+        const pfpBox = document.getElementById('profileAvatarBox');
+        if (prof.pfp && pfpBox) pfpBox.innerHTML = `<img src="${window.cldSized(prof.pfp, 300)}" class="w-full h-full object-cover">`;
+        const banner = document.getElementById('profileBannerHeader');
+        if (prof.cover && banner) banner.style.backgroundImage = `url('${window.cldSized(prof.cover, 1200)}')`;
+        if (prof.website) {
+            const link = document.getElementById('profileLinkUrl');
+            link.innerText = prof.website.replace(/^https?:\/\//, '');
+            link.href = prof.website.startsWith('http') ? prof.website : `https://${prof.website}`;
+        }
+    }
+
+    const followersEl = document.getElementById('profileFollowersCount');
+    const followingEl = document.getElementById('profileFollowingCount');
+    if (prof && prof.uid) {
+        const [followers, following] = await Promise.all([window.countFollows('toUid', prof.uid), window.countFollows('fromUid', prof.uid)]);
+        if (window.activeProfileUser !== tag) return;
+        if (followersEl) followersEl.innerText = window.formatCount(followers);
+        if (followingEl) followingEl.innerText = window.formatCount(following);
+    } else {
+        if (followersEl) followersEl.innerText = '0';
+        if (followingEl) followingEl.innerText = '0';
+    }
+
+    const followBtn = document.getElementById('profileFollowBtn');
+    const moreBtn = document.getElementById('profileMoreBtn');
+    if (followBtn) {
+        if (isMine) followBtn.classList.add('hidden');
+        else {
+            const on = window.amFollowing(tag);
+            followBtn.classList.remove('hidden');
+            followBtn.className = `px-4 py-1.5 font-black rounded-xl text-xs uppercase shadow ${on ? 'bg-gg-900 border border-cyan-500/40 text-cyan-400' : 'bg-cyan-400 text-slate-950'}`;
+            followBtn.innerHTML = on ? `<i class="fa-solid fa-user-check mr-1"></i> Following` : `<i class="fa-solid fa-user-plus mr-1"></i> Follow`;
+            followBtn.onclick = () => window.toggleFollowUser(tag);
+        }
+    }
+    if (moreBtn) {
+        moreBtn.classList.toggle('hidden', isMine);
+        moreBtn.onclick = () => window.openUserActions(tag);
+    }
+};
+
+// ================= FEED: For You / Following =================
+window.feedMode = 'foryou';
+window.setFeedMode = function(mode) {
+    window.feedMode = mode;
+    ['foryou', 'following'].forEach(m => {
+        const b = document.getElementById('feedTab_' + m);
+        if (b) b.className = `flex-1 py-2 text-xs font-black transition border-b-2 ${m === mode ? 'text-white border-cyan-400' : 'text-gray-500 border-transparent'}`;
+    });
+    if (mode === 'following' && window.needSignIn('see posts from people you follow')) { window.setFeedMode('foryou'); return; }
+    window.renderFypFeed();
+};
+
+// Wrap the feed so it respects Following mode, blocked users and reported posts
+window._baseGetOrderedFeed = window._baseGetOrderedFeed || window.getOrderedFeed;
+window.getOrderedFeed = function() {
+    let list = window._baseGetOrderedFeed();
+    list = list.filter(p => !window.isBlocked(p.user) && !window.isHiddenByReports(p));
+    if (window.feedMode === 'following') {
+        list = list.filter(p => window.myFollowing.uids.has(p.uid) || window.myFollowing.users.has((p.user || '').toLowerCase()) || window.isMyPost(p));
+    }
+    return list;
+};
+
+window._baseRenderFypFeed = window._baseRenderFypFeed || window.renderFypFeed;
+window.renderFypFeed = function() {
+    window._baseRenderFypFeed();
+    const box = document.getElementById('fypFeedContainer');
+    if (window.feedMode === 'following' && box && !box.querySelector('[data-post-id]')) {
+        box.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center space-y-2">
+            <i class="fa-solid fa-user-group text-3xl text-cyan-400 opacity-60"></i>
+            <p class="text-xs font-bold text-white">${window.myFollowing.uids.size ? 'No posts yet from people you follow' : "You're not following anyone yet"}</p>
+            <p class="text-[10px] text-gray-400">Tap a gamer's name → Follow, and their posts show up here.</p>
+        </div>`;
+    }
+};
+
+// ================= NOTIFICATIONS =================
+// notifications/{auto} = { toUid, fromUid, fromUser, type, postId, text, read, createdAt }
+window.notifList = [];
+window.notifUnsub = null;
+
+window.notify = async function(toUid, type, extra = {}) {
+    if (!window.isSignedIn() || !toUid || toUid === window.currentUser.uid) return;
+    try {
+        await addDoc(collection(window.db, 'notifications'), window.cleanForCloud({
+            toUid, fromUid: window.currentUser.uid, fromUser: window.me(), type,
+            postId: extra.postId || null, text: (extra.text || '').slice(0, 140), read: false, createdAt: serverTimestamp()
+        }));
+    } catch (e) {}
+};
+
+// Tell everyone @mentioned in a piece of text
+window.notifyMentions = async function(text, postId, what) {
+    const tags = [...new Set(((text || '').match(/@[A-Za-z0-9_]{2,}/g) || []).map(t => t.slice(1).toLowerCase()))].slice(0, 10);
+    for (const t of tags) {
+        const prof = await window.getProfile(t);
+        if (prof && prof.uid) window.notify(prof.uid, 'mention', { postId, text: `mentioned you in a ${what}` });
+    }
+};
+
+window.listenToNotifications = function() {
+    if (window.notifUnsub) { window.notifUnsub(); window.notifUnsub = null; }
+    window.notifList = [];
+    window.updateNotifBadge();
+    if (!window.isSignedIn()) return;
+    const q = query(collection(window.db, 'notifications'), where('toUid', '==', window.currentUser.uid), limit(100));
+    window.notifUnsub = onSnapshot(q, (snap) => {
+        const prevUnread = window.notifList.filter(n => !n.read).length;
+        window.notifList = [];
+        snap.forEach(d => window.notifList.push({ id: d.id, ...d.data() }));
+        window.notifList.sort((a, b) => window.postTimeValue(b) - window.postTimeValue(a));
+        const unread = window.notifList.filter(n => !n.read).length;
+        window.updateNotifBadge();
+        if (unread > prevUnread && prevUnread !== null && window.notifPrimed) {
+            const n = window.notifList.find(x => !x.read);
+            if (n && n.type !== 'dm') showToast(`🔔 @${n.fromUser} ${window.notifText(n)}`);
+        }
+        window.notifPrimed = true;
+        if (!document.getElementById('notifModal').classList.contains('hidden')) window.renderNotifications();
+    }, (e) => console.warn('Notifications listener:', e));
+};
+
+window.notifText = function(n) {
+    return ({ gg: 'GG\'d your post', reply: 'replied to your post', mention: n.text || 'mentioned you', follow: 'started following you', dm: 'sent you a message', tournament: n.text || 'joined your tournament', squad: n.text || 'joined your squad' })[n.type] || n.text || '';
+};
+window.notifIcon = function(type) {
+    return ({ gg: 'fa-thumbs-up text-cyan-400', reply: 'fa-comment text-emerald-400', mention: 'fa-at text-magenta', follow: 'fa-user-plus text-amber-400', dm: 'fa-envelope text-blue-400', tournament: 'fa-trophy text-amber-400', squad: 'fa-shield-halved text-emerald-400' })[type] || 'fa-bell text-gray-400';
+};
+
+window.updateNotifBadge = function() {
+    const notifUnread = window.notifList.filter(n => !n.read && n.type !== 'dm').length;
+    const dmUnread = window.notifList.filter(n => !n.read && n.type === 'dm').length;
+    const set = (id, n) => { const el = document.getElementById(id); if (!el) return; el.innerText = n > 9 ? '9+' : n; el.classList.toggle('hidden', !n); };
+    set('notifBadge', notifUnread);
+    set('dmBadge', dmUnread);
+    set('drawerNotifBadge', notifUnread);
+};
+
+window.openNotifications = function() {
+    if (window.needSignIn('get notifications')) return;
+    document.getElementById('notifModal').classList.remove('hidden');
+    window.renderNotifications();
+    // Mark as read after a moment
+    setTimeout(() => {
+        window.notifList.filter(n => !n.read && n.type !== 'dm').forEach(n => {
+            n.read = true;
+            updateDoc(doc(window.db, 'notifications', n.id), { read: true }).catch(() => {});
+        });
+        window.updateNotifBadge();
+    }, 1500);
+};
+window.closeNotifications = function() { document.getElementById('notifModal').classList.add('hidden'); };
+
+window.renderNotifications = function() {
+    const box = document.getElementById('notifList');
+    const list = window.notifList.filter(n => n.type !== 'dm' && !window.isBlocked(n.fromUser));
+    if (!list.length) {
+        box.innerHTML = `<div class="text-center py-16 space-y-2"><i class="fa-solid fa-bell text-3xl text-gray-600"></i><p class="text-xs text-gray-400">No notifications yet.<br>When people GG, reply, mention or follow you, it shows here.</p></div>`;
+        return;
+    }
+    box.innerHTML = list.map(n => `
+        <div class="flex items-start space-x-3 p-3 rounded-2xl ${n.read ? 'bg-transparent' : 'bg-cyan-500/5 border border-cyan-500/20'} cursor-pointer" onclick="window.openNotification('${n.id}')">
+            <div class="w-9 h-9 shrink-0 rounded-xl bg-gg-900 border border-cyan-500/20 flex items-center justify-center"><i class="fa-solid ${window.notifIcon(n.type)}"></i></div>
+            <div class="flex-1 min-w-0">
+                <p class="text-xs text-gray-200"><b class="text-white">@${escapeHTML(n.fromUser)}</b> ${escapeHTML(window.notifText(n))}</p>
+                <p class="text-[10px] text-gray-500 mt-0.5">${window.timeAgo(window.postTimeValue(n))}</p>
+            </div>
+            ${n.read ? '' : '<span class="w-2 h-2 rounded-full bg-cyan-400 mt-1.5"></span>'}
+        </div>`).join('');
+};
+
+window.openNotification = function(id) {
+    const n = window.notifList.find(x => x.id === id);
+    if (!n) return;
+    window.closeNotifications();
+    if (n.postId && window.findPost(n.postId)) window.openPostDetail(n.postId, n.type === 'reply' || n.type === 'mention');
+    else if (n.postId) { location.hash = '#post=' + n.postId; }
+    else window.openUserProfileModal(n.fromUser);
+};
+
+// Hook GGs and replies so post owners get notified
+window._baseToggleGGPost = window._baseToggleGGPost || window.toggleGGPost;
+window.toggleGGPost = async function(postId) {
+    const p = window.findPost(postId);
+    const uid = window.currentUser ? window.currentUser.uid : 'guest_user';
+    const wasOn = p && p.ggsBy && p.ggsBy.includes(uid);
+    await window._baseToggleGGPost(postId);
+    if (p && !wasOn && p.uid) window.notify(p.uid, 'gg', { postId });
+};
+
+window._baseSubmitCommentReply = window._baseSubmitCommentReply || window.submitCommentReply;
+window.submitCommentReply = async function() {
+    const text = (document.getElementById('commentInputText').value || '').trim();
+    const postId = window.activeCommentPostId;
+    const p = window.findPost(postId);
+    await window._baseSubmitCommentReply();
+    if (text && p && window.isSignedIn()) {
+        if (p.uid) window.notify(p.uid, 'reply', { postId, text: 'replied to your post' });
+        window.notifyMentions(text, postId, 'reply');
+    }
+};
+
+// ================= REPORT & BLOCK =================
+window.blockedUsers = new Set((() => { try { return JSON.parse(localStorage.getItem('sinless_blocked') || '[]'); } catch (e) { return []; } })());
+window.REPORT_HIDE_AT = 3;
+
+window.isBlocked = function(tag) { return window.blockedUsers.has((tag || '').toLowerCase()); };
+window.isHiddenByReports = function(p) {
+    return (p.reportsCount || 0) >= window.REPORT_HIDE_AT && !window.isMyPost(p) && window.meLower() !== 'sinlessgaming';
+};
+
+window.saveBlocked = async function() {
+    localStorage.setItem('sinless_blocked', JSON.stringify([...window.blockedUsers]));
+    if (window.isSignedIn()) {
+        try { await setDoc(doc(window.db, 'users', window.currentUser.uid), { blocked: [...window.blockedUsers] }, { merge: true }); } catch (e) {}
+    }
+};
+
+window.loadBlocked = async function() {
+    if (!window.isSignedIn()) return;
+    try {
+        const snap = await getDoc(doc(window.db, 'users', window.currentUser.uid));
+        if (snap.exists() && Array.isArray(snap.data().blocked)) {
+            snap.data().blocked.forEach(b => window.blockedUsers.add(b));
+            localStorage.setItem('sinless_blocked', JSON.stringify([...window.blockedUsers]));
+            window.renderFypFeed();
+        }
+    } catch (e) {}
+};
+
+window.blockUser = async function(tag) {
+    const ok = await window.sgConfirm(`You won't see posts, replies, stories or messages from @${tag}. You can unblock them later in Account Settings.`, { title: `Block @${tag}?`, okText: 'Block', danger: true });
+    if (!ok) return;
+    window.blockedUsers.add(tag.toLowerCase());
+    await window.saveBlocked();
+    if (window.amFollowing(tag)) window.toggleFollowUser(tag);
+    window.closeUserProfileModal && window.closeUserProfileModal();
+    window.closePostDetail && window.activeDetailPostId && window.closePostDetail();
+    window.renderFypFeed(); window.mergeStories && window.mergeStories();
+    showToast(`🚫 @${tag} blocked.`);
+};
+
+window.unblockUser = async function(tag) {
+    window.blockedUsers.delete(tag.toLowerCase());
+    await window.saveBlocked();
+    window.renderBlockedList(); window.renderFypFeed(); window.mergeStories && window.mergeStories();
+    showToast(`@${tag} unblocked.`);
+};
+
+window.renderBlockedList = function() {
+    const box = document.getElementById('blockedUsersList');
+    if (!box) return;
+    const list = [...window.blockedUsers];
+    box.innerHTML = list.length ? list.map(t => `
+        <div class="flex items-center justify-between text-xs bg-gg-950 rounded-xl px-3 py-2 border border-cyan-500/10">
+            <span class="text-gray-300 font-bold">@${escapeHTML(t)}</span>
+            <button onclick="window.unblockUser('${escapeHTML(t)}')" class="text-cyan-400 font-bold">Unblock</button>
+        </div>`).join('') : `<p class="text-[10px] text-gray-500">You haven't blocked anyone.</p>`;
+};
+
+window.reportPost = function(postId) {
+    if (window.needSignIn('report posts')) return;
+    window.reportTarget = postId;
+    document.getElementById('reportSheet').classList.remove('hidden');
+};
+window.closeReportSheet = function() { document.getElementById('reportSheet').classList.add('hidden'); };
+
+window.submitReport = async function(reason) {
+    const postId = window.reportTarget;
+    window.closeReportSheet();
+    if (!postId) return;
+    const reported = JSON.parse(localStorage.getItem('sinless_reported') || '{}');
+    if (reported[postId]) { showToast("You already reported this post. Thanks!"); return; }
+    try {
+        await addDoc(collection(window.db, 'reports'), { postId, reason, reporterUid: window.currentUser.uid, reporter: window.me(), createdAt: serverTimestamp() });
+        if (!String(postId).startsWith('local_')) await updateDoc(doc(window.db, 'posts', postId), { reportsCount: increment(1) });
+        reported[postId] = Date.now();
+        localStorage.setItem('sinless_reported', JSON.stringify(reported));
+        const p = window.findPost(postId);
+        if (p) p.reportsCount = (p.reportsCount || 0) + 1;
+        showToast("🛡️ Thanks — report sent. We'll review it.");
+    } catch (e) { showToast("⚠️ Couldn't send report. Try again."); }
+};
+
+// "⋯" menu on a post or a profile
+window.openPostActions = function(postId) {
+    const p = window.findPost(postId);
+    if (!p) return;
+    window.openActionSheet(`@${p.user}'s post`, [
+        { icon: 'fa-link', label: 'Copy link', run: () => { window.activeShare = { link: window.postLink(postId) }; window.copyShareLink(); } },
+        { icon: 'fa-user-plus', label: window.amFollowing(p.user) ? `Unfollow @${p.user}` : `Follow @${p.user}`, run: () => window.toggleFollowUser(p.user) },
+        { icon: 'fa-flag', label: 'Report post', danger: true, run: () => window.reportPost(postId) },
+        { icon: 'fa-ban', label: `Block @${p.user}`, danger: true, run: () => window.blockUser(p.user) }
+    ]);
+};
+window.openUserActions = function(tag) {
+    window.openActionSheet(`@${tag}`, [
+        { icon: 'fa-envelope', label: 'Send message', run: () => { window.closeUserProfileModal(); window.openDmModal(tag); } },
+        { icon: 'fa-link', label: 'Copy profile link', run: () => { window.activeShare = { link: `${location.origin}${location.pathname}#user=${tag}` }; window.copyShareLink(); } },
+        { icon: 'fa-ban', label: `Block @${tag}`, danger: true, run: () => window.blockUser(tag) }
+    ]);
+};
+window.openActionSheet = function(title, items) {
+    window.actionSheetItems = items;
+    document.getElementById('actionSheetTitle').innerText = title;
+    document.getElementById('actionSheetItems').innerHTML = items.map((it, i) => `
+        <button onclick="window.runActionSheet(${i})" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-gg-800 text-sm font-bold ${it.danger ? 'text-red-400' : 'text-gray-200'}">
+            <i class="fa-solid ${it.icon} w-5"></i><span>${escapeHTML(it.label)}</span>
+        </button>`).join('');
+    document.getElementById('actionSheet').classList.remove('hidden');
+};
+window.runActionSheet = function(i) {
+    document.getElementById('actionSheet').classList.add('hidden');
+    const it = window.actionSheetItems[i];
+    if (it) it.run();
+};
+
+// ================= TOURNAMENTS IN THE CLOUD =================
+// tournaments/{id} = the whole tournament (players, matches, eliminated, host, hostUid...)
+window.tournamentsList = (window.tournamentsList || []).filter(t => t.id !== 'tourn_1'); // remove old sample
+if (!window.tournamentsList.find(t => t.id === (window.activeTournament && window.activeTournament.id))) window.activeTournament = window.tournamentsList[0] || null;
+window.cloudTournamentIds = new Set();
+
+window.saveTournament = async function(t, isNew = false) {
+    try { localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList)); } catch (e) {}
+    if (!t) return;
+    if (!window.isSignedIn()) { showToast("Saved on this phone only — sign in so others can see it."); return; }
+    try {
+        const ref = doc(window.db, 'tournaments', t.id);
+        if (isNew || !window.cloudTournamentIds.has(t.id)) {
+            t.hostUid = t.hostUid || window.currentUser.uid;
+            await setDoc(ref, window.cleanForCloud({ ...t, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+            window.cloudTournamentIds.add(t.id);
+        } else {
+            await updateDoc(ref, window.cleanForCloud({ players: t.players || [], matches: t.matches || [], eliminated: t.eliminated || [], updatedAt: serverTimestamp() }));
+        }
+    } catch (e) {
+        console.warn('Tournament sync failed', e);
+        showToast("⚠️ Couldn't sync tournament. Only the host can change some things.");
+    }
+};
+
+window.listenToTournaments = function() {
+    if (!window.db) return;
+    onSnapshot(query(collection(window.db, 'tournaments'), orderBy('createdAt', 'desc'), limit(60)), (snap) => {
+        const cloud = [];
+        snap.forEach(d => cloud.push({ ...d.data(), id: d.id }));
+        window.cloudTournamentIds = new Set(cloud.map(t => t.id));
+        // keep my phone-only tournaments that haven't been uploaded yet
+        const localOnly = (window.tournamentsList || []).filter(t => !window.cloudTournamentIds.has(t.id) && t.id !== 'tourn_1');
+        window.tournamentsList = [...cloud, ...localOnly];
+        const activeId = window.activeTournament && window.activeTournament.id;
+        window.activeTournament = window.tournamentsList.find(t => t.id === activeId) || window.tournamentsList[0] || null;
+        if (window.activeMatchForReporting && window.activeTournament) {
+            window.activeMatchForReporting = window.activeTournament.matches.find(m => m.id === window.activeMatchForReporting.id) || window.activeMatchForReporting;
+        }
+        try { localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList)); } catch (e) {}
+        window.renderTournamentsTab && window.renderTournamentsTab();
+        window.renderTournamentsTabDedicated && window.renderTournamentsTabDedicated();
+        window.uploadMyLocalTournaments();
+    }, (e) => console.warn('Tournaments listener:', e));
+};
+
+// Tournaments I made before this update get uploaded once I'm signed in
+window.uploadMyLocalTournaments = function() {
+    if (!window.isSignedIn() || window.uploadedLocalTourns) return;
+    window.uploadedLocalTourns = true;
+    (window.tournamentsList || []).filter(t => !window.cloudTournamentIds.has(t.id) && (t.host || '').toLowerCase() === window.meLower())
+        .forEach(t => window.saveTournament(t, true));
+};
+
+window.confirmDeleteTournament = async function() {
+    const id = window.activeDeleteTournamentId;
+    if (!id) return;
+    window.tournamentsList = window.tournamentsList.filter(t => t.id !== id);
+    if (window.activeTournament && window.activeTournament.id === id) window.activeTournament = window.tournamentsList[0] || null;
+    try { localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList)); } catch (e) {}
+    if (window.isSignedIn() && window.cloudTournamentIds.has(id)) {
+        try { await deleteDoc(doc(window.db, 'tournaments', id)); } catch (e) { showToast("⚠️ Only the host can delete this tournament."); }
+    }
+    showToast("Tournament deleted.");
+    window.closeDeleteTournamentModal();
+    window.renderTournamentsTab && window.renderTournamentsTab();
+    window.renderTournamentsTabDedicated && window.renderTournamentsTabDedicated();
+};
+
+// Wrap the existing tournament actions: they change the tournament locally, then we sync it
+(function wrapTournamentActions() {
+    const wrap = (name, pick, needAuth) => {
+        const base = window[name];
+        window[name] = async function(...args) {
+            if (needAuth && window.needSignIn(needAuth)) return;
+            const before = window.tournamentsList.map(t => t.id);
+            const r = await base.apply(this, args);
+            const t = pick(args, before);
+            if (t) await window.saveTournament(t, !before.includes(t.id));
+            return r;
+        };
+    };
+    const byArg = (args) => window.tournamentsList.find(t => t.id === args[0]);
+    const active = () => window.activeTournament;
+    wrap('submitNewTournament', (a, before) => window.tournamentsList.find(t => !before.includes(t.id)), 'host tournaments');
+    wrap('joinActiveTournament', byArg, 'join tournaments');
+    wrap('leaveTournament', byArg, null);
+    wrap('confirmManualAddPlayer', () => window.tournamentsList.find(t => t.id === (window._lastManualCtx || {}).tournId) || active(), null);
+    wrap('submitMatchScoreReport', active, 'report scores');
+    wrap('hostApproveMatch', active, null);
+    wrap('addLeagueMatch', byArg, null);
+    const baseManual = window.manualAddPlayer;
+    window.manualAddPlayer = function(tournId, matchId, slot) { window._lastManualCtx = { tournId }; return baseManual(tournId, matchId, slot); };
+
+    // Host gets a notification when someone joins
+    const baseJoin = window.joinActiveTournament;
+    window.joinActiveTournament = async function(id) {
+        await baseJoin(id);
+        const t = window.tournamentsList.find(x => x.id === id);
+        if (t && t.hostUid && (t.players || []).some(p => p.toLowerCase() === window.meLower())) window.notify(t.hostUid, 'tournament', { text: `joined your tournament ${t.title}` });
+    };
+})();
+
+// ================= SQUADS IN THE CLOUD =================
+// squads/{id} = squad info (members, memberUids, admins, ownerUid, subRooms...)
+// squads/{id}/messages/{auto} = { room, sender, senderUid, text, isImage, imageUrl, timestamp, createdAt }
+window.squadMsgUnsub = null;
+window.cloudSquadIds = new Set();
+window.squadsLoadedOnce = false;
+
+window.listenToFirestoreSquads = function() {
+    if (!window.db) return;
+    onSnapshot(query(collection(window.db, 'squads'), limit(200)), (snap) => {
+        const cloud = [];
+        snap.forEach(d => cloud.push({ ...d.data(), id: d.id, docId: d.id }));
+        window.cloudSquadIds = new Set(cloud.map(s => s.id));
+        const map = {};
+        window.defaultPublicCategorySquads.forEach(s => { map[s.id] = { ...s, members: [], memberUids: [] }; });
+        (window.clansData || []).forEach(s => { if (s.id && !map[s.id] && !String(s.id).startsWith('squad_')) map[s.id] = s; });
+        cloud.forEach(s => { map[s.id] = { ...(map[s.id] || {}), ...s }; });
+        window.clansData = Object.values(map);
+        try { localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData)); } catch (e) {}
+        window.squadsLoadedOnce = true;
+        window.ensureOfficialHubs();
+        if (window.activeSquadDetails) {
+            const fresh = window.clansData.find(c => c.id === window.activeSquadDetails.id);
+            if (fresh) { fresh.rooms = window.activeSquadDetails.rooms; window.activeSquadDetails = fresh; }
+        }
+        window.renderClansList && window.renderClansList();
+    }, (e) => console.warn('Squads listener:', e));
+};
+
+// The official game hubs are created in the cloud the first time someone signed in opens the app
+window.ensureOfficialHubs = function() {
+    if (!window.isSignedIn() || !window.squadsLoadedOnce || window.hubsEnsured) return;
+    window.hubsEnsured = true;
+    window.defaultPublicCategorySquads.forEach(h => {
+        if (window.cloudSquadIds.has(h.id)) return;
+        const { rooms, ...info } = h;
+        setDoc(doc(window.db, 'squads', h.id), window.cleanForCloud({ ...info, members: [], memberUids: [], ownerUid: window.meLower() === 'sinlessgaming' ? window.currentUser.uid : null, createdAt: serverTimestamp() })).catch(() => {});
+    });
+};
+
+window.isSquadMember = function(squad) {
+    return (squad.members || []).some(m => (m || '').toLowerCase() === window.meLower()) ||
+        (window.currentUser && (squad.memberUids || []).includes(window.currentUser.uid));
+};
+
+window.toggleSquadMembership = async function(squadId) {
+    if (window.needSignIn('join squads')) return;
+    const squad = window.clansData.find(c => c.id === squadId);
+    if (!squad) return;
+    const me = window.me(), uid = window.currentUser.uid;
+    const isMember = window.isSquadMember(squad);
+    if (isMember && !squad.isOfficial && (squad.owner || squad.leader || '').toLowerCase() === me.toLowerCase() && (squad.members || []).length > 1) {
+        showToast("⚠️ Transfer ownership before leaving your squad.");
+        return;
+    }
+    squad.members = squad.members || []; squad.memberUids = squad.memberUids || [];
+    if (isMember) {
+        squad.members = squad.members.filter(m => m.toLowerCase() !== me.toLowerCase());
+        squad.memberUids = squad.memberUids.filter(u => u !== uid);
+    } else {
+        squad.members.push(me); squad.memberUids.push(uid);
+    }
+    window.renderClansList();
+    try {
+        await updateDoc(doc(window.db, 'squads', squad.id), {
+            members: isMember ? arrayRemove(me) : arrayUnion(me),
+            memberUids: isMember ? arrayRemove(uid) : arrayUnion(uid)
+        });
+        showToast(isMember ? `Left ${squad.name}` : `✅ Joined ${squad.name}!`);
+        if (!isMember && squad.ownerUid) window.notify(squad.ownerUid, 'squad', { text: `joined your squad ${squad.name}` });
+    } catch (e) { showToast("⚠️ Couldn't update squad. Try again in a moment."); }
+};
+
+window.submitNewSquad = async function() {
+    if (window.needSignIn('create squads')) return;
+    const name = document.getElementById('squadNameInput').value.trim();
+    const tag = document.getElementById('squadTagInput').value.trim().toUpperCase();
+    if (!name || !tag) { showToast("⚠️ Please enter a squad name and tag!"); return; }
+    const me = window.me();
+    const id = 'squad_' + Date.now();
+    const squad = {
+        name, tag,
+        game: document.getElementById('squadGameSelect').value,
+        isPublic: document.getElementById('squadPrivacySelect').value === 'public',
+        isOfficial: false,
+        inviteCode: 'SQ-' + Math.random().toString(36).substr(2, 5).toUpperCase(),
+        bio: document.getElementById('squadBioInput').value.trim() || 'Squad on Sinless GG!',
+        owner: me, leader: me, ownerUid: window.currentUser.uid,
+        admins: [me], members: [me], memberUids: [window.currentUser.uid],
+        subRooms: ['Rules/Announcements', 'chat', 'tactics', 'Matchmaking'],
+        matchmakingQueue: []
+    };
+    try {
+        await setDoc(doc(window.db, 'squads', id), window.cleanForCloud({ ...squad, createdAt: serverTimestamp() }));
+        await addDoc(collection(window.db, 'squads', id, 'messages'), { room: 'Rules/Announcements', sender: me, senderUid: window.currentUser.uid, text: `Welcome to ${name}! Check back here for updates.`, timestamp: Date.now(), createdAt: serverTimestamp() });
+        showToast(`🔥 Squad [${tag}] ${name} created! Invite code: ${squad.inviteCode}`);
+        ['squadNameInput', 'squadTagInput', 'squadBioInput'].forEach(x => document.getElementById(x).value = '');
+        window.closeCreateClanModal();
+    } catch (e) { showToast("⚠️ Couldn't create squad. Try again."); }
+};
+
+// Open a squad: listen to its messages live
+window._baseOpenSquadDetailsModal = window._baseOpenSquadDetailsModal || window.openSquadDetailsModal;
+window.openSquadDetailsModal = function(squadId) {
+    const squad = window.clansData.find(c => c.id === squadId);
+    if (!squad) return;
+    squad.rooms = squad.rooms || {};
+    window._baseOpenSquadDetailsModal(squadId);
+    window.listenToSquadMessages(squad);
+};
+
+window.listenToSquadMessages = function(squad) {
+    if (window.squadMsgUnsub) { window.squadMsgUnsub(); window.squadMsgUnsub = null; }
+    if (!window.db || !window.cloudSquadIds.has(squad.id)) return;
+    const q = query(collection(window.db, 'squads', squad.id, 'messages'), orderBy('createdAt', 'desc'), limit(300));
+    window.squadMsgUnsub = onSnapshot(q, (snap) => {
+        const rooms = {};
+        const now = Date.now();
+        snap.forEach(d => {
+            const m = { id: d.id, ...d.data() };
+            if (window.isBlocked(m.sender)) return;
+            if (m.isImage && now - (m.timestamp || 0) > 86400000) return; // photos vanish after 24h
+            (rooms[m.room] = rooms[m.room] || []).unshift(m);
+        });
+        squad.rooms = rooms;
+        if (window.activeSquadDetails && window.activeSquadDetails.id === squad.id) {
+            window.activeSquadDetails.rooms = rooms;
+            const r = window.activeSquadSubRoom;
+            if (r !== 'Roster' && r !== 'Matchmaking') window.switchSquadSubRoom(r);
+        }
+    }, (e) => {
+        const box = document.getElementById('squadRoomMsgsBox');
+        if (box && e && e.code === 'permission-denied') box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">🔒 This is a private squad. Join it to read the chat.</p>`;
+    });
+};
+
+window._baseCloseSquadDetailsModal = window._baseCloseSquadDetailsModal || window.closeSquadDetailsModal;
+window.closeSquadDetailsModal = function() {
+    if (window.squadMsgUnsub) { window.squadMsgUnsub(); window.squadMsgUnsub = null; }
+    window._baseCloseSquadDetailsModal();
+};
+
+window.sendSquadMessage = async function(payload) {
+    const squad = window.activeSquadDetails;
+    const room = window.activeSquadSubRoom;
+    if (!squad || !room) return;
+    if (window.needSignIn('chat in squads')) return;
+    if (!window.isSquadMember(squad)) { showToast("Join this squad first."); return; }
+    // People who joined before this update: register their account on the squad so they can chat
+    if (!(squad.memberUids || []).includes(window.currentUser.uid)) {
+        try {
+            await updateDoc(doc(window.db, 'squads', squad.id), { memberUids: arrayUnion(window.currentUser.uid), members: arrayUnion(window.me()) });
+            squad.memberUids = [...(squad.memberUids || []), window.currentUser.uid];
+        } catch (e) {}
+    }
+    const msg = { room, sender: window.me(), senderUid: window.currentUser.uid, timestamp: Date.now(), ...payload };
+    squad.rooms = squad.rooms || {};
+    (squad.rooms[room] = squad.rooms[room] || []).push(msg);   // show instantly
+    window.switchSquadSubRoom(room);
+    try {
+        await addDoc(collection(window.db, 'squads', squad.id, 'messages'), window.cleanForCloud({ ...msg, createdAt: serverTimestamp() }));
+        if (payload.text) window.notifyMentions(payload.text, null, `${squad.name} chat`);
+    } catch (e) { showToast("⚠️ Message not sent. Check your connection."); }
+};
+
+window.sendSquadRoomMessage = function() {
+    const input = document.getElementById('squadSubRoomInput');
+    const text = (input.value || '').trim();
+    if (!text) return;
+    input.value = '';
+    window.sendSquadMessage({ text, isImage: false });
+};
+
+// Photos in squad chats & DMs go to Cloudinary and vanish after 24h
+window.sendInChatImage = async function(context) {
+    const input = document.getElementById(context === 'squad' ? 'squadChatImageInput' : 'dmChatImageInput');
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    input.value = '';
+    showToast("Uploading photo…");
+    try {
+        const up = await window.prepareAndUpload(file, null, 1600, 1600);
+        if (context === 'squad') await window.sendSquadMessage({ isImage: true, imageUrl: up.url, text: '' });
+        else await window.sendDmMessage({ isImage: true, imageUrl: up.url, text: '' });
+    } catch (e) { showToast(`⚠️ Photo failed: ${e.message}`); }
+};
+
+window.updateSquadCloud = async function(squad, fields, okMsg) {
+    try { await updateDoc(doc(window.db, 'squads', squad.id), window.cleanForCloud(fields)); if (okMsg) showToast(okMsg); }
+    catch (e) { showToast("⚠️ Only the squad owner can do that."); }
+};
+
+window.toggleSquadAdmin = function(member) {
+    const squad = window.activeSquadDetails;
+    if (!squad) return;
+    squad.admins = squad.admins || [];
+    const isAdmin = squad.admins.some(a => a.toLowerCase() === member.toLowerCase());
+    squad.admins = isAdmin ? squad.admins.filter(a => a.toLowerCase() !== member.toLowerCase()) : [...squad.admins, member];
+    window.switchSquadSubRoom('Roster');
+    window.updateSquadCloud(squad, { admins: squad.admins }, isAdmin ? `Removed @${member} as admin.` : `🛡️ @${member} is now an admin!`);
+};
+
+window.transferOwnership = async function(newOwner) {
+    const squad = window.activeSquadDetails;
+    if (!squad) return;
+    const ok = await window.sgConfirm(`@${newOwner} will become the owner of ${squad.name}.`, { title: 'Transfer Ownership?', okText: 'Transfer', danger: true });
+    if (!ok) return;
+    const prof = await window.getProfile(newOwner);
+    if (!prof || !prof.uid) { showToast(`@${newOwner} needs to sign in once before they can own a squad.`); return; }
+    const admins = [...new Set([...(squad.admins || []), newOwner])];
+    await window.updateSquadCloud(squad, { owner: newOwner, leader: newOwner, ownerUid: prof.uid, admins }, `👑 @${newOwner} now owns ${squad.name}!`);
+};
+
+window.promptCreateSubRoom = async function() {
+    const squad = window.activeSquadDetails;
+    if (!squad) return;
+    const name = await window.sgPrompt('Name your new channel (e.g. tactics, highlights)', { title: '# New Channel', placeholder: 'channel-name', okText: 'Create' });
+    if (!name) return;
+    const clean = name.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 24);
+    if ((squad.subRooms || []).includes(clean)) { showToast("That channel already exists."); return; }
+    squad.subRooms = [...(squad.subRooms || []), clean];
+    await window.updateSquadCloud(squad, { subRooms: squad.subRooms }, `#${clean} created!`);
+    window.switchSquadSubRoom(clean);
+};
+
+window.deleteSubRoom = async function(room) {
+    const squad = window.activeSquadDetails;
+    if (!squad) return;
+    const ok = await window.sgConfirm(`#${room} will be removed from the channel list.`, { title: 'Delete Channel?', okText: 'Delete', danger: true });
+    if (!ok) return;
+    squad.subRooms = (squad.subRooms || []).filter(r => r !== room);
+    await window.updateSquadCloud(squad, { subRooms: squad.subRooms }, `#${room} deleted.`);
+    window.switchSquadSubRoom('chat');
+};
+
+window.bookSquadMatchmakingFixture = async function() {
+    const squad = window.activeSquadDetails;
+    if (!squad || window.needSignIn('queue for matches')) return;
+    const entry = { id: 'match_' + Date.now(), challenger: window.me(), format: squad.game || 'FC MOBILE 1v1', status: 'Searching for Opponent', at: Date.now() };
+    squad.matchmakingQueue = [entry, ...(squad.matchmakingQueue || [])].slice(0, 30);
+    window.switchSquadSubRoom('Matchmaking');
+    await window.updateSquadCloud(squad, { matchmakingQueue: squad.matchmakingQueue }, "⚔️ You're in the queue!");
+};
+
+window.acceptSquadChallenge = function(matchId) {
+    const squad = window.activeSquadDetails;
+    const entry = squad && (squad.matchmakingQueue || []).find(m => m.id === matchId);
+    if (!entry) return;
+    if (entry.challenger.toLowerCase() === window.meLower()) { showToast("That's your own challenge 😄"); return; }
+    window.closeSquadDetailsModal();
+    window.openDmModal(entry.challenger);
+    setTimeout(() => { const i = document.getElementById('dmInputText'); if (i) i.value = `Hey! I'll take your ${entry.format} challenge from ${squad.name} ⚔️ When are you free?`; }, 400);
+};
+
+window.deleteActiveSquad = async function() {
+    const squad = window.activeSquadDetails;
+    if (!squad) return;
+    const ok = await window.sgConfirm(`${squad.name} will be deleted for everyone. This cannot be undone.`, { title: 'Disband Squad?', okText: 'Disband', danger: true });
+    if (!ok) return;
+    try {
+        await deleteDoc(doc(window.db, 'squads', squad.id));
+        window.clansData = window.clansData.filter(c => c.id !== squad.id);
+        showToast("Squad disbanded.");
+        window.closeSquadDetailsModal();
+        window.renderClansList();
+    } catch (e) { showToast("⚠️ Only the squad owner can disband it."); }
+};
+
+// ================= PRIVATE MESSAGES (DMs) =================
+// dms/{uidA_uidB} = { participants:[uidA,uidB], names:{uid:gamertag}, lastText, lastAt, lastFrom }
+// dms/{uidA_uidB}/messages/{auto} = { fromUid, fromUser, text, isImage, imageUrl, createdAt }
+window.dmThreads = [];
+window.dmInboxUnsub = null;
+window.dmThreadUnsub = null;
+window.activeDm = null;   // { threadId, partnerUid, partnerTag }
+
+window.threadIdFor = function(a, b) { return [a, b].sort().join('_'); };
+
+window.listenToDmInbox = function() {
+    if (window.dmInboxUnsub) { window.dmInboxUnsub(); window.dmInboxUnsub = null; }
+    window.dmThreads = [];
+    if (!window.isSignedIn()) return;
+    const q = query(collection(window.db, 'dms'), where('participants', 'array-contains', window.currentUser.uid), limit(100));
+    window.dmInboxUnsub = onSnapshot(q, (snap) => {
+        window.dmThreads = [];
+        snap.forEach(d => window.dmThreads.push({ id: d.id, ...d.data() }));
+        window.dmThreads.sort((a, b) => window.postTimeValue({ createdAt: b.lastAt }) - window.postTimeValue({ createdAt: a.lastAt }));
+        if (!window.activeDm && !document.getElementById('dmModal').classList.contains('hidden')) window.renderDmInbox();
+    }, (e) => console.warn('DM inbox:', e));
+};
+
+window.openDmModal = async function(username = null, e = null) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    if (window.needSignIn('send messages')) return;
+    document.getElementById('dmModal').classList.remove('hidden');
+    if (username && typeof username === 'string') await window.openDmThread(username.replace('@', ''));
+    else window.showDmInbox();
+};
+
+window.closeDmModal = function() {
+    if (window.dmThreadUnsub) { window.dmThreadUnsub(); window.dmThreadUnsub = null; }
+    window.activeDm = null;
+    window.activeDmUser = null;
+    document.getElementById('dmModal').classList.add('hidden');
+};
+
+window.showDmInbox = function() {
+    if (window.dmThreadUnsub) { window.dmThreadUnsub(); window.dmThreadUnsub = null; }
+    window.activeDm = null; window.activeDmUser = null;
+    document.getElementById('dmHeaderUser').innerText = '';
+    document.getElementById('dmBackBtn').classList.add('hidden');
+    document.getElementById('dmComposer').classList.add('hidden');
+    document.getElementById('dmNewChatRow').classList.remove('hidden');
+    window.renderDmInbox();
+};
+
+window.renderDmInbox = function() {
+    const box = document.getElementById('dmMessagesContainer');
+    const uid = window.currentUser && window.currentUser.uid;
+    const threads = window.dmThreads.filter(t => {
+        const other = (t.participants || []).find(p => p !== uid);
+        return !window.isBlocked((t.names || {})[other]);
+    });
+    if (!threads.length) {
+        box.innerHTML = `<div class="text-center py-12 space-y-2"><i class="fa-solid fa-envelope-open-text text-3xl text-gray-600"></i><p class="text-xs text-gray-400">No messages yet.<br>Type a gamertag above to start a chat.</p></div>`;
+        return;
+    }
+    const unreadFrom = new Set(window.notifList.filter(n => n.type === 'dm' && !n.read).map(n => n.fromUser.toLowerCase()));
+    box.innerHTML = threads.map(t => {
+        const other = (t.participants || []).find(p => p !== uid);
+        const tag = (t.names || {})[other] || 'Gamer';
+        const unread = unreadFrom.has(tag.toLowerCase());
+        return `
+            <div class="flex items-center space-x-3 p-3 rounded-2xl cursor-pointer hover:bg-gg-900 ${unread ? 'bg-cyan-500/5 border border-cyan-500/20' : ''}" onclick="window.openDmThread('${escapeHTML(tag)}')">
+                <div class="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-xs">${escapeHTML(tag.slice(0, 2).toUpperCase())}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between"><span class="text-sm font-bold text-white">@${escapeHTML(tag)}</span><span class="text-[9px] text-gray-500">${t.lastAt ? window.timeAgo(window.postTimeValue({ createdAt: t.lastAt })) : ''}</span></div>
+                    <p class="text-xs ${unread ? 'text-white font-bold' : 'text-gray-400'} truncate">${t.lastFrom === uid ? 'You: ' : ''}${escapeHTML(t.lastText || '')}</p>
+                </div>
+                ${unread ? '<span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>' : ''}
+            </div>`;
+    }).join('');
+};
+
+window.startDmFromInput = function() {
+    const i = document.getElementById('dmNewChatInput');
+    const tag = (i.value || '').trim().replace('@', '');
+    if (!tag) return;
+    i.value = '';
+    window.openDmThread(tag);
+};
+
+window.openDmThread = async function(tag) {
+    if (tag.toLowerCase() === window.meLower()) { showToast("That's you 😄"); return; }
+    if (window.isBlocked(tag)) { showToast(`You blocked @${tag}. Unblock them in Account Settings to chat.`); return; }
+    const box = document.getElementById('dmMessagesContainer');
+    box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Opening chat…</p>`;
+    const prof = await window.getProfile(tag);
+    if (!prof || !prof.uid) {
+        box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">@${escapeHTML(tag)} hasn't signed in to Sinless GG yet,<br>so they can't receive messages.</p>`;
+        return;
+    }
+    const threadId = window.threadIdFor(window.currentUser.uid, prof.uid);
+    window.activeDm = { threadId, partnerUid: prof.uid, partnerTag: prof.gamertag || tag };
+    window.activeDmUser = window.activeDm.partnerTag;
+    document.getElementById('dmHeaderUser').innerText = `@${window.activeDm.partnerTag}`;
+    document.getElementById('dmBackBtn').classList.remove('hidden');
+    document.getElementById('dmComposer').classList.remove('hidden');
+    document.getElementById('dmNewChatRow').classList.add('hidden');
+
+    // mark this person's message notifications as read
+    window.notifList.filter(n => n.type === 'dm' && !n.read && n.fromUser.toLowerCase() === window.activeDm.partnerTag.toLowerCase()).forEach(n => {
+        n.read = true; updateDoc(doc(window.db, 'notifications', n.id), { read: true }).catch(() => {});
+    });
+    window.updateNotifBadge();
+
+    if (window.dmThreadUnsub) window.dmThreadUnsub();
+    const q = query(collection(window.db, 'dms', threadId, 'messages'), orderBy('createdAt', 'desc'), limit(150));
+    window.dmThreadUnsub = onSnapshot(q, (snap) => {
+        const msgs = [];
+        snap.forEach(d => msgs.unshift({ id: d.id, ...d.data() }));
+        window.renderDmMessages(msgs);
+    }, () => { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Couldn't load this chat.</p>`; });
+};
+
+window.renderDmMessages = function(msgs) {
+    const box = document.getElementById('dmMessagesContainer');
+    if (!msgs.length) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Say hi to @${escapeHTML(window.activeDm.partnerTag)} 👋</p>`; return; }
+    const uid = window.currentUser.uid;
+    const now = Date.now();
+    box.innerHTML = msgs.filter(m => !(m.isImage && now - window.postTimeValue(m) > 86400000)).map(m => {
+        const mine = m.fromUid === uid;
+        const body = m.isImage
+            ? `<img src="${window.cldSized(m.imageUrl, 600)}" class="max-h-56 rounded-xl object-contain cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.imageUrl}')"><p class="text-[8px] opacity-70 mt-1">📷 disappears 24h after sending</p>`
+            : `<p class="whitespace-pre-wrap break-words">${formatMentions(m.text || '')}</p>`;
+        return `
+            <div class="flex ${mine ? 'justify-end' : 'justify-start'}">
+                <div class="max-w-[78%] px-3 py-2 rounded-2xl text-sm ${mine ? 'bg-cyan-500 text-slate-950 rounded-br-sm' : 'bg-gg-900 text-white border border-cyan-500/15 rounded-bl-sm'}">
+                    ${body}
+                    <p class="text-[9px] mt-0.5 ${mine ? 'text-slate-800' : 'text-gray-500'} text-right">${m.createdAt ? window.timeAgo(window.postTimeValue(m)) : 'sending…'}</p>
+                </div>
+            </div>`;
+    }).join('');
+    box.scrollTop = box.scrollHeight;
+};
+
+window.sendDmMessage = async function(payload) {
+    const dm = window.activeDm;
+    if (!dm || !window.isSignedIn()) return;
+    const uid = window.currentUser.uid;
+    try {
+        await setDoc(doc(window.db, 'dms', dm.threadId), {
+            participants: [uid, dm.partnerUid].sort(),
+            names: { [uid]: window.me(), [dm.partnerUid]: dm.partnerTag },
+            lastText: payload.isImage ? '📷 Photo' : (payload.text || '').slice(0, 80),
+            lastFrom: uid, lastAt: serverTimestamp()
+        }, { merge: true });
+        await addDoc(collection(window.db, 'dms', dm.threadId, 'messages'), window.cleanForCloud({ fromUid: uid, fromUser: window.me(), ...payload, createdAt: serverTimestamp() }));
+        window.notify(dm.partnerUid, 'dm', { text: payload.isImage ? 'sent you a photo' : (payload.text || '').slice(0, 60) });
+    } catch (e) { showToast("⚠️ Message not sent. Check your connection."); }
+};
+
+window.sendDirectMessage = function() {
+    const input = document.getElementById('dmInputText');
+    const text = (input.value || '').trim();
+    if (!text || !window.activeDm) return;
+    input.value = '';
+    window.sendDmMessage({ text, isImage: false });
+};
+
+// Market "Contact" and profile "DM" buttons pass a gamertag — that still works
+window.selectDmTarget = function(tag) { window.openDmThread((tag || '').replace('@', '')); };
+
+// ================= SIGN-IN / SIGN-OUT HOOK =================
+window.afterAuthChange = async function(user) {
+    // Drawer shows who you are
+    const tag = user ? window.me() : 'Guest';
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+    set('drawerName', user ? (window.myDisplayName || tag) : 'Guest');
+    set('drawerTag', user ? '@' + tag : 'Not signed in');
+    const av = document.getElementById('drawerAvatar');
+    if (av) av.innerHTML = user && user.photoURL ? `<img src="${user.photoURL}" class="w-full h-full object-cover rounded-xl">` : (tag.slice(0, 2).toUpperCase());
+
+    window.listenToNotifications();
+    window.listenToDmInbox();
+    if (user) {
+        await window.ensureMyProfile();
+        window.loadMyFollowing();
+        window.loadBlocked();
+        window.ensureOfficialHubs();
+        window.uploadMyLocalTournaments();
+        window.cleanupExpiredStories && window.cleanupExpiredStories();
+    } else {
+        window.myFollowing = { uids: new Set(), users: new Set() };
+    }
+    window.renderFypFeed && window.renderFypFeed();
+    window.renderClansList && window.renderClansList();
+};
+
+// ================= INSTALLABLE APP (PWA) =================
+window.deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    window.deferredInstallPrompt = e;
+    const item = document.getElementById('installAppItem');
+    if (item) item.classList.remove('hidden');
+});
+window.addEventListener('appinstalled', () => {
+    showToast('🎉 Sinless GG installed! Find it on your home screen.');
+    const item = document.getElementById('installAppItem');
+    if (item) item.classList.add('hidden');
+});
+
+window.installApp = async function() {
+    if (window.deferredInstallPrompt) {
+        window.deferredInstallPrompt.prompt();
+        try { await window.deferredInstallPrompt.userChoice; } catch (e) {}
+        window.deferredInstallPrompt = null;
+    } else {
+        window.sgConfirm('In Chrome, tap the ⋮ menu (top right), then "Add to Home screen" or "Install app". On iPhone Safari, tap Share → "Add to Home Screen".', { title: '📲 Install Sinless GG', okText: 'Got it', cancelText: 'Close' });
+    }
+};
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch((e) => console.warn('Service worker not registered:', e));
+    });
+}
+
+// ================= LINKS TO PROFILES (#user=Name) =================
+window.openUserFromLink = function() {
+    const m = location.hash.match(/^#user=([A-Za-z0-9_]+)/);
+    if (m) window.openUserProfileModal(m[1]);
+};
+window.addEventListener('hashchange', window.openUserFromLink);
+
+// ================= START-UP FOR THE CLOUD LAYER =================
+window._baseInitApp = window._baseInitApp || window.initApp;
+window.initApp = async function() {
+    await window._baseInitApp();
+    window.listenToTournaments();
+    window.setFeedMode('foryou');
+    window.renderBlockedList();
+    window.openUserFromLink();
+    window.updateNotifBadge();
+};
+
+// Tell people they were @mentioned in a new post
+window._baseSubmitUniversalPost = window._baseSubmitUniversalPost || window.submitUniversalPost;
+window.submitUniversalPost = async function() {
+    const text = (document.getElementById('postTextContent').value || '').trim();
+    if (window.needSignIn('post')) return;
+    await window._baseSubmitUniversalPost();
+    if (text) window.notifyMentions(text, null, 'post');
 };
