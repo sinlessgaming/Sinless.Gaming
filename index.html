@@ -148,6 +148,7 @@
             <button data-admintab="reports" onclick="window.setAdminTab('reports')" class="flex-1 py-2 text-xs font-black">🚩 Reports</button>
             <button data-admintab="users" onclick="window.setAdminTab('users')" class="flex-1 py-2 text-xs font-black">👥 Users</button>
             <button data-admintab="stats" onclick="window.setAdminTab('stats')" class="flex-1 py-2 text-xs font-black">📈 Stats</button>
+            <button data-admintab="ads" onclick="window.setAdminTab('ads')" class="flex-1 py-2 text-xs font-black">📣 Ads</button>
         </div>
         <div id="adminBody" class="flex-1 overflow-y-auto p-3 space-y-2 max-w-xl w-full mx-auto"></div>
     </div>
@@ -245,6 +246,13 @@
                 <span><i class="fa-solid fa-gear mr-2"></i> Account Settings</span>
             </li>
         </ul>
+        <div class="px-4 pt-4 pb-6 text-[11px] text-gray-500 leading-6">
+            <a href="about.html" class="hover:text-cyan-400">About</a> ·
+            <a href="privacy.html" class="hover:text-cyan-400">Privacy</a> ·
+            <a href="terms.html" class="hover:text-cyan-400">Terms</a> ·
+            <a href="contact.html" class="hover:text-cyan-400">Contact</a>
+            <p>© 2026 Sinless GG</p>
+        </div>
     </aside>
 
     <!-- Main Content Container -->
@@ -406,7 +414,8 @@
                 </div>
             </div>
 
-            <div id="clansListContainer" class="space-y-2.5"></div>
+            <div id="squadsAdSlot"></div>
+                <div id="clansListContainer" class="space-y-2.5"></div>
         </div>
 
         <!-- VIEW 6: GLOBAL VOICE & TEXT LOBBY -->
