@@ -803,7 +803,7 @@ function loadCommentsForPost(postId) {
                     <div class="bg-gg-900/80 p-2.5 rounded-xl space-y-1 border border-cyan-500/10">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center space-x-1">
-                                <span class="text-xs font-bold text-cyan-400 cursor-pointer" onclick="closeCommentsModal(); closeMediaZoomModal(); openUserProfileModal('${c.user}', event)">@${c.user}</span>
+                                <span class="text-xs font-bold text-cyan-400 cursor-pointer" onclick="closeCommentsModal(); closeMediaZoomModal(); openUserProfileModal('${c.user}', event)">${window.dn(c.user)}</span>
                             </div>
                             <span class="text-[9px] text-gray-400" data-time="${window.postTimeValue(c)}">${window.timeAgo(window.postTimeValue(c))}</span>
                         </div>
@@ -1290,7 +1290,7 @@ window.renderClansList = function() {
                         ${c.isOfficial ? '<span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1.5 py-0.5 rounded font-black">Official</span>' : ''}
                         ${!c.isPublic ? '<span class="text-[8px] bg-red-500/20 text-red-400 border border-red-500/40 px-1.5 py-0.5 rounded font-black"><i class="fa-solid fa-lock mr-0.5"></i>Private</span>' : ''}
                     </div>
-                    <p class="text-[9px] text-gray-400">Owner: <span class="text-cyan-400 font-bold" onclick="event.stopPropagation(); window.openUserProfileModal('${c.owner || c.leader}', event)">@${c.owner || c.leader}</span> • ${members.length} Members ${c.inviteCode ? `• Code: ${c.inviteCode}` : ''}</p>
+                    <p class="text-[9px] text-gray-400">Owner: <span class="text-cyan-400 font-bold" onclick="event.stopPropagation(); window.openUserProfileModal('${c.owner || c.leader}', event)">${window.dn(c.owner || c.leader)}</span> • ${members.length} Members ${c.inviteCode ? `• Code: ${c.inviteCode}` : ''}</p>
                 </div>
                 <button onclick="event.stopPropagation(); window.toggleSquadMembership('${c.id}')" class="px-3.5 py-1.5 rounded-xl font-black text-[10px] uppercase transition shadow ${isMember ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'}">
                     ${isMember ? 'Leave' : 'Join'}
@@ -1418,7 +1418,7 @@ window.openSquadDetailsModal = function(squadId) {
     const isAdmin = isOwner || squad.admins.some(a => a.toLowerCase() === me);
 
     document.getElementById('squadDetailTitle').innerText = `${squad.name} [${squad.tag}]`;
-    document.getElementById('squadDetailLeader').innerText = `@${squad.owner || squad.leader}`;
+    document.getElementById('squadDetailLeader').innerText = window.dnText(squad.owner || squad.leader);
 
     const addBtn = document.getElementById('addCustomSubRoomBtn');
     if (addBtn) addBtn.className = isAdmin ? 'px-2 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-[9px] font-black rounded-xl hover:bg-cyan-500/30' : 'hidden';
@@ -1564,7 +1564,7 @@ window.switchSquadSubRoom = function(room) {
                 mmHtml += `
                     <div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs border border-cyan-500/20">
                         <div>
-                            <span class="font-extrabold text-white">@${q.challenger}</span>
+                            ${window.nameLink(q.challenger, 'font-extrabold text-white')}
                             <span class="text-[9px] text-cyan-400 block">${q.format} Fixture • Status: ${q.status}</span>
                         </div>
                         <button onclick="window.acceptSquadChallenge('${q.id}')" class="px-3 py-1.5 bg-cyan-400 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Accept Match</button>
@@ -1586,7 +1586,7 @@ window.switchSquadSubRoom = function(room) {
             rosterHtml += `
                 <div class="flex items-center justify-between p-3 bg-gg-900 rounded-2xl border border-cyan-500/15 text-xs shadow-md">
                     <div class="flex items-center space-x-2">
-                        <span class="font-bold text-white cursor-pointer hover:text-cyan-400" onclick="window.closeSquadDetailsModal(); window.openUserProfileModal('${m}', event)">@${m}</span>
+                        <span class="font-bold text-white cursor-pointer hover:text-cyan-400" onclick="window.closeSquadDetailsModal(); window.openUserProfileModal('${m}', event)">${window.dn(m)}</span>
                         ${memberIsOwner ? '<span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded font-black">👑 Owner</span>' : (memberIsAdmin ? '<span class="text-[8px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 px-2 py-0.5 rounded font-black">🛡️ Admin</span>' : '<span class="text-[8px] text-gray-400">Member</span>')}
                     </div>
                     <div class="flex items-center space-x-2">
@@ -1637,7 +1637,7 @@ window.switchSquadSubRoom = function(room) {
                 msgsBox.innerHTML += `
                     <div class="bg-gg-900 p-3 rounded-2xl border border-cyan-500/20 space-y-1.5 max-w-sm">
                         <div class="flex justify-between items-center text-[10px]">
-                            <span class="text-cyan-400 font-bold cursor-pointer" onclick="window.closeSquadDetailsModal(); window.openUserProfileModal('${m.sender}', event)">@${m.sender}</span>
+                            <span class="text-cyan-400 font-bold cursor-pointer" onclick="window.closeSquadDetailsModal(); window.openUserProfileModal('${m.sender}', event)">${window.dn(m.sender)}</span>
                             <span class="text-amber-400 font-extrabold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">${timerBadge}</span>
                         </div>
                         <img src="${m.imageUrl}" class="max-h-60 rounded-xl object-contain bg-black w-full border border-cyan-500/10 cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.imageUrl}')">
@@ -1647,7 +1647,7 @@ window.switchSquadSubRoom = function(room) {
                 msgsBox.innerHTML += `
                     <div class="bg-gg-900 p-2.5 rounded-2xl border border-cyan-500/10 space-y-0.5 max-w-xl">
                         <div class="flex items-center justify-between">
-                            <span class="text-[10px] font-bold text-cyan-400 cursor-pointer" onclick="window.closeSquadDetailsModal(); window.openUserProfileModal('${m.sender}', event)">@${m.sender}</span>
+                            <span class="text-[10px] font-bold text-cyan-400 cursor-pointer" onclick="window.closeSquadDetailsModal(); window.openUserProfileModal('${m.sender}', event)">${window.dn(m.sender)}</span>
                             <span class="text-[8px] text-gray-500">${m.timestamp ? window.timeAgo(m.timestamp) : (m.time || '')}</span>
                         </div>
                         <p class="text-xs text-gray-200">${formatMentions(m.text)}</p>
@@ -1979,7 +1979,7 @@ window.renderStoriesBar = function() {
                     ${thumb ? `<img src="${thumb}" class="w-full h-full rounded-full object-cover border-2 border-slate-950" loading="lazy">`
                             : `<div class="w-full h-full rounded-full bg-gg-900 border-2 border-slate-950 flex items-center justify-center text-[10px] font-black text-cyan-400">${u.slice(0, 2).toUpperCase()}</div>`}
                 </div>
-                <span class="text-[8px] font-extrabold text-gray-300 truncate max-w-[60px]">${u.toLowerCase() === me ? 'Your story' : '@' + u}</span>
+                <span class="text-[8px] font-extrabold text-gray-300 truncate max-w-[60px]">${u.toLowerCase() === me ? 'Your story' : escapeHTML(window.dnText(u).split(' ')[0])}</span>
             </div>`;
     }).join('');
 };
@@ -2019,7 +2019,7 @@ window.showStory = function() {
     document.getElementById('storyHeader').innerHTML = `
         <div class="flex items-center space-x-2">
             <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-[10px]">${(st.user || '?').slice(0, 2).toUpperCase()}</div>
-            <div><p class="text-xs font-bold text-white">@${st.user}</p><p class="text-[9px] text-gray-300">${window.timeAgo(st.timestamp)} · disappears in ${hrs}h ${mins}m</p></div>
+            <div><p class="text-xs">${window.nameLink(st.user, 'font-bold text-white')}</p><p class="text-[9px] text-gray-300">${window.timeAgo(st.timestamp)} · disappears in ${hrs}h ${mins}m</p></div>
         </div>
         <div class="flex items-center space-x-2">
             ${mine ? `<button onclick="window.deleteMyStory('${st.id}')" class="w-8 h-8 rounded-full bg-black/50 text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>` : ''}
@@ -2357,8 +2357,8 @@ window.openMatchReportModal = function(matchId) {
     if (!match) return;
 
     window.activeMatchForReporting = match;
-    document.getElementById('reportMatchP1Label').innerText = `@${match.p1}`;
-    document.getElementById('reportMatchP2Label').innerText = `@${match.p2}`;
+    document.getElementById('reportMatchP1Label').innerText = window.dnText(match.p1);
+    document.getElementById('reportMatchP2Label').innerText = window.dnText(match.p2);
     document.getElementById('reportP1ScoreInput').value = match.s1 !== null ? match.s1 : '';
     document.getElementById('reportP2ScoreInput').value = match.s2 !== null ? match.s2 : '';
     document.getElementById('reportMatchStreamInput').value = match.streamUrl || '';
@@ -2557,7 +2557,7 @@ function generateTournamentsHTML() {
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                 <div>
                     <h3 class="text-xs font-black text-white uppercase tracking-wider">${current.title}</h3>
-                    <p class="text-[9px] text-cyan-400">Host: @${current.host} • ${current.game} • ${current.players.length}/${current.maxPlayers} Registered</p>
+                    <p class="text-[9px] text-cyan-400">Host: ${window.nameLink(current.host, 'font-bold text-cyan-400')} • ${current.game} • ${current.players.length}/${current.maxPlayers} Registered</p>
                     <div class="flex items-center space-x-2 mt-1">
                         <span class="inline-block text-[8px] bg-magenta/20 text-magenta font-extrabold px-2 py-0.5 rounded-md">${formatBadge}</span>
                         <span class="inline-block text-[8px] bg-amber-500/20 text-amber-300 font-extrabold px-2 py-0.5 rounded-md border border-amber-500/30">🏆 Prize Pool: ${current.prizePool || 'Bragging Rights'}</span>
@@ -2629,7 +2629,7 @@ function generateTournamentsHTML() {
             bodyHtml += `
                 <tr>
                     <td class="px-2 py-1.5 font-bold">${i+1}</td>
-                    <td class="px-2 py-1.5 font-bold text-white truncate max-w-[90px]">@${row.p}</td>
+                    <td class="px-2 py-1.5 truncate max-w-[110px]">${window.nameLink(row.p, 'font-bold text-white')}</td>
                     <td class="px-2 text-center">${row.played}</td>
                     <td class="px-2 text-center text-emerald-400">${row.w}</td>
                     <td class="px-2 text-center text-gray-400">${row.d}</td>
@@ -2779,8 +2779,8 @@ function renderBracketMatchCardHex(m, tournId, isHost, theme = 'red') {
     if (theme === 'gold') borderStyle = 'border-amber-500/50 hover:border-amber-400 bg-amber-950/20';
     if (theme === 'league') borderStyle = 'border-cyan-500/20 hover:border-cyan-400 bg-gg-950';
 
-    let p1Html = `<span class="font-extrabold ${m.winner === m.p1 ? 'text-cyan-400 font-black' : 'text-gray-100'}">${m.p1 || 'Open Spot'}</span>`;
-    let p2Html = `<span class="font-extrabold ${m.winner === m.p2 ? 'text-cyan-400 font-black' : 'text-gray-100'}">${m.p2 || 'Open Spot'}</span>`;
+    let p1Html = `<span class="font-extrabold ${m.winner === m.p1 ? 'text-cyan-400 font-black' : 'text-gray-100'}">${(!m.p1 || m.p1 === 'Open Spot' || m.p1 === 'TBD') ? (m.p1 || 'Open Spot') : window.dn(m.p1)}</span>`;
+    let p2Html = `<span class="font-extrabold ${m.winner === m.p2 ? 'text-cyan-400 font-black' : 'text-gray-100'}">${(!m.p2 || m.p2 === 'Open Spot' || m.p2 === 'TBD') ? (m.p2 || 'Open Spot') : window.dn(m.p2)}</span>`;
 
     return `
         <div class="glass-panel p-2.5 rounded-xl border ${borderStyle} transition shadow-md cursor-pointer space-y-1.5" onclick="window.openMatchReportModal('${m.id}')">
@@ -2976,12 +2976,10 @@ window.renderFeedCard = function(p, me) {
         <div class="post-card-item glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/20 hover:border-cyan-500/40 transition cursor-pointer" data-post-id="${pId}" onclick="window.onPostCardTap(event, '${pId}')">
             <div class="flex items-center justify-between">
                 <div data-noexpand class="flex items-center space-x-2.5 cursor-pointer" onclick="window.openUserProfileModal('${p.user}', event)">
-                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-xs shadow-md">
-                        ${(p.user || 'SG').substring(0,2).toUpperCase()}
-                    </div>
-                    <div>
-                        <div class="flex items-center space-x-1.5">
-                            <h4 class="font-bold text-xs text-white hover:text-cyan-400 transition">@${p.user}</h4>
+                    ${window.avatarHtml(p.user, 'w-10 h-10', 'rounded-xl', 'text-xs')}
+                    <div class="min-w-0">
+                        <div class="flex items-center flex-wrap gap-x-1.5">
+                            <h4 class="font-bold text-sm text-white hover:text-cyan-400 transition leading-tight">${window.dn(p.user, p.displayName)}</h4>
                             ${badges}
                         </div>
                         <p class="text-[9px] uppercase font-black tracking-wider"><span class="text-cyan-400">${p.game || 'GAMING'}</span> <span class="text-gray-500 normal-case font-bold tracking-normal">· <span data-time="${window.postTimeValue(p)}">${window.timeAgo(window.postTimeValue(p))}</span></span></p>
@@ -3213,10 +3211,10 @@ window.renderPostDetail = function(p) {
     document.getElementById('postDetailBody').innerHTML = `
         <div class="max-w-xl mx-auto p-4 space-y-4">
             <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3 cursor-pointer" onclick="window.closePostDetail(); window.openUserProfileModal('${p.user}', event)">
-                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-sm shadow-lg">${(p.user || 'SG').slice(0, 2).toUpperCase()}</div>
+                <div class="flex items-center space-x-3 cursor-pointer" onclick="window.openUserProfileModal('${p.user}', event)">
+                    ${window.avatarHtml(p.user, 'w-12 h-12', 'rounded-2xl', 'text-sm')}
                     <div>
-                        <div class="flex items-center flex-wrap gap-1.5"><span class="font-black text-sm text-white">@${p.user}</span>${badges}</div>
+                        <div class="flex items-center flex-wrap gap-1.5"><span class="font-black text-base text-white">${window.dn(p.user, p.displayName)}</span>${badges}</div>
                         <span class="text-[10px] font-black text-cyan-400 uppercase tracking-wider">${p.game || 'GAMING'}</span>
                     </div>
                 </div>
@@ -3281,9 +3279,9 @@ window.loadDetailComments = function(postId) {
             const c = d.data();
             list.innerHTML += `
                 <div class="flex space-x-2.5">
-                    <div class="w-8 h-8 shrink-0 rounded-xl bg-gradient-to-tr from-cyan-400/70 to-magenta/70 flex items-center justify-center text-slate-950 font-black text-[10px] cursor-pointer" onclick="window.closePostDetail(); window.openUserProfileModal('${c.user}', event)">${(c.user || '?').slice(0, 2).toUpperCase()}</div>
+                    ${window.avatarHtml(c.user, 'w-8 h-8', 'rounded-xl', 'text-[10px]')}
                     <div class="flex-1 bg-gg-900/80 rounded-2xl rounded-tl-sm px-3 py-2 border border-cyan-500/10">
-                        <div class="flex items-center justify-between"><span class="text-[11px] font-bold text-cyan-400">@${c.user}</span><span class="text-[9px] text-gray-500" data-time="${window.postTimeValue(c)}">${window.timeAgo(window.postTimeValue(c))}</span></div>
+                        <div class="flex items-center justify-between"><span class="text-[11px]">${window.nameLink(c.user, 'font-bold text-white')}</span><span class="text-[9px] text-gray-500" data-time="${window.postTimeValue(c)}">${window.timeAgo(window.postTimeValue(c))}</span></div>
                         <p class="text-xs text-gray-200 mt-0.5 whitespace-pre-wrap break-words">${formatMentions(c.text)}</p>
                     </div>
                 </div>`;
@@ -3783,7 +3781,7 @@ window.renderMarketList = function() {
             <div class="glass-panel p-3.5 rounded-2xl flex items-center justify-between shadow-lg border border-cyan-500/20">
                 <div class="min-w-0 pr-2">
                     <h4 class="text-xs font-extrabold text-white truncate">${escapeHTML(m.title)}</h4>
-                    <p class="text-[9px] text-cyan-400">Seller: @${escapeHTML(m.user)}</p>
+                    <p class="text-[9px] text-cyan-400">Seller: ${window.nameLink(m.user, 'font-bold text-cyan-400')}</p>
                 </div>
                 <div class="text-right shrink-0">
                     <span class="text-xs font-black text-amber-400 block">${escapeHTML(m.price)}</span>
@@ -3989,9 +3987,9 @@ window.renderCommunityPulse = function() {
     if (topPost && topPost.caption) {
         const pid = topPost.docId || topPost.id;
         const snippet = topPost.caption.length > 70 ? topPost.caption.slice(0, 70) + '…' : topPost.caption;
-        lines.push(`💬 Most talked-about: <span class="text-cyan-400 font-bold cursor-pointer" onclick="window.openUserProfileModal('${escapeHTML(topPost.user)}', event)">@${escapeHTML(topPost.user)}</span> — <span class="cursor-pointer underline decoration-dotted" onclick="window.openMediaZoomModal('text', '', '${pid}')">"${escapeHTML(snippet)}"</span> (${topPost.ggsCount || 0} GG, ${topPost.commentsCount || 0} replies)`);
+        lines.push(`💬 Most talked-about: <span class="text-cyan-400 font-bold cursor-pointer" onclick="window.openUserProfileModal('${escapeHTML(topPost.user)}', event)">${window.dn(topPost.user)}</span> — <span class="cursor-pointer underline decoration-dotted" onclick="window.openMediaZoomModal('text', '', '${pid}')">"${escapeHTML(snippet)}"</span> (${topPost.ggsCount || 0} GG, ${topPost.commentsCount || 0} replies)`);
     }
-    if (topCreator && topCreatorCount > 1) lines.push(`⭐ <span class="text-cyan-400 font-bold">@${escapeHTML(topCreator)}</span> is the most active creator (${topCreatorCount} posts).`);
+    if (topCreator && topCreatorCount > 1) lines.push(`⭐ ${window.nameLink(topCreator, 'text-cyan-400 font-bold')} is the most active creator (${topCreatorCount} posts).`);
     if (topTags.length) lines.push(`#️⃣ Trending tags: ${topTags.map(([t, n]) => `<span class="text-cyan-400 font-bold">${escapeHTML(t)}</span> (${n})`).join(', ')}`);
     if (topMention && topMention[1] > 1) lines.push(`👀 Everyone's tagging <span class="text-cyan-400 font-bold">${escapeHTML(topMention[0])}</span>.`);
     if (liveNow.length) lines.push(`⚽ ${liveNow.length} real match${liveNow.length === 1 ? ' is' : 'es are'} live right now — e.g. ${escapeHTML(liveNow[0].home.abbr)} ${escapeHTML(liveNow[0].home.score)}-${escapeHTML(liveNow[0].away.score)} ${escapeHTML(liveNow[0].away.abbr)}.`);
@@ -4129,7 +4127,7 @@ window.handleGlobalSearch = function(text) {
         container.innerHTML += `
             <div class="glass-panel p-3 rounded-xl space-y-1 cursor-pointer border border-cyan-500/20" onclick="openUserProfileModal('${escapeHTML(p.user)}', event)">
                 <div class="flex justify-between items-center text-xs">
-                    <span class="font-extrabold text-cyan-400">@${escapeHTML(p.user)}</span>
+                    <span class="font-extrabold text-white">${window.dn(p.user, p.displayName)}</span>
                     <span class="text-[9px] text-gray-400 uppercase">${escapeHTML(p.game)}</span>
                 </div>
                 <p class="text-xs text-gray-200 truncate">${escapeHTML(p.caption) || 'Media Clip'}</p>
@@ -4168,7 +4166,7 @@ window.openMediaZoomModal = function(type, mediaUrl, postId = null, caption = ''
 
     if (title) {
         const zp = postId ? (window.fypposts || []).find(p => p.id === postId || p.docId === postId) : null;
-        title.innerText = zp ? `@${zp.user} · ${window.timeAgo(window.postTimeValue(zp))}` : '';
+        title.innerText = zp ? `${window.dnText(zp.user, zp.displayName)} · ${window.timeAgo(window.postTimeValue(zp))}` : '';
     }
 
     if (type === 'video') {
@@ -4269,7 +4267,7 @@ window.renderZoomInteractions = function(postId) {
 
     bar.innerHTML = `
         <div class="flex items-center space-x-2 text-xs text-white">
-            <span class="font-bold text-cyan-400">@${post.user}</span>
+            ${window.nameLink(post.user, 'font-bold text-cyan-400')}
             <span class="text-[9px] text-gray-400 uppercase">${post.game || 'POST'}</span>
         </div>
         <div class="flex items-center space-x-3 text-xs">
@@ -4419,7 +4417,7 @@ window.sendChatMessage = function() {
         box.innerHTML += `
             <div class="bg-gg-900 p-2.5 rounded-xl border border-cyan-500/15 space-y-0.5">
                 <div class="flex items-center justify-between">
-                    <span class="text-[10px] font-bold text-cyan-400 cursor-pointer" onclick="window.openUserProfileModal('${me}', event)">@${me}</span>
+                    <span class="text-[10px] font-bold text-cyan-400 cursor-pointer" onclick="window.openUserProfileModal('${me}', event)">${window.dn(me)}</span>
                     <span class="text-[8px] text-gray-500">Just now</span>
                 </div>
                 <p class="text-xs text-gray-200">${formatMentions(text)}</p>
@@ -4788,9 +4786,9 @@ window.renderNotifications = function() {
     }
     box.innerHTML = list.map(n => `
         <div class="flex items-start space-x-3 p-3 rounded-2xl ${n.read ? 'bg-transparent' : 'bg-cyan-500/5 border border-cyan-500/20'} cursor-pointer" onclick="window.openNotification('${n.id}')">
-            <div class="w-9 h-9 shrink-0 rounded-xl bg-gg-900 border border-cyan-500/20 flex items-center justify-center"><i class="fa-solid ${window.notifIcon(n.type)}"></i></div>
+            <div class="relative shrink-0">${window.avatarHtml(n.fromUser, 'w-10 h-10', 'rounded-xl', 'text-[10px]')}<span class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-gg-950 border border-cyan-500/30 flex items-center justify-center text-[9px]"><i class="fa-solid ${window.notifIcon(n.type)}"></i></span></div>
             <div class="flex-1 min-w-0">
-                <p class="text-xs text-gray-200"><b class="text-white">@${escapeHTML(n.fromUser)}</b> ${escapeHTML(window.notifText(n))}</p>
+                <p class="text-xs text-gray-200">${window.nameLink(n.fromUser, 'font-bold text-white')} ${escapeHTML(window.notifText(n))}</p>
                 <p class="text-[10px] text-gray-500 mt-0.5">${window.timeAgo(window.postTimeValue(n))}</p>
             </div>
             ${n.read ? '' : '<span class="w-2 h-2 rounded-full bg-cyan-400 mt-1.5"></span>'}
@@ -5380,9 +5378,9 @@ window.renderDmInbox = function() {
         const unread = unreadFrom.has(tag.toLowerCase());
         return `
             <div class="flex items-center space-x-3 p-3 rounded-2xl cursor-pointer hover:bg-gg-900 ${unread ? 'bg-cyan-500/5 border border-cyan-500/20' : ''}" onclick="window.openDmThread('${escapeHTML(tag)}')">
-                <div class="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-xs">${escapeHTML(tag.slice(0, 2).toUpperCase())}</div>
+                ${window.avatarHtml(tag, 'w-11 h-11', 'rounded-2xl', 'text-xs').replace(/onclick="[^"]*"/, '')}
                 <div class="flex-1 min-w-0">
-                    <div class="flex items-center justify-between"><span class="text-sm font-bold text-white">@${escapeHTML(tag)}</span><span class="text-[9px] text-gray-500">${t.lastAt ? window.timeAgo(window.postTimeValue({ createdAt: t.lastAt })) : ''}</span></div>
+                    <div class="flex items-center justify-between"><span class="text-sm font-bold text-white truncate">${window.dn(tag)}</span><span class="text-[9px] text-gray-500">${t.lastAt ? window.timeAgo(window.postTimeValue({ createdAt: t.lastAt })) : ''}</span></div>
                     <p class="text-xs ${unread ? 'text-white font-bold' : 'text-gray-400'} truncate">${t.lastFrom === uid ? 'You: ' : ''}${escapeHTML(t.lastText || '')}</p>
                 </div>
                 ${unread ? '<span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>' : ''}
@@ -5411,7 +5409,7 @@ window.openDmThread = async function(tag) {
     const threadId = window.threadIdFor(window.currentUser.uid, prof.uid);
     window.activeDm = { threadId, partnerUid: prof.uid, partnerTag: prof.gamertag || tag };
     window.activeDmUser = window.activeDm.partnerTag;
-    document.getElementById('dmHeaderUser').innerText = `@${window.activeDm.partnerTag}`;
+    document.getElementById('dmHeaderUser').innerText = window.dnText(window.activeDm.partnerTag);
     document.getElementById('dmBackBtn').classList.remove('hidden');
     document.getElementById('dmComposer').classList.remove('hidden');
     document.getElementById('dmNewChatRow').classList.add('hidden');
@@ -5561,3 +5559,266 @@ window.submitUniversalPost = async function() {
     await window._baseSubmitUniversalPost();
     if (text) window.notifyMentions(text, null, 'post');
 };
+
+// ======================================================================
+// NAMES, AVATARS, @TAGGING, TABLES, INSTALL (v11)
+// ======================================================================
+
+// ---------- Everyone's public profile, loaded once (for names, photos and @tag suggestions) ----------
+window.allProfilesMap = {};
+window.loadAllProfiles = async function() {
+    if (!window.db) return;
+    try {
+        const snap = await getDocs(query(collection(window.db, 'profiles'), limit(2000)));
+        const map = {};
+        snap.forEach(d => { const p = d.data(); map[d.id] = { ...p, gamertag: p.gamertag || d.id }; });
+        window.allProfilesMap = map;
+        window.renderFypFeed && window.renderFypFeed();
+        window.renderStoriesBar && window.renderStoriesBar();
+    } catch (e) { console.warn('Profiles load failed', e); }
+};
+
+window.profileFor = function(tag) {
+    const k = (tag || '').replace('@', '').toLowerCase();
+    return window.allProfilesMap[k] || (window.profileCache[k] && window.profileCache[k].data) || null;
+};
+
+// Display name (e.g. "Ace Khyd") — falls back to the gamertag
+window.dnText = function(tag, fallback) {
+    const p = window.profileFor(tag);
+    return (p && p.displayName) || fallback || (tag || 'Gamer').replace('@', '');
+};
+window.dn = function(tag, fallback) { return escapeHTML(window.dnText(tag, fallback)); };
+
+// Tappable name that opens the profile from anywhere
+window.nameLink = function(tag, cls = 'font-bold text-white', fallback) {
+    const t = escapeHTML((tag || '').replace('@', ''));
+    return `<span class="cursor-pointer hover:underline ${cls}" onclick="event.stopPropagation(); window.openUserProfileModal('${t}', event)">${window.dn(tag, fallback)}</span>`;
+};
+
+// Profile photo if they have one, otherwise their initials
+window.avatarHtml = function(tag, size = 'w-9 h-9', round = 'rounded-xl', textSize = 'text-xs') {
+    const p = window.profileFor(tag);
+    const t = escapeHTML((tag || '').replace('@', ''));
+    const click = `onclick="event.stopPropagation(); window.openUserProfileModal('${t}', event)"`;
+    if (p && p.pfp) return `<img ${click} src="${window.cldSized(p.pfp, 120)}" class="${size} ${round} object-cover shrink-0 cursor-pointer bg-gg-900" loading="lazy" alt="">`;
+    return `<div ${click} class="${size} ${round} shrink-0 cursor-pointer bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black ${textSize}">${escapeHTML(window.dnText(tag).replace(/[^A-Za-z0-9 ]/g, '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || t.slice(0, 2).toUpperCase())}</div>`;
+};
+
+// ---------- @ tagging: suggestions pop up as you type @ in any box ----------
+window.mentionTargets = ['postTextContent', 'commentInputText', 'postDetailReplyInput', 'dmInputText', 'squadSubRoomInput', 'editPostCaptionInput', 'chatInputMsg'];
+window.mentionState = null;
+
+window.mentionCandidates = function(q) {
+    q = (q || '').toLowerCase();
+    const seen = new Set(), out = [];
+    const add = (tag, name) => {
+        const k = (tag || '').toLowerCase();
+        if (!k || seen.has(k) || k === window.meLower() || k === 'guest' || window.isBlocked(k)) return;
+        if (q && !k.includes(q) && !(name || '').toLowerCase().includes(q)) return;
+        seen.add(k); out.push({ tag, name: name || tag });
+    };
+    // people you follow first, then everyone else
+    Object.values(window.allProfilesMap).filter(p => window.amFollowing(p.gamertag)).forEach(p => add(p.gamertag, p.displayName));
+    Object.values(window.allProfilesMap).forEach(p => add(p.gamertag, p.displayName));
+    (window.fypposts || []).forEach(p => add(p.user, p.displayName));
+    return out.sort((a, b) => (a.tag.toLowerCase().startsWith(q) ? 0 : 1) - (b.tag.toLowerCase().startsWith(q) ? 0 : 1)).slice(0, 6);
+};
+
+window.onMentionInput = function(el) {
+    const caret = el.selectionStart || el.value.length;
+    const before = el.value.slice(0, caret);
+    const m = before.match(/(^|\s)@([A-Za-z0-9_]{0,24})$/);
+    if (!m) return window.hideMentionBox();
+    const list = window.mentionCandidates(m[2]);
+    if (!list.length) return window.hideMentionBox();
+    window.mentionState = { el, start: caret - m[2].length - 1, end: caret, list };
+    const box = document.getElementById('mentionBox');
+    box.innerHTML = list.map((c, i) => `
+        <button type="button" onmousedown="event.preventDefault()" onclick="window.pickMention(${i})" class="w-full flex items-center space-x-2.5 px-3 py-2 hover:bg-gg-800 text-left">
+            ${window.avatarHtml(c.tag, 'w-8 h-8', 'rounded-full', 'text-[10px]').replace(/onclick="[^"]*"/, '')}
+            <span class="min-w-0"><span class="block text-xs font-bold text-white truncate">${escapeHTML(c.name)}</span><span class="block text-[10px] text-gray-400">@${escapeHTML(c.tag)}</span></span>
+        </button>`).join('');
+    const r = el.getBoundingClientRect();
+    const below = r.top < window.innerHeight / 2;
+    box.style.left = Math.max(8, r.left) + 'px';
+    box.style.width = Math.min(r.width, window.innerWidth - 16) + 'px';
+    box.style.top = below ? (r.bottom + 6) + 'px' : 'auto';
+    box.style.bottom = below ? 'auto' : (window.innerHeight - r.top + 6) + 'px';
+    box.classList.remove('hidden');
+};
+
+window.pickMention = function(i) {
+    const s = window.mentionState;
+    if (!s) return;
+    const c = s.list[i];
+    const v = s.el.value;
+    s.el.value = v.slice(0, s.start) + '@' + c.tag + ' ' + v.slice(s.end);
+    const pos = s.start + c.tag.length + 2;
+    s.el.focus(); s.el.setSelectionRange(pos, pos);
+    window.hideMentionBox();
+};
+
+window.hideMentionBox = function() {
+    const box = document.getElementById('mentionBox');
+    if (box) box.classList.add('hidden');
+    window.mentionState = null;
+};
+
+window.setupMentionInputs = function() {
+    window.mentionTargets.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || el.dataset.mentions) return;
+        el.dataset.mentions = '1';
+        el.addEventListener('input', () => window.onMentionInput(el));
+        el.addEventListener('blur', () => setTimeout(window.hideMentionBox, 150));
+        el.addEventListener('keydown', (e) => {
+            if (!window.mentionState) return;
+            if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); window.pickMention(0); }
+            if (e.key === 'Escape') window.hideMentionBox();
+        }, true);
+    });
+};
+
+// "Tag people" button in the post composer
+window.startTagging = function() {
+    const el = document.getElementById('postTextContent');
+    const v = el.value;
+    el.value = v + (v && !/\s$/.test(v) ? ' ' : '') + '@';
+    el.focus(); el.setSelectionRange(el.value.length, el.value.length);
+    window.onMentionInput(el);
+};
+
+// ---------- Opening a profile works from anywhere (it now sits on top of everything) ----------
+window._baseOpenDmModal2 = window._baseOpenDmModal2 || window.openDmModal;
+window.openDmModal = function(username = null, e = null) {
+    const prof = document.getElementById('userProfileModal');
+    if (prof && !prof.classList.contains('hidden')) prof.classList.add('hidden');
+    return window._baseOpenDmModal2(username, e);
+};
+window._baseOpenStoryProfile = window.openUserProfileModal;
+window.openUserProfileModal = function(username, e = null) {
+    const sv = document.getElementById('storyViewerModal');
+    if (sv && !sv.classList.contains('hidden')) window.closeStoryViewer();
+    window.hideMentionBox();
+    window.pauseFeedVideos && window.pauseFeedVideos();
+    return window._baseOpenStoryProfile(username, e);
+};
+
+// ---------- Tables & Top: show GGs and Views (no points) ----------
+window.rankSort = { week: 'ggs', all: 'ggs' };
+window.setRankSort = function(kind, by) {
+    window.rankSort[kind] = by;
+    document.querySelectorAll(`[data-ranksort="${kind}"]`).forEach(b => {
+        const on = b.dataset.by === by;
+        b.className = `px-2.5 py-1 rounded-full text-[10px] font-black ${on ? 'bg-white text-slate-950' : 'bg-gg-900 text-gray-400 border border-cyan-500/20'}`;
+    });
+    if (kind === 'week') window.renderLadder(); else window.renderTopAccounts();
+};
+
+window.creatorRowV2 = function(c, i, sub) {
+    const medal = ['🥇', '🥈', '🥉'][i];
+    const top = i < 3;
+    return `
+        <div class="p-3 flex items-center justify-between text-xs cursor-pointer hover:bg-gg-900/60 transition ${top ? 'bg-amber-500/5' : ''}" onclick="window.openUserProfileModal('${escapeHTML(c.gamertag)}', event)">
+            <div class="flex items-center space-x-2.5 min-w-0">
+                <span class="w-7 text-center font-black ${top ? 'text-lg' : 'text-amber-400 text-xs'}">${medal || '#' + (i + 1)}</span>
+                ${window.avatarHtml(c.gamertag, 'w-9 h-9', 'rounded-xl', 'text-[10px]')}
+                <div class="min-w-0">
+                    <h4 class="font-bold text-white truncate">${window.dn(c.gamertag)}</h4>
+                    <p class="text-[9px] text-gray-400 truncate">${sub}</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3 shrink-0 ml-2 text-right">
+                <div><p class="font-black text-cyan-400 text-xs">${window.formatCount(c.ggs)}</p><p class="text-[8px] text-gray-500 font-bold">GGs</p></div>
+                <div><p class="font-black text-white text-xs">${window.formatCount(c.views)}</p><p class="text-[8px] text-gray-500 font-bold">VIEWS</p></div>
+            </div>
+        </div>`;
+};
+
+window.renderLadder = async function() {
+    const container = document.getElementById('ladderBody');
+    if (!container) return;
+    if (!container.innerHTML.trim()) container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Ranking this week's creators…</p>`;
+    const posts = await window.fetchRankingPosts('week');
+    const by = window.rankSort.week;
+    const list = window.buildCreatorStats(posts)
+        .filter(c => !window.isBlocked(c.gamertag))
+        .sort((a, b) => by === 'views' ? (b.views - a.views || b.ggs - a.ggs) : (b.ggs - a.ggs || b.views - a.views))
+        .slice(0, 250);
+    if (!list.length) { container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">No posts this week yet — be the first creator of the week!</p>`; return; }
+    container.innerHTML = list.map((c, i) => window.creatorRowV2(c, i, `${c.posts} post${c.posts === 1 ? '' : 's'} this week`)).join('');
+    const count = document.getElementById('ladderCount');
+    if (count) count.innerText = `${list.length} creator${list.length === 1 ? '' : 's'}`;
+};
+
+window.renderTopAccounts = async function() {
+    const container = document.getElementById('topAccountsList');
+    if (!container) return;
+    if (!container.innerHTML.trim()) container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading all-time leaders…</p>`;
+    const posts = await window.fetchRankingPosts('all');
+    const by = window.rankSort.all;
+    const list = window.buildCreatorStats(posts)
+        .filter(c => !window.isBlocked(c.gamertag))
+        .sort((a, b) => by === 'views' ? (b.views - a.views || b.ggs - a.ggs) : (b.ggs - a.ggs || b.views - a.views))
+        .slice(0, 250);
+    if (!list.length) { container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">No creators yet.</p>`; return; }
+    container.innerHTML = list.map((c, i) => window.creatorRowV2(c, i, `${c.posts} post${c.posts === 1 ? '' : 's'} all-time`)).join('');
+};
+
+// ---------- Install on any device ----------
+window.isStandalone = function() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+};
+window.detectPlatform = function() {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) return /CriOS|FxiOS|EdgiOS/.test(ua) ? 'ios-other' : 'ios-safari';
+    if (/Android/.test(ua)) return /SamsungBrowser/.test(ua) ? 'android-samsung' : (/Firefox/.test(ua) ? 'android-firefox' : 'android-chrome');
+    if (/Firefox/.test(ua)) return 'desktop-firefox';
+    if (/Edg\//.test(ua)) return 'desktop-edge';
+    if (/Safari/.test(ua) && !/Chrome/.test(ua)) return 'desktop-safari';
+    return 'desktop-chrome';
+};
+
+window.installApp = async function() {
+    if (window.isStandalone()) { showToast("✅ You're already using the installed app!"); return; }
+    if (window.deferredInstallPrompt) {
+        window.deferredInstallPrompt.prompt();
+        try { await window.deferredInstallPrompt.userChoice; } catch (e) {}
+        window.deferredInstallPrompt = null;
+        return;
+    }
+    const steps = {
+        'ios-safari': ['Tap the <b>Share</b> button <i class="fa-solid fa-arrow-up-from-bracket"></i> at the bottom of Safari.', 'Scroll down and tap <b>Add to Home Screen</b>.', 'Tap <b>Add</b>. Sinless GG appears on your home screen.'],
+        'ios-other': ['On iPhone/iPad, apps can only be installed from <b>Safari</b>.', 'Copy this page link, open it in <b>Safari</b>.', 'Then tap <b>Share</b> → <b>Add to Home Screen</b>.'],
+        'android-chrome': ['Tap the <b>⋮</b> menu (top right of Chrome).', 'Tap <b>Install app</b> or <b>Add to Home screen</b>.', 'Tap <b>Install</b>.'],
+        'android-samsung': ['Tap the <b>☰</b> menu at the bottom.', 'Tap <b>Add page to</b> → <b>Home screen</b>.', 'Tap <b>Add</b>.'],
+        'android-firefox': ['Tap the <b>⋮</b> menu.', 'Tap <b>Install</b> or <b>Add to Home screen</b>.', 'Confirm.'],
+        'desktop-chrome': ['Look for the <b>install icon</b> <i class="fa-solid fa-display"></i> at the right end of the address bar.', 'Or open the <b>⋮</b> menu → <b>Cast, save and share</b> → <b>Install page as app</b>.', 'Click <b>Install</b>. It opens in its own window and gets a desktop/Start menu icon.'],
+        'desktop-edge': ['Click the <b>App available</b> icon in the address bar,', 'or <b>⋯</b> menu → <b>Apps</b> → <b>Install this site as an app</b>.', 'Click <b>Install</b>.'],
+        'desktop-safari': ['On Mac Safari, open the <b>File</b> menu (or Share button).', 'Choose <b>Add to Dock</b>.', 'Sinless GG opens like a normal Mac app.'],
+        'desktop-firefox': ['Firefox on computers can\'t install web apps yet.', 'Open this page in <b>Chrome</b> or <b>Edge</b>,', 'then use their <b>Install</b> option.']
+    };
+    const list = steps[window.detectPlatform()] || steps['desktop-chrome'];
+    document.getElementById('installSteps').innerHTML = list.map((s, i) => `
+        <div class="flex items-start space-x-3"><span class="w-6 h-6 shrink-0 rounded-full bg-cyan-400 text-slate-950 text-xs font-black flex items-center justify-center">${i + 1}</span><p class="text-sm text-gray-200 leading-snug pt-0.5">${s}</p></div>`).join('');
+    document.getElementById('installSheet').classList.remove('hidden');
+};
+
+window.refreshInstallItem = function() {
+    const item = document.getElementById('installAppItem');
+    if (item) item.classList.toggle('hidden', window.isStandalone());
+};
+
+// ---------- Start-up ----------
+window._baseInitApp2 = window._baseInitApp2 || window.initApp;
+window.initApp = async function() {
+    await window._baseInitApp2();
+    window.setupMentionInputs();
+    window.refreshInstallItem();
+    window.loadAllProfiles();
+};
+// after saving your profile, refresh names everywhere
+window._baseSaveProfile2 = window._baseSaveProfile2 || window.saveUserProfileChanges;
+window.saveUserProfileChanges = async function() { await window._baseSaveProfile2(); window.loadAllProfiles(); };

@@ -26,7 +26,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Sinless GG">
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
     <script>
         tailwind.config = {
@@ -108,6 +108,22 @@
                 <button id="sgDialogCancel" class="flex-1 py-2.5 bg-gg-900 border border-cyan-500/30 text-gray-300 rounded-xl text-xs font-bold">Cancel</button>
                 <button id="sgDialogOk" class="flex-1 py-2.5 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 font-black rounded-xl text-xs uppercase shadow">OK</button>
             </div>
+        </div>
+    </div>
+
+    <!-- @tag suggestions -->
+    <div id="mentionBox" class="hidden fixed bg-gg-900 border border-cyan-500/40 rounded-2xl shadow-2xl overflow-hidden" style="z-index:295"></div>
+
+    <!-- Install guide -->
+    <div id="installSheet" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex flex-col justify-end" style="z-index:284" onclick="if(event.target === this) this.classList.add('hidden')">
+        <div class="w-full max-w-md mx-auto bg-gg-900 rounded-t-3xl p-5 space-y-4 border-t border-cyan-500/30 fade-in">
+            <div class="w-10 h-1 rounded-full bg-gray-600 mx-auto"></div>
+            <div class="flex items-center space-x-3">
+                <img src="icon-192.png" class="w-12 h-12 rounded-2xl" alt="">
+                <div><h3 class="text-sm font-black text-white">Install Sinless GG</h3><p class="text-[10px] text-gray-400">Free · works on iPhone, Android, PC & Mac</p></div>
+            </div>
+            <div id="installSteps" class="space-y-3"></div>
+            <button onclick="document.getElementById('installSheet').classList.add('hidden')" class="w-full py-2.5 rounded-xl bg-cyan-400 text-slate-950 text-xs font-black">Got it</button>
         </div>
     </div>
 
@@ -354,9 +370,12 @@
                 <div class="flex items-end justify-between">
                     <div>
                         <h3 class="text-xs font-black text-white uppercase tracking-wider flex items-center"><i class="fa-solid fa-fire text-amber-400 mr-1.5"></i> Creators of the Week</h3>
-                        <p class="text-[9px] text-gray-400 mt-0.5">Top 250 · ranked by GGs, replies & views from the last 7 days</p>
+                        <p class="text-[9px] text-gray-400 mt-0.5">Top 250 · last 7 days · <span id="ladderCount" class="text-amber-400 font-bold"></span></p>
                     </div>
-                    <span id="ladderCount" class="text-[9px] text-amber-400 font-bold"></span>
+                    <div class="flex space-x-1.5 shrink-0">
+                        <button data-ranksort="week" data-by="ggs" onclick="window.setRankSort('week','ggs')" class="px-2.5 py-1 rounded-full text-[10px] font-black bg-white text-slate-950">🔥 GGs</button>
+                        <button data-ranksort="week" data-by="views" onclick="window.setRankSort('week','views')" class="px-2.5 py-1 rounded-full text-[10px] font-black bg-gg-900 text-gray-400 border border-cyan-500/20">👁 Views</button>
+                    </div>
                 </div>
                 <div id="ladderBody" class="divide-y divide-cyan-500/10 bg-gg-950 rounded-xl border border-cyan-500/20"></div>
             </div>
@@ -366,7 +385,13 @@
         <div id="view-popular" class="view-section hidden flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden p-4 space-y-4 shadow-2xl border border-cyan-500/30">
             <div class="border-b border-cyan-500/15 pb-2">
                 <h3 class="text-xs font-black text-white uppercase tracking-wider flex items-center"><i class="fa-solid fa-crown text-amber-400 mr-1.5"></i> All-Time Top Creators</h3>
-                <p class="text-[9px] text-gray-400 mt-0.5">The creators with the most GGs ever on Sinless GG</p>
+                <div class="flex items-center justify-between mt-1">
+                    <p class="text-[9px] text-gray-400">The biggest creators on Sinless GG, ever</p>
+                    <div class="flex space-x-1.5 shrink-0">
+                        <button data-ranksort="all" data-by="ggs" onclick="window.setRankSort('all','ggs')" class="px-2.5 py-1 rounded-full text-[10px] font-black bg-white text-slate-950">🔥 GGs</button>
+                        <button data-ranksort="all" data-by="views" onclick="window.setRankSort('all','views')" class="px-2.5 py-1 rounded-full text-[10px] font-black bg-gg-900 text-gray-400 border border-cyan-500/20">👁 Views</button>
+                    </div>
+                </div>
             </div>
             <div id="topAccountsList" class="divide-y divide-cyan-500/10 bg-gg-950 rounded-xl border border-cyan-500/20"></div>
         </div>
@@ -425,6 +450,9 @@
                     <option value="CALL OF DUTY">🎯 CALL OF DUTY</option>
                     <option value="OTHER GAMES">🎮 OTHER GAMES</option>
                 </select>
+                <button type="button" onclick="window.startTagging()" class="bg-gg-900 border border-magenta/40 text-magenta hover:bg-magenta/10 px-3 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center transition">
+                    <i class="fa-solid fa-at mr-1.5"></i> Tag people
+                </button>
                 <label class="bg-gg-900 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 px-3 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center cursor-pointer transition">
                     <i class="fa-solid fa-photo-film mr-1.5"></i> Select Media
                     <input type="file" id="mediaFileInput" accept="image/*,video/*" multiple class="hidden" onchange="handleMediaUploadSelect(this)">
@@ -677,7 +705,7 @@
     </div>
 
     <!-- User Profile Modal -->
-    <div id="userProfileModal" class="hidden fixed inset-0 bg-gg-950 z-[170] overflow-y-auto">
+    <div id="userProfileModal" style="z-index:262" class="hidden fixed inset-0 bg-gg-950 overflow-y-auto">
         <div class="w-full max-w-lg mx-auto min-h-full flex flex-col bg-gg-950">
             <!-- Cover Header -->
             <div id="profileBannerHeader" class="h-32 bg-gradient-to-r from-gg-900 via-cyan-950 to-magenta/40 relative bg-cover bg-center">
@@ -754,7 +782,7 @@
     </div>
 
     <!-- Edit Profile Modal -->
-    <div id="editProfileModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[180] flex items-center justify-center p-4">
+    <div id="editProfileModal" style="z-index:270" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[180] flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-md rounded-2xl p-4 flex flex-col space-y-3 shadow-2xl border border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                 <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-user-pen text-cyan-400 mr-1.5"></i> Edit Profile Details</h3>
@@ -870,7 +898,7 @@
     </div>
 
     <!-- Comments Modal -->
-    <div id="commentsModal" style="z-index:260" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[260] flex flex-col justify-end">
+    <div id="commentsModal" style="z-index:268" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[260] flex flex-col justify-end">
         <div class="glass-panel w-full max-w-md mx-auto rounded-t-3xl p-4 flex flex-col space-y-3 h-[70vh] shadow-2xl border-t border-cyan-500/40">
             <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
                 <h3 class="text-xs font-black text-white uppercase tracking-wider">Replies for <span id="commentsPostUser" class="text-cyan-400"></span></h3>
@@ -918,7 +946,7 @@
     </div>
 
     <!-- Media Zoom Lightbox Modal -->
-    <div id="mediaZoomModal" style="z-index:250" class="hidden fixed inset-0 bg-black/95 backdrop-blur-md z-[250] flex flex-col justify-between p-3 select-none">
+    <div id="mediaZoomModal" style="z-index:266" class="hidden fixed inset-0 bg-black/95 backdrop-blur-md z-[250] flex flex-col justify-between p-3 select-none">
         <div class="flex items-center justify-between z-10">
             <span id="mediaZoomTitle" class="text-xs font-extrabold text-cyan-400"></span>
             <button onclick="closeMediaZoomModal()" class="text-white text-base font-bold bg-gg-900/80 px-3 py-1 rounded-xl border border-cyan-500/30">✕ Close</button>
