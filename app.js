@@ -6,7 +6,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { 
     getFirestore, collection, addDoc, doc, deleteDoc, updateDoc, 
     arrayUnion, arrayRemove, increment, query, orderBy, limit, 
-    onSnapshot, serverTimestamp, where, getDocs, getDoc, setDoc, getCountFromServer 
+    onSnapshot as _fsOnSnapshot, serverTimestamp, where, getDocs as _fsGetDocs, getDoc as _fsGetDoc, setDoc, getCountFromServer 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { 
     getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged 
@@ -14,6 +14,62 @@ import {
 import { 
     getMessaging, getToken, onMessage 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
+
+// ======================================================================
+// SECURITY: everything that comes out of the database is made safe before the app shows it.
+// Text can't contain HTML/JS (< > " ' ` are swapped for look-alike characters) and links can't be javascript:.
+// This protects every screen at once, even ones written before this fix.
+// ======================================================================
+const SG_SKIP_KEYS = new Set(['sdp', 'candidate', 'offer', 'answer']);
+const SG_URL_KEY = /(url|pfp|cover|img|image|thumb|thumbnail|photo|avatar|link|href|src|website|media|poster|audio|video|embed)$/i;
+const sgSafeUrl = (v) => {
+    if (/^\s*(javascript|vbscript|data:text|data:application)/i.test(v)) return '';
+    return v.replace(/"/g, '%22').replace(/'/g, '%27').replace(/</g, '%3C').replace(/>/g, '%3E').replace(/`/g, '%60').replace(/\s/g, '%20');
+};
+const sgSafeText = (v) => v.replace(/</g, '‹').replace(/>/g, '›').replace(/"/g, '”').replace(/'/g, '’').replace(/`/g, 'ˋ');
+window.sgClean = function clean(v, key) {
+    if (typeof v === 'string') {
+        if (key && SG_SKIP_KEYS.has(key)) return v;
+        if ((key && SG_URL_KEY.test(key)) || /^(https?:|blob:|data:image\/)/i.test(v)) return sgSafeUrl(v);
+        return sgSafeText(v);
+    }
+    if (Array.isArray(v)) return v.map(x => clean(x, key));
+    if (v && typeof v === 'object') {
+        const proto = Object.getPrototypeOf(v);
+        if (proto !== Object.prototype && proto !== null) return v;   // Timestamps etc.
+        const out = {};
+        for (const k of Object.keys(v)) out[k] = SG_SKIP_KEYS.has(k) ? v[k] : clean(v[k], k);
+        return out;
+    }
+    return v;
+};
+const sgWrapDoc = (d) => d && new Proxy(d, { get(t, p) {
+    if (p === 'data') return (...a) => { const x = t.data(...a); return x ? window.sgClean(x) : x; };
+    const v = t[p]; return typeof v === 'function' ? v.bind(t) : v;
+} });
+const sgWrapSnap = (s) => {
+    if (!s) return s;
+    if (typeof s.forEach !== 'function') return sgWrapDoc(s);
+    return new Proxy(s, { get(t, p) {
+        if (p === 'forEach') return (cb, th) => t.forEach((d, ...r) => cb.call(th, sgWrapDoc(d), ...r));
+        if (p === 'docs') return (t.docs || []).map(sgWrapDoc);
+        if (p === 'docChanges') return (...a) => t.docChanges(...a).map(c => ({ ...c, type: c.type, oldIndex: c.oldIndex, newIndex: c.newIndex, doc: sgWrapDoc(c.doc) }));
+        const v = t[p]; return typeof v === 'function' ? v.bind(t) : v;
+    } });
+};
+const getDoc = async (...a) => sgWrapSnap(await _fsGetDoc(...a));
+const getDocs = async (...a) => sgWrapSnap(await _fsGetDocs(...a));
+const onSnapshot = (...a) => { let done = false; return _fsOnSnapshot(...a.map(x => { if (typeof x === 'function' && !done) { done = true; return (snap) => x(sgWrapSnap(snap)); } return x; })); };
+// Clean anything saved on this phone by older versions too
+try {
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!/^(sinless_|sg_)/.test(k)) continue;
+        const raw = localStorage.getItem(k);
+        if (!raw || !/[<>"'`]/.test(raw) || !/^[\[{]/.test(raw)) continue;
+        try { const v = JSON.parse(raw); localStorage.setItem(k, JSON.stringify(window.sgClean(v))); } catch (e) {}
+    }
+} catch (e) {}
 
 // Everyone without their own photo gets the Sinless GG logo
 window.SG_DEFAULT_PFP = 'icon-192.png';
@@ -828,7 +884,7 @@ function loadCommentsForPost(postId) {
 
 function formatMentions(text) {
     if (!text) return '';
-    return text.replace(/@(\w+)/g, '<span class="text-cyan-400 font-bold cursor-pointer hover:underline" onclick="openUserProfileModal(\'$1\', event)">@$1</span>');
+    return escapeHTML(String(text)).replace(/@(\w+)/g, '<span class="text-cyan-400 font-bold cursor-pointer hover:underline" onclick="openUserProfileModal(\'$1\', event)">@$1</span>');
 }
 
 window.submitCommentReply = async function() {
@@ -7628,26 +7684,27 @@ window.renderFypFeed = function() {
     if (f === 'LIVE STREAM') return;
     const nc = f === 'ALL' ? null : window.POST_TO_NEWS_CAT[f];
     if (f !== 'ALL' && !nc) return;
-    const news = nc ? (window.newsByCat[nc] || []) : window.newsForYou();
-    if (!news.length) return;
+    // News + official videos (Watch) fill the feed around people's posts
+    const extras = window.feedExtras ? window.feedExtras(nc) : (nc ? (window.newsByCat[nc] || []) : window.newsForYou()).map(n => ({ type: 'news', n }));
+    if (!extras.length) return;
     const cards = [...box.children].filter(el => el.querySelector('[data-post-id]') || el.hasAttribute('data-post-id'));
-    // Plenty of posts → news only now and then. Few posts → news fills the gaps.
+    // People first: lots of posts → news/videos only now and then. Few posts → they fill the gaps.
     const n = cards.length;
-    const every = n < 8 ? 2 : n < 20 ? 3 : n < 40 ? 5 : 8;
-    const maxNews = n < 8 ? 40 : n < 20 ? 30 : n < 40 ? 15 : 8;
+    const every = n < 8 ? 2 : n < 20 ? 3 : n < 40 ? 5 : n < 80 ? 8 : 12;
+    const maxX = n < 8 ? 40 : n < 20 ? 30 : n < 40 ? 12 : n < 80 ? 8 : 6;
     let k = 0;
-    const make = () => { const d = document.createElement('div'); d.setAttribute('data-news-card', '1'); d.innerHTML = window.newsCardHtml(news[k++], { inFeed: true, small: true }); return d; };
+    const make = () => { const x = extras[k++], d = document.createElement('div'); d.setAttribute('data-news-card', '1');
+        if (x.type === 'video') { d.setAttribute('data-vid-card', '1'); d.innerHTML = window.feedVideoCardHtml(x.v); } else d.innerHTML = window.newsCardHtml(x.n, { inFeed: true, small: true });
+        return d; };
     if (!cards.length) {
-        // nothing posted here yet: show the news so the page is never empty
-        box.insertAdjacentHTML('beforeend', `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">Meanwhile, in the news</p>`);
-        while (k < Math.min(40, news.length)) box.appendChild(make());
+        box.insertAdjacentHTML('beforeend', `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">Meanwhile · news & videos</p>`);
+        while (k < Math.min(40, extras.length)) box.appendChild(make());
         return;
     }
-    cards.forEach((c, i) => { if ((i + 1) % every === 0 && k < news.length && k < maxNews) c.after(make()); });
-    // ran out of posts? keep the feed going with more news
-    if (n < 40 && k < Math.min(news.length, maxNews)) {
-        box.insertAdjacentHTML('beforeend', `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">You're all caught up · more from the news</p>`);
-        while (k < Math.min(news.length, maxNews)) box.appendChild(make());
+    cards.forEach((c, i) => { if ((i + 1) % every === 0 && k < extras.length && k < maxX) c.after(make()); });
+    if (n < 40 && k < Math.min(extras.length, maxX)) {
+        box.insertAdjacentHTML('beforeend', `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">You're all caught up · more news & videos</p>`);
+        while (k < Math.min(extras.length, maxX)) box.appendChild(make());
     }
 };
 
@@ -12646,3 +12703,113 @@ window.openTrophy = function(user, i) {
     const panel = document.getElementById('sgPanelBody') || (body && body.parentElement);
     panel && panel.insertAdjacentHTML('afterbegin', `<button onclick="window.openTrophyCabinet('${escapeHTML(user)}')" class="text-[11px] font-black text-amber-300 mb-1">← Trophy cabinet</button>`);
 };
+
+// ======================================================================
+// v22f: WATCH VIDEOS IN THE FEED — official videos mixed with news around people's posts
+// People's posts always come first; videos & news fill in more when there are fewer posts.
+// ======================================================================
+window.feedVids = {};            // cat → [videos]
+window._feedVidLoading = {};
+window.seenVids = (() => { try { return new Set(JSON.parse(localStorage.getItem('sg_seen_vids') || '[]')); } catch (e) { return new Set(); } })();
+window.hiddenVidCats = {};
+window.feedCatOrder = function() {
+    const t = (window.taste && window.taste.news) || {};
+    return window.WATCH_CATS.map(c => c.id).sort((a, b) => (t[b] || 0) - (t[a] || 0));
+};
+window.loadFeedVideos = async function(cat) {
+    const cats = cat ? [cat] : window.feedCatOrder().slice(0, 5);
+    const todo = cats.filter(c => !window._feedVidLoading[c] && !(window.feedVids[c] && Date.now() - window.feedVids[c].at < 30 * 60000));
+    if (!todo.length) return false;
+    todo.forEach(c => window._feedVidLoading[c] = true);
+    try { await window.loadWatchCfg(); } catch (e) {}
+    await Promise.all(todo.map(async c => {
+        const chans = window.watchCfg.channels.filter(x => x.cat === c).slice(0, cat ? 6 : 3);
+        const lists = await Promise.all(chans.map(ch => window.loadChannelVideos(ch).catch(() => [])));
+        // mix channels so one channel never floods the feed
+        const out = [], mx = Math.max(0, ...lists.map(l => l.length));
+        for (let i = 0; i < mx; i++) lists.forEach(l => { if (l[i]) out.push({ ...l[i], cat: c }); });
+        window.feedVids[c] = { at: Date.now(), list: out };
+        window._feedVidLoading[c] = false;
+    }));
+    return true;
+};
+window.videosForFeed = function(cat) {
+    const ok = (v) => !window.seenVids.has(v.vid);
+    if (cat) return ((window.feedVids[cat] || {}).list || []).filter(ok);
+    const t = (window.taste && window.taste.news) || {}, cats = window.feedCatOrder().filter(c => (window.feedVids[c] || {}).list && !window.hiddenVidCats[c]);
+    const ptr = {}, credit = {}, w = {}; cats.forEach(c => { ptr[c] = 0; credit[c] = 0; w[c] = 1 + Math.max(0, t[c] || 0); });
+    const total = cats.reduce((a, c) => a + w[c], 0) || 1, out = [];
+    for (let guard = 0; out.length < 40 && guard < 400; guard++) {
+        cats.forEach(c => credit[c] += w[c] / total);
+        const c = cats.filter(c => ptr[c] < window.feedVids[c].list.length).sort((a, b) => credit[b] - credit[a])[0];
+        if (!c) break;
+        credit[c] -= 1; const v = window.feedVids[c].list[ptr[c]++]; if (ok(v)) out.push(v);
+    }
+    return out;
+};
+// One stream: news, video, news, video… (whichever runs out, the other keeps going)
+window.feedExtras = function(nc) {
+    window.feedVidReg = [];
+    const news = (nc ? (window.newsByCat[nc] || []) : window.newsForYou()).map(n => ({ type: 'news', n }));
+    const vids = window.videosForFeed(nc).map(v => ({ type: 'video', v }));
+    if (!vids.length && !window._feedVidKick) { window._feedVidKick = true; setTimeout(() => { window._feedVidKick = false; window.refreshFeedVideos(nc); }, 50); }
+    const out = []; let a = 0, b = 0;
+    while (a < news.length || b < vids.length) { if (b < vids.length) out.push(vids[b++]); if (a < news.length) out.push(news[a++]); }
+    return out;
+};
+window.refreshFeedVideos = async function(nc) {
+    const got = await window.loadFeedVideos(nc || null);
+    // redraw once if new videos arrived and the person is near the top (never jump while they scroll)
+    if (got && window.scrollY < 400 && !document.getElementById('view-fyp')?.classList.contains('hidden')) window.renderFypFeed();
+};
+window.feedVidReg = [];
+window.feedVideoCardHtml = function(v) {
+    window.feedVidReg.push(v); const i = window.feedVidReg.length - 1;
+    const img = `https://i.ytimg.com/vi/${v.vid}/${window.dataSaver ? 'mqdefault' : 'hqdefault'}.jpg`;
+    const cat = window.WATCH_CATS.find(c => c.id === v.cat);
+    return `<div class="glass-panel rounded-2xl overflow-hidden border border-red-500/25">
+        <div class="flex items-center justify-between px-3 pt-2.5 pb-2">
+            <div class="flex items-center gap-2 min-w-0">
+                <span class="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-play text-xs"></i></span>
+                <div class="min-w-0"><p class="text-xs font-black text-white truncate">${escapeHTML(v.ch.name)} <span class="text-[9px] text-red-300 font-black">· OFFICIAL</span></p>
+                <p class="text-[10px] text-gray-500">📺 Watch · ${cat ? cat.label : ''} · ${window.timeAgo(v.date)}</p></div>
+            </div>
+            <button onclick="event.stopPropagation(); window.hideFeedVideo(${i}, this)" class="w-7 h-7 rounded-full text-gray-500 hover:text-white" title="Not interested"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <button onclick="window.playFeedVideo(${i})" class="block w-full text-left">
+            <div class="relative aspect-video bg-gg-900"><img src="${img}" loading="lazy" alt="" class="w-full h-full object-cover">
+                <span class="absolute inset-0 flex items-center justify-center"><span class="w-14 h-14 rounded-full bg-red-600/90 text-white text-xl flex items-center justify-center shadow-xl"><i class="fa-solid fa-play"></i></span></span></div>
+            <p class="px-3 pt-2.5 text-sm font-black text-white leading-snug line-clamp-2">${escapeHTML(v.title)}</p>
+        </button>
+        <div class="flex items-center gap-2 px-3 py-2.5 text-[11px] font-black">
+            <button onclick="window.playFeedVideo(${i})" class="flex-1 py-2 rounded-xl bg-gg-900 border border-cyan-500/25 text-cyan-300">🔥 GG &amp; 💬 Comment</button>
+            <button onclick="window.watchCat='${v.cat}'; window.switchView('watch')" class="px-3 py-2 rounded-xl bg-gg-900 border border-red-500/30 text-red-300">More in Watch ›</button>
+        </div></div>`;
+};
+window.playFeedVideo = function(i) {
+    const v = window.feedVidReg[i]; if (!v) return;
+    window.hlRegistry = window.hlRegistry || [];
+    window.hlRegistry.push(v);
+    window.playHighlight(window.hlRegistry.length - 1);
+    window.seenVids.add(v.vid);
+    try { localStorage.setItem('sg_seen_vids', JSON.stringify([...window.seenVids].slice(-400))); } catch (e) {}
+    if (window.taste && v.cat) { window.taste.news[v.cat] = Math.min(60, (window.taste.news[v.cat] || 0) + 2); window.saveTasteSoon(); }
+};
+window.hideFeedVideo = function(i, btn) {
+    const v = window.feedVidReg[i]; if (!v) return;
+    window.seenVids.add(v.vid);
+    try { localStorage.setItem('sg_seen_vids', JSON.stringify([...window.seenVids].slice(-400))); } catch (e) {}
+    if (window.taste && v.cat) { window.taste.news[v.cat] = Math.max(-20, (window.taste.news[v.cat] || 0) - 3); window.saveTasteSoon(); }
+    const card = btn.closest('[data-vid-card]'); if (card) card.remove();
+    showToast("Got it. You'll see fewer videos like this.");
+};
+// Watch page videos also teach the feed what you like (instead of always counting as football)
+window._basePlayHighlight22f = window._basePlayHighlight22f || window.playHighlight;
+window.playHighlight = function(i) {
+    const v = (window.hlRegistry || [])[i];
+    const before = window.taste && window.taste.news ? window.taste.news.football : null;
+    window._basePlayHighlight22f(i);
+    const cat = v && (v.cat || window.watchCat);
+    if (window.taste && v && cat && cat !== 'football' && before !== null) { window.taste.news.football = before; window.taste.news[cat] = Math.min(60, (window.taste.news[cat] || 0) + 1); window.saveTasteSoon(); }
+};
+setTimeout(() => window.refreshFeedVideos(null), 4000);
