@@ -7421,7 +7421,7 @@ window.fetchFeedItems = async function(source, url) {
     })).filter(x => x.title && /^https?:\/\//.test(x.link || ''));
     let items = null;
     try {
-        const r = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url));
+        const r = await window.fetchTimeout('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url), 12000);
         const j = await r.json();
         if (j.status === 'ok' && (j.items || []).length) {
             items = tidy(j.items.map(it => ({ title: it.title, link: it.link, date: it.pubDate, img: window.newsImageFrom(it, it.description || it.content), desc: it.description })));
@@ -7430,7 +7430,7 @@ window.fetchFeedItems = async function(source, url) {
     if (!items) {
         for (const relay of ['https://api.allorigins.win/raw?url=', 'https://api.codetabs.com/v1/proxy?quest=']) {
             try {
-                const r = await fetch(relay + encodeURIComponent(url));
+                const r = await window.fetchTimeout(relay + encodeURIComponent(url), 15000);
                 const xml = new DOMParser().parseFromString(await r.text(), 'text/xml');
                 const nodes = [...xml.querySelectorAll('item, entry')].slice(0, 15);
                 if (!nodes.length) continue;
@@ -8194,7 +8194,7 @@ window.renderLiveStage = function(msg) {
     const r = window.liveRoom; const stage = document.getElementById('liveStage');
     if (!r) return;
     if (r.mode === 'embed') {
-        if (!stage.querySelector('iframe')) stage.innerHTML = `<iframe src="${escapeHTML(r.data.embedUrl)}" class="w-full h-full border-0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+        if (!stage.querySelector('iframe')) stage.innerHTML = `<iframe src="${escapeHTML(r.data.embedUrl)}" class="w-full h-full border-0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe>`;
         return;
     }
     if (r.isHost) {
@@ -10713,3 +10713,332 @@ window.weekChallenges = function(wk = window.weekKey(Date.now())) {
     return window._baseWeekChallenges20(wk);
 };
 window.XP_RULES.game = [2, 10];
+
+// ======================================================================
+// v21: RELIABLE DATA LOADING (timeouts + several routes at once)
+// Set window.SG_PROXY to your own Cloudflare helper later for 100% reliability.
+// ======================================================================
+window.SG_PROXY = window.SG_PROXY || '';
+window.fetchTimeout = function(url, ms) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), ms);
+    return fetch(url, { signal: ctl.signal }).finally(() => clearTimeout(t));
+};
+window.fetchJsonRelay = async function(url) {
+    const enc = encodeURIComponent(url);
+    const tryJson = async (u, ms) => { const r = await window.fetchTimeout(u, ms); if (!r.ok) throw new Error('bad ' + r.status); const j = await r.json(); if (!j || typeof j !== 'object') throw new Error('bad json'); return j; };
+    if (window.SG_PROXY) { try { return await tryJson(window.SG_PROXY + '?url=' + enc, 20000); } catch (e) {} }
+    try { return await tryJson(url, 6000); } catch (e) {}          // works if the site allows it
+    const relays = ['https://api.allorigins.win/raw?url=' + enc, 'https://api.codetabs.com/v1/proxy?quest=' + enc, 'https://corsproxy.io/?url=' + enc, 'https://api.cors.lol/?url=' + enc];
+    // ask all relays at once, first good answer wins
+    return await new Promise((resolve, reject) => {
+        let left = relays.length;
+        relays.forEach(u => tryJson(u, 25000).then(resolve).catch(() => { if (--left === 0) reject(new Error('offline')); }));
+    });
+};
+// Friendlier Fantasy loading screen
+window._baseRenderFantasy21 = window._baseRenderFantasy21 || window.renderFantasy;
+window.renderFantasy = async function() {
+    const t = setTimeout(() => {
+        const box = document.getElementById('playBody');
+        if (box && !window.fpl && window.playTab === 'fantasy' && box.innerText.includes('Loading Premier League')) box.insertAdjacentHTML('beforeend', `<p class="text-[10px] text-gray-500 text-center">First load can take up to 30 seconds on mobile data. After that it's instant.</p>`);
+    }, 6000);
+    try { await window._baseRenderFantasy21(); } finally { clearTimeout(t); }
+};
+
+// ======================================================================
+// v21: CLEAN MARKET — no game accounts, coins or shady items
+// ======================================================================
+window.MARKET_BLOCKED = /\b(account|acct|acc|login|password|coins?|fc ?points|diamonds?|uc\b|cp\b|v-?bucks|robux|gift ?card|top-?up|hack|mod ?menu|cheat|aimbot|crack(ed)?|replica|fake|counterfeit|weed|gun|bet(ting)?)\b/i;
+window._baseSubmitMarket21 = window._baseSubmitMarket21 || window.submitMarketListingToCloud;
+window.submitMarketListingToCloud = async function(...args) {
+    const t = (document.getElementById('marketTitleInput') || {}).value || '';
+    if (window.MARKET_BLOCKED.test(t)) {
+        await window.sgDialog({ title: '🚫 Not allowed on GG Market', message: 'Game accounts, coins/points, top-ups, gift-card codes, cheats, fakes and anything illegal can’t be listed. These break game rules and attract scams.\n\nYou can sell gear, jerseys, phones, accessories, coaching and services.', okText: 'OK', cancelText: 'Close' });
+        return;
+    }
+    return window._baseSubmitMarket21.apply(this, args);
+};
+
+// ======================================================================
+// v21: OFFICIAL HIGHLIGHTS (from the leagues' own YouTube channels — 100% legal)
+// ======================================================================
+window.HL_CHANNELS = [
+    { id: 'UCG5qGWdu8nIRZqJ_GgDwQ-w', name: 'Premier League', short: 'EPL', flag: '🏴' },
+    { id: 'UCyGa1YEx9ST66rYrJTGIKOw', name: 'UEFA', short: 'UCL', flag: '⭐' },
+    { id: 'UCTv-XvfzLX3i4IGWAm4sbmA', name: 'LaLiga', short: 'LaLiga', flag: '🇪🇸' },
+    { id: 'UCBJeMCIeLQos7wacox4hmLQ', name: 'Serie A', short: 'Serie A', flag: '🇮🇹' },
+    { id: 'UC6UL29enLNe4mqwTfAyeNuw', name: 'Bundesliga', short: 'Bundesliga', flag: '🇩🇪' },
+    { id: 'UCpcTrCXblq78GZrTUTLWeBw', name: 'FIFA', short: 'FIFA', flag: '🌍' }
+];
+window.hlVideos = {};          // channelId -> [{vid,title,date,img,ch}]
+window.hlLeague = 'all';
+window.ytId = (link) => { const m = /(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/.exec(link || ''); return m ? m[1] : null; };
+window.loadHighlights = async function(force) {
+    if (!force && window._hlAt && Date.now() - window._hlAt < 30 * 60000) return;
+    if (window._hlLoading) return window._hlLoading;
+    window._hlLoading = Promise.all(window.HL_CHANNELS.map(async ch => {
+        const items = await window.fetchFeedItems(ch.name, `https://www.youtube.com/feeds/videos.xml?channel_id=${ch.id}`);
+        window.hlVideos[ch.id] = (items || []).map(x => ({ vid: window.ytId(x.link), title: x.title, date: x.date, ch })).filter(x => x.vid && !/#shorts/i.test(x.title)).slice(0, 15);
+    })).then(() => { window._hlAt = Date.now(); }).finally(() => { window._hlLoading = null; });
+    return window._hlLoading;
+};
+window.hlList = function(league) {
+    const isHl = (t) => /highlight|goals?\b|extended|recap|all goals|résumé|resumen|sintesi|tore/i.test(t);
+    const all = Object.values(window.hlVideos).flat();
+    return all.filter(v => league === 'all' || v.ch.id === league)
+        .sort((a, b) => (isHl(b.title) - isHl(a.title)) * 0 || b.date - a.date);
+};
+window.hlRegistry = [];
+window.hlCard = function(v, small) {
+    window.hlRegistry.push(v); const i = window.hlRegistry.length - 1;
+    const img = window.dataSaver ? `https://i.ytimg.com/vi/${v.vid}/mqdefault.jpg` : `https://i.ytimg.com/vi/${v.vid}/hqdefault.jpg`;
+    return small
+        ? `<button onclick="window.playHighlight(${i})" class="shrink-0 w-56 text-left"><div class="relative aspect-video rounded-xl overflow-hidden bg-gg-900"><img src="${img}" loading="lazy" alt="" class="w-full h-full object-cover"><span class="absolute inset-0 flex items-center justify-center"><span class="w-11 h-11 rounded-full bg-black/60 text-white flex items-center justify-center"><i class="fa-solid fa-play"></i></span></span><span class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-white font-black">${v.ch.flag} ${escapeHTML(v.ch.short)}</span></div>
+            <p class="text-[11px] font-bold text-white line-clamp-2 mt-1">${escapeHTML(v.title)}</p><p class="text-[9px] text-gray-500">${window.timeAgo(v.date)}</p></button>`
+        : `<button onclick="window.playHighlight(${i})" class="w-full text-left glass-panel rounded-2xl overflow-hidden border border-red-500/20">
+            <div class="relative aspect-video bg-gg-900"><img src="${img}" loading="lazy" alt="" class="w-full h-full object-cover"><span class="absolute inset-0 flex items-center justify-center"><span class="w-14 h-14 rounded-full bg-red-600/90 text-white text-xl flex items-center justify-center shadow-xl"><i class="fa-solid fa-play"></i></span></span></div>
+            <div class="p-3"><p class="text-[10px] font-black text-red-400">${v.ch.flag} ${escapeHTML(v.ch.name)} · <span class="text-gray-500">${window.timeAgo(v.date)}</span></p><p class="text-sm font-black text-white leading-snug mt-0.5">${escapeHTML(v.title)}</p></div></button>`;
+};
+window.renderHighlights = async function(box) {
+    box.innerHTML = `<div class="flex gap-1.5 overflow-x-auto scrollbar-none pb-1">${[{ id: 'all', flag: '📺', short: 'All' }, ...window.HL_CHANNELS].map(c => `<button onclick="window.hlLeague='${c.id}'; window.renderNews()" class="shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black ${window.hlLeague === c.id ? 'bg-red-600 text-white' : 'bg-gg-900 text-gray-300 border border-red-500/20'}">${c.flag} ${escapeHTML(c.short || c.name)}</button>`).join('')}</div>
+        <div id="hlListBox" class="space-y-3"><p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading official highlights…</p></div>`;
+    await window.loadHighlights();
+    const el = document.getElementById('hlListBox'); if (!el || window.activeNewsCat !== 'highlights') return;
+    window.hlRegistry = [];
+    const list = window.hlList(window.hlLeague).slice(0, 30);
+    if (list.length) { el.innerHTML = list.map(v => window.hlCard(v)).join(''); return; }
+    // couldn't read the video list: show the channel's own latest-videos player instead
+    const chans = window.hlLeague === 'all' ? window.HL_CHANNELS : window.HL_CHANNELS.filter(c => c.id === window.hlLeague);
+    el.innerHTML = chans.map(c => `<div class="glass-panel rounded-2xl overflow-hidden border border-red-500/20"><p class="px-3 py-2 text-[11px] font-black text-white">${c.flag} ${escapeHTML(c.name)} · latest videos</p>
+        <div class="relative aspect-video bg-black"><iframe loading="lazy" src="https://www.youtube-nocookie.com/embed/videoseries?list=UU${c.id.slice(2)}" class="absolute inset-0 w-full h-full border-0" allow="encrypted-media; picture-in-picture; fullscreen"></iframe></div></div>`).join('');
+};
+window.playHighlight = function(i) {
+    const v = window.hlRegistry[i]; if (!v) return;
+    window.pauseFeedVideos && window.pauseFeedVideos();
+    window.activeHl = v;
+    document.getElementById('hlTitle').innerText = v.title;
+    document.getElementById('hlFrame').src = `https://www.youtube-nocookie.com/embed/${v.vid}?autoplay=1&playsinline=1&rel=0`;
+    document.getElementById('hlOpen').href = `https://www.youtube.com/watch?v=${v.vid}`;
+    document.getElementById('hlModal').classList.remove('hidden');
+    window.taste && (window.taste.news.football = Math.min(60, (window.taste.news.football || 0) + 1), window.saveTasteSoon());
+};
+window.closeHighlight = function() { document.getElementById('hlFrame').src = 'about:blank'; document.getElementById('hlModal').classList.add('hidden'); };
+window.shareHighlight = async function() {
+    const v = window.activeHl; if (!v) return;
+    const url = `https://www.youtube.com/watch?v=${v.vid}`;
+    try { if (navigator.share) { await navigator.share({ title: v.title, text: `${v.title} 📺 via Sinless GG`, url }); return; } } catch (e) { return; }
+    window.copyText(url);
+};
+// Highlights tab in News (first chip) + a row on Trending
+if (!window.NEWS_CATS.some(c => c.id === 'highlights')) window.NEWS_CATS.splice(1, 0, { id: 'highlights', label: '📺 Highlights' });
+window._baseRenderNews21 = window._baseRenderNews21 || window.renderNews;
+window.renderNews = function() {
+    if (window.activeNewsCat !== 'highlights') { window.hlNewsRendered = false; return window._baseRenderNews21(); }
+    const chips = document.getElementById('newsCatChips');
+    if (chips) chips.innerHTML = window.NEWS_CATS.map(c => `<button onclick="window.setNewsCat('${c.id}')" class="shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-extrabold whitespace-nowrap ${window.activeNewsCat === c.id ? 'bg-cyan-400 text-slate-950 shadow' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'}">${c.label}</button>`).join('');
+    const tick = document.getElementById('newsLiveTicker'); if (tick) tick.classList.add('hidden');
+    const box = document.getElementById('newsListContainer');
+    if (box) window.renderHighlights(box);
+};
+window.renderTrendingHighlights = async function() {
+    const el = document.getElementById('trendingHighlightsBox'); if (!el) return;
+    await window.loadHighlights();
+    window.hlRegistry = window.hlRegistry || [];
+    const list = window.hlList('all').slice(0, 10);
+    if (!list.length) { el.className = 'hidden'; return; }
+    el.className = 'glass-panel p-3.5 rounded-2xl space-y-2.5 border border-red-500/30';
+    el.innerHTML = `<div class="flex items-center justify-between"><h3 class="text-xs font-black text-white uppercase tracking-wider">📺 Latest highlights</h3><button onclick="window.switchView('news'); window.setNewsCat('highlights')" class="text-[10px] text-red-400 font-bold">See all ›</button></div>
+        <div class="flex gap-3 overflow-x-auto scrollbar-none pb-1">${list.map(v => window.hlCard(v, true)).join('')}</div>`;
+};
+window._baseSwitchView21 = window._baseSwitchView21 || window.switchView;
+window.switchView = function(v) { window._baseSwitchView21(v); if (v === 'trending') window.renderTrendingHighlights(); };
+
+// ======================================================================
+// v21: NEW ARCADE LINE-UP — ⚡ Dribble Rush (endless runner), 🧤 Keeper Hero, 🥅 Penalty King
+// ======================================================================
+window.GAMES = {
+    dribble: { name: 'Dribble Rush', emoji: '⚡', desc: 'Dodge defenders, grab stars. Tap left or right. How far can you go?', color: 'from-cyan-400 to-emerald-500' },
+    keeper: { name: 'Keeper Hero', emoji: '🧤', desc: 'Read the striker and dive the right way. 3 lives.', color: 'from-fuchsia-500 to-cyan-400' },
+    penalty: { name: 'Penalty King', emoji: '🥅', desc: 'Tap where to shoot. Beat the keeper. One miss and it’s over.', color: 'from-amber-400 to-red-500' }
+};
+if (!window.GAMES[window.arcadeBoard]) window.arcadeBoard = 'dribble';
+window._baseOpenGame21 = window._baseOpenGame21 || window.openGame;
+window.openGame = function(id) {
+    const inits = { dribble: window.dribbleInit, keeper: window.keeperInit };
+    if (!inits[id]) return window._baseOpenGame21(id);
+    // reuse the shell with our own init
+    const saved = window.keepyInit, savedInfo = window.GAMES.keepy;
+    window.keepyInit = inits[id]; window.GAMES.keepy = window.GAMES[id];
+    try { window._baseOpenGame21('keepy'); } finally { window.keepyInit = saved; if (savedInfo) window.GAMES.keepy = savedInfo; else delete window.GAMES.keepy; }
+    const g = window.game; g.id = id;
+    document.getElementById('gameTitle').innerText = `${window.GAMES[id].emoji} ${window.GAMES[id].name}`;
+    window.showGameOverlay('ready');
+};
+// keep swipes working too (swipe left/right in Dribble Rush)
+document.addEventListener('pointerup', (e) => {
+    const g = window.game; if (!g || g.state !== 'play' || !g.swipe || g._sx == null) return;
+    const dx = e.clientX - g._sx; g._sx = null;
+    if (Math.abs(dx) > 40) g.swipe(dx > 0 ? 1 : -1);
+}, true);
+document.addEventListener('pointerdown', (e) => { const g = window.game; if (g) g._sx = e.clientX; }, true);
+
+// ---------- ⚡ DRIBBLE RUSH ----------
+window.dribbleInit = function(g) {
+    g.lanes = 3;
+    g.laneX = (i) => g.W * (0.5 + (i - 1) * 0.28);
+    g.reset = function() {
+        g.lane = 1; g.px = g.laneX(1); g.dist = 0; g.speed = g.H * 0.55; g.objs = []; g.spawnIn = 0.6; g.stars = 0; g.scroll = 0; g.hitT = 0;
+        window.setGameScore(0);
+    };
+    g.reset();
+    g.move = (d) => { const n = Math.max(0, Math.min(2, g.lane + d)); if (n !== g.lane) { g.lane = n; if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) {} } };
+    g.tap = function(x) { g.move(x < g.W / 2 ? -1 : 1); };
+    g.swipe = function() {};          // taps already handle left/right
+    g.update = function(dt) {
+        g.speed = g.H * (0.55 + Math.min(g.dist / 1800, 1.15));              // gets faster
+        const dy = g.speed * dt;
+        g.dist += dy / 10; g.scroll = (g.scroll + dy) % 80;
+        g.px += (g.laneX(g.lane) - g.px) * Math.min(1, dt * 14);
+        // spawn a row: 1–2 defenders, never all three lanes
+        g.spawnIn -= dt;
+        if (g.spawnIn <= 0) {
+            const blocked = new Set();
+            const n = Math.random() < Math.min(0.15 + g.dist / 3000, 0.55) ? 2 : 1;
+            while (blocked.size < n) blocked.add(Math.floor(Math.random() * 3));
+            blocked.forEach(l => g.objs.push({ lane: l, y: -40, kind: Math.random() < 0.25 ? 'cone' : 'def', wob: Math.random() * 6 }));
+            const free = [0, 1, 2].filter(l => !blocked.has(l));
+            if (Math.random() < 0.45) g.objs.push({ lane: free[Math.floor(Math.random() * free.length)], y: -40, kind: 'star' });
+            g.spawnIn = Math.max(0.42, 0.95 - g.dist / 2500) * (0.85 + Math.random() * 0.3);
+        }
+        const py = g.H * 0.8, hitR = Math.min(g.W * 0.09, 34);
+        g.objs.forEach(o => { o.y += dy; o.wob += dt * 6; });
+        for (const o of g.objs) {
+            if (o.done) continue;
+            const ox = g.laneX(o.lane);
+            if (Math.abs(o.y - py) < hitR && Math.abs(ox - g.px) < g.W * 0.12) {
+                if (o.kind === 'star') { o.done = true; g.stars++; window.fxText(g, '+10 ⭐', ox, o.y - 20, '#fde047', 20, 0.7); }
+                else { window.gameOver(o.kind === 'cone' ? 'cone' : 'tackled'); return; }
+            }
+        }
+        g.objs = g.objs.filter(o => o.y < g.H + 60 && !o.done);
+        const sc = Math.floor(g.dist / 10) + g.stars * 10;
+        if (sc !== g.score) window.setGameScore(sc);
+        const m = { 100: '🔥 ON FIRE', 250: '⚡ UNSTOPPABLE', 500: '👑 LEGEND', 1000: '🐐 GOAT RUN' };
+        Object.keys(m).forEach(k => { if (g.score >= +k && !(g.ms || (g.ms = {}))[k]) { g.ms[k] = 1; window.fxText(g, m[k], g.W / 2, g.H * 0.3, '#22d3ee', 28, 1.3); } });
+    };
+    g.draw = function() {
+        const { ctx, W, H } = g;
+        const grd = ctx.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, '#05300f'); grd.addColorStop(1, '#0c5a22');
+        ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        for (let y = -80 + g.scroll; y < H; y += 80) ctx.fillRect(0, y, W, 40);
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2; ctx.setLineDash([16, 18]); ctx.lineDashOffset = -g.scroll;
+        [0.36, 0.64].forEach(f => { ctx.beginPath(); ctx.moveTo(W * f, 0); ctx.lineTo(W * f, H); ctx.stroke(); });
+        ctx.setLineDash([]);
+        const size = Math.min(W * 0.13, 52);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        g.objs.forEach(o => {
+            const x = g.laneX(o.lane) + (o.kind === 'def' ? Math.sin(o.wob) * 4 : 0);
+            if (o.kind === 'def') {
+                ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x, o.y + size * 0.45, size * 0.4, size * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.arc(x, o.y, size * 0.42, 0, Math.PI * 2); ctx.fill();
+                ctx.font = `${size * 0.55}px system-ui`; ctx.fillText('😤', x, o.y + 1);
+            } else if (o.kind === 'cone') { ctx.font = `${size * 0.9}px system-ui`; ctx.fillText('🚧', x, o.y); }
+            else { ctx.font = `${size * 0.7}px system-ui`; ctx.fillText('⭐', x, o.y + Math.sin(o.wob) * 3); }
+        });
+        const py = H * 0.8;
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(g.px, py + size * 0.5, size * 0.42, size * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#22d3ee'; ctx.beginPath(); ctx.arc(g.px, py, size * 0.42, 0, Math.PI * 2); ctx.fill();
+        ctx.font = `${size * 0.55}px system-ui`; ctx.fillText('😎', g.px, py + 1);
+        ctx.font = `${size * 0.42}px system-ui`; ctx.fillText('⚽', g.px + size * 0.15, py - size * 0.62);
+        if (g.state === 'play') { ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '800 12px system-ui'; ctx.fillText('◀ tap left · tap right ▶', W / 2, H * 0.95); }
+    };
+};
+
+// ---------- 🧤 KEEPER HERO ----------
+window.keeperInit = function(g) {
+    g.reset = function() {
+        g.lives = 3; g.saves = 0; g.shot = null; g.wait = 0.8; g.dive = 1; g.diveT = 0; g.flashT = 0; g.lastResult = null;
+        window.setGameScore(0);
+    };
+    g.reset();
+    g.zones = () => { const gw = g.W * 0.86, gx = g.W * 0.07; return [gx + gw / 6, gx + gw / 2, gx + gw * 5 / 6]; };
+    g.tap = function(x) {
+        if (!g.shot || g.shot.decided) return;
+        g.dive = x < g.W / 3 ? 0 : x > g.W * 2 / 3 ? 2 : 1;
+        g.diveT = 0.35;
+        g.shot.picked = true;
+    };
+    g.update = function(dt) {
+        g.diveT = Math.max(0, g.diveT - dt); g.flashT = Math.max(0, g.flashT - dt);
+        if (!g.shot) {
+            g.wait -= dt;
+            if (g.wait <= 0) {
+                const lvl = g.saves;
+                const T = Math.max(0.42, 1.05 - lvl * 0.025);               // flight time gets shorter
+                const target = Math.floor(Math.random() * 3);
+                const fake = lvl > 6 && Math.random() < Math.min(0.35, lvl * 0.02);   // later: striker fakes his body shape
+                g.shot = { target, t: 0, T, windup: Math.max(0.25, 0.6 - lvl * 0.012), hint: fake ? (target + 1 + Math.floor(Math.random() * 2)) % 3 : target, picked: false, decided: false };
+                g.dive = 1;
+            }
+            return;
+        }
+        const s = g.shot; s.t += dt;
+        if (s.t < s.windup) return;
+        if (!s.decided && s.t >= s.windup + s.T) {
+            s.decided = true;
+            const saved = s.picked && g.dive === s.target;
+            if (saved) { g.saves++; window.setGameScore(g.saves); window.fxText(g, ['GREAT SAVE! 🧤', 'DENIED! ✋', 'WALL! 🧱', 'WHAT A STOP!'][g.saves % 4], g.W / 2, g.H * 0.55, '#22d3ee', 26, 0.8); if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) {} }
+            else { g.lives--; g.flashT = 0.4; window.fxText(g, 'GOAL... ⚽', g.W / 2, g.H * 0.55, '#f87171', 26, 0.8); if (navigator.vibrate) try { navigator.vibrate(80); } catch (e) {} }
+            g.lastResult = saved;
+            if (g.lives <= 0) { setTimeout(() => window.gameOver('conceded'), 500); }
+            g.wait = 0.7; setTimeout(() => { if (window.game === g && g.state === 'play') g.shot = null; }, 550);
+        }
+    };
+    g.draw = function() {
+        const { ctx, W, H } = g;
+        window.drawPitch(g);
+        if (g.flashT > 0) { ctx.fillStyle = `rgba(239,68,68,${g.flashT * 0.5})`; ctx.fillRect(0, 0, W, H); }
+        const gx = W * 0.07, gw = W * 0.86, gy = H * 0.62, gh = H * 0.22;
+        // goal (seen from behind the keeper)
+        ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(gx, gy, gw, gh);
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(gx, gy + gh); ctx.lineTo(gx, gy); ctx.lineTo(gx + gw, gy); ctx.lineTo(gx + gw, gy + gh); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; [1, 2].forEach(k => { ctx.beginPath(); ctx.moveTo(gx + gw * k / 3, gy); ctx.lineTo(gx + gw * k / 3, gy + gh); ctx.stroke(); });
+        // striker
+        const sx = W / 2, sy = H * 0.2, s = g.shot;
+        let lean = 0;
+        if (s && s.t < s.windup) lean = (s.hint - 1) * Math.min(1, s.t / s.windup) * 0.45;
+        ctx.save(); ctx.translate(sx, sy); ctx.rotate(lean);
+        ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.arc(0, 0, Math.min(W * 0.08, 32), 0, Math.PI * 2); ctx.fill();
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${Math.min(W * 0.09, 36)}px system-ui`; ctx.fillText('😈', 0, 1);
+        ctx.restore();
+        // keeper
+        const zx = g.zones(), kx = zx[g.dive], ky = gy + gh * 0.55;
+        ctx.save(); ctx.translate(kx, ky); if (g.diveT > 0 && g.dive !== 1) ctx.rotate((g.dive === 0 ? -1 : 1) * 0.9);
+        ctx.fillStyle = '#22d3ee'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-W * 0.09, -gh * 0.4, W * 0.18, gh * 0.8, 12) : ctx.rect(-W * 0.09, -gh * 0.4, W * 0.18, gh * 0.8); ctx.fill();
+        ctx.font = `${Math.min(W * 0.1, 40)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🧤', 0, 0);
+        ctx.restore();
+        // ball
+        if (s) {
+            let bx = sx, by = sy + 30, br = Math.min(W * 0.045, 18);
+            if (s.t >= s.windup) { const p = Math.min(1, (s.t - s.windup) / s.T); bx = sx + (zx[s.target] - sx) * p; by = sy + 30 + (gy + gh * 0.45 - sy - 30) * p; br *= 1 + p * 0.9; }
+            ctx.font = `${br * 2}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚽', bx, by);
+        }
+        // lives + hint
+        ctx.font = '20px system-ui'; ctx.textAlign = 'left'; ctx.fillText('❤️'.repeat(Math.max(0, g.lives)) + '🖤'.repeat(Math.max(0, 3 - g.lives)), 12, 24);
+        if (g.state === 'play') { ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = '800 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('Watch the striker lean · tap left / middle / right to dive', W / 2, H * 0.95); }
+        ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.font = `900 ${Math.min(W, H) * 0.25}px system-ui`; ctx.textAlign = 'center';
+        if (g.state === 'play') ctx.fillText(g.saves, W / 2, H * 0.45);
+    };
+};
+// game-over messages for the new games
+window._baseShowGameOverlay21 = window._baseShowGameOverlay21 || window.showGameOverlay;
+window.showGameOverlay = function(kind, d = {}) {
+    window._baseShowGameOverlay21(kind, d);
+    if (kind === 'over') {
+        const head = document.querySelector('#gameOverlay p');
+        const txt = { tackled: '😤 Tackled!', cone: '🚧 Hit a cone!', conceded: '⚽ 3 goals conceded' }[d.reason];
+        if (head && txt) head.innerText = txt;
+    }
+};

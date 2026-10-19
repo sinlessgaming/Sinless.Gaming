@@ -218,6 +218,19 @@
             <div id="gameOverlay" class="absolute inset-0 flex items-center justify-center p-6"></div></div>
     </div>
 
+    <!-- v21: Highlight video player -->
+    <div id="hlModal" class="hidden fixed inset-0 bg-black/95 flex flex-col items-center justify-center p-3" style="z-index:257" onclick="if(event.target===this) window.closeHighlight()">
+        <div class="w-full max-w-2xl space-y-3">
+            <div class="flex items-center justify-between"><p id="hlTitle" class="text-sm font-black text-white pr-3 line-clamp-2"></p><button onclick="window.closeHighlight()" class="w-9 h-9 shrink-0 rounded-xl bg-gg-800 text-white">✕</button></div>
+            <div class="relative w-full aspect-video rounded-2xl overflow-hidden bg-black border border-cyan-500/30"><iframe id="hlFrame" class="absolute inset-0 w-full h-full border-0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe></div>
+            <div class="flex gap-2">
+                <a id="hlOpen" target="_blank" rel="noopener" class="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-black text-center"><i class="fa-brands fa-youtube mr-1"></i> Open on YouTube</a>
+                <button onclick="window.shareHighlight()" class="flex-1 py-2.5 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-xs font-black"><i class="fa-solid fa-share-nodes mr-1"></i> Share</button>
+            </div>
+            <p class="text-[10px] text-gray-500 text-center">Official video from the league's YouTube channel.</p>
+        </div>
+    </div>
+
     <!-- v17: General full-screen panel (progress, invite, saved, shelf, group info) -->
     <div id="sgPanel" class="hidden fixed inset-0 bg-gg-950 flex flex-col" style="z-index:264">
         <div class="w-full max-w-xl mx-auto flex flex-col h-[100dvh]">
@@ -504,6 +517,7 @@
 
             <!-- Headlines -->
             <div id="trendingHeadlinesBox" class="glass-panel p-3.5 rounded-2xl space-y-2.5 border border-cyan-500/30"></div>
+            <div id="trendingHighlightsBox" class="hidden"></div>
 
             <!-- What people are talking about -->
             <div id="communityPulseBox" class="glass-panel p-3.5 rounded-2xl space-y-2.5 border border-magenta/30"></div>
@@ -516,7 +530,7 @@
             <div class="glass-panel p-4 rounded-2xl flex items-center justify-between shadow-xl border border-cyan-500/30">
                 <div>
                     <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-store text-cyan-400 mr-1.5"></i> GG Market</h3>
-                    <p class="text-[9px] text-gray-400">Cloud synced accounts, virtual items & game currency marketplace.</p>
+                    <p class="text-[9px] text-gray-400">Gaming gear, jerseys, accessories &amp; services from the community.</p>
                 </div>
                 <button onclick="openMarketModal()" class="px-3 py-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black rounded-xl text-[10px] shadow uppercase tracking-wider">+ List Item</button>
             </div>
@@ -1212,8 +1226,9 @@
                 <h3 class="text-xs font-black text-white uppercase tracking-wider"><i class="fa-solid fa-store text-cyan-400 mr-1.5"></i> List Item on GG Market</h3>
                 <button onclick="closeMarketModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕</button>
             </div>
-            <input type="text" id="marketTitleInput" placeholder="Item Title (e.g. Stacked FC Mobile 115 OVR Account)" class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+            <input type="text" id="marketTitleInput" placeholder="Item (e.g. PS5 controller, Ghana jersey, gaming headset)" class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
             <input type="text" id="marketPriceInput" placeholder="Price (e.g. $15 or 200 GHC)" class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+            <p class="text-[10px] text-gray-400 leading-snug">✅ Gear, jerseys, phones, accessories, coaching &amp; services.<br>🚫 No game accounts, coins/points, gift-card codes, fakes or anything illegal. Meet safely and never pay before you're sure.</p>
             <button onclick="submitMarketListingToCloud()" class="w-full py-2.5 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 font-black rounded-xl text-xs uppercase shadow">Publish Listing</button>
         </div>
     </div>
