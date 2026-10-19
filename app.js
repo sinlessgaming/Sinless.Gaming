@@ -15,6 +15,11 @@ import {
     getMessaging, getToken, onMessage 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
+// Everyone without their own photo gets the Sinless GG logo
+window.SG_DEFAULT_PFP = 'icon-192.png';
+// Google's auto-made letter pictures don't count as a profile photo — everyone without their own photo gets the Sinless GG logo
+window.cleanPfp = (u) => (u && !/googleusercontent\.com|ggpht\.com|gravatar\.com/.test(u)) ? u : '';
+
 // Tips balance (real balance will come from the payments server; nothing is stored on the phone)
 window.myGGCoins = 0;
 try { localStorage.removeItem('sinless_gg_coins'); } catch (e) {}
@@ -559,7 +564,7 @@ window.submitUniversalPost = async function() {
     }
     if (publishBtn) publishBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Publishing...`;
 
-    const meClean = (window.myUsername || '@SinlessGaming').replace('@','');
+    const meClean = (window.myUsername || '@Guest').replace('@','');
     const isVerifiedUser = meClean.toLowerCase() === 'sinlessgaming';
 
     let postPayload = {
@@ -838,7 +843,7 @@ window.submitCommentReply = async function() {
     if(post && window.boostCategoryInterest) window.boostCategoryInterest(post.game);
 
     const payload = {
-        user: (window.myUsername || '@SinlessGaming').replace('@', ''),
+        user: (window.myUsername || '@Guest').replace('@', ''),
         uid: window.currentUser ? window.currentUser.uid : 'guest_user',
         text: text,
         createdAt: typeof serverTimestamp === 'function' ? serverTimestamp() : new Date().toISOString()
@@ -871,18 +876,9 @@ window.getProfileBadges = function(username) {
     userPosts.forEach(p => totalGGs += (p.ggsCount || 0));
 
     let badges = [];
-    if (clean === 'sinlessgaming') badges.push('<span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1.5 py-0.5 rounded font-black" title="Verified League Host">⭐ Verified Legend</span>');
     if (userPosts.length >= 5) badges.push('<span class="text-[8px] bg-magenta/20 text-magenta border border-magenta/40 px-1.5 py-0.5 rounded font-black" title="Published over 5 clips">🔥 Top Creator</span>');
     if (totalGGs >= 20) badges.push('<span class="text-[8px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 px-1.5 py-0.5 rounded font-black" title="Community Favorite">⚡ Viral Streak</span>');
     
-    let isChamp = false;
-    (window.tournamentsList || []).forEach(t => {
-        (t.matches || []).forEach(m => {
-            if (m.round >= 2 && m.winner && m.winner.toLowerCase() === clean) isChamp = true;
-        });
-    });
-    if (isChamp) badges.push('<span class="text-[8px] bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 px-1.5 py-0.5 rounded font-black" title="Tournament Winner"><i class="fa-solid fa-trophy mr-1 text-[7px]"></i> Champion</span>');
-
     return badges.join(' ');
 };
 
@@ -907,7 +903,7 @@ function calculateGlobalRanks() {
 window.activeProfileUser = null;
 
 window.openMyProfile = function(e = null) {
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const me = (window.myUsername || '@Guest').replace('@', '');
     window.openUserProfileModal(me, e);
 };
 
@@ -939,7 +935,7 @@ window.openUserProfileModal = function(username, e = null) {
 
     document.getElementById('profileDisplayName').innerText = profileData.displayName;
     document.getElementById('profileGamertag').innerText = `@${cleanUser}`;
-    document.getElementById('profileBioText').innerText = profileData.bio;
+    document.getElementById('profileBioText').innerText = profileData.bio || '';
 
     const badgeContainer = document.getElementById('profileDynamicBadgesBox');
     if (badgeContainer) {
@@ -951,11 +947,10 @@ window.openUserProfileModal = function(username, e = null) {
     linkElem.href = profileData.website && profileData.website.startsWith('http') ? profileData.website : `https://${profileData.website || 'sinlessgg.com'}`;
 
     const pfpContainer = document.getElementById('profileAvatarBox');
-    if (profileData.pfp) {
-        pfpContainer.innerHTML = `<img src="${profileData.pfp}" class="w-full h-full object-cover">`;
+    if (window.cleanPfp(profileData.pfp)) {
+        pfpContainer.innerHTML = `<img src="${window.cleanPfp(profileData.pfp)}" onerror="this.src=window.SG_DEFAULT_PFP" class="w-full h-full object-cover">`;
     } else {
-        const initials = cleanUser.substring(0, 2).toUpperCase();
-        pfpContainer.innerHTML = `<div class="w-full h-full bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center font-black text-slate-950 text-2xl">${initials}</div>`;
+        pfpContainer.innerHTML = `<img src="${window.SG_DEFAULT_PFP}" class="w-full h-full object-cover" alt="">`;
     }
 
     const bannerContainer = document.getElementById('profileBannerHeader');
@@ -1061,7 +1056,7 @@ window.tempProfilePfp = null;
 window.tempProfileCover = null;
 
 window.openEditProfileModal = function() {
-    const cleanUser = window.activeProfileUser || (window.myUsername || '@SinlessGaming').replace('@','');
+    const cleanUser = window.activeProfileUser || (window.myUsername || '@Guest').replace('@','');
     const data = window.userProfiles[cleanUser.toLowerCase()] || {
         displayName: cleanUser,
         bio: '',
@@ -1139,7 +1134,7 @@ window.handleCoverUpload = async function(input) {
 };
 
 window.saveUserProfileChanges = function() {
-    const cleanUser = window.activeProfileUser || (window.myUsername || '@SinlessGaming').replace('@','');
+    const cleanUser = window.activeProfileUser || (window.myUsername || '@Guest').replace('@','');
     const key = cleanUser.toLowerCase();
 
     const updated = {
@@ -1161,7 +1156,7 @@ window.saveUserProfileChanges = function() {
 window.deleteAccountData = async function() {
     if (!(await window.sgConfirm('This deletes your profile data on this device and signs you out. This cannot be undone.', { title: 'Delete Account?', okText: 'Delete', danger: true }))) return;
 
-    const cleanUser = (window.myUsername || '@SinlessGaming').replace('@','').toLowerCase();
+    const cleanUser = (window.myUsername || '@Guest').replace('@','').toLowerCase();
     delete window.userProfiles[cleanUser];
     localStorage.setItem('sinless_user_profiles', JSON.stringify(window.userProfiles));
 
@@ -1256,7 +1251,7 @@ window.renderClansList = function() {
     if(!box) return;
     box.innerHTML = '';
 
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+    const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
     const searchQ = (document.getElementById('squadSearchInput')?.value || '').trim().toLowerCase();
 
     let displaySquads = (window.clansData || []).filter(c => {
@@ -1310,7 +1305,7 @@ window.toggleSquadMembership = async function(squadId) {
     const squad = window.clansData.find(c => c.id === squadId);
     if (!squad) return;
 
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const me = (window.myUsername || '@Guest').replace('@', '');
     if (!squad.members) squad.members = [];
 
     const memberIndex = squad.members.findIndex(m => m.toLowerCase() === me.toLowerCase());
@@ -1356,7 +1351,7 @@ window.submitNewSquad = async function() {
     const game = document.getElementById('squadGameSelect').value;
     const isPublic = document.getElementById('squadPrivacySelect').value === 'public';
     const bio = document.getElementById('squadBioInput').value.trim();
-    const owner = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const owner = (window.myUsername || '@Guest').replace('@', '');
     const inviteCode = 'SQ-' + Math.random().toString(36).substr(2, 5).toUpperCase();
 
     if (!name || !tag) {
@@ -1419,7 +1414,7 @@ window.openSquadDetailsModal = function(squadId) {
     if (!squad.subRooms) squad.subRooms = ['Rules/Announcements', 'chat', 'Matchmaking'];
     if (!squad.admins) squad.admins = [squad.owner || squad.leader];
 
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+    const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
     const isOwner = (squad.owner || squad.leader).toLowerCase() === me;
     const isAdmin = isOwner || squad.admins.some(a => a.toLowerCase() === me);
 
@@ -1465,7 +1460,7 @@ function renderSquadSubRoomsNav() {
     if (!nav) return;
     nav.innerHTML = '';
 
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+    const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
     const isOwner = (squad.owner || squad.leader).toLowerCase() === me;
     const isAdmin = isOwner || squad.admins.some(a => a.toLowerCase() === me);
 
@@ -1540,7 +1535,7 @@ window.switchSquadSubRoom = function(room) {
     if (lockedBar) { lockedBar.classList.add('hidden'); lockedBar.innerHTML = ''; }
     msgsBox.innerHTML = '';
 
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+    const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
     const members = squad.members || [];
     const isMember = members.some(m => m.toLowerCase() === me);
 
@@ -1677,7 +1672,7 @@ window.switchSquadSubRoom = function(room) {
 window.bookSquadMatchmakingFixture = function() {
     const squad = window.activeSquadDetails;
     if (!squad) return;
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const me = (window.myUsername || '@Guest').replace('@', '');
     if (!squad.matchmakingQueue) squad.matchmakingQueue = [];
     
     const newChallenge = {
@@ -1737,7 +1732,7 @@ window.sendSquadRoomMessage = function() {
 
     if (!text || !squad || !room) return;
 
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const me = (window.myUsername || '@Guest').replace('@', '');
     if (!squad.rooms) squad.rooms = {};
     if (!squad.rooms[room]) squad.rooms[room] = [];
 
@@ -1810,7 +1805,7 @@ window.sendInChatImage = async function(context) {
     const input = context === 'squad' ? document.getElementById('squadChatImageInput') : document.getElementById('dmChatImageInput');
     if (input && input.files && input.files[0]) {
         const compressedDataUrl = await compressImage(input.files[0], 1200, 1200, 0.85);
-        const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+        const me = (window.myUsername || '@Guest').replace('@', '');
 
         const imgPayload = {
             sender: me,
@@ -1941,7 +1936,7 @@ window.uploadProfileStory = async function(input) {
     try {
         const up = await window.prepareAndUpload(file, null, 1080, 1920);
         await addDoc(collection(window.db, 'stories'), {
-            user: (window.myUsername || '@SinlessGaming').replace('@', ''),
+            user: (window.myUsername || '@Guest').replace('@', ''),
             uid: window.currentUser.uid,
             type: up.type,
             mediaUrl: up.url,
@@ -1983,7 +1978,7 @@ window.renderStoriesBar = function() {
             <div class="flex flex-col items-center shrink-0 cursor-pointer space-y-1 group" onclick="window.openStoryViewer('${u}')">
                 <div class="w-14 h-14 rounded-full p-0.5 ${ring} flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
                     ${thumb ? `<img src="${thumb}" class="w-full h-full rounded-full object-cover border-2 border-slate-950" loading="lazy">`
-                            : `<div class="w-full h-full rounded-full bg-gg-900 border-2 border-slate-950 flex items-center justify-center text-[10px] font-black text-cyan-400">${u.slice(0, 2).toUpperCase()}</div>`}
+                            : `<img src="${(window.profileFor && (window.profileFor(u) || {}).pfp) ? window.cldSized(window.profileFor(u).pfp, 120) : window.SG_DEFAULT_PFP}" class="w-full h-full rounded-full object-cover border-2 border-slate-950" loading="lazy" alt="">`}
                 </div>
                 <span class="text-[8px] font-extrabold text-gray-300 truncate max-w-[60px]">${u.toLowerCase() === me ? 'Your story' : escapeHTML(window.dnText(u).split(' ')[0])}</span>
             </div>`;
@@ -2024,7 +2019,7 @@ window.showStory = function() {
         `<div class="flex-1 h-0.5 rounded bg-white/30 overflow-hidden"><div id="storyBar${i}" class="h-full bg-white" style="width:${i < sv.index ? 100 : 0}%"></div></div>`).join('');
     document.getElementById('storyHeader').innerHTML = `
         <div class="flex items-center space-x-2">
-            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-[10px]">${(st.user || '?').slice(0, 2).toUpperCase()}</div>
+            ${window.avatarHtml(st.user, 'w-8 h-8', 'rounded-full', 'text-[10px]').replace(/onclick="[^"]*"/, '')}
             <div><p class="text-xs">${window.nameLink(st.user, 'font-bold text-white')}</p><p class="text-[9px] text-gray-300">${window.timeAgo(st.timestamp)} · disappears in ${hrs}h ${mins}m</p></div>
         </div>
         <div class="flex items-center space-x-2">
@@ -2157,7 +2152,7 @@ window.submitNewTournament = function() {
     const leagueH2HOption = document.getElementById('tournLeagueH2HSelect')?.value || '1x';
     const maxPlayers = parseInt(document.getElementById('tournSizeSelect').value);
     const prizePool = document.getElementById('tournPrizeInput').value.trim() || 'Bragging Rights';
-    const hostUser = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const hostUser = (window.myUsername || '@Guest').replace('@', '');
 
     if (!title) {
         showToast("⚠️ Enter tournament title!");
@@ -2260,7 +2255,7 @@ window.submitNewTournament = function() {
 
 window.joinActiveTournament = function(tournId) {
     const tourn = window.tournamentsList.find(t => t.id === tournId);
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const me = (window.myUsername || '@Guest').replace('@', '');
 
     if (!tourn) return;
     if (tourn.players.includes(me)) {
@@ -2287,7 +2282,7 @@ window.joinActiveTournament = function(tournId) {
 
 window.leaveTournament = async function(tournId) {
     const tourn = window.tournamentsList.find(t => t.id === tournId);
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const me = (window.myUsername || '@Guest').replace('@', '');
     if (!tourn) return;
 
     const isMe = (name) => (name || '').toLowerCase() === me.toLowerCase();
@@ -2380,7 +2375,7 @@ window.openMatchReportModal = function(matchId) {
         iframe.classList.add('hidden');
     }
 
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+    const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
     const isHost = window.activeTournament.host.toLowerCase() === me;
     const approvalBox = document.getElementById('matchApprovalBox');
     
@@ -2414,7 +2409,7 @@ window.submitMatchScoreReport = function() {
         return;
     }
 
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+    const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
     const isHost = window.activeTournament.host.toLowerCase() === me;
 
     match.s1 = s1;
@@ -2552,7 +2547,7 @@ function generateTournamentsHTML() {
     selectorHtml += `</div>`;
 
     const current = window.activeTournament || window.tournamentsList[0];
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const me = (window.myUsername || '@Guest').replace('@', '');
     const isJoined = current.players.includes(me);
     const isHost = current.host.toLowerCase() === me.toLowerCase();
 
@@ -2911,7 +2906,7 @@ window.updateNewPostsPill = function() {
     const n = window.pendingNewIds.size;
     if (!n) { pill.classList.add('hidden'); return; }
     const users = [...window.pendingNewIds].map(id => (window.fypposts || []).find(p => (p.docId || p.id) === id)).filter(Boolean).map(p => p.user).slice(0, 3);
-    pill.innerHTML = `<i class="fa-solid fa-arrow-up mr-1.5"></i>${users.map(u => `<span class="inline-flex w-5 h-5 -ml-1 first:ml-0 rounded-full bg-gradient-to-tr from-cyan-400 to-magenta text-slate-950 text-[8px] font-black items-center justify-center border border-gg-950">${(u || 'SG').slice(0, 2).toUpperCase()}</span>`).join('')}<span class="ml-1.5">${n} new post${n === 1 ? '' : 's'}</span>`;
+    pill.innerHTML = `<i class="fa-solid fa-arrow-up mr-1.5"></i>${users.map(u => `<span class="inline-flex w-5 h-5 -ml-1 first:ml-0 rounded-full overflow-hidden border border-gg-950">${window.avatarHtml(u, 'w-5 h-5', 'rounded-full', 'text-[8px]').replace(/onclick="[^"]*"/, '')}</span>`).join('')}<span class="ml-1.5">${n} new post${n === 1 ? '' : 's'}</span>`;
     pill.classList.remove('hidden');
 };
 
@@ -2974,7 +2969,7 @@ window.renderFeedCard = function(p, me) {
             <span class="font-bold truncate">${p.audioTrack.title || 'Background Sound'}</span>
         </div>` : '';
 
-    const badges = window.getProfileBadges ? window.getProfileBadges(p.user) : '';
+    const badges = window.getFeedBadges ? window.getFeedBadges(p.user) : '';
     const caption = p.caption || '';
     const longCaption = caption.length > 280;
 
@@ -3065,7 +3060,7 @@ window.renderFypFeed = function() {
         return;
     }
 
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+    const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
     feedContainer.innerHTML = posts.map(p => window.renderFeedCard(p, me)).join('');
 
     if (resume) {
@@ -3204,7 +3199,7 @@ window.renderPostDetail = function(p) {
     const pId = p.docId || p.id;
     const me = (window.myUsername || '').replace('@', '').toLowerCase();
     const isOwner = (p.user || '').toLowerCase() === me;
-    const badges = window.getProfileBadges ? window.getProfileBadges(p.user) : '';
+    const badges = window.getFeedBadges ? window.getFeedBadges(p.user) : '';
     const when = new Date(window.postTimeValue(p));
 
     const media = (p.mediaList || []).map(m => m.type === 'video'
@@ -3667,7 +3662,7 @@ window.renderDmThread = function() {
     const container = document.getElementById('dmMessagesContainer');
     if (!container || !window.activeDmUser) return;
 
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '').toLowerCase();
+    const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
     const partner = window.activeDmUser.toLowerCase();
     const threadKey = [me, partner].sort().join('_');
 
@@ -3708,7 +3703,7 @@ window.sendDirectMessage = function() {
     const text = input.value.trim();
     if (!text || !window.activeDmUser) return;
 
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const me = (window.myUsername || '@Guest').replace('@', '');
     const partner = window.activeDmUser;
     const threadKey = [me.toLowerCase(), partner.toLowerCase()].sort().join('_');
 
@@ -3745,7 +3740,7 @@ window.submitMarketListingToCloud = async function() {
         id: 'local_mkt_' + Date.now(),
         title: title,
         price: price,
-        user: (window.myUsername || '@SinlessGaming').replace('@', ''),
+        user: (window.myUsername || '@Guest').replace('@', ''),
         uid: window.currentUser ? window.currentUser.uid : 'guest',
         createdAt: new Date().toISOString()
     };
@@ -4374,7 +4369,7 @@ window.creatorRow = function(c, i, line, score) {
         <div class="p-3 flex items-center justify-between text-xs cursor-pointer hover:bg-gg-900/60 transition ${top ? 'bg-amber-500/5' : ''}" onclick="window.openUserProfileModal('${c.gamertag}', event)">
             <div class="flex items-center space-x-3 min-w-0">
                 <span class="w-7 text-center font-black ${top ? 'text-lg' : 'text-amber-400 text-xs'}">${medal || '#' + (i + 1)}</span>
-                <div class="w-9 h-9 shrink-0 rounded-xl bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black text-[10px]">${c.gamertag.slice(0, 2).toUpperCase()}</div>
+                ${window.avatarHtml(c.gamertag, 'w-9 h-9', 'rounded-xl', 'text-[10px]').replace(/onclick="[^"]*"/, '')}
                 <div class="min-w-0">
                     <h4 class="font-bold text-white truncate">@${c.gamertag}</h4>
                     <p class="text-[9px] text-gray-400 truncate">${line}</p>
@@ -4420,7 +4415,7 @@ window.sendChatMessage = function() {
     const text = input.value.trim();
     if (!text) return;
 
-    const me = (window.myUsername || '@SinlessGaming').replace('@', '');
+    const me = (window.myUsername || '@Guest').replace('@', '');
     const box = document.getElementById('chatMessagesBox');
 
     if (box) {
@@ -4546,7 +4541,7 @@ window.ensureMyProfile = async function() {
                 displayName: local.displayName || window.myDisplayName || window.me(),
                 bio: local.bio || 'Gamer on Sinless GG 🎮',
                 website: local.website || '',
-                pfp: (local.pfp && !String(local.pfp).startsWith('data:')) ? local.pfp : (window.currentUser.photoURL || ''),
+                pfp: (local.pfp && !String(local.pfp).startsWith('data:')) ? local.pfp : '',
                 cover: (local.cover && !String(local.cover).startsWith('data:')) ? local.cover : '',
                 createdAt: serverTimestamp()
             }));
@@ -4651,7 +4646,7 @@ window.enhanceProfileView = async function(tag) {
         if (prof.displayName) document.getElementById('profileDisplayName').innerText = prof.displayName;
         if (prof.bio) document.getElementById('profileBioText').innerText = prof.bio;
         const pfpBox = document.getElementById('profileAvatarBox');
-        if (prof.pfp && pfpBox) pfpBox.innerHTML = `<img src="${window.cldSized(prof.pfp, 300)}" class="w-full h-full object-cover">`;
+        if (window.cleanPfp(prof.pfp) && pfpBox) pfpBox.innerHTML = `<img src="${window.cldSized(prof.pfp, 300)}" onerror="this.src=window.SG_DEFAULT_PFP" class="w-full h-full object-cover">`;
         const banner = document.getElementById('profileBannerHeader');
         if (prof.cover && banner) banner.style.backgroundImage = `url('${window.cldSized(prof.cover, 1200)}')`;
         if (prof.website) {
@@ -5518,7 +5513,7 @@ window.afterAuthChange = async function(user) {
     set('drawerName', user ? (window.myDisplayName || tag) : 'Guest');
     set('drawerTag', user ? '@' + tag : 'Not signed in');
     const av = document.getElementById('drawerAvatar');
-    if (av) av.innerHTML = user && user.photoURL ? `<img src="${user.photoURL}" class="w-full h-full object-cover rounded-xl">` : (tag.slice(0, 2).toUpperCase());
+    if (av) { const myP = user && window.profileFor && window.profileFor(tag); av.innerHTML = `<img src="${myP && myP.pfp ? window.cldSized(myP.pfp, 120) : window.SG_DEFAULT_PFP}" class="w-full h-full object-cover rounded-xl" alt="">`; }
 
     window.listenToNotifications();
     window.listenToDmInbox();
@@ -5634,8 +5629,8 @@ window.avatarHtml = function(tag, size = 'w-9 h-9', round = 'rounded-xl', textSi
     const p = window.profileFor(tag);
     const t = escapeHTML((tag || '').replace('@', ''));
     const click = `onclick="event.stopPropagation(); window.openUserProfileModal('${t}', event)"`;
-    if (p && p.pfp) return `<img ${click} src="${window.cldSized(p.pfp, 120)}" class="${size} ${round} object-cover shrink-0 cursor-pointer bg-gg-900" loading="lazy" alt="">`;
-    return `<div ${click} class="${size} ${round} shrink-0 cursor-pointer bg-gradient-to-tr from-cyan-400 to-magenta flex items-center justify-center text-slate-950 font-black ${textSize}">${escapeHTML(window.dnText(tag).replace(/[^A-Za-z0-9 ]/g, '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || t.slice(0, 2).toUpperCase())}</div>`;
+    if (p && p.pfp) return `<img ${click} src="${window.cldSized(p.pfp, 120)}" onerror="this.src=window.SG_DEFAULT_PFP" class="${size} ${round} object-cover shrink-0 cursor-pointer bg-gg-900" loading="lazy" alt="">`;
+    return `<img ${click} src="${window.SG_DEFAULT_PFP}" class="${size} ${round} object-cover shrink-0 cursor-pointer bg-gg-900" loading="lazy" alt="">`;
 };
 
 // ---------- @ tagging: suggestions pop up as you type @ in any box ----------
@@ -5914,7 +5909,7 @@ window.askForGamertag = function(user) {
             try {
                 await setDoc(doc(window.db, 'profiles', okTag.toLowerCase()), window.cleanForCloud({
                     uid: user.uid, gamertag: okTag, displayName, bio: 'Gamer on Sinless GG 🎮', website: '',
-                    pfp: user.photoURL || '', cover: '', createdAt: serverTimestamp()
+                    pfp: '', cover: '', createdAt: serverTimestamp()
                 }));
                 await setDoc(doc(window.db, 'users', user.uid), { gamertag: okTag }, { merge: true });
                 window.myDisplayName = displayName;
@@ -6474,7 +6469,7 @@ window.renderSquadChannel = function() {
                 : `<div class="flex space-x-2.5 pt-2.5 pr-1 rounded-lg hover:bg-gg-900/40 cursor-pointer" onclick="window.openSquadMessageActions('${m.id}')">
                        ${window.avatarHtml(m.sender, 'w-8 h-8', 'rounded-full', 'text-[10px]')}
                        <div class="flex-1 min-w-0">
-                           <div class="flex items-center">${window.nameLink(m.sender, `text-xs font-bold ${role === 'owner' ? 'text-amber-300' : role === 'admin' ? 'text-cyan-300' : 'text-white'}`)}${window.roleBadge(role)}<span class="text-[9px] text-gray-500 ml-2">${m.timestamp ? window.timeAgo(m.timestamp) : ''}</span>${pinned ? '<i class="fa-solid fa-thumbtack text-[9px] text-amber-400 ml-1.5"></i>' : ''}</div>
+                           <div class="flex items-center">${window.nameLink(m.sender, `text-xs font-bold ${role === 'owner' ? 'text-amber-300' : role === 'admin' ? 'text-cyan-300' : 'text-white'}`)}${window.roleBadge(role)}${window.champLabel ? window.champLabel(m.sender, true) : ''}<span class="text-[9px] text-gray-500 ml-2">${m.timestamp ? window.timeAgo(m.timestamp) : ''}</span>${pinned ? '<i class="fa-solid fa-thumbtack text-[9px] text-amber-400 ml-1.5"></i>' : ''}</div>
                            ${body}
                        </div>
                    </div>`;
@@ -6651,7 +6646,7 @@ window.renderSquadMembers = async function() {
             <div class="flex items-center justify-between p-2 rounded-xl hover:bg-gg-900/60 cursor-pointer" onclick="window.openMemberActions('${escapeHTML(r.tag)}')">
                 <div class="flex items-center space-x-2.5 min-w-0">
                     ${window.avatarHtml(r.tag, 'w-9 h-9', 'rounded-full', 'text-[10px]').replace(/onclick="[^"]*"/, '')}
-                    <span class="text-sm font-bold truncate ${r.role === 'owner' ? 'text-amber-300' : r.role === 'admin' ? 'text-cyan-300' : 'text-white'}">${window.dn(r.tag)}</span>${window.roleBadge(r.role)}${muted ? '<span class="text-[10px] ml-1">🔇</span>' : ''}
+                    <span class="text-sm font-bold truncate ${r.role === 'owner' ? 'text-amber-300' : r.role === 'admin' ? 'text-cyan-300' : 'text-white'}">${window.dn(r.tag)}</span>${window.roleBadge(r.role)}${window.champLabel ? window.champLabel(r.tag, true) : ''}${muted ? '<span class="text-[10px] ml-1">🔇</span>' : ''}
                 </div>
                 <i class="fa-solid fa-ellipsis text-gray-500"></i>
             </div>`;
@@ -10201,8 +10196,7 @@ window.openGame = function(id) {
     const loop = (ts) => {
         const g = window.game; if (!g) return;
         const dt = Math.min(0.033, ((ts - (g.last || ts)) / 1000) || 0); g.last = ts;
-        if (g.state === 'play') g.update(dt);
-        g.draw();
+        try { if (g.state === 'play') g.update(dt); g.draw(); } catch (e) { console.warn('game frame', e); }
         // effects
         const ctx = g.ctx;
         g.fx = g.fx.filter(f => (f.life -= dt) > 0);
@@ -11041,4 +11035,1614 @@ window.showGameOverlay = function(kind, d = {}) {
         const txt = { tackled: '😤 Tackled!', cone: '🚧 Hit a cone!', conceded: '⚽ 3 goals conceded' }[d.reason];
         if (head && txt) head.innerText = txt;
     }
+};
+
+// ======================================================================
+// v21b: QUICK FIXES — game taps, badges, demo account, Watch tab
+// ======================================================================
+(function gameTapFix() { const st = document.createElement('style'); st.textContent = '#gameOverlay{pointer-events:none}#gameOverlay>*{pointer-events:auto}'; document.head.appendChild(st); })();
+
+// Feed shows only the verified tick + level; Top Creator / Viral Streak live on the profile only
+window.getFeedBadges = function(username) {
+    const p = window.profileFor ? window.profileFor(username) : null;
+    const v = p && p.verified ? '<span class="text-[9px] text-sky-400" title="Verified"><i class="fa-solid fa-circle-check"></i></span>' : '';
+    const lv = p && Number(p.xp) ? window.levelOf(Number(p.xp)).lv : 0;
+    const t = window.titleBadgeShort ? window.titleBadgeShort(username) : '';
+    return [v, lv >= 2 ? `<span class="text-[8px] font-black px-1 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Lv${lv}</span>` : '', t].filter(Boolean).join(' ');
+};
+
+// The old demo account "SinlessGaming" is hidden everywhere
+window.isDemoAccount = (u) => (u || '').replace('@', '').toLowerCase() === 'sinlessgaming';
+window._baseGetOrderedFeed21 = window._baseGetOrderedFeed21 || window.getOrderedFeed;
+window.getOrderedFeed = function() { return window._baseGetOrderedFeed21().filter(p => !window.isDemoAccount(p.user)); };
+window._baseBuildCreatorStats21 = window._baseBuildCreatorStats21 || window.buildCreatorStats;
+if (window._baseBuildCreatorStats21) window.buildCreatorStats = function(posts) { return window._baseBuildCreatorStats21((posts || []).filter(p => !window.isDemoAccount(p.user))); };
+window._baseLoadStories21 = null;
+// Admin: delete the demo account's posts for good
+window.adminDeleteDemoPosts = async function() {
+    if (!window.isAppAdmin) return;
+    const ok = await window.sgConfirm('Delete every post by the old "SinlessGaming" demo account? This can’t be undone.', { title: '🧹 Clean up demo account', okText: 'Delete all', danger: true });
+    if (!ok) return;
+    let n = 0;
+    try {
+        const s = await getDocs(query(collection(window.db, 'posts'), where('user', '==', 'SinlessGaming'), limit(200)));
+        for (const d of s.docs) { try { await deleteDoc(doc(window.db, 'posts', d.id)); n++; } catch (e) {} }
+        try { await deleteDoc(doc(window.db, 'profiles', 'sinlessgaming')); } catch (e) {}
+    } catch (e) {}
+    showToast(`🧹 Removed ${n} demo post${n === 1 ? '' : 's'}.`);
+};
+window._baseRenderAdminStats21 = window._baseRenderAdminStats21 || window.renderAdminStats;
+window.renderAdminStats = async function() {
+    await window._baseRenderAdminStats21();
+    const box = document.getElementById('adminBody');
+    if (box && window.adminTab === 'stats' && !document.getElementById('demoCleanBtn')) box.insertAdjacentHTML('beforeend', `<button id="demoCleanBtn" onclick="window.adminDeleteDemoPosts()" class="w-full mt-3 py-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 font-black text-xs uppercase">🧹 Delete old "SinlessGaming" demo posts</button>`);
+};
+
+// ======================================================================
+// v21b: WATCH HUB — official YouTube channels for every category (legal embeds only)
+// config/watch = { channels: [{ id, name, cat }], featured: [{ vid, title, cat }] }   (admins edit)
+// watch/{videoId} = { title, ggs, ggsBy[], commentsCount }   /comments/{auto} = { uid, user, text, createdAt }
+// ======================================================================
+window.WATCH_CATS = [
+    { id: 'football', label: '⚽ Football' }, { id: 'gaming', label: '🎮 Gaming' }, { id: 'wrestling', label: '🤼 Wrestling' },
+    { id: 'movies', label: '🎬 Movies & TV' }, { id: 'anime', label: '🍥 Anime' }, { id: 'books', label: '📚 Books & Learning' }
+];
+window.WATCH_DEFAULT = [
+    { id: 'UCG5qGWdu8nIRZqJ_GgDwQ-w', name: 'Premier League', cat: 'football' }, { id: 'UCyGa1YEx9ST66rYrJTGIKOw', name: 'UEFA', cat: 'football' },
+    { id: 'UCTv-XvfzLX3i4IGWAm4sbmA', name: 'LaLiga', cat: 'football' }, { id: 'UCBJeMCIeLQos7wacox4hmLQ', name: 'Serie A', cat: 'football' },
+    { id: 'UC6UL29enLNe4mqwTfAyeNuw', name: 'Bundesliga', cat: 'football' }, { id: 'UCpcTrCXblq78GZrTUTLWeBw', name: 'FIFA', cat: 'football' },
+    { id: 'UCKy1dAqELo0zrOtPkf0eTMw', name: 'IGN', cat: 'gaming' }, { id: 'UC-2Y8dQb0S6DtpxNgAKoJKA', name: 'PlayStation', cat: 'gaming' },
+    { id: 'UCjBp_7RuDBUYbd1LegWEJ8g', name: 'Xbox', cat: 'gaming' }, { id: 'UC9YydG57epLqxA9cTzZXSeQ', name: 'Call of Duty', cat: 'gaming' },
+    { id: 'UCJ5v_MCY6GNUBTO8-D3XoAg', name: 'WWE', cat: 'wrestling' }, { id: 'UCFN4JkGP_bVhAdBsoV9xftA', name: 'AEW', cat: 'wrestling' },
+    { id: 'UCWOA1ZGywLbqmigxE4Qlvuw', name: 'Netflix', cat: 'movies' }, { id: 'UCvC4D8onUfXzvjTOM-dBfEA', name: 'Marvel', cat: 'movies' },
+    { id: 'UCjmJDM5pRKbUlVIzDYYWb6g', name: 'Warner Bros.', cat: 'movies' }, { id: 'UCz97F7dMxBNOfGYu3rx8aCw', name: 'Sony Pictures', cat: 'movies' },
+    { id: 'UCq0OueAsdxH6b8nyAspwViw', name: 'Universal Pictures', cat: 'movies' },
+    { id: 'UC6pGDc4bFGD1_36IKv3FnYg', name: 'Crunchyroll', cat: 'anime' },
+    { id: 'UCsooa4yRKGN_zEE8iknghZA', name: 'TED-Ed', cat: 'books' }
+];
+window.watchCfg = { channels: window.WATCH_DEFAULT, featured: [] };
+window.loadWatchCfg = async function() {
+    if (window._watchCfgAt && Date.now() - window._watchCfgAt < 10 * 60000) return;
+    try { const s = await getDoc(doc(window.db, 'config', 'watch')); if (s.exists() && (s.data().channels || []).length) window.watchCfg = { channels: s.data().channels, featured: s.data().featured || [] }; } catch (e) {}
+    window._watchCfgAt = Date.now();
+};
+window.watchCat = 'football';
+window.watchVids = {};
+window.loadChannelVideos = async function(ch) {
+    const c = window.watchVids[ch.id];
+    if (c && Date.now() - c.at < 30 * 60000) return c.list;
+    const items = await window.fetchFeedItems(ch.name, `https://www.youtube.com/feeds/videos.xml?channel_id=${ch.id}`);
+    const list = (items || []).map(x => ({ vid: window.ytId(x.link), title: x.title, date: x.date, ch: { id: ch.id, name: ch.name, short: ch.name, flag: '' } })).filter(v => v.vid && !/#shorts/i.test(v.title)).slice(0, 12);
+    window.watchVids[ch.id] = { at: Date.now(), list };
+    return list;
+};
+window.renderWatch = async function() {
+    const cats = document.getElementById('watchCats'), body = document.getElementById('watchBody');
+    if (!cats || !body) return;
+    cats.innerHTML = window.WATCH_CATS.map(c => `<button onclick="window.watchCat='${c.id}'; window.renderWatch()" class="shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-extrabold whitespace-nowrap ${window.watchCat === c.id ? 'bg-red-600 text-white shadow' : 'bg-gg-900 text-gray-300 border border-red-500/20'}">${c.label}</button>`).join('');
+    body.innerHTML = `<p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading videos…</p>`;
+    await window.loadWatchCfg();
+    const cat = window.watchCat;
+    const chans = window.watchCfg.channels.filter(c => c.cat === cat);
+    const lists = await Promise.all(chans.map(c => window.loadChannelVideos(c).catch(() => [])));
+    if (window.watchCat !== cat) return;
+    window.hlRegistry = [];
+    const featured = (window.watchCfg.featured || []).filter(f => f.cat === cat).map(f => ({ vid: f.vid, title: f.title, date: Date.now(), ch: { name: '⭐ Featured', short: 'Featured', flag: '' } }));
+    const all = [...featured, ...lists.flat().sort((a, b) => b.date - a.date)];
+    if (!all.length) {
+        body.innerHTML = chans.map(c => `<div class="glass-panel rounded-2xl overflow-hidden border border-red-500/20"><p class="px-3 py-2 text-[11px] font-black text-white">${escapeHTML(c.name)} · latest videos</p>
+            <div class="relative aspect-video bg-black"><iframe loading="lazy" src="https://www.youtube-nocookie.com/embed/videoseries?list=UU${c.id.slice(2)}" class="absolute inset-0 w-full h-full border-0" allow="encrypted-media; picture-in-picture; fullscreen"></iframe></div></div>`).join('') || '<p class="text-xs text-gray-400 text-center py-8">No channels yet.</p>';
+        return;
+    }
+    body.innerHTML = all.slice(0, 40).map(v => window.hlCard(v)).join('') + `<p class="text-[10px] text-gray-500 text-center">All videos are official uploads from ${chans.map(c => escapeHTML(c.name)).join(', ')}.</p>`;
+};
+window._baseSwitchView21b = window._baseSwitchView21b || window.switchView;
+window.switchView = function(v) { window._baseSwitchView21b(v); if (v === 'watch') window.renderWatch(); };
+// News' highlights chip now opens Watch
+window._baseSetNewsCat21b = window._baseSetNewsCat21b || window.setNewsCat;
+window.setNewsCat = function(id) { if (id === 'highlights') { window.watchCat = 'football'; window.switchView('watch'); return; } return window._baseSetNewsCat21b(id); };
+
+// ---------- player with GGs + comments ----------
+window._basePlayHighlight21b = window._basePlayHighlight21b || window.playHighlight;
+window.playHighlight = function(i) {
+    window._basePlayHighlight21b(i);
+    const v = window.activeHl; if (!v) return;
+    document.getElementById('hlSource').innerText = `${v.ch && v.ch.name ? v.ch.name : 'YouTube'} · official video`;
+    window.loadVideoSocial(v);
+};
+window.vidSocial = null;
+window.loadVideoSocial = function(v) {
+    if (window.vidUnsub) { window.vidUnsub(); window.vidUnsub = null; }
+    if (window.vidDocUnsub) { window.vidDocUnsub(); window.vidDocUnsub = null; }
+    const box = document.getElementById('hlComments');
+    box.innerHTML = `<p class="text-xs text-gray-500 text-center py-4">Loading comments…</p>`;
+    document.getElementById('hlGGCount').innerText = '0';
+    window.vidDocUnsub = onSnapshot(doc(window.db, 'watch', v.vid), (s) => {
+        const d = s.exists() ? s.data() : {};
+        window.vidSocial = d;
+        document.getElementById('hlGGCount').innerText = window.formatCount(d.ggs || 0);
+        const on = window.currentUser && (d.ggsBy || []).includes(window.uidNow());
+        document.getElementById('hlGGBtn').className = `px-3 py-2 rounded-xl border text-xs font-black ${on ? 'bg-cyan-400 text-slate-950 border-cyan-400' : 'bg-gg-900 border-cyan-500/30 text-white'}`;
+    }, () => {});
+    window.vidUnsub = onSnapshot(query(collection(window.db, 'watch', v.vid, 'comments'), orderBy('createdAt', 'desc'), limit(100)), (snap) => {
+        const list = []; snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+        box.innerHTML = list.length ? list.filter(c => !window.isBlocked(c.user)).map(c => `<div class="flex gap-2.5">${window.avatarHtml(c.user, 'w-8 h-8', 'rounded-full', 'text-[10px]')}
+            <div class="min-w-0 flex-1"><p class="text-[11px]">${window.nameLink(c.user, 'font-bold text-white')} <span class="text-gray-500">${c.createdAt ? window.timeAgo(window.postTimeValue(c)) : ''}</span></p><p class="text-sm text-gray-200 break-words">${formatMentions(c.text || '')}</p></div>
+            ${(c.uid === window.uidNow() || window.isAppAdmin) ? `<button onclick="window.deleteVideoComment('${c.id}')" class="text-gray-500 text-xs"><i class="fa-solid fa-trash"></i></button>` : ''}</div>`).join('')
+            : `<p class="text-xs text-gray-500 text-center py-6">No comments yet. Start the conversation 💬</p>`;
+    }, () => { box.innerHTML = `<p class="text-xs text-gray-500 text-center py-6">Comments will show here.</p>`; });
+};
+window.ggVideo = async function() {
+    const v = window.activeHl; if (!v || window.needSignIn('GG videos')) return;
+    const uid = window.uidNow(), d = window.vidSocial || {};
+    const on = (d.ggsBy || []).includes(uid);
+    try {
+        await setDoc(doc(window.db, 'watch', v.vid), { title: (v.title || '').slice(0, 150), ggs: increment(on ? -1 : 1), ggsBy: on ? arrayRemove(uid) : arrayUnion(uid) }, { merge: true });
+        if (!on) { window.bumpChallenge && window.bumpChallenge('gg'); }
+    } catch (e) { showToast("⚠️ Couldn't GG. Did you add the new Firebase rules?"); }
+};
+window.sendVideoComment = async function() {
+    const v = window.activeHl; if (!v || window.needSignIn('comment')) return;
+    const i = document.getElementById('hlCommentInput'); const text = i.value.trim(); if (!text) return;
+    i.value = '';
+    try {
+        await addDoc(collection(window.db, 'watch', v.vid, 'comments'), { uid: window.uidNow(), user: window.me(), text: text.slice(0, 300), createdAt: serverTimestamp() });
+        await setDoc(doc(window.db, 'watch', v.vid), { title: (v.title || '').slice(0, 150), commentsCount: increment(1) }, { merge: true });
+        window.notifyMentions && window.notifyMentions(text, null, v.title);
+    } catch (e) { showToast("⚠️ Comment not posted."); }
+};
+window.deleteVideoComment = async function(cid) {
+    const v = window.activeHl; if (!v) return;
+    try { await deleteDoc(doc(window.db, 'watch', v.vid, 'comments', cid)); await setDoc(doc(window.db, 'watch', v.vid), { commentsCount: increment(-1) }, { merge: true }); } catch (e) {}
+};
+window._baseCloseHighlight21b = window._baseCloseHighlight21b || window.closeHighlight;
+window.closeHighlight = function() { if (window.vidUnsub) { window.vidUnsub(); window.vidUnsub = null; } if (window.vidDocUnsub) { window.vidDocUnsub(); window.vidDocUnsub = null; } window._baseCloseHighlight21b(); };
+
+// ---------- Admin: manage Watch channels (fix or add official channels without an update) ----------
+window._baseSetAdminTab21b = window._baseSetAdminTab21b || window.setAdminTab;
+window.setAdminTab = function(tab) {
+    if (tab === 'watch') {
+        window.adminTab = 'watch';
+        document.querySelectorAll('[data-admintab]').forEach(b => { b.className = `flex-1 py-2 text-xs font-black border-b-2 ${b.dataset.admintab === tab ? 'text-white border-cyan-400' : 'text-gray-500 border-transparent'}`; });
+        return window.renderAdminWatch();
+    }
+    return window._baseSetAdminTab21b(tab);
+};
+window.renderAdminWatch = async function() {
+    const box = document.getElementById('adminBody');
+    await window.loadWatchCfg();
+    const field = 'w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white';
+    box.innerHTML = `<p class="text-[11px] text-gray-400">Only add <b>official</b> channels (leagues, clubs, studios, publishers). Paste a channel ID (starts with UC…) or a channel/video link.</p>
+        <div class="glass-panel rounded-2xl p-3 border border-cyan-500/20 space-y-2">
+            <input id="awName" placeholder="Channel name (e.g. CAF TV)" class="${field}"><input id="awId" placeholder="Channel ID, e.g. UCxxxxxxxxxxxxxxxxxxxxxx" class="${field}">
+            <select id="awCat" class="${field}">${window.WATCH_CATS.map(c => `<option value="${c.id}">${c.label}</option>`).join('')}</select>
+            <button onclick="window.adminAddWatchChannel()" class="w-full py-2.5 rounded-xl bg-cyan-400 text-slate-950 text-xs font-black uppercase">Add channel</button>
+        </div>
+        <div class="glass-panel rounded-2xl p-3 border border-amber-500/20 space-y-2">
+            <p class="text-[11px] font-black text-amber-300">⭐ Feature a video (official uploads only)</p>
+            <input id="afUrl" placeholder="YouTube video link" class="${field}"><input id="afTitle" placeholder="Title" class="${field}">
+            <select id="afCat" class="${field}">${window.WATCH_CATS.map(c => `<option value="${c.id}">${c.label}</option>`).join('')}</select>
+            <button onclick="window.adminAddFeatured()" class="w-full py-2.5 rounded-xl bg-amber-400 text-slate-950 text-xs font-black uppercase">Feature video</button>
+        </div>
+        ${window.WATCH_CATS.map(c => `<p class="text-[10px] font-black text-gray-400 uppercase pt-1">${c.label}</p>` + window.watchCfg.channels.filter(x => x.cat === c.id).map(x => `<div class="flex items-center justify-between p-2 rounded-xl bg-gg-900 text-xs"><span class="text-white font-bold truncate">${escapeHTML(x.name)} <span class="text-gray-500 font-normal">${escapeHTML(x.id)}</span></span><button onclick="window.adminRemoveWatchChannel('${x.id}')" class="text-red-400 text-[10px] font-black ml-2">Remove</button></div>`).join('')).join('')}
+        ${(window.watchCfg.featured || []).map(f => `<div class="flex items-center justify-between p-2 rounded-xl bg-amber-500/10 text-xs"><span class="text-white truncate">⭐ ${escapeHTML(f.title)}</span><button onclick="window.adminRemoveFeatured('${f.vid}')" class="text-red-400 text-[10px] font-black ml-2">Remove</button></div>`).join('')}`;
+};
+window.saveWatchCfg = async function() {
+    try { await setDoc(doc(window.db, 'config', 'watch'), window.cleanForCloud(window.watchCfg)); window.watchVids = {}; showToast('✅ Watch updated for everyone'); }
+    catch (e) { showToast("⚠️ Couldn't save. Did you add the new Firebase rules?"); }
+    window.renderAdminWatch();
+};
+window.adminAddWatchChannel = function() {
+    const name = document.getElementById('awName').value.trim(); let id = document.getElementById('awId').value.trim();
+    const m = /(UC[\w-]{22})/.exec(id); id = m ? m[1] : '';
+    if (!name || !id) { showToast('Add a name and a channel ID that starts with UC.'); return; }
+    window.watchCfg.channels = [...window.watchCfg.channels.filter(c => c.id !== id), { id, name, cat: document.getElementById('awCat').value }];
+    window.saveWatchCfg();
+};
+window.adminRemoveWatchChannel = function(id) { window.watchCfg.channels = window.watchCfg.channels.filter(c => c.id !== id); window.saveWatchCfg(); };
+window.adminAddFeatured = function() {
+    const vid = window.ytId(document.getElementById('afUrl').value); const title = document.getElementById('afTitle').value.trim();
+    if (!vid || !title) { showToast('Paste a YouTube link and a title.'); return; }
+    window.watchCfg.featured = [{ vid, title, cat: document.getElementById('afCat').value }, ...(window.watchCfg.featured || []).filter(f => f.vid !== vid)].slice(0, 30);
+    window.saveWatchCfg();
+};
+window.adminRemoveFeatured = function(vid) { window.watchCfg.featured = (window.watchCfg.featured || []).filter(f => f.vid !== vid); window.saveWatchCfg(); };
+
+// ======================================================================
+// v22: 🎲 LUDO — classic rules. Modes: vs 1 AI, vs 2 AI, vs 3 AI, 4 players (pass & play)
+// token progress: -1 = base, 0..50 = main track, 51..55 = home lane, 56 = home
+// ======================================================================
+window.GAMES.ludo = { name: 'Ludo', emoji: '🎲', desc: 'Classic Ludo: play vs 1, 2 or 3 AI, or 4 players on one phone.', color: 'from-yellow-400 to-red-500' };
+window.LUDO_PATH = [[6,1],[6,2],[6,3],[6,4],[6,5],[5,6],[4,6],[3,6],[2,6],[1,6],[0,6],[0,7],[0,8],[1,8],[2,8],[3,8],[4,8],[5,8],[6,9],[6,10],[6,11],[6,12],[6,13],[6,14],[7,14],[8,14],[8,13],[8,12],[8,11],[8,10],[8,9],[9,8],[10,8],[11,8],[12,8],[13,8],[14,8],[14,7],[14,6],[13,6],[12,6],[11,6],[10,6],[9,6],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0],[7,0],[6,0]];
+window.LUDO_COLORS = [
+    { name: 'Red', c: '#ef4444', start: 0, lane: [[7,1],[7,2],[7,3],[7,4],[7,5]], yard: [[1.5,1.5],[1.5,3.5],[3.5,1.5],[3.5,3.5]], base: [0, 0] },
+    { name: 'Green', c: '#22c55e', start: 13, lane: [[1,7],[2,7],[3,7],[4,7],[5,7]], yard: [[1.5,10.5],[1.5,12.5],[3.5,10.5],[3.5,12.5]], base: [0, 9] },
+    { name: 'Yellow', c: '#eab308', start: 26, lane: [[7,13],[7,12],[7,11],[7,10],[7,9]], yard: [[10.5,10.5],[10.5,12.5],[12.5,10.5],[12.5,12.5]], base: [9, 9] },
+    { name: 'Blue', c: '#3b82f6', start: 39, lane: [[13,7],[12,7],[11,7],[10,7],[9,7]], yard: [[10.5,1.5],[10.5,3.5],[12.5,1.5],[12.5,3.5]], base: [9, 0] }
+];
+window.LUDO_SAFE = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
+window.ludoInit = function(g) {
+    g.mode = g.mode || null;
+    g.players = [0, 2].map((ci, k) => ({ ci, human: k === 0, tokens: [-1, -1, -1, -1], done: 0 }));   // board shows behind the menu
+    g.turn = 0; g.phase = 'menu'; g.movable = []; g.msg = '';
+    g.layout = function() {
+        const size = Math.min(g.W - 16, g.H - 150);
+        g.cell = size / 15; g.ox = (g.W - size) / 2; g.oy = 12;
+    };
+    g.reset = function() {
+        g.layout();
+        const m = g.mode || 'ai1';
+        const seats = m === 'ai1' ? [0, 2] : m === 'ai2' ? [0, 1, 2] : [0, 1, 2, 3];
+        g.players = seats.map((ci, k) => ({ ci, human: m === 'local4' ? true : k === 0, tokens: [-1, -1, -1, -1], done: 0 }));
+        g.turn = 0; g.dice = null; g.rolling = 0; g.phase = 'roll'; g.sixes = 0; g.movable = []; g.anim = null; g.winner = null; g.aiT = 0.6; g.msg = '';
+        window.setGameScore(0);
+        g.updateTop();
+    };
+    g.cur = () => g.players[g.turn];
+    g.updateTop = () => { const p = g.cur(); document.getElementById('gameScoreTop').innerHTML = `<span style="color:${window.LUDO_COLORS[p.ci].c}">● ${p.human ? (g.mode === 'local4' ? window.LUDO_COLORS[p.ci].name : 'You') : window.LUDO_COLORS[p.ci].name + ' AI'}</span>`; };
+    g.absPos = (pl, prog) => (window.LUDO_COLORS[pl.ci].start + prog) % 52;
+    g.cellOf = (pl, ti) => {
+        const prog = pl.tokens[ti], col = window.LUDO_COLORS[pl.ci];
+        if (prog < 0) return col.yard[ti];
+        if (prog <= 50) return window.LUDO_PATH[g.absPos(pl, prog)];
+        if (prog <= 55) return col.lane[prog - 51];
+        return [7, 7];
+    };
+    g.canMove = (pl, ti, d) => { const t = pl.tokens[ti]; if (t === 56) return false; if (t < 0) return d === 6; return t + d <= 56; };
+    g.roll = function() {
+        if (g.phase !== 'roll' || g.anim) return;
+        g.phase = 'rolling'; g.rolling = 0.5;
+        g.dice = 1 + Math.floor(Math.random() * 6);
+    };
+    g.afterRoll = function() {
+        const pl = g.cur(), d = g.dice;
+        if (d === 6) g.sixes++; else g.sixes = 0;
+        if (g.sixes === 3) { g.msg = 'Three 6s! Turn over'; g.sixes = 0; return g.nextTurn(false); }
+        g.movable = [0, 1, 2, 3].filter(ti => g.canMove(pl, ti, d));
+        if (!g.movable.length) { g.msg = 'No moves'; setTimeout(() => g.nextTurn(d === 6), 600); g.phase = 'wait'; return; }
+        g.phase = 'move';
+        if (!pl.human) { g.aiT = 0.55; return; }
+        // one option, or all options identical (all in base) → move automatically
+        const uniq = new Set(g.movable.map(ti => pl.tokens[ti]));
+        if (g.movable.length === 1 || (uniq.size === 1 && pl.tokens[g.movable[0]] < 0)) setTimeout(() => g.phase === 'move' && g.move(g.movable[0]), 350);
+    };
+    g.move = function(ti) {
+        const pl = g.cur(), d = g.dice;
+        if (g.phase !== 'move' || !g.movable.includes(ti)) return;
+        g.phase = 'anim';
+        const from = pl.tokens[ti];
+        const steps = from < 0 ? [0] : Array.from({ length: d }, (_, k) => from + k + 1);
+        g.anim = { pl, ti, steps, k: 0, t: 0 };
+    };
+    g.finishMove = function() {
+        const { pl, ti } = g.anim; g.anim = null;
+        let bonus = g.dice === 6;
+        const prog = pl.tokens[ti];
+        if (prog === 56) { pl.done++; bonus = true; g.msg = `${window.LUDO_COLORS[pl.ci].name} got a token home!`; if (pl.done === 4) return g.win(pl); }
+        if (prog >= 0 && prog <= 50) {
+            const abs = g.absPos(pl, prog);
+            if (!window.LUDO_SAFE.has(abs)) {
+                g.players.forEach(op => { if (op === pl) return; op.tokens.forEach((t, k) => { if (t >= 0 && t <= 50 && g.absPos(op, t) === abs) { op.tokens[k] = -1; bonus = true; g.msg = `💥 ${window.LUDO_COLORS[pl.ci].name} captured ${window.LUDO_COLORS[op.ci].name}!`; if (navigator.vibrate) try { navigator.vibrate(40); } catch (e) {} } }); });
+            }
+        }
+        g.nextTurn(bonus);
+    };
+    g.nextTurn = function(again) {
+        g.movable = [];
+        if (!again) { g.turn = (g.turn + 1) % g.players.length; g.sixes = 0; }
+        g.phase = 'roll'; g.aiT = 0.6;
+        g.updateTop();
+    };
+    g.win = function(pl) {
+        g.winner = pl; g.phase = 'over';
+        const youWon = pl.human && g.mode !== 'local4';
+        window.setGameScore(youWon ? 1 : 0);
+        setTimeout(() => window.ludoGameOver(youWon, pl), 500);
+    };
+    g.aiPick = function() {
+        const pl = g.cur(), d = g.dice;
+        let best = g.movable[0], bestS = -1e9;
+        g.movable.forEach(ti => {
+            const t = pl.tokens[ti]; let s = 0;
+            const np = t < 0 ? 0 : t + d;
+            if (np === 56) s += 100;
+            if (t < 0) s += 60;
+            if (np > 50 && t <= 50) s += 40;                                        // reaches home lane
+            if (np <= 50) {
+                const abs = g.absPos(pl, np);
+                g.players.forEach(op => { if (op !== pl) op.tokens.forEach(ot => { if (ot >= 0 && ot <= 50 && g.absPos(op, ot) === abs && !window.LUDO_SAFE.has(abs)) s += 90; }); });
+                if (window.LUDO_SAFE.has(abs)) s += 15;
+                // danger: an opponent 1..6 behind
+                g.players.forEach(op => { if (op !== pl) op.tokens.forEach(ot => { if (ot >= 0 && ot <= 50) { const diff = (abs - g.absPos(op, ot) + 52) % 52; if (diff >= 1 && diff <= 6 && !window.LUDO_SAFE.has(abs)) s -= 25; } }); });
+            }
+            s += np * 0.5 + Math.random() * 3;
+            if (s > bestS) { bestS = s; best = ti; }
+        });
+        return best;
+    };
+    g.tap = function(x, y) {
+        const pl = g.cur(); if (!pl.human) return;
+        const dy = g.oy + g.cell * 15 + 18;
+        if (g.phase === 'roll') { if (y > dy - 10) g.roll(); return; }
+        if (g.phase !== 'move') return;
+        let best = null, bd = 1e9;
+        g.movable.forEach(ti => { const [r, c] = g.cellOf(pl, ti); const cx = g.ox + (c + 0.5) * g.cell, cy = g.oy + (r + 0.5) * g.cell; const dd = Math.hypot(cx - x, cy - y); if (dd < bd) { bd = dd; best = ti; } });
+        if (best !== null && bd < g.cell * 1.6) g.move(best);
+    };
+    g.update = function(dt) {
+        if (g.rolling > 0) { g.rolling -= dt; if (g.rolling <= 0) { g.rolling = 0; g.afterRoll(); } return; }
+        if (g.anim) {
+            g.anim.t += dt;
+            if (g.anim.t > 0.12) { g.anim.t = 0; g.anim.pl.tokens[g.anim.ti] = g.anim.steps[g.anim.k++]; if (g.anim.k >= g.anim.steps.length) g.finishMove(); }
+            return;
+        }
+        const pl = g.cur();
+        if (!pl.human && (g.phase === 'roll' || g.phase === 'move')) {
+            g.aiT -= dt;
+            if (g.aiT <= 0) { if (g.phase === 'roll') g.roll(); else g.move(g.aiPick()); g.aiT = 0.55; }
+        }
+    };
+    g.draw = function() {
+        const { ctx, W, H } = g; g.layout();
+        const s = g.cell, ox = g.ox, oy = g.oy;
+        ctx.fillStyle = '#02050b'; ctx.fillRect(0, 0, W, H);
+        const rect = (r, c, col, w = 1, h = 1) => { ctx.fillStyle = col; ctx.fillRect(ox + c * s, oy + r * s, w * s, h * s); };
+        rect(0, 0, '#0f1d36', 15, 15);
+        // yards
+        window.LUDO_COLORS.forEach(col => { rect(col.base[0], col.base[1], col.c, 6, 6); rect(col.base[0] + 1, col.base[1] + 1, '#070f1e', 4, 4); });
+        // track
+        window.LUDO_PATH.forEach(([r, c], i) => { rect(r, c, '#e5e7eb'); });
+        window.LUDO_COLORS.forEach(col => { col.lane.forEach(([r, c]) => rect(r, c, col.c)); const [sr, sc] = window.LUDO_PATH[col.start]; rect(sr, sc, col.c); });
+        ctx.strokeStyle = 'rgba(2,5,11,0.6)'; ctx.lineWidth = 1;
+        [...window.LUDO_PATH, ...window.LUDO_COLORS.flatMap(c => c.lane)].forEach(([r, c]) => ctx.strokeRect(ox + c * s, oy + r * s, s, s));
+        ctx.font = `${s * 0.55}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        [8, 21, 34, 47].forEach(i => { const [r, c] = window.LUDO_PATH[i]; ctx.fillStyle = '#94a3b8'; ctx.fillText('★', ox + (c + 0.5) * s, oy + (r + 0.5) * s); });
+        // centre triangles
+        const cx = ox + 7.5 * s, cy = oy + 7.5 * s;
+        [[0, [6, 6], [6, 9]], [1, [6, 9], [9, 9]], [2, [9, 9], [9, 6]], [3, [9, 6], [6, 6]]].forEach(([k, a, b]) => {
+            const ci = [1, 2, 3, 0][k]; ctx.fillStyle = window.LUDO_COLORS[ci === 1 ? 1 : ci === 2 ? 2 : ci === 3 ? 3 : 0].c;
+            ctx.beginPath(); ctx.moveTo(ox + a[1] * s, oy + a[0] * s); ctx.lineTo(ox + b[1] * s, oy + b[0] * s); ctx.lineTo(cx, cy); ctx.closePath(); ctx.fill();
+        });
+        ctx.font = `${s * 0.9}px system-ui`; ctx.fillText('🏆', cx, cy);
+        // tokens (stack offsets when sharing a square)
+        const occ = {};
+        g.players.forEach(pl => pl.tokens.forEach((t, ti) => { if (t === 56) return; const [r, c] = g.cellOf(pl, ti); const k = r + ',' + c; (occ[k] = occ[k] || []).push({ pl, ti, r, c }); }));
+        Object.values(occ).forEach(list => list.forEach((o, n) => {
+            const off = list.length > 1 ? (n - (list.length - 1) / 2) * s * 0.22 : 0;
+            const x = ox + (o.c + 0.5) * s + off, y = oy + (o.r + 0.5) * s;
+            const mv = g.phase === 'move' && o.pl === g.cur() && g.movable.includes(o.ti) && o.pl.human;
+            if (mv) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, s * (0.46 + 0.05 * Math.sin(performance.now() / 120)), 0, Math.PI * 2); ctx.stroke(); }
+            ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.arc(x + 1.5, y + 2, s * 0.34, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = window.LUDO_COLORS[o.pl.ci].c; ctx.beginPath(); ctx.arc(x, y, s * 0.34, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        }));
+        // finished counters
+        g.players.forEach(pl => { if (!pl.done) return; const col = window.LUDO_COLORS[pl.ci]; ctx.fillStyle = '#fff'; ctx.font = `900 ${s * 0.6}px system-ui`; ctx.fillText(`🏠${pl.done}`, ox + (col.base[1] + 3) * s, oy + (col.base[0] + 3) * s); });
+        // dice + status
+        const p = g.cur(), col = window.LUDO_COLORS[p.ci];
+        const dy = oy + s * 15 + 18, dsz = 58;
+        ctx.fillStyle = col.c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(W / 2 - dsz / 2, dy, dsz, dsz, 14) : ctx.rect(W / 2 - dsz / 2, dy, dsz, dsz); ctx.fill();
+        const face = g.rolling > 0 ? 1 + Math.floor(Math.random() * 6) : g.dice;
+        ctx.fillStyle = '#fff'; ctx.font = `900 30px system-ui`; ctx.fillText(face ? ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][face] : '🎲', W / 2, dy + dsz / 2 + 2);
+        ctx.font = '800 13px system-ui'; ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        const who = p.human ? (g.mode === 'local4' ? `${col.name}'s turn` : 'Your turn') : `${col.name} AI is playing…`;
+        const hint = !p.human ? '' : g.phase === 'roll' ? ' · tap the dice' : g.phase === 'move' ? ' · tap a glowing token' : '';
+        ctx.fillText(who + hint, W / 2, dy + dsz + 18);
+        if (g.msg) { ctx.fillStyle = '#fde047'; ctx.font = '800 12px system-ui'; ctx.fillText(g.msg, W / 2, dy + dsz + 36); }
+    };
+};
+window.ludoGameOver = async function(youWon, pl) {
+    const g = window.game; if (!g) return;
+    g.state = 'over';
+    const col = window.LUDO_COLORS[pl.ci];
+    const ov = document.getElementById('gameOverlay');
+    ov.innerHTML = `<div class="text-center bg-black/80 backdrop-blur-sm rounded-3xl px-7 py-6 border border-white/10 w-full max-w-[300px]">
+        <p class="text-5xl">${youWon ? '🏆' : g.mode === 'local4' ? '🎉' : '😤'}</p>
+        <p class="text-xl font-black text-white mt-1">${youWon ? 'You win!' : `${col.name} wins!`}</p>
+        <p id="gameRankLine" class="text-[11px] text-gray-300 mt-1">${youWon ? (window.isSignedIn() ? '…' : 'Sign in to count your wins') : g.mode === 'local4' ? 'GG to everyone 🤝' : 'Run it back!'}</p>
+        <button onclick="window.showGameOverlay('ready')" class="mt-4 w-full py-3.5 rounded-2xl bg-gradient-to-r from-yellow-400 to-red-500 text-slate-950 font-black text-base uppercase">↻ Play again</button>
+        <button onclick="window.closeGame()" class="mt-2 w-full py-2.5 rounded-xl bg-gg-900 border border-white/10 text-gray-300 text-xs font-black">Exit</button></div>`;
+    window.addXP && window.addXP(youWon ? 10 : 2, 'game');
+    window.bumpChallenge && window.bumpChallenge('game');
+    if (youWon && window.isSignedIn()) {
+        const wk = window.weekKey(Date.now()), gw = `ludo_${wk}`, ref = doc(window.db, 'gameScores', `${gw}_${window.uidNow()}`);
+        try {
+            const cur = await getDoc(ref); const wins = (cur.exists() ? cur.data().score : 0) + 1;
+            await setDoc(ref, { game: 'ludo', week: wk, gw, uid: window.uidNow(), user: window.me(), score: wins, at: serverTimestamp() });
+            try { localStorage.setItem('sg_best_ludo', Math.max(window.bestScore('ludo'), wins)); } catch (e) {}
+            delete window._boardCache[gw];
+            const rows = await window.loadGameBoard('ludo', true); const rank = rows.findIndex(r => r.uid === window.uidNow()) + 1;
+            const el = document.getElementById('gameRankLine'); if (el) el.innerHTML = `🏆 ${wins} win${wins === 1 ? '' : 's'} this week${rank ? ` · <b class="text-amber-400">#${rank}</b>` : ''}`;
+        } catch (e) {}
+    }
+};
+// Ludo start screen: pick a mode
+window._baseShowGameOverlay22 = window._baseShowGameOverlay22 || window.showGameOverlay;
+window.showGameOverlay = function(kind, d = {}) {
+    const g = window.game;
+    if (!g || g.id !== 'ludo' || kind !== 'ready') return window._baseShowGameOverlay22(kind, d);
+    g.state = 'ready';
+    const btn = (m, l, sub) => `<button onclick="window.startLudo('${m}')" class="w-full py-3 rounded-2xl bg-gg-900 border border-yellow-400/40 text-left px-4"><p class="text-sm font-black text-white">${l}</p><p class="text-[10px] text-gray-400">${sub}</p></button>`;
+    document.getElementById('gameOverlay').innerHTML = `<div class="text-center bg-black/80 backdrop-blur-sm rounded-3xl px-5 py-5 border border-white/10 w-full max-w-[320px] space-y-2">
+        <p class="text-5xl">🎲</p><p class="text-xl font-black text-white">Ludo</p>
+        ${btn('ai1', '🤖 You vs 1 AI', 'Quick 2-player game')}${btn('ai2', '🤖🤖 You vs 2 AI', '3 players')}${btn('ai3', '🤖🤖🤖 You vs 3 AI', 'Full board')}${btn('local4', '👥 4 Players', 'Pass & play on one phone')}
+        <p class="text-[10px] text-gray-500 pt-1">Weekly leaderboard counts your wins vs AI 🏆</p></div>`;
+};
+window.startLudo = function(mode) { const g = window.game; if (!g) return; g.mode = mode; window.startGame(); };
+window._baseStartGame22 = window._baseStartGame22 || window.startGame;
+window.startGame = function() { const g = window.game; if (g && g.id === 'ludo' && !g.mode) return; return window._baseStartGame22(); };
+window._baseOpenGame22 = window._baseOpenGame22 || window.openGame;
+window.openGame = function(id) {
+    if (id !== 'ludo') return window._baseOpenGame22(id);
+    const saved = window.keepyInit, savedInfo = window.GAMES.keepy;
+    window.keepyInit = window.ludoInit; window.GAMES.keepy = window.GAMES.ludo;
+    try { window._baseOpenGame21('keepy'); } finally { window.keepyInit = saved; if (savedInfo) window.GAMES.keepy = savedInfo; else delete window.GAMES.keepy; }
+    window.game.id = 'ludo';
+    document.getElementById('gameTitle').innerText = '🎲 Ludo';
+    window.showGameOverlay('ready');
+};
+
+// ======================================================================
+// v22: GAMES INSIDE SQUADS — same weekly scores as the global board, filtered to squad members
+// ======================================================================
+window.squadGameTab = 'dribble';
+window._baseRenderSquadHeader22 = window._baseRenderSquadHeader22 || window.renderSquadHeader;
+window.renderSquadHeader = function() {
+    window._baseRenderSquadHeader22();
+    const nav = document.getElementById('squadSubRoomsNav'); if (!nav || !window.activeSquadDetails) return;
+    const on = window.activeSquadSubRoom === 'Games';
+    nav.insertAdjacentHTML('beforeend', `<button onclick="window.switchSquadSubRoom('Games')" class="px-3 py-2 rounded-xl text-xs font-bold ${on ? 'bg-cyan-400 text-slate-950' : 'bg-gg-900 text-cyan-300 border border-cyan-500/30'}">🎮</button>`);
+};
+window._baseRenderSquadChannel22 = window._baseRenderSquadChannel22 || window.renderSquadChannel;
+window.renderSquadChannel = function() {
+    if (window.activeSquadSubRoom !== 'Games') return window._baseRenderSquadChannel22();
+    document.getElementById('squadInputContainer').style.display = 'none';
+    document.getElementById('squadLockedBar').classList.add('hidden');
+    document.getElementById('squadPinnedBar').classList.add('hidden');
+    window.renderSquadGames();
+};
+window.renderSquadGames = async function() {
+    const sq = window.activeSquadDetails, box = document.getElementById('squadRoomMsgsBox');
+    if (!sq || !box) return;
+    const ids = Object.keys(window.GAMES);
+    if (!window.GAMES[window.squadGameTab]) window.squadGameTab = ids[0];
+    box.innerHTML = `<div class="space-y-3 py-2">
+        <div class="grid grid-cols-2 gap-2">${ids.map(id => { const g = window.GAMES[id]; return `<button onclick="window.closeSquadDetailsModalKeep(); window.openGame('${id}')" class="rounded-2xl p-3 bg-gradient-to-br ${g.color} text-slate-950 text-left shadow-lg"><p class="text-2xl">${g.emoji}</p><p class="text-xs font-black">${g.name}</p><p class="text-[9px] font-bold opacity-80">Best: ${window.bestScore(id)}</p></button>`; }).join('')}</div>
+        <div class="glass-panel rounded-2xl overflow-hidden border border-amber-500/25">
+            <p class="px-3 pt-3 text-xs font-black text-white uppercase tracking-wider">🏆 ${escapeHTML(sq.name)} · this week</p>
+            <div class="flex gap-1 px-3 pt-2 overflow-x-auto scrollbar-none">${ids.map(id => `<button onclick="window.squadGameTab='${id}'; window.renderSquadGames()" class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-black ${window.squadGameTab === id ? 'bg-white text-slate-950' : 'bg-gg-900 text-gray-400'}">${window.GAMES[id].emoji} ${window.GAMES[id].name}</button>`).join('')}</div>
+            <div id="squadGameBoard" class="py-2"><p class="text-xs text-gray-500 text-center py-5"><i class="fa-solid fa-spinner fa-spin"></i></p></div>
+            <p class="text-[9px] text-gray-500 text-center pb-2">Same scores as the global Arcade board · resets every Monday</p>
+        </div></div>`;
+    const rows = await window.loadGameBoard(window.squadGameTab);
+    const members = new Set(sq.memberUids || []);
+    const tags = new Set((sq.members || []).map(m => (m || '').toLowerCase()));
+    const mine = rows.filter(r => members.has(r.uid) || tags.has((r.user || '').toLowerCase()));
+    const el = document.getElementById('squadGameBoard'); if (!el) return;
+    el.innerHTML = mine.length ? mine.slice(0, 50).map((r, i) => { const globalRank = rows.indexOf(r) + 1; return `<div class="flex items-center justify-between px-3 py-2 ${r.uid === window.uidNow() ? 'bg-amber-500/10' : ''}">
+        <div class="flex items-center gap-2 min-w-0"><span class="w-6 text-center text-sm">${['🥇', '🥈', '🥉'][i] || `<span class="text-[10px] text-gray-500 font-black">#${i + 1}</span>`}</span>${window.avatarHtml(r.user, 'w-7 h-7', 'rounded-lg', 'text-[9px]')}<span class="text-xs font-bold text-white truncate">${window.dn(r.user)}</span><span class="text-[9px] text-gray-500">🌍 #${globalRank}</span></div>
+        <span class="text-sm font-black text-amber-400">${r.score}</span></div>`; }).join('')
+        : `<p class="text-xs text-gray-400 text-center py-5">No squad scores yet this week. Be the first! 🔥</p>`;
+};
+// open a game from a squad, come back to the squad's 🎮 room after
+window.closeSquadDetailsModalKeep = function() {
+    window.returnToSquadGames = window.activeSquadDetails && window.activeSquadDetails.id;
+    window.closeSquadDetailsModal();
+};
+window._baseCloseGame22 = window._baseCloseGame22 || window.closeGame;
+window.closeGame = function() {
+    window._baseCloseGame22();
+    const sid = window.returnToSquadGames;
+    if (sid) { window.returnToSquadGames = null; window.openSquadDetailsModal(sid); window.activeSquadSubRoom = 'Games'; window.renderSquadHeader(); window.renderSquadChannel(); }
+};
+
+// ======================================================================
+// v22: CLEAN TWO-SIDED KNOCKOUT BRACKET (left = magenta, right = cyan, Final in the middle)
+// ======================================================================
+window.bracketHtml = function(t) {
+    const N = Math.max(2, t.maxPlayers || 8), R = Math.round(Math.log2(N));
+    const rounds = [];
+    for (let r = 1; r <= R; r++) {
+        const need = N / Math.pow(2, r);
+        const ms = (t.matches || []).filter(m => m.round === r);
+        rounds.push(Array.from({ length: need }, (_, i) => ms[i] || { p1: 'TBD', p2: 'TBD', s1: null, s2: null, winner: null }));
+    }
+    const name = (p) => (!p || p === 'TBD' || p === 'Open Spot') ? `<span class="text-gray-500">${p === 'Open Spot' ? 'Open spot' : 'TBD'}</span>` : escapeHTML(window.dnText ? window.dnText(p) : p);
+    const card = (m, side) => {
+        const c = side === 'L' ? '#ff007f' : side === 'R' ? '#00f3ff' : '#fbbf24';
+        const row = (p, s) => {
+            const won = m.winner && m.winner === p, lost = m.winner && m.winner !== p && m.winner !== 'DRAW';
+            return `<div class="flex items-center justify-between gap-1 px-2 py-1 ${lost ? 'opacity-45' : ''}" style="background:${won ? c + '33' : 'transparent'}">
+                <span class="text-[10px] font-black ${won ? 'text-white' : 'text-gray-200'} truncate">${name(p)}</span><span class="text-[10px] font-black" style="color:${c}">${s ?? ''}</span></div>`;
+        };
+        return `<div class="w-[104px] rounded-lg overflow-hidden bg-gg-900 shadow-lg" style="border:1.5px solid ${c};box-shadow:0 0 10px ${c}33">${row(m.p1, m.s1)}<div style="height:1px;background:${c}55"></div>${row(m.p2, m.s2)}</div>`;
+    };
+    const col = (ms, side, r) => {
+        // group matches in pairs so the connector lines meet in the middle
+        const pairs = []; for (let i = 0; i < ms.length; i += 2) pairs.push(ms.slice(i, i + 2));
+        const c = side === 'L' ? '#ff007f' : '#00f3ff';
+        return `<div class="flex flex-col justify-around h-full">${pairs.map(pr => `<div class="relative flex-1 flex flex-col justify-around py-1">
+            ${pr.map(m => `<div class="relative flex ${side === 'L' ? 'justify-start' : 'justify-end'}">${card(m, side)}</div>`).join('')}
+            ${pr.length === 2 ? `<div style="position:absolute;${side === 'L' ? 'right:-8px;border-left:none' : 'left:-8px;border-right:none'};top:25%;bottom:25%;width:8px;border:1.5px solid ${c}"></div>
+                <div style="position:absolute;${side === 'L' ? 'right:-16px' : 'left:-16px'};top:50%;width:8px;border-top:1.5px solid ${c}"></div>` : ''}
+        </div>`).join('')}</div>`;
+    };
+    const left = [], right = [];
+    for (let r = 0; r < R - 1; r++) { const ms = rounds[r]; left.push(col(ms.slice(0, ms.length / 2), 'L', r)); right.unshift(col(ms.slice(ms.length / 2), 'R', r)); }
+    const fin = rounds[R - 1][0];
+    const champ = fin.winner && fin.winner !== 'DRAW' ? fin.winner : null;
+    const h = Math.max(220, (N / 4) * 74);
+    return `<div class="rounded-2xl p-3 border border-cyan-500/20" style="background:radial-gradient(ellipse at center,#0f1d36 0%,#02050b 75%)">
+        <div class="flex items-center justify-center gap-2 pb-2"><span class="text-[11px] font-black tracking-[0.3em] text-white">THE PLAYOFFS</span></div>
+        <div class="overflow-x-auto scrollbar-none"><div class="flex items-stretch gap-4 mx-auto w-max px-1" style="height:${h}px">
+            ${left.join('')}
+            <div class="flex flex-col items-center justify-center gap-2 px-1">
+                <div class="text-4xl">🏆</div><p class="text-[11px] font-black text-white tracking-widest">FINAL</p>
+                ${card({ ...fin, p2: fin.p2 }, 'F')}
+                ${champ ? `<p class="text-[10px] font-black text-amber-400 text-center">👑 ${escapeHTML(window.dnText ? window.dnText(champ) : champ)}</p>` : '<p class="text-[10px] font-black text-gray-400">VS</p>'}
+            </div>
+            ${right.join('')}
+        </div></div>
+        <p class="text-center text-[9px] tracking-[0.5em] text-gray-500 pt-2">TOURNAMENT</p>
+    </div>`;
+};
+window._baseRenderTournamentsTabDedicated22 = window._baseRenderTournamentsTabDedicated22 || window.renderTournamentsTabDedicated;
+window.renderTournamentsTabDedicated = function() {
+    window._baseRenderTournamentsTabDedicated22();
+    const t = window.activeTournament, box = document.getElementById('tournamentsDedicatedContainer');
+    if (!t || !box || t.format !== 'KNOCKOUT') return;
+    const panel = [...box.querySelectorAll('.glass-panel')].find(p => p.textContent.includes(t.title));
+    if (!panel || panel.querySelector('[data-bracket]')) return;
+    const d = document.createElement('div'); d.setAttribute('data-bracket', '1'); d.innerHTML = window.bracketHtml(t);
+    (panel.children[0] || panel).after(d);
+    window.fitBracket(d);
+};
+// shrink the bracket to fit the phone width (still scrollable if very big)
+window.fitBracket = function(d) {
+    requestAnimationFrame(() => {
+        const sc = d.querySelector('.overflow-x-auto'), inner = sc && sc.firstElementChild; if (!inner) return;
+        const avail = sc.clientWidth, w = inner.scrollWidth, h = inner.offsetHeight;
+        if (!avail || w <= avail) return;
+        const k = Math.max(0.5, avail / w);
+        inner.style.transform = `scale(${k})`; inner.style.transformOrigin = 'top left'; inner.style.margin = '0';
+        const wrap = document.createElement('div'); wrap.style.width = (w * k) + 'px'; wrap.style.height = (h * k) + 'px';
+        sc.insertBefore(wrap, inner); wrap.appendChild(inner);
+        if (k === 0.5) sc.insertAdjacentHTML('afterend', '<p class="text-center text-[9px] text-gray-500 pt-1">Swipe to see the whole bracket ↔</p>');
+    });
+};
+
+// ======================================================================
+// v22: LEAGUES & SEASONS — registered hosts, tiers, promotion/relegation, champion titles, calendar
+// hosts/{uid}   = { uid, user, org, comps: [{ id, name, kind:'league'|'cup', tier, promote, relegate, format, h2h }] }
+// tournaments/{id} (extra fields) = { hostId, compId, compName, season, startAt, endAt, status:'active'|'finished', champion, finalOrder }
+// titles/{auto} = { tag (lowercase), user, title, compId, compName, season, hostUid, tournId, at }
+// ======================================================================
+window.myHost = null;
+window.loadMyHost = async function(force) {
+    if (!window.isSignedIn()) { window.myHost = null; return null; }
+    if (window.myHost && !force) return window.myHost;
+    try { const s = await getDoc(doc(window.db, 'hosts', window.uidNow())); window.myHost = s.exists() ? s.data() : null; } catch (e) {}
+    return window.myHost;
+};
+window.HOST_TEMPLATE = (org) => [
+    { id: 'super', name: `${org} Super League`, kind: 'league', tier: 1, promote: 0, relegate: 2, format: 'LEAGUE', h2h: '1x' },
+    { id: 'rising', name: `${org} Rising Stars League`, kind: 'league', tier: 2, promote: 2, relegate: 2, format: 'LEAGUE', h2h: '1x' },
+    { id: 'junior', name: `${org} Junior League`, kind: 'league', tier: 3, promote: 2, relegate: 0, format: 'LEAGUE', h2h: '1x' },
+    { id: 'open', name: `${org} Open Cup`, kind: 'cup', tier: 0, format: 'KNOCKOUT' },
+    { id: 'ucl', name: `${org} Champions League`, kind: 'cup', tier: 0, format: 'KNOCKOUT' }
+];
+
+// ---------- Tabs in the Tournaments page ----------
+window.tourTab = 'list';
+window.setTourTab = function(tab) {
+    window.tourTab = tab;
+    document.querySelectorAll('[data-tourtab]').forEach(b => { b.className = `flex-1 py-2.5 px-0.5 text-[11px] font-black border-b-2 ${b.dataset.tourtab === tab ? 'text-white border-amber-400' : 'text-gray-500 border-transparent'}`; });
+    document.getElementById('tournamentsDedicatedContainer').classList.toggle('hidden', tab !== 'list');
+    const ex = document.getElementById('tourExtraBody'); ex.classList.toggle('hidden', tab === 'list');
+    if (tab === 'calendar') window.renderCalendar(); else if (tab === 'mine') window.renderMyMatches(); else if (tab === 'host') window.renderHostDash(); else window.renderTournamentsTabDedicated();
+};
+window._baseSwitchView22 = window._baseSwitchView22 || window.switchView;
+window.switchView = function(v) { window._baseSwitchView22(v); if (v === 'tournaments') window.setTourTab(window.tourTab || 'list'); };
+
+// ---------- Register as host ----------
+window.renderHostDash = async function() {
+    const box = document.getElementById('tourExtraBody');
+    if (!window.isSignedIn()) { box.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center text-xs text-gray-400">Sign in to run your own league system.</div>`; return; }
+    box.innerHTML = `<p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i></p>`;
+    const h = await window.loadMyHost(true);
+    if (window.tourTab !== 'host') return;
+    if (!h) {
+        box.innerHTML = `<div class="glass-panel rounded-2xl p-4 border border-amber-500/30 space-y-3">
+            <p class="text-sm font-black text-white">🏛️ Register as a Host</p>
+            <p class="text-xs text-gray-400">Run your own league system with divisions, promotion &amp; relegation, cups, seasons and champion titles.</p>
+            <input id="hostOrgName" maxlength="30" placeholder="League name, e.g. Sinless" class="w-full bg-gg-900 border border-amber-500/30 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none">
+            <p class="text-[10px] text-gray-500">We'll set you up with: Super League (top tier) · Rising Stars League (2nd) · Junior League (3rd) · Open Cup · Champions League. You can rename or change these later.</p>
+            <button onclick="window.registerHost()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs uppercase">Create my league system</button></div>`;
+        return;
+    }
+    const all = (window.tournamentsList || []).filter(t => t.hostId === window.uidNow());
+    const latest = (cid) => all.filter(t => t.compId === cid).sort((a, b) => (b.season || 0) - (a.season || 0))[0];
+    const leagues = h.comps.filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier);
+    const ready = leagues.length && leagues.every(c => { const t = latest(c.id); return !t || t.status === 'finished'; }) && leagues.some(c => latest(c.id));
+    const titles = await window.loadTitles();
+    if (window.tourTab !== 'host') return;
+    const compRow = (c) => {
+        const t = latest(c.id);
+        const champs = titles.filter(x => x.compId === c.id && x.hostUid === window.uidNow()).sort((a, b) => b.season - a.season).slice(0, 3);
+        return `<div class="glass-panel rounded-2xl p-3 border ${c.kind === 'league' ? 'border-cyan-500/25' : 'border-magenta/30'} space-y-1.5">
+            <div class="flex items-center justify-between"><p class="text-sm font-black text-white">${c.kind === 'league' ? ['🥇', '🥈', '🥉'][c.tier - 1] || '🏅' : '🏆'} ${escapeHTML(c.name)}</p><span class="text-[9px] font-black text-gray-400 uppercase">${c.kind === 'league' ? `Tier ${c.tier}` : 'Cup'}</span></div>
+            ${c.kind === 'league' ? `<p class="text-[10px] text-gray-400">${c.promote ? `⬆️ Top ${c.promote} promoted` : ''}${c.promote && c.relegate ? ' · ' : ''}${c.relegate ? `⬇️ Bottom ${c.relegate} relegated` : ''}</p>` : ''}
+            <p class="text-[11px] ${t ? 'text-gray-200' : 'text-gray-500'}">${t ? `Season ${t.season || 1}: ${t.status === 'finished' ? `finished · 👑 ${escapeHTML(window.dnText(t.champion || '?'))}` : `in progress (${(t.players || []).filter(p => !/^Club_\d+$/.test(p)).length} players)`}` : 'No season yet'}</p>
+            ${champs.length ? `<p class="text-[10px] text-amber-300">Past champions: ${champs.map(x => `S${x.season} ${escapeHTML(window.dnText(x.user))}`).join(' · ')}</p>` : ''}
+            <div class="flex gap-2 pt-1">
+                ${t ? `<button onclick="window.openTournamentById('${t.id}')" class="flex-1 py-2 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-[11px] font-black">Open</button>` : ''}
+                ${(!t || t.status === 'finished') && c.kind === 'cup' ? `<button onclick="window.newSeasonFor('${c.id}')" class="flex-1 py-2 rounded-xl bg-amber-400 text-slate-950 text-[11px] font-black uppercase">+ New season</button>` : ''}
+                ${!t && c.kind === 'league' ? `<button onclick="window.newSeasonFor('${c.id}')" class="flex-1 py-2 rounded-xl bg-amber-400 text-slate-950 text-[11px] font-black uppercase">Start season 1</button>` : ''}
+            </div></div>`;
+    };
+    box.innerHTML = `<div class="glass-panel rounded-2xl p-3.5 border border-amber-500/40 flex items-center justify-between"><div><p class="text-[10px] text-gray-400 font-black uppercase">Your league system</p><p class="text-base font-black text-white">🏛️ ${escapeHTML(h.org)}</p></div>
+            <button onclick="window.editHostComps()" class="px-3 py-2 rounded-xl bg-gg-900 border border-amber-500/30 text-amber-300 text-[11px] font-black">Edit</button></div>
+        ${leagues.some(c => latest(c.id)) ? `<button ${ready ? '' : 'disabled'} onclick="window.startNextLeagueSeason()" class="w-full py-3 rounded-2xl font-black text-xs uppercase ${ready ? 'bg-gradient-to-r from-cyan-400 to-magenta text-slate-950' : 'bg-gg-900 text-gray-500 border border-white/10'}">🔁 Start next season for all leagues ${ready ? '(with promotion & relegation)' : '· finish every league season first'}</button>` : ''}
+        ${h.comps.map(compRow).join('')}`;
+};
+window.registerHost = async function() {
+    const org = document.getElementById('hostOrgName').value.trim().replace(/\s+/g, ' ');
+    if (org.length < 2) { showToast('Give your league a name.'); return; }
+    const data = { uid: window.uidNow(), user: window.me(), org, comps: window.HOST_TEMPLATE(org), createdAt: serverTimestamp() };
+    try { await setDoc(doc(window.db, 'hosts', window.uidNow()), data); window.myHost = data; showToast(`🏛️ ${org} league system created!`); window.renderHostDash(); }
+    catch (e) { showToast("⚠️ Couldn't save. Did you add the new Firebase rules?"); }
+};
+window.editHostComps = function() {
+    const h = window.myHost; if (!h) return;
+    window.panelKind = 'hostedit';
+    const f = 'w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-2.5 py-2 text-xs text-white';
+    window.openPanel('🏛️ Edit competitions', `
+        <label class="text-[10px] text-gray-400 font-bold">League system name<input id="heOrg" value="${escapeHTML(h.org)}" class="${f} mt-1"></label>
+        ${h.comps.map((c, i) => `<div class="glass-panel rounded-2xl p-3 border border-cyan-500/20 space-y-2">
+            <input data-he="name" data-i="${i}" value="${escapeHTML(c.name)}" class="${f}">
+            ${c.kind === 'league' ? `<div class="grid grid-cols-3 gap-2 text-[10px] text-gray-400 font-bold">
+                <label>Tier<input data-he="tier" data-i="${i}" type="number" min="1" max="9" value="${c.tier}" class="${f} mt-0.5"></label>
+                <label>⬆️ Promote<input data-he="promote" data-i="${i}" type="number" min="0" max="8" value="${c.promote || 0}" class="${f} mt-0.5"></label>
+                <label>⬇️ Relegate<input data-he="relegate" data-i="${i}" type="number" min="0" max="8" value="${c.relegate || 0}" class="${f} mt-0.5"></label></div>` : '<p class="text-[10px] text-gray-500">Cup · knockout</p>'}
+            <button onclick="window.removeHostComp(${i})" class="text-[10px] text-red-400 font-black">Remove</button></div>`).join('')}
+        <div class="flex gap-2"><button onclick="window.addHostComp('league')" class="flex-1 py-2.5 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-xs font-black">+ League division</button><button onclick="window.addHostComp('cup')" class="flex-1 py-2.5 rounded-xl bg-gg-900 border border-magenta/30 text-magenta text-xs font-black">+ Cup</button></div>
+        <button onclick="window.saveHostComps()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs uppercase">Save</button>`);
+};
+window.readHostEdits = function() {
+    const h = window.myHost;
+    document.querySelectorAll('[data-he]').forEach(el => { const c = h.comps[+el.dataset.i]; if (!c) return; const k = el.dataset.he; c[k] = k === 'name' ? el.value.trim() : Math.max(0, parseInt(el.value) || 0); });
+    const o = document.getElementById('heOrg'); if (o) h.org = o.value.trim() || h.org;
+};
+window.addHostComp = function(kind) { window.readHostEdits(); const h = window.myHost; const n = h.comps.filter(c => c.kind === 'league').length; h.comps.push(kind === 'league' ? { id: 'lg' + Date.now(), name: `${h.org} Division ${n + 1}`, kind, tier: n + 1, promote: 2, relegate: 2, format: 'LEAGUE', h2h: '1x' } : { id: 'cup' + Date.now(), name: `${h.org} Cup`, kind, tier: 0, format: 'KNOCKOUT' }); window.editHostComps(); };
+window.removeHostComp = function(i) { window.readHostEdits(); window.myHost.comps.splice(i, 1); window.editHostComps(); };
+window.saveHostComps = async function() {
+    window.readHostEdits();
+    try { await setDoc(doc(window.db, 'hosts', window.uidNow()), window.cleanForCloud({ org: window.myHost.org, comps: window.myHost.comps }), { merge: true }); showToast('✅ Saved'); window.closePanel(); window.renderHostDash(); }
+    catch (e) { showToast("⚠️ Couldn't save."); }
+};
+
+// ---------- Creating a season from the normal "Host Tournament" form ----------
+window.onTournTypeChange = async function() {
+    const series = document.getElementById('tournTypeSelect').value === 'series';
+    document.getElementById('tournSeriesBox').classList.toggle('hidden', !series);
+    if (!series) return;
+    const h = await window.loadMyHost();
+    const sel = document.getElementById('tournCompSelect');
+    if (!h) { sel.innerHTML = ''; document.getElementById('tournSeriesNote').innerHTML = `You're not a registered host yet. <button onclick="window.closeCreateTournamentModal(); window.switchView('tournaments'); window.setTourTab('host')" class="text-amber-400 underline font-bold">Register in My League</button>`; return; }
+    sel.innerHTML = h.comps.map(c => `<option value="${c.id}">${escapeHTML(c.name)}</option>`).join('');
+    window.onTournCompChange();
+    sel.onchange = window.onTournCompChange;
+};
+window.onTournCompChange = function() {
+    const h = window.myHost; const c = h && h.comps.find(x => x.id === document.getElementById('tournCompSelect').value); if (!c) return;
+    const prev = (window.tournamentsList || []).filter(t => t.hostId === window.uidNow() && t.compId === c.id).sort((a, b) => (b.season || 0) - (a.season || 0))[0];
+    const season = (prev ? prev.season || 1 : 0) + 1;
+    document.getElementById('tournTitleInput').value = `${c.name} · Season ${season}`;
+    document.getElementById('tournFormatSelect').value = c.format || 'LEAGUE';
+    window.toggleTournamentFormatOptions && window.toggleTournamentFormatOptions(c.format || 'LEAGUE');
+    document.getElementById('tournSeriesNote').innerText = `Season ${season}. The winner will be crowned "${c.name} Champion".`;
+};
+window.newSeasonFor = function(compId) {
+    window.openCreateTournamentModal();
+    document.getElementById('tournTypeSelect').value = 'series';
+    window.onTournTypeChange().then(() => { document.getElementById('tournCompSelect').value = compId; window.onTournCompChange(); });
+};
+window._baseSubmitNewTournament22 = window._baseSubmitNewTournament22 || window.submitNewTournament;
+window.submitNewTournament = async function() {
+    const series = document.getElementById('tournTypeSelect').value === 'series';
+    const sd = document.getElementById('tournStartDate').value, ed = document.getElementById('tournEndDate').value;
+    const meta = {};
+    if (sd) meta.startAt = new Date(sd + 'T00:00:00').getTime();
+    if (ed) meta.endAt = new Date(ed + 'T23:59:00').getTime();
+    const rgd = document.getElementById('tournRegDate').value;
+    if (rgd) meta.regAt = new Date(rgd + 'T00:00:00').getTime();
+    if (meta.startAt && meta.endAt && meta.endAt < meta.startAt) { showToast('⚠️ The end date is before the start date.'); return; }
+    if (series) {
+        const h = window.myHost; const c = h && h.comps.find(x => x.id === document.getElementById('tournCompSelect').value);
+        if (!c) { showToast('Register as a host first (Tournaments → My League).'); return; }
+        const prev = (window.tournamentsList || []).filter(t => t.hostId === window.uidNow() && t.compId === c.id).sort((a, b) => (b.season || 0) - (a.season || 0))[0];
+        Object.assign(meta, { hostId: window.uidNow(), hostOrg: h.org, compId: c.id, compName: c.name, compKind: c.kind, tier: c.tier || 0, season: (prev ? prev.season || 1 : 0) + 1, status: 'active' });
+    }
+    window._pendingTournMeta = Object.keys(meta).length ? meta : null;
+    try { await window._baseSubmitNewTournament22(); } finally { window._pendingTournMeta = null; }
+    document.getElementById('tournTypeSelect').value = 'once'; document.getElementById('tournSeriesBox').classList.add('hidden');
+    document.getElementById('tournStartDate').value = ''; document.getElementById('tournEndDate').value = ''; document.getElementById('tournRegDate').value = '';
+};
+window._baseSaveTournament22 = window._baseSaveTournament22 || window.saveTournament;
+window.saveTournament = async function(t, isNew) {
+    if (t && isNew && window._pendingTournMeta) { Object.assign(t, window._pendingTournMeta); window._pendingTournMeta = null; }
+    if (t && isNew && t.format === 'LEAGUE') window.assignLeagueRounds(t);
+    return window._baseSaveTournament22(t, isNew);
+};
+window.openTournamentById = function(id) {
+    const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+    window.activeTournament = t; window.setTourTab('list'); window.scrollTo({ top: 0 });
+};
+
+// ---------- Final standings + finishing a season ----------
+window.finalOrderOf = function(t) {
+    const real = (p) => p && !/^Club_\d+$/.test(p) && p !== 'Open Spot' && p !== 'TBD';
+    if (t.format === 'LEAGUE') {
+        const st = {};
+        (t.players || []).filter(real).forEach(p => { st[p] = { p, pts: 0, gd: 0, gf: 0 }; });
+        (t.matches || []).forEach(m => {
+            if (m.winner === null || m.winner === undefined || m.status !== 'approved' || !real(m.p1) || !real(m.p2) || m.s1 == null) return;
+            [m.p1, m.p2].forEach(p => { st[p] = st[p] || { p, pts: 0, gd: 0, gf: 0 }; });
+            st[m.p1].gf += m.s1; st[m.p2].gf += m.s2; st[m.p1].gd += m.s1 - m.s2; st[m.p2].gd += m.s2 - m.s1;
+            if (m.s1 > m.s2) st[m.p1].pts += 3; else if (m.s2 > m.s1) st[m.p2].pts += 3; else { st[m.p1].pts++; st[m.p2].pts++; }
+        });
+        return Object.values(st).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf).map(x => x.p);
+    }
+    const ms = (t.matches || []).filter(m => m.winner && m.winner !== 'DRAW');
+    if (!ms.length) return [];
+    const top = Math.max(...ms.map(m => m.round));
+    const fin = ms.filter(m => m.round === top).slice(-1)[0];
+    const runner = fin.p1 === fin.winner ? fin.p2 : fin.p1;
+    const rest = [...new Set(ms.sort((a, b) => b.round - a.round).flatMap(m => [m.p1, m.p2]))].filter(p => real(p) && p !== fin.winner && p !== runner);
+    return [fin.winner, runner, ...rest].filter(real);
+};
+window.finishSeason = async function(id) {
+    const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+    const order = window.finalOrderOf(t);
+    if (!order.length) { showToast('No results yet. Approve some match scores first.'); return; }
+    const champ = order[0];
+    const ok = await window.sgConfirm(`Finish ${t.title} and crown ${window.dnText(champ)} as "${t.compName || t.title} Champion"?`, { title: '🏁 Finish season', okText: 'Crown champion' });
+    if (!ok) return;
+    try {
+        await updateDoc(doc(window.db, 'tournaments', t.id), { status: 'finished', champion: champ, finalOrder: order, finishedAt: Date.now() });
+        Object.assign(t, { status: 'finished', champion: champ, finalOrder: order });
+        const prof = await window.getProfile(champ);
+        await addDoc(collection(window.db, 'titles'), { tag: champ.toLowerCase(), user: champ, title: `${t.compName || t.title} Champion`, compId: t.compId || null, compName: t.compName || t.title, season: t.season || 1, hostUid: window.uidNow(), hostOrg: t.hostOrg || null, compKind: t.compKind || null, tier: t.tier || 0, format: t.format || null, game: t.game || null, runnerUp: order[1] || null, tournId: t.id, at: serverTimestamp() });
+        if (prof && prof.uid) window.notify(prof.uid, 'tournament', { text: `👑 You are the ${t.compName || t.title} Champion!` });
+        window._titles = null;
+        showToast(`👑 ${window.dnText(champ)} crowned champion!`);
+        window.renderTournamentsTabDedicated();
+    } catch (e) { console.warn(e); showToast("⚠️ Couldn't finish. Did you add the new Firebase rules?"); }
+};
+
+// ---------- Promotion & relegation: start the next season for every league division ----------
+window.makeLeagueMatches = function(players, h2h) {
+    const ms = []; let n = 0;
+    for (let i = 0; i < players.length; i++) for (let j = i + 1; j < players.length; j++) {
+        ms.push({ id: `m_${Date.now()}_${n++}`, round: 1, p1: players[i], p2: players[j], s1: null, s2: null, winner: null, stage: 'League Match (Leg 1)', streamUrl: '', mvp: null, status: 'approved' });
+        if (h2h === '2x') ms.push({ id: `m_${Date.now()}_${n++}`, round: 1, p1: players[j], p2: players[i], s1: null, s2: null, winner: null, stage: 'League Match (Leg 2)', streamUrl: '', mvp: null, status: 'approved' });
+    }
+    return ms;
+};
+window.startNextLeagueSeason = async function() {
+    const h = window.myHost; if (!h) return;
+    const leagues = h.comps.filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier);
+    const latest = (cid) => (window.tournamentsList || []).filter(t => t.hostId === window.uidNow() && t.compId === cid).sort((a, b) => (b.season || 0) - (a.season || 0))[0];
+    const prev = leagues.map(c => ({ c, t: latest(c.id) }));
+    const orders = prev.map(x => x.t ? (x.t.finalOrder || window.finalOrderOf(x.t)) : []);
+    const next = orders.map(o => [...o]);
+    const moves = [];
+    for (let k = 0; k < leagues.length - 1; k++) {
+        const up = Math.min(leagues[k + 1].promote || 0, orders[k + 1].length), down = Math.min(leagues[k].relegate || 0, orders[k].length);
+        const promoted = orders[k + 1].slice(0, up), relegated = down ? orders[k].slice(-down) : [];
+        next[k] = next[k].filter(p => !relegated.includes(p)).concat(promoted);
+        next[k + 1] = next[k + 1].filter(p => !promoted.includes(p)).concat(relegated);
+        promoted.forEach(p => moves.push(`⬆️ ${window.dnText(p)} → ${leagues[k].name}`));
+        relegated.forEach(p => moves.push(`⬇️ ${window.dnText(p)} → ${leagues[k + 1].name}`));
+    }
+    const sd = await window.sgPrompt(`${moves.length ? moves.join('\n') + '\n\n' : ''}When does the new season start? (YYYY-MM-DD, leave empty for today)`, { title: '🔁 Next season', okText: 'Start seasons', placeholder: new Date().toISOString().slice(0, 10) });
+    if (sd === null) return;
+    const startAt = /^\d{4}-\d{2}-\d{2}$/.test(sd.trim()) ? new Date(sd.trim() + 'T00:00:00').getTime() : Date.now();
+    let made = 0;
+    for (let k = 0; k < leagues.length; k++) {
+        const c = leagues[k], players = next[k];
+        if (players.length < 2) continue;
+        const season = ((prev[k].t && prev[k].t.season) || 0) + 1;
+        const t = { id: 'tourn_' + Date.now() + '_' + k, title: `${c.name} · Season ${season}`, host: window.me(), game: (prev[k].t && prev[k].t.game) || 'FC MOBILE', format: 'LEAGUE', leagueH2H: c.h2h || '1x', maxPlayers: players.length,
+            prizePool: (prev[k].t && prev[k].t.prizePool) || 'Bragging Rights', squadId: (prev[k].t && prev[k].t.squadId) || null, players, eliminated: [], matches: window.makeLeagueMatches(players, c.h2h || '1x'),
+            hostId: window.uidNow(), hostOrg: h.org, compId: c.id, compName: c.name, compKind: 'league', tier: c.tier, season, status: 'active', startAt };
+        window.tournamentsList.unshift(t);
+        await window.saveTournament(t, true);
+        made++;
+        players.forEach(async p => { const pr = await window.getProfile(p); if (pr && pr.uid) window.notify(pr.uid, 'tournament', { text: `Season ${season} of ${c.name} has started ⚽` }); });
+    }
+    showToast(`🔁 ${made} new league season${made === 1 ? '' : 's'} started!`);
+    window.renderHostDash();
+};
+
+// Host tools on the tournament card (finish season), plus season badge
+window._baseRenderTournamentsTabDedicated22b = window._baseRenderTournamentsTabDedicated22b || window.renderTournamentsTabDedicated;
+window.renderTournamentsTabDedicated = function() {
+    window._baseRenderTournamentsTabDedicated22b();
+    const t = window.activeTournament, box = document.getElementById('tournamentsDedicatedContainer');
+    if (!t || !box) return;
+    const panel = [...box.querySelectorAll('.glass-panel')].find(p => p.textContent.includes(t.title));
+    if (!panel || panel.querySelector('[data-season-bar]')) return;
+    const isHost = window.isSignedIn() && (t.hostUid === window.uidNow() || (t.host || '').toLowerCase() === window.meLower());
+    const dates = t.startAt || t.endAt ? `📅 ${t.startAt ? new Date(t.startAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '?'} – ${t.endAt ? new Date(t.endAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '?'}` : '';
+    const bar = `<div data-season-bar class="flex items-center flex-wrap gap-1.5 text-[10px] font-black">
+        ${t.compName ? `<span class="px-2 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30">🏛️ ${escapeHTML(t.hostOrg || '')} · Season ${t.season || 1}</span>` : ''}
+        ${dates ? `<span class="px-2 py-1 rounded-lg bg-gg-900 text-gray-300 border border-white/10">${dates}</span>` : ''}
+        ${t.status === 'finished' ? `<span class="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">👑 Champion: ${escapeHTML(window.dnText(t.champion || ''))}</span>` : ''}
+        ${isHost && t.status !== 'finished' ? `<button onclick="window.finishSeason('${t.id}')" class="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 uppercase">🏁 Finish &amp; crown champion</button>` : ''}
+    </div>`;
+    const d = document.createElement('div'); d.innerHTML = bar;
+    (panel.children[0] || panel).after(d.firstElementChild);
+};
+
+// ---------- Titles on names ----------
+window.loadTitles = async function() {
+    if (window._titles && Date.now() - window._titles.at < 15 * 60000) return window._titles.list;
+    const list = [];
+    try { const s = await getDocs(query(collection(window.db, 'titles'), limit(1000))); s.forEach(d => list.push(d.data())); } catch (e) {}
+    window._titles = { at: Date.now(), list };
+    window.renderFypFeed && window.renderFypFeed();
+    return list;
+};
+window.titlesFor = (user) => ((window._titles && window._titles.list) || []).filter(t => t.tag === (user || '').replace('@', '').toLowerCase()).sort((a, b) => (b.season || 0) - (a.season || 0));
+window.titleBadgeShort = function(user) {
+    const ts = window.titlesFor(user); if (!ts.length) return '';
+    return `<span class="text-[8px] font-black px-1 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30" title="${escapeHTML(ts[0].title)}">🏆${ts.length > 1 ? '×' + ts.length : ''}</span>`;
+};
+window._baseGetProfileBadges22 = window._baseGetProfileBadges22 || window.getProfileBadges;
+window.getProfileBadges = function(username) {
+    const ts = window.titlesFor(username);
+    const tb = ts.map(t => `<span class="text-[8px] bg-amber-500/15 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded font-black whitespace-nowrap">🏆 ${escapeHTML(t.title)}${t.season ? ' · S' + t.season : ''}</span>`).join(' ');
+    return [tb, window._baseGetProfileBadges22(username)].filter(Boolean).join(' ');
+};
+setTimeout(() => window.loadTitles(), 3500);
+
+// ---------- 📅 Calendar ----------
+window.calMonth = null;
+window.renderCalendar = function() {
+    const box = document.getElementById('tourExtraBody');
+    const now = new Date();
+    const m = window.calMonth || new Date(now.getFullYear(), now.getMonth(), 1);
+    window.calMonth = m;
+    const ts = (window.tournamentsList || []).map(t => ({ t, s: t.startAt || window.postTimeValue(t) || null, e: t.endAt || null })).filter(x => x.s);
+    const y = m.getFullYear(), mo = m.getMonth();
+    const first = new Date(y, mo, 1), days = new Date(y, mo + 1, 0).getDate();
+    const lead = (first.getDay() + 6) % 7;                // weeks start Monday
+    const dayStart = (d) => new Date(y, mo, d).getTime(), dayEnd = (d) => new Date(y, mo, d, 23, 59, 59).getTime();
+    const on = (d) => ts.filter(x => x.s <= dayEnd(d) && (x.e || x.s) >= dayStart(d));
+    const sel = window.calSel && window.calSel.getMonth() === mo ? window.calSel.getDate() : (now.getMonth() === mo && now.getFullYear() === y ? now.getDate() : 1);
+    const cells = [];
+    for (let i = 0; i < lead; i++) cells.push('<div></div>');
+    for (let d = 1; d <= days; d++) {
+        const ev = on(d), today = now.getFullYear() === y && now.getMonth() === mo && now.getDate() === d;
+        const starts = ts.some(x => new Date(x.s).toDateString() === new Date(y, mo, d).toDateString());
+        cells.push(`<button onclick="window.calSel=new Date(${y},${mo},${d}); window.renderCalendar()" class="aspect-square rounded-xl flex flex-col items-center justify-center text-xs font-black ${d === sel ? 'bg-amber-400 text-slate-950' : today ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40' : 'bg-gg-900 text-gray-200'}">
+            ${d}<span class="flex gap-0.5 mt-0.5">${ev.slice(0, 3).map(() => `<span class="w-1.5 h-1.5 rounded-full ${starts ? 'bg-magenta' : 'bg-emerald-400'}"></span>`).join('')}</span></button>`);
+    }
+    const dayEv = on(sel);
+    const upcoming = ts.filter(x => (x.e || x.s) >= Date.now()).sort((a, b) => a.s - b.s).slice(0, 8);
+    const evRow = (x) => `<button onclick="window.openTournamentById('${x.t.id}')" class="w-full flex items-center justify-between p-3 rounded-xl bg-gg-900 border border-amber-500/20 text-left">
+        <div class="min-w-0"><p class="text-xs font-black text-white truncate">${escapeHTML(x.t.title)}</p><p class="text-[10px] text-gray-400">${new Date(x.s).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}${x.e ? ' – ' + new Date(x.e).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : ''} · ${escapeHTML(x.t.game || '')}</p></div>
+        <span class="text-[9px] font-black px-2 py-1 rounded-lg ${x.t.status === 'finished' ? 'bg-gray-700 text-gray-300' : x.s > Date.now() ? 'bg-magenta/20 text-magenta' : 'bg-emerald-500/20 text-emerald-300'}">${x.t.status === 'finished' ? 'Finished' : x.s > Date.now() ? 'Upcoming' : 'Live'}</span></button>`;
+    box.innerHTML = `<div class="glass-panel rounded-2xl p-3 border border-amber-500/30 space-y-2">
+        <div class="flex items-center justify-between"><button onclick="window.calMonth=new Date(${y},${mo - 1},1); window.renderCalendar()" class="w-9 h-9 rounded-xl bg-gg-900 text-white text-xl font-black">‹</button>
+            <p class="text-sm font-black text-white">${m.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p>
+            <button onclick="window.calMonth=new Date(${y},${mo + 1},1); window.renderCalendar()" class="w-9 h-9 rounded-xl bg-gg-900 text-white text-xl font-black">›</button></div>
+        <div class="grid grid-cols-7 gap-1 text-center text-[9px] font-black text-gray-500">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `<div>${d}</div>`).join('')}</div>
+        <div class="grid grid-cols-7 gap-1">${cells.join('')}</div>
+        <p class="text-[9px] text-gray-500"><span class="inline-block w-1.5 h-1.5 rounded-full bg-magenta mr-1"></span>starts · <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span>running</p></div>
+        <p class="text-[10px] font-black text-gray-400 uppercase px-1">${new Date(y, mo, sel).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+        ${dayEv.length ? dayEv.map(evRow).join('') : '<p class="text-xs text-gray-500 px-1">Nothing on this day.</p>'}
+        <p class="text-[10px] font-black text-gray-400 uppercase px-1 pt-2">Coming up</p>
+        ${upcoming.length ? upcoming.map(evRow).join('') : '<p class="text-xs text-gray-500 px-1">No upcoming tournaments. Hosts can add dates when creating one.</p>'}`;
+};
+
+// ======================================================================
+// v22c: MATCHDAYS + SEASON PLAN CALENDAR (day-by-day: which rounds are played on which date)
+// ======================================================================
+// League fixtures get real matchdays (circle method): everyone plays once per matchday.
+window.assignLeagueRounds = function(t) {
+    const ps = [...(t.players || [])]; if (ps.length < 2) return t;
+    if (ps.length % 2) ps.push('__BYE__');
+    const n = ps.length, R1 = n - 1, key = (a, b) => [a, b].sort().join('\u0001'), round = {};
+    const arr = [...ps];
+    for (let r = 0; r < R1; r++) {
+        for (let i = 0; i < n / 2; i++) round[key(arr[i], arr[n - 1 - i])] = r + 1;
+        arr.splice(1, 0, arr.pop());                     // rotate everyone except the first
+    }
+    (t.matches || []).forEach(m => {
+        const r = round[key(m.p1, m.p2)]; if (!r) return;
+        if (!m.leg) m.leg = /leg 2/i.test(m.stage || '') ? 2 : 1;
+        m.round = m.leg === 2 ? r + R1 : r;
+        m.stage = `Matchday ${m.round}`;
+    });
+    t.matches.sort((a, b) => a.round - b.round);
+    return t;
+};
+window._baseMakeLeagueMatches22c = window._baseMakeLeagueMatches22c || window.makeLeagueMatches;
+window.makeLeagueMatches = function(players, h2h) {
+    const t = { players, matches: window._baseMakeLeagueMatches22c(players, h2h) };
+    return window.assignLeagueRounds(t).matches;
+};
+
+// ---------- schedule helpers ----------
+window.DAY = 864e5;
+window.dayStartOf = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+window.dayKey = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+window.daysBetween = (a, b) => Math.round((window.dayStartOf(b) - window.dayStartOf(a)) / window.DAY);
+window.compShort = function(t) {
+    let n = t.compName || t.title || 'Tournament';
+    n = n.replace(/\s*·\s*Season \d+$/i, '');
+    if (t.hostOrg && n.toLowerCase().startsWith(t.hostOrg.toLowerCase() + ' ')) n = n.slice(t.hostOrg.length + 1);
+    if (/ League$/i.test(n) && n.split(' ').length > 2) n = n.replace(/ League$/i, '');
+    return n;
+};
+window.compAbbr = (t) => { const s = window.compShort(t); const w = s.split(' ').filter(Boolean); return w.length > 1 ? w.map(x => x[0]).join('').toUpperCase() : s; };
+window.COMP_COLORS = ['#fbbf24', '#00f3ff', '#34d399', '#ff007f', '#a78bfa', '#fb923c', '#60a5fa'];
+window.compColor = function(t, i) {
+    if (t.compKind === 'league' && t.tier) return ['#fbbf24', '#00f3ff', '#34d399', '#a3e635'][t.tier - 1] || '#94a3b8';
+    if (t.compKind === 'cup') return /champion/i.test(t.compName || '') ? '#a78bfa' : '#ff007f';
+    return window.COMP_COLORS[i % window.COMP_COLORS.length];
+};
+window.leagueRoundsOf = function(t) {
+    const max = Math.max(0, ...(t.matches || []).map(m => m.round || 0));
+    if (max > 1) return max;
+    const n = (t.players || []).length + ((t.players || []).length % 2);
+    return Math.max(1, (n - 1) * (t.leagueH2H === '2x' ? 2 : 1));
+};
+// Returns { 'YYYY-M-D': [ { text, color } ] } for one competition
+window.compSchedule = function(t, color) {
+    const out = {}, add = (ms, text) => { const k = window.dayKey(ms); (out[k] = out[k] || []).push({ text, color, tid: t.id }); };
+    const name = window.compShort(t);
+    if (t.regAt) add(t.regAt, `${name} registration opens`);
+    if (!t.startAt) return out;
+    const end = t.endAt || t.startAt, D = window.daysBetween(t.startAt, end) + 1;
+    const day = (i) => t.startAt + i * window.DAY + 3600e3;
+    const rr = (a, b) => a === b ? `Round ${a}` : `Rounds ${a}–${b}`;
+    if (t.format === 'LEAGUE') {
+        const R = window.leagueRoundsOf(t), per = Math.max(1, Math.ceil(R / D));
+        for (let i = 0; i < D; i++) {
+            const a = i * per + 1, b = Math.min(R, (i + 1) * per), has = a <= R;
+            const first = i === 0, last = i === D - 1;
+            if (!has && !last && !first) continue;
+            let txt = `${first ? name + ' STARTS' + (has ? ' – ' : '') : name + ' '}${has ? rr(a, b) : ''}`;
+            if (last) txt = has ? `${name} ${rr(a, b)} – END` : `${name} END`;
+            if (first && last) txt = `${name} STARTS – ${rr(1, R)} – END`;
+            add(day(i), txt.trim());
+        }
+    } else {
+        const N = Math.max(2, t.maxPlayers || 8), K = Math.max(1, Math.round(Math.log2(N)));
+        const byDay = {};
+        for (let r = 1; r <= K; r++) { const di = window.koDayIndex(r, K, D); (byDay[di] = byDay[di] || []).push(getKnockoutStageName(N, r)); }
+        for (let i = 0; i < D; i++) {
+            const st = (byDay[i] || []).map(x => x === 'Final' ? 'FINAL' : x === 'Semi-Final' ? 'Semi-finals' : x === 'Quarter-Final' ? 'Quarter-finals' : x);
+            const txt = i === 0 ? `${name} starts${st.length ? ' – ' + st.join(' & ') : ''}` : st.length ? `${name} ${st.join(' & ')}` : `${name} continues`;
+            add(day(i), txt);
+        }
+    }
+    return out;
+};
+// Group dated tournaments into seasons (competitions whose dates touch or overlap)
+window.seasonClusters = function(list) {
+    const ts = list.filter(t => t.startAt).sort((a, b) => (a.regAt || a.startAt) - (b.regAt || b.startAt));
+    const cl = [];
+    ts.forEach(t => {
+        const s = Math.min(t.regAt || t.startAt, t.startAt), e = t.endAt || t.startAt;
+        const c = cl[cl.length - 1];
+        if (c && s <= c.end + 2 * window.DAY) { c.items.push(t); c.end = Math.max(c.end, e); c.start = Math.min(c.start, t.startAt); }
+        else cl.push({ start: t.startAt, end: e, items: [t] });
+    });
+    return cl;
+};
+
+window.calView = 'plan'; window.calHost = 'all'; window.calSeasonIdx = null;
+window._baseRenderCalendar22c = window._baseRenderCalendar22c || window.renderCalendar;
+window.renderCalendar = function() {
+    const box = document.getElementById('tourExtraBody');
+    const all = window.tournamentsList || [];
+    const hosts = [...new Map(all.filter(t => t.hostId && t.startAt).map(t => [t.hostId, t.hostOrg || 'League'])).entries()];
+    const toggle = `<div class="flex gap-1.5 overflow-x-auto scrollbar-none">
+        ${[['plan', '📋 Season plan'], ['month', '🗓️ Month']].map(([k, l]) => `<button onclick="window.calView='${k}'; window.renderCalendar()" class="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black ${window.calView === k ? 'bg-amber-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-white/10'}">${l}</button>`).join('')}
+        ${window.calView === 'plan' && hosts.length ? `<span class="w-px bg-white/10 mx-1"></span>${[['all', 'All'], ...hosts].map(([k, l]) => `<button onclick="window.calHost='${k}'; window.calSeasonIdx=null; window.renderCalendar()" class="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black ${window.calHost === k ? 'bg-white text-slate-950' : 'bg-gg-900 text-gray-300 border border-white/10'}">${k === 'all' ? 'All' : '🏛️ ' + escapeHTML(l)}</button>`).join('')}` : ''}</div>`;
+    if (window.calView === 'month') {
+        window._baseRenderCalendar22c();
+        box.insertAdjacentHTML('afterbegin', toggle);
+        return;
+    }
+    const list = window.calHost === 'all' ? all : all.filter(t => t.hostId === window.calHost);
+    const seasons = window.seasonClusters(list);
+    if (!seasons.length) {
+        box.innerHTML = toggle + `<div class="glass-panel rounded-2xl p-8 text-center"><p class="text-3xl mb-2">📅</p><p class="text-sm font-black text-white">No dated tournaments yet</p><p class="text-xs text-gray-400 mt-1">Hosts: add <b>Starts</b> and <b>Ends</b> dates when you create a tournament or season, and the day-by-day plan appears here.</p></div>`;
+        return;
+    }
+    const today = window.dayStartOf(Date.now());
+    let idx = window.calSeasonIdx;
+    if (idx === null || idx >= seasons.length) { idx = seasons.findIndex(c => c.end >= today); if (idx < 0) idx = seasons.length - 1; }
+    window.calSeasonIdx = idx;
+    const S = seasons[idx], prev = seasons[idx - 1];
+    const fmtD = (ms, o = { day: 'numeric', month: 'short' }) => new Date(ms).toLocaleDateString(undefined, o);
+    const wk = (ms) => new Date(ms).toLocaleDateString(undefined, { weekday: 'short' });
+    const months = [...new Set([S.start, S.end].map(ms => new Date(ms).toLocaleDateString(undefined, { month: 'long' }).toUpperCase()))].join(' – ');
+    // events
+    const ev = {};
+    S.items.forEach((t, i) => { const sch = window.compSchedule(t, window.compColor(t, i)); Object.entries(sch).forEach(([k, v]) => (ev[k] = ev[k] || []).push(...v)); });
+    // rest days before the season
+    let restFrom = prev ? window.dayStartOf(prev.end) + window.DAY : (S.start > today ? today : null);
+    const firstEvent = Math.min(S.start, ...S.items.map(t => t.regAt || Infinity));
+    let restTo = window.dayStartOf(firstEvent) - window.DAY;
+    if (restFrom !== null && restTo - restFrom > 13 * window.DAY) restFrom = restTo - 13 * window.DAY;
+    const restN = restFrom !== null && restTo >= restFrom ? window.daysBetween(restFrom, restTo) + 1 : 0;
+    // rows from first event to the end, numbered match days
+    const rows = []; let n = 0;
+    for (let d = window.dayStartOf(firstEvent); d <= window.dayStartOf(S.end); d += window.DAY) {
+        const list = ev[window.dayKey(d)] || [];
+        const playing = S.items.some(t => t.startAt && window.dayStartOf(t.startAt) <= d && d <= window.dayStartOf(t.endAt || t.startAt));
+        if (playing) n++;
+        rows.push({ d, n: playing ? n : null, list });
+    }
+    const isToday = (d) => d === today;
+    const tag = (txt) => txt.replace(/(STARTS|END|FINAL)/g, '<b class="text-white">$1</b>');
+    box.innerHTML = toggle + `
+    <div class="glass-panel rounded-2xl border border-amber-500/30 overflow-hidden">
+        <div class="p-3.5 border-b border-white/10" style="background:linear-gradient(135deg,rgba(251,191,36,.12),rgba(255,0,127,.08))">
+            <div class="flex items-center justify-between gap-2">
+                <button ${idx > 0 ? '' : 'disabled'} onclick="window.calSeasonIdx=${idx - 1}; window.renderCalendar()" class="w-8 h-8 rounded-lg bg-gg-900 text-white font-black ${idx > 0 ? '' : 'opacity-30'}">‹</button>
+                <div class="text-center min-w-0">
+                    <p class="text-[13px] font-black text-white tracking-wide">${months} SEASON</p>
+                    <p class="text-[10px] font-black text-amber-300 tracking-widest">PLAYER CALENDAR · ${fmtD(S.start).toUpperCase()} – ${fmtD(S.end).toUpperCase()}</p>
+                </div>
+                <button ${idx < seasons.length - 1 ? '' : 'disabled'} onclick="window.calSeasonIdx=${idx + 1}; window.renderCalendar()" class="w-8 h-8 rounded-lg bg-gg-900 text-white font-black ${idx < seasons.length - 1 ? '' : 'opacity-30'}">›</button>
+            </div>
+            <div class="mt-3 space-y-1">
+                ${restN ? `<p class="text-[11px] text-gray-300"><span class="inline-block w-2 h-2 rounded-full bg-gray-500 mr-1.5"></span><b class="text-white">${restN} Rest Day${restN > 1 ? 's' : ''}:</b> ${restN > 1 ? `${fmtD(restFrom)} – ${fmtD(restTo)}` : fmtD(restFrom)}</p>` : ''}
+                ${S.items.map((t, i) => `<button onclick="window.openTournamentById('${t.id}')" class="block text-left text-[11px] text-gray-300"><span class="inline-block w-2 h-2 rounded-full mr-1.5" style="background:${window.compColor(t, i)}"></span><b class="text-white">${escapeHTML(window.compShort(t))}${t.season ? ` <span class="text-gray-500 font-bold">S${t.season}</span>` : ''}:</b> ${wk(t.startAt)} ${fmtD(t.startAt)}${t.endAt && window.daysBetween(t.startAt, t.endAt) ? ` – ${wk(t.endAt)} ${fmtD(t.endAt)}` : ''}${t.status === 'finished' ? ' · <span class="text-emerald-300">finished</span>' : ''}</button>`).join('')}
+            </div>
+        </div>
+        <div class="divide-y divide-white/5">
+            <div class="grid grid-cols-[34px_74px_1fr] gap-2 px-3 py-1.5 text-[9px] font-black text-gray-500 uppercase tracking-wider bg-gg-950/60"><span>Day</span><span>Date</span><span>What happens</span></div>
+            ${restN ? `<div class="grid grid-cols-[34px_74px_1fr] gap-2 px-3 py-2.5 items-center bg-gray-500/5"><span class="text-xs font-black text-gray-500 text-center">—</span><span class="text-[10px] font-bold text-gray-400 leading-tight">${restN > 1 ? `${wk(restFrom)} ${fmtD(restFrom)} –<br>${wk(restTo)} ${fmtD(restTo)}` : `${wk(restFrom)} ${fmtD(restFrom)}`}</span><span class="text-[11px] font-black text-gray-400 tracking-wider">REST DAY${restN > 1 ? 'S' : ''} <span class="font-bold text-gray-500 normal-case tracking-normal">(no matches)</span></span></div>` : ''}
+            ${rows.map(r => `<div class="grid grid-cols-[34px_74px_1fr] gap-2 px-3 py-2.5 items-start ${isToday(r.d) ? 'bg-amber-400/10 border-l-2 border-amber-400' : ''}">
+                <span class="text-sm font-black ${r.n ? 'text-white' : 'text-gray-600'} text-center">${r.n || '—'}</span>
+                <span class="text-[10px] font-bold ${isToday(r.d) ? 'text-amber-300' : 'text-gray-400'} leading-tight">${wk(r.d)} ${fmtD(r.d)}${isToday(r.d) ? '<br><b>TODAY</b>' : ''}</span>
+                <div class="space-y-1 min-w-0">${r.list.length ? r.list.map(e => `<p class="text-[11px] text-gray-200 leading-snug"><span class="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style="background:${e.color}"></span>${tag(escapeHTML(e.text))}</p>`).join('') : '<p class="text-[11px] text-gray-500">No matches</p>'}</div>
+            </div>`).join('')}
+        </div>
+    </div>
+    <p class="text-[9px] text-gray-500 text-center px-4">Rounds are spread evenly between each competition's start and end dates. Tap a competition above to open its fixtures.</p>`;
+};
+
+// "Today" line on the tournament card
+window._baseRenderTournamentsTabDedicated22c = window._baseRenderTournamentsTabDedicated22c || window.renderTournamentsTabDedicated;
+window.renderTournamentsTabDedicated = function() {
+    window._baseRenderTournamentsTabDedicated22c();
+    const t = window.activeTournament, bar = document.querySelector('#tournamentsDedicatedContainer [data-season-bar]');
+    if (!t || !t.startAt || !bar || bar.querySelector('[data-today]')) return;
+    const sch = window.compSchedule(t, '#fbbf24'), k = window.dayKey(Date.now()), today = sch[k];
+    const nextK = Object.keys(sch).map(x => { const [y, m, d] = x.split('-').map(Number); return new Date(y, m - 1, d).getTime(); }).filter(ms => ms > Date.now()).sort((a, b) => a - b)[0];
+    const txt = today ? `Today: ${today.map(e => e.text).join(' · ')}` : nextK ? `Next: ${new Date(nextK).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} – ${sch[window.dayKey(nextK)].map(e => e.text).join(' · ')}` : '';
+    if (txt) bar.insertAdjacentHTML('beforeend', `<button data-today onclick="window.setTourTab('calendar')" class="w-full text-left px-2 py-1 rounded-lg bg-amber-400/10 text-amber-200 border border-amber-500/20">📅 ${escapeHTML(txt)}</button>`);
+};
+
+// ======================================================================
+// v22c: MY MATCHES — every fixture a player has, across all competitions, by date
+// ======================================================================
+window.koDayIndex = (r, K, D) => r >= K ? D - 1 : Math.min(D - 1, Math.floor((r - 1) * D / K));
+// The date a match is scheduled for (from the competition's start/end dates), or null
+window.matchDate = function(t, m) {
+    if (!t.startAt) return null;
+    const D = window.daysBetween(t.startAt, t.endAt || t.startAt) + 1;
+    let di;
+    if (t.format === 'LEAGUE') {
+        const R = window.leagueRoundsOf(t), maxR = Math.max(0, ...(t.matches || []).map(x => x.round || 0));
+        if (maxR <= 1 && R > 1) return null;                       // old league without matchdays
+        di = Math.floor(((m.round || 1) - 1) / Math.max(1, Math.ceil(R / D)));
+    } else {
+        const K = Math.max(1, Math.round(Math.log2(Math.max(2, t.maxPlayers || 8))));
+        di = window.koDayIndex(m.round || 1, K, D);
+    }
+    return window.dayStartOf(t.startAt) + Math.min(di, D - 1) * window.DAY;
+};
+window.isRealPlayer = (p) => p && !/^Club_\d+$/.test(p) && !['Open Spot', 'TBD', '__BYE__'].includes(p);
+window.matchesOf = function(user) {
+    const me = (user || '').replace('@', '').toLowerCase(), out = [];
+    (window.tournamentsList || []).forEach((t, ti) => {
+        if (!(t.players || []).some(p => (p || '').toLowerCase() === me)) return;
+        (t.matches || []).forEach(m => {
+            const side = (m.p1 || '').toLowerCase() === me ? 1 : (m.p2 || '').toLowerCase() === me ? 2 : 0; if (!side) return;
+            const opp = side === 1 ? m.p2 : m.p1;
+            if (opp === '__BYE__') return;
+            const played = m.status === 'approved' && m.winner !== null && m.winner !== undefined && m.s1 !== null && m.s1 !== undefined;
+            const my = side === 1 ? m.s1 : m.s2, their = side === 1 ? m.s2 : m.s1;
+            out.push({ t, m, opp, when: window.matchDate(t, m), played, my, their, res: !played ? '' : my > their ? 'W' : my < their ? 'L' : 'D', color: window.compColor(t, ti) });
+        });
+    });
+    return out;
+};
+window.mmUser = null;
+window.openMyMatches = function(user) {
+    window.mmUser = user || null;
+    window.closeUserProfileModal && window.closeUserProfileModal();
+    window.closePanel && window.closePanel();
+    window.switchView('tournaments'); window.setTourTab('mine'); window.scrollTo({ top: 0 });
+};
+window.renderMyMatches = function() {
+    const box = document.getElementById('tourExtraBody');
+    const user = window.mmUser || (window.isSignedIn() ? window.me() : null);
+    if (!user) { box.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center text-xs text-gray-400">Sign in to see your fixtures.</div>`; return; }
+    const mine = !window.mmUser || window.mmUser.toLowerCase() === (window.me() || '').toLowerCase();
+    const who = mine ? 'Your' : `${escapeHTML(window.dnText(user))}'s`;
+    const all = window.matchesOf(user);
+    const comps = [...new Set(all.map(x => x.t.id))].length;
+    const today = window.dayStartOf(Date.now()), tomorrow = today + window.DAY;
+    const upcoming = all.filter(x => !x.played), played = all.filter(x => x.played).sort((a, b) => (b.when || 0) - (a.when || 0));
+    const dated = upcoming.filter(x => x.when !== null && x.when >= today).sort((a, b) => a.when - b.when || (a.m.round || 0) - (b.m.round || 0));
+    const overdue = upcoming.filter(x => x.when !== null && x.when < today);
+    const undated = upcoming.filter(x => x.when === null);
+    const todays = dated.filter(x => x.when === today);
+    const label = (ms) => ms === today ? 'Today' : ms === tomorrow ? 'Tomorrow' : new Date(ms).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
+    const oppName = (o) => window.isRealPlayer(o) ? escapeHTML(window.dnText(o)) : '<span class="text-gray-500">TBD</span>';
+    const row = (x) => `<button onclick="window.openTournamentById('${x.t.id}')" class="w-full flex items-center gap-3 p-3 rounded-xl bg-gg-900 border border-white/5 text-left active:scale-[0.99] transition">
+        <span class="w-1 self-stretch rounded-full" style="background:${x.color}"></span>
+        <div class="flex-1 min-w-0">
+            <p class="text-[10px] font-black uppercase tracking-wider truncate" style="color:${x.color}">${escapeHTML(window.compShort(x.t))}${x.t.season ? ' · S' + x.t.season : ''} · ${escapeHTML(x.m.stage || '')}</p>
+            <p class="text-sm font-black text-white truncate">vs ${oppName(x.opp)}</p>
+            <p class="text-[10px] text-gray-500">${escapeHTML(x.t.game || '')}</p>
+        </div>
+        ${x.played ? `<div class="text-right"><p class="text-base font-black text-white">${x.my}–${x.their}</p>${x.m.forfeit ? '<p class="text-[9px] font-black text-red-300">Forfeit</p>' : ''}<span class="text-[10px] font-black px-1.5 py-0.5 rounded ${x.res === 'W' ? 'bg-emerald-500/20 text-emerald-300' : x.res === 'L' ? 'bg-red-500/20 text-red-300' : 'bg-gray-500/20 text-gray-300'}">${x.res}</span></div>`
+            : x.m.status === 'disputed' ? '<span class="text-[9px] font-black px-2 py-1 rounded-lg bg-amber-500/15 text-amber-300">Awaiting approval</span>' : '<i class="fa-solid fa-chevron-right text-gray-600 text-xs"></i>'}
+    </button>`;
+    const group = (title, list, accent) => list.length ? `<p class="text-[10px] font-black uppercase tracking-wider px-1 pt-2 ${accent || 'text-gray-400'}">${title} <span class="text-gray-600">· ${list.length}</span></p>${list.map(row).join('')}` : '';
+    const byDay = {}; dated.forEach(x => (byDay[x.when] = byDay[x.when] || []).push(x));
+    const next = dated.find(x => x.when > today);
+    const summary = !all.length ? '' : todays.length
+        ? `<p class="text-sm font-black text-white">⚽ ${todays.length} match${todays.length > 1 ? 'es' : ''} today</p><p class="text-[11px] text-gray-300">${[...new Set(todays.map(x => window.compShort(x.t)))].map(escapeHTML).join(' · ')}</p>`
+        : `<p class="text-sm font-black text-white">😴 No matches today</p><p class="text-[11px] text-gray-300">${next ? `Next: ${label(next.when)} vs ${oppName(next.opp)} (${escapeHTML(window.compShort(next.t))})` : upcoming.length ? 'Your next fixtures have no date yet.' : 'No fixtures left. Well played!'}</p>`;
+    box.innerHTML = `<div class="glass-panel rounded-2xl p-3.5 border border-cyan-500/30 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0"><p class="text-[10px] text-gray-400 font-black uppercase">${who} matches</p><p class="text-base font-black text-white truncate">${escapeHTML(window.dnText(user))}</p></div>
+                <span class="text-[10px] font-black text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 rounded-lg px-2 py-1">${comps} competition${comps === 1 ? '' : 's'}</span>
+            </div>
+            ${summary ? `<div class="rounded-xl p-2.5 ${todays.length ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-gg-900 border border-white/5'}">${summary}</div>` : ''}
+            ${!mine ? `<button onclick="window.mmUser=null; window.renderMyMatches()" class="text-[10px] font-black text-amber-300">← Show my matches instead</button>` : ''}
+        </div>
+        ${!all.length ? `<div class="glass-panel rounded-2xl p-8 text-center"><p class="text-3xl mb-2">🗓️</p><p class="text-sm font-black text-white">No fixtures yet</p><p class="text-xs text-gray-400 mt-1">${mine ? 'Join a tournament or league and your matches will show up here, with the day you play each one.' : 'This player is not in any tournament right now.'}</p></div>` : ''}
+        ${group('⚠️ Should have been played', overdue, 'text-red-300')}
+        ${Object.keys(byDay).map(k => group(label(+k), byDay[k], +k === today ? 'text-emerald-300' : +k === tomorrow ? 'text-cyan-300' : '')).join('')}
+        ${group('Date not set yet', undated)}
+        ${group('Results', played.slice(0, 15))}`;
+};
+
+// Tap a player's name inside a tournament (table, player list) → their matches
+document.addEventListener('click', (e) => {
+    const box = document.getElementById('tournamentsDedicatedContainer');
+    const el = e.target;
+    if (!box || !box.contains(el) || el.children.length || el.closest('button,[onclick],a,input,select')) return;
+    const t = window.activeTournament; if (!t) return;
+    const txt = (el.textContent || '').trim().replace(/^@/, '').toLowerCase(); if (!txt) return;
+    const p = (t.players || []).find(p => window.isRealPlayer(p) && (p.toLowerCase() === txt || (window.dnText(p) || '').toLowerCase() === txt));
+    if (p) window.openMyMatches(p);
+});
+// Profile: "Matches" button
+window._baseOpenUserProfileModal22c = window._baseOpenUserProfileModal22c || window.openUserProfileModal;
+window.openUserProfileModal = function(username, e) {
+    const r = window._baseOpenUserProfileModal22c(username, e);
+    const tag = (username || '').replace('@', '');
+    const n = window.matchesOf(tag).filter(x => !x.played).length;
+    const bio = document.getElementById('profileBioText');
+    document.getElementById('profileMatchesBtn')?.remove();
+    if (bio && n) bio.insertAdjacentHTML('afterend', `<button id="profileMatchesBtn" onclick="window.openMyMatches('${escapeHTML(tag)}')" class="mt-2 w-full py-2.5 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-xs font-black">⚽ ${n} upcoming match${n > 1 ? 'es' : ''}: see fixtures</button>`);
+    return r;
+};
+
+// ======================================================================
+// v22c: FORFEITS + faster score flow
+// A player can forfeit (concede) their own match; the host or an app admin can forfeit either side.
+// Forfeit = 0–1 loss, 0 points for the forfeiting player, 3 points / advance for the opponent.
+// ======================================================================
+window.canManageTourn = (t) => window.isSignedIn() && !!t && (window.isAppAdmin || t.hostUid === window.uidNow() || t.hostId === window.uidNow() || (t.host || '').toLowerCase() === window.meLower());
+window._baseOpenMatchReportModal22c = window._baseOpenMatchReportModal22c || window.openMatchReportModal;
+window.openMatchReportModal = function(matchId) {
+    window._baseOpenMatchReportModal22c(matchId);
+    const t = window.activeTournament, m = window.activeMatchForReporting, box = document.getElementById('forfeitBox');
+    if (!t || !m || !box) return;
+    const mgr = window.canManageTourn(t), me = window.meLower();
+    if (mgr && m.status === 'disputed') document.getElementById('matchApprovalBox')?.classList.remove('hidden');
+    const real = window.isRealPlayer(m.p1) && window.isRealPlayer(m.p2);
+    const sides = [1, 2].filter(sd => real && (mgr || (sd === 1 ? m.p1 : m.p2).toLowerCase() === me));
+    if (m.forfeit) {
+        box.className = 'p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-center';
+        box.innerHTML = `<p class="text-[11px] font-black text-red-300">🏳️ ${escapeHTML(window.dnText(m.forfeit))} forfeited this match</p>${mgr ? '<p class="text-[9px] text-gray-400 mt-0.5">To undo, enter the real score above and submit.</p>' : ''}`;
+        return;
+    }
+    if (!sides.length) { box.className = 'hidden'; box.innerHTML = ''; return; }
+    box.className = 'pt-2 border-t border-white/10 space-y-1.5';
+    box.innerHTML = `<p class="text-[9px] text-gray-400 font-bold text-center">Can't play? A forfeit counts as a 0–1 loss and 0 points.</p>
+        <div class="flex gap-2">${sides.map(sd => { const p = sd === 1 ? m.p1 : m.p2, self = p.toLowerCase() === me;
+            return `<button onclick="window.forfeitMatch(${sd})" class="flex-1 py-2 rounded-xl bg-red-500/15 border border-red-500/40 text-red-300 text-[10px] font-black uppercase truncate px-2">🏳️ ${self ? 'I forfeit' : escapeHTML(window.dnText(p)) + ' forfeits'}</button>`; }).join('')}</div>`;
+};
+window.forfeitMatch = async function(side) {
+    const t = window.activeTournament, m = window.activeMatchForReporting; if (!t || !m) return;
+    const loser = side === 1 ? m.p1 : m.p2, winner = side === 1 ? m.p2 : m.p1;
+    const self = loser.toLowerCase() === window.meLower();
+    if (!self && !window.canManageTourn(t)) { showToast('Only the player, the host or an admin can do this.'); return; }
+    const ok = await window.sgConfirm(self ? `Forfeit your match vs ${window.dnText(winner)}? You get 0 points and ${window.dnText(winner)} wins 1–0. This can't be undone by you.` : `Record a forfeit by ${window.dnText(loser)}? ${window.dnText(winner)} wins 1–0 and ${window.dnText(loser)} gets 0 points.`, { title: '🏳️ Forfeit match', okText: 'Forfeit', danger: true });
+    if (!ok) return;
+    Object.assign(m, { s1: side === 1 ? 0 : 1, s2: side === 1 ? 1 : 0, winner, status: 'approved', forfeit: loser, forfeitBy: window.me() });
+    if (t.format !== 'LEAGUE') {
+        t.eliminated = t.eliminated || [];
+        if (!t.eliminated.includes(loser)) t.eliminated.push(loser);
+        advanceWinnerInBracket(t, m);
+    }
+    window.closeMatchReportModal();
+    window.renderTournamentsTabDedicated();
+    await window.saveTournament(t);
+    showToast(`🏳️ Forfeit recorded. ${window.dnText(winner)} wins 1–0.`);
+    const tell = async (p, text) => { const pr = await window.getProfile(p); if (pr && pr.uid) window.notify(pr.uid, 'tournament', { text }); };
+    tell(winner, `${window.dnText(loser)} forfeited your ${t.title} match. You win 1–0 ✅`);
+    if (!self) tell(loser, `You were given a forfeit (0–1) in ${t.title}.`);
+    if (t.hostUid && t.hostUid !== window.uidNow()) window.notify(t.hostUid, 'tournament', { text: `${window.dnText(loser)} forfeited a match in ${t.title}` });
+};
+// When a player reports a score, ping the host straight away so the table updates sooner
+window._baseSubmitMatchScoreReport22c = window._baseSubmitMatchScoreReport22c || window.submitMatchScoreReport;
+window.submitMatchScoreReport = async function() {
+    const t = window.activeTournament, m = window.activeMatchForReporting;
+    if (m) delete m.forfeit;
+    const r = await window._baseSubmitMatchScoreReport22c();
+    if (t && m && m.status === 'disputed' && t.hostUid && t.hostUid !== window.uidNow()) window.notify(t.hostUid, 'tournament', { text: `reported ${window.dnText(m.p1)} ${m.s1}–${m.s2} ${window.dnText(m.p2)} in ${t.title}. Tap to approve.` });
+    return r;
+};
+// Show "Forfeit" on forfeited fixtures
+window._baseRenderTournamentsTabDedicated22e = window._baseRenderTournamentsTabDedicated22e || window.renderTournamentsTabDedicated;
+window.renderTournamentsTabDedicated = function() {
+    window._baseRenderTournamentsTabDedicated22e();
+    const t = window.activeTournament; if (!t) return;
+    (t.matches || []).filter(m => m.forfeit).forEach(m => {
+        document.querySelectorAll(`#tournamentsDedicatedContainer [onclick*="openMatchReportModal('${m.id}')"]`).forEach(card => {
+            const leaf = [...card.querySelectorAll('*')].find(e => !e.children.length && /final/i.test(e.textContent) && e.textContent.trim().length < 12);
+            const host = leaf ? leaf.parentElement : null;
+            if (host && !card.querySelector('[data-ff]')) host.outerHTML = `<span data-ff class="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/30">🏳️ ${escapeHTML(window.dnText(m.forfeit))} forfeited</span>`;
+        });
+    });
+};
+
+// ======================================================================
+// v22d: REGISTRATION BY GAMERTAG · INSTANT TABLES · LEAVING A SQUAD = FORFEITS · TROPHY CABINET
+// ======================================================================
+window.isPlaceholder = (p) => !p || /^Club_\d+$/.test(p) || p === 'Open Spot' || p === 'TBD';
+window.realPlayers = (t) => (t.players || []).filter(p => !window.isPlaceholder(p));
+// Put a gamertag into a tournament (fills a placeholder club in leagues, an open spot in brackets)
+window.registerPlayer = function(t, tag) {
+    const has = (t.players || []).some(p => (p || '').toLowerCase() === tag.toLowerCase());
+    if (has) return 'already';
+    if (t.status === 'finished') return 'finished';
+    if (t.format === 'LEAGUE') {
+        const ph = (t.players || []).find(p => /^Club_\d+$/.test(p));
+        if (!ph) return 'full';
+        t.players = t.players.map(p => p === ph ? tag : p);
+        (t.matches || []).forEach(m => { if (m.p1 === ph) m.p1 = tag; if (m.p2 === ph) m.p2 = tag; });
+        return 'ok';
+    }
+    if (window.realPlayers(t).length >= (t.maxPlayers || 8)) return 'full';
+    t.players = [...window.realPlayers(t), tag];
+    const first = Math.min(...(t.matches || []).map(m => m.round || 1));
+    for (const m of (t.matches || []).filter(m => (m.round || 1) === first)) {
+        if (window.isPlaceholder(m.p1)) { m.p1 = tag; return 'ok'; }
+        if (window.isPlaceholder(m.p2)) { m.p2 = tag; return 'ok'; }
+    }
+    t.matches = t.matches || [];
+    t.matches.push({ id: `m_${Date.now()}`, round: first === Infinity ? 1 : first, p1: tag, p2: 'Open Spot', s1: null, s2: null, winner: null, stage: t.format === 'KNOCKOUT' ? getKnockoutStageName(t.maxPlayers || 8, 1) : 'Round 1', streamUrl: '', mvp: null, status: 'approved' });
+    return 'ok';
+};
+const REG_MSG = { already: 'Already registered in this tournament.', full: 'This tournament is full.', finished: 'This tournament has finished.' };
+// Self registration: your gamertag is your entry
+window.joinActiveTournament = async function(id) {
+    if (window.needSignIn('join tournaments')) return;
+    const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+    const tag = window.me();
+    if (!tag || tag.toLowerCase() === 'guest') { showToast('Set your gamertag first. It is your player ID in every tournament.'); return; }
+    const r = window.registerPlayer(t, tag);
+    if (r !== 'ok') { showToast(REG_MSG[r]); return; }
+    window.renderTournamentsTabDedicated(); window.renderTournamentsTab && window.renderTournamentsTab();
+    await window.saveTournament(t);
+    showToast(`✅ Registered for ${t.title} as @${tag}`);
+    if (t.hostUid && t.hostUid !== window.uidNow()) window.notify(t.hostUid, 'tournament', { text: `joined your tournament ${t.title}` });
+};
+// Host / admin: add a player by their gamertag (must be a real Sinless GG account)
+window.addPlayerByTag = async function(id) {
+    const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.canManageTourn(t)) return;
+    const raw = await window.sgPrompt('Type the player\'s gamertag. They must have a Sinless GG account.', { title: '➕ Add player', placeholder: '@gamertag', okText: 'Add' });
+    if (!raw) return;
+    const tag = raw.trim().replace(/^@/, '');
+    const prof = await window.getProfile(tag, true);
+    if (!prof) { showToast(`❌ No player with the gamertag @${tag}. Check the spelling.`); return; }
+    const real = prof.gamertag || tag;
+    const r = window.registerPlayer(t, real);
+    if (r !== 'ok') { showToast(REG_MSG[r]); return; }
+    window.renderTournamentsTabDedicated();
+    await window.saveTournament(t);
+    showToast(`✅ @${real} added to ${t.title}`);
+    if (prof.uid) window.notify(prof.uid, 'tournament', { text: `added you to ${t.title} 🏆 Check My Matches for your fixtures.` });
+};
+
+// ---------- Instant tables ----------
+// 1) The host / an admin reporting a score = approved straight away
+// 2) If the opponent reported, the other player can tap "Confirm score" (no waiting for the host)
+window.approveMatchNow = function(t, m) {
+    m.status = 'approved';
+    const loser = m.s1 < m.s2 ? m.p1 : m.s2 < m.s1 ? m.p2 : null;
+    if (t.format !== 'LEAGUE') {
+        if (loser) { t.eliminated = t.eliminated || []; if (!t.eliminated.includes(loser)) t.eliminated.push(loser); }
+        advanceWinnerInBracket(t, m);
+    }
+};
+window._baseSubmitMatchScoreReport22d = window._baseSubmitMatchScoreReport22d || window.submitMatchScoreReport;
+window.submitMatchScoreReport = async function() {
+    const t = window.activeTournament, m = window.activeMatchForReporting;
+    if (m) m.reportedBy = window.me();
+    const r = await window._baseSubmitMatchScoreReport22d();
+    if (t && m && m.status === 'disputed' && window.canManageTourn(t)) {
+        window.approveMatchNow(t, m);
+        window.renderTournamentsTabDedicated();
+        await window.saveTournament(t);
+        showToast('✅ Score approved. Table updated for everyone.');
+    }
+    return r;
+};
+window._baseOpenMatchReportModal22d = window._baseOpenMatchReportModal22d || window.openMatchReportModal;
+window.openMatchReportModal = function(matchId) {
+    window._baseOpenMatchReportModal22d(matchId);
+    const t = window.activeTournament, m = window.activeMatchForReporting, box = document.getElementById('forfeitBox');
+    if (!t || !m || !box || m.status !== 'disputed') return;
+    const me = window.meLower(), mine = [m.p1, m.p2].some(p => (p || '').toLowerCase() === me);
+    if (!mine || (m.reportedBy || '').toLowerCase() === me || window.canManageTourn(t)) return;
+    box.insertAdjacentHTML('afterbegin', `<div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-1.5 mb-2">
+        <p class="text-[11px] font-black text-emerald-300">${escapeHTML(window.dnText(m.reportedBy || 'Your opponent'))} reported ${m.s1}–${m.s2}</p>
+        <button onclick="window.confirmOpponentScore()" class="w-full py-2 rounded-xl bg-emerald-400 text-slate-950 text-[11px] font-black uppercase">✅ Confirm score</button>
+        <p class="text-[9px] text-gray-400">Wrong score? Enter the right one above and submit. The host will decide.</p></div>`);
+    box.classList.remove('hidden');
+};
+window.confirmOpponentScore = async function() {
+    const t = window.activeTournament, m = window.activeMatchForReporting; if (!t || !m) return;
+    window.approveMatchNow(t, m);
+    m.confirmedBy = window.me();
+    window.closeMatchReportModal();
+    window.renderTournamentsTabDedicated();
+    await window.saveTournament(t);
+    showToast('✅ Score confirmed. Table updated for everyone.');
+};
+// When fixtures change in the cloud, refresh whichever tournament tab is open
+window._baseRenderTournamentsTabDedicated22d = window._baseRenderTournamentsTabDedicated22d || window.renderTournamentsTabDedicated;
+window._tourExtraTimer = null;
+window.renderTournamentsTabDedicated = function() {
+    window._baseRenderTournamentsTabDedicated22d();
+    const t = window.activeTournament, bar = document.querySelector('#tournamentsDedicatedContainer [data-season-bar]');
+    if (t && bar && window.canManageTourn(t) && t.status !== 'finished' && !bar.querySelector('[data-addp]')) {
+        const open = t.format === 'LEAGUE' ? (t.players || []).filter(p => /^Club_\d+$/.test(p)).length : Math.max(0, (t.maxPlayers || 8) - window.realPlayers(t).length);
+        if (open) bar.insertAdjacentHTML('beforeend', `<button data-addp onclick="window.addPlayerByTag('${t.id}')" class="px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 uppercase">➕ Add player by gamertag · ${open} spot${open > 1 ? 's' : ''} left</button>`);
+    }
+    if (window.tourTab === 'mine' || window.tourTab === 'calendar') {
+        clearTimeout(window._tourExtraTimer);
+        window._tourExtraTimer = setTimeout(() => { if (window.tourTab === 'mine') window.renderMyMatches(); else if (window.tourTab === 'calendar') window.renderCalendar(); }, 150);
+    }
+};
+
+// ---------- Leaving a squad = every unplayed match in that squad's tournaments is forfeited 1–0 ----------
+window.squadTournFixtures = function(squadId, tag) {
+    const me = (tag || '').toLowerCase(), out = [];
+    (window.tournamentsList || []).filter(t => t.squadId === squadId && t.status !== 'finished').forEach(t => {
+        (t.matches || []).forEach(m => {
+            const side = (m.p1 || '').toLowerCase() === me ? 1 : (m.p2 || '').toLowerCase() === me ? 2 : 0;
+            if (side && !(m.winner && m.status === 'approved')) out.push({ t, m, side });
+        });
+    });
+    return out;
+};
+window.forfeitAllInSquad = async function(squadId, tag, why) {
+    const list = window.squadTournFixtures(squadId, tag); if (!list.length) return 0;
+    const touched = new Set(); let n = 0;
+    list.forEach(({ t, m, side }) => {
+        const opp = side === 1 ? m.p2 : m.p1;
+        if (window.isPlaceholder(opp) || opp === '__BYE__') return;
+        Object.assign(m, { s1: side === 1 ? 0 : 1, s2: side === 1 ? 1 : 0, winner: opp, status: 'approved', forfeit: side === 1 ? m.p1 : m.p2, forfeitBy: window.me(), forfeitWhy: why });
+        if (t.format !== 'LEAGUE') { t.eliminated = t.eliminated || []; if (!t.eliminated.includes(m.forfeit)) t.eliminated.push(m.forfeit); advanceWinnerInBracket(t, m); }
+        touched.add(t); n++;
+        window.getProfile(opp).then(pr => pr && pr.uid && window.notify(pr.uid, 'tournament', { text: `${window.dnText(tag)} left the squad, so you win your ${t.title} match 1–0 ✅` }));
+    });
+    for (const t of touched) await window.saveTournament(t);
+    window.renderTournamentsTabDedicated && window.renderTournamentsTabDedicated();
+    return n;
+};
+window._baseToggleSquadMembership22d = window._baseToggleSquadMembership22d || window.toggleSquadMembership;
+window.toggleSquadMembership = async function(squadId) {
+    const sq = (window.clansData || []).find(c => c.id === squadId);
+    const wasMember = sq && window.isSquadMember(sq);
+    const me = window.me();
+    if (wasMember) {
+        const n = window.squadTournFixtures(squadId, me).length;
+        if (n) {
+            const ok = await window.sgConfirm(`You still have ${n} unplayed match${n > 1 ? 'es' : ''} in ${sq.name}'s tournaments. If you leave, ${n > 1 ? 'they are all' : 'it is'} forfeited and your opponents win 1–0.`, { title: 'Leave squad?', okText: 'Leave & forfeit', danger: true });
+            if (!ok) return;
+        }
+    }
+    await window._baseToggleSquadMembership22d(squadId);
+    const sq2 = (window.clansData || []).find(c => c.id === squadId);
+    if (wasMember && sq2 && !window.isSquadMember(sq2)) {
+        const n = await window.forfeitAllInSquad(squadId, me, 'left squad');
+        if (n) showToast(`🏳️ ${n} match${n > 1 ? 'es' : ''} forfeited (1–0).`);
+    }
+};
+['kickMember', 'banMember'].forEach(fn => {
+    const base = window['_base_' + fn + '22d'] = window['_base_' + fn + '22d'] || window[fn];
+    window[fn] = async function(uid, tag) {
+        const sq = window.activeSquadDetails;
+        const before = sq && (sq.members || []).some(m => m.toLowerCase() === (tag || '').toLowerCase());
+        await base(uid, tag);
+        const still = sq && (sq.members || []).some(m => m.toLowerCase() === (tag || '').toLowerCase());
+        if (sq && before && !still) {
+            const n = await window.forfeitAllInSquad(sq.id, tag, fn === 'kickMember' ? 'kicked' : 'banned');
+            if (n) showToast(`🏳️ ${window.dnText(tag)}'s ${n} unplayed match${n > 1 ? 'es were' : ' was'} forfeited (1–0).`);
+        }
+    };
+});
+
+// ---------- 🏆 TROPHY CABINET ----------
+window.trophyKind = function(x) {
+    const n = (x.compName || x.title || '').toLowerCase();
+    if (/champions league/.test(n)) return 'ucl';
+    if (x.compKind === 'league' || (/league/.test(n) && x.format === 'LEAGUE')) return x.tier === 1 || /super league/.test(n) ? 'gold' : x.tier === 2 || /rising/.test(n) ? 'silver' : x.tier >= 3 || /junior/.test(n) ? 'bronze' : 'gold';
+    if (x.compKind === 'cup' || /cup/.test(n)) return 'cup';
+    return 'event';
+};
+window.TROPHY_STYLE = {
+    ucl:    { a: '#f5f3ff', b: '#a78bfa', glow: '#a78bfa', label: 'Elite cup', rank: 0 },
+    gold:   { a: '#fff7cc', b: '#f59e0b', glow: '#fbbf24', label: 'League champion', rank: 1 },
+    cup:    { a: '#ffe4f1', b: '#ff007f', glow: '#ff007f', label: 'Cup winner', rank: 2 },
+    silver: { a: '#ffffff', b: '#94a3b8', glow: '#cbd5e1', label: 'League champion', rank: 3 },
+    bronze: { a: '#ffedd5', b: '#c2410c', glow: '#fb923c', label: 'League champion', rank: 4 },
+    event:  { a: '#cffafe', b: '#06b6d4', glow: '#00f3ff', label: 'Tournament winner', rank: 5 }
+};
+window.trophySvg = function(kind, size = 64) {
+    const s = window.TROPHY_STYLE[kind] || window.TROPHY_STYLE.event, id = 'tg' + Math.random().toString(36).slice(2, 7);
+    const grad = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${s.a}"/><stop offset=".55" stop-color="${s.b}"/><stop offset="1" stop-color="${s.a}"/></linearGradient></defs>`;
+    const base = `<rect x="22" y="52" width="20" height="5" rx="1.5" fill="url(#${id})"/><rect x="18" y="57" width="28" height="5" rx="2" fill="#1e293b" stroke="url(#${id})" stroke-width="1"/>`;
+    const body = kind === 'ucl'
+        ? `<path d="M20 8h24v14c0 9-5 16-12 16s-12-7-12-16z" fill="url(#${id})"/><path d="M20 12c-14-2-16 18-2 20M44 12c14-2 16 18 2 20" fill="none" stroke="url(#${id})" stroke-width="4" stroke-linecap="round"/><rect x="29" y="38" width="6" height="14" fill="url(#${id})"/>`
+        : kind === 'bronze' || kind === 'silver'
+        ? `<path d="M18 8h28v12c0 10-6 18-14 18s-14-8-14-18z" fill="url(#${id})"/><path d="M18 12h-6c0 8 3 12 8 13M46 12h6c0 8-3 12-8 13" fill="none" stroke="url(#${id})" stroke-width="3"/><rect x="29" y="38" width="6" height="14" fill="url(#${id})"/>`
+        : kind === 'cup'
+        ? `<path d="M16 6h32l-4 20c-2 8-7 12-12 12s-10-4-12-12z" fill="url(#${id})"/><path d="M17 11c-9 0-9 14 2 14M47 11c9 0 9 14-2 14" fill="none" stroke="url(#${id})" stroke-width="3.5"/><rect x="29" y="38" width="6" height="14" fill="url(#${id})"/>`
+        : `<path d="M18 6h28v14c0 10-6 18-14 18s-14-8-14-18z" fill="url(#${id})"/><path d="M18 10c-10 0-10 15 1 15M46 10c10 0 10 15-1 15" fill="none" stroke="url(#${id})" stroke-width="3.5"/><rect x="29" y="38" width="6" height="14" fill="url(#${id})"/>`;
+    const star = `<path d="M32 15l2.4 4.8 5.3.8-3.8 3.7.9 5.3-4.8-2.5-4.8 2.5.9-5.3-3.8-3.7 5.3-.8z" fill="#fff" opacity=".85"/>`;
+    return `<svg viewBox="0 0 64 64" width="${size}" height="${size}" style="filter:drop-shadow(0 0 10px ${s.glow}88)">${grad}${body}${base}${star}</svg>`;
+};
+window.cabinetFor = function(user) {
+    const ts = window.titlesFor(user), groups = {};
+    ts.forEach(x => { const k = (x.hostOrg || '') + '|' + (x.compName || x.title); (groups[k] = groups[k] || { name: x.compName || x.title.replace(/ Champion$/, ''), org: x.hostOrg, kind: window.trophyKind(x), wins: [] }).wins.push(x); });
+    return Object.values(groups).sort((a, b) => window.TROPHY_STYLE[a.kind].rank - window.TROPHY_STYLE[b.kind].rank || b.wins.length - a.wins.length);
+};
+window.trophyCabinetHtml = function(user) {
+    const cab = window.cabinetFor(user); if (!cab.length) return '';
+    const total = cab.reduce((n, g) => n + g.wins.length, 0);
+    const tile = (g, i) => { const st = window.TROPHY_STYLE[g.kind];
+        return `<button onclick="window.openTrophy('${escapeHTML(user)}', ${i})" class="sg-trophy relative flex flex-col items-center text-center px-1.5 pt-3 pb-2 rounded-2xl" style="background:radial-gradient(circle at 50% 35%, ${st.glow}33, transparent 70%)">
+            ${g.wins.length > 1 ? `<span class="absolute top-1 right-1 text-[10px] font-black px-1.5 py-0.5 rounded-full text-slate-950" style="background:${st.glow}">×${g.wins.length}</span>` : ''}
+            <div class="sg-trophy-float">${window.trophySvg(g.kind, 58)}</div>
+            <p class="text-[10px] font-black text-white leading-tight mt-1.5 line-clamp-2">${escapeHTML(g.name)}</p>
+            <p class="text-[8px] font-black uppercase tracking-wider mt-0.5" style="color:${st.glow}">${g.wins.length > 1 ? g.wins.length + '× ' : ''}${g.kind === 'gold' || g.kind === 'silver' || g.kind === 'bronze' ? 'Champion' : 'Winner'}</p>
+        </button>`; };
+    const rows = []; for (let i = 0; i < cab.length; i += 3) rows.push(cab.slice(i, i + 3).map((g, k) => tile(g, i + k)));
+    return `<div id="trophyCabinet" class="mt-3 rounded-3xl overflow-hidden border border-amber-500/30" style="background:linear-gradient(180deg,#1a1405 0%,#070f1e 55%)">
+        <div class="flex items-center justify-between px-4 pt-3.5">
+            <div><p class="text-[10px] font-black tracking-[0.3em] text-amber-300">TROPHY CABINET</p><p class="text-lg font-black text-white leading-tight">${total} troph${total > 1 ? 'ies' : 'y'}</p></div>
+            <div class="text-right text-[10px] font-bold text-gray-400 leading-tight">${cab.length} competition${cab.length > 1 ? 's' : ''}<br>${[...new Set(cab.map(g => g.org).filter(Boolean))].length || 1} host${[...new Set(cab.map(g => g.org).filter(Boolean))].length > 1 ? 's' : ''}</div>
+        </div>
+        <div class="px-3 pb-3 pt-1">${rows.map(r => `<div class="grid grid-cols-3 gap-1.5 items-end">${r.join('')}</div><div class="h-2 rounded-full mb-2 mx-1" style="background:linear-gradient(90deg,transparent,#fbbf2466,transparent);box-shadow:0 4px 12px #fbbf2433"></div>`).join('')}</div>
+        <p class="text-[9px] text-gray-500 text-center pb-2.5">Tap a trophy for the seasons won</p>
+    </div>`;
+};
+window.openTrophy = function(user, i) {
+    const g = window.cabinetFor(user)[i]; if (!g) return;
+    const st = window.TROPHY_STYLE[g.kind];
+    const when = (x) => x.at && x.at.toDate ? x.at.toDate().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    window.openPanel(`🏆 ${g.name}`, `<div class="text-center pt-2"><div class="inline-block sg-trophy-float">${window.trophySvg(g.kind, 110)}</div>
+        <p class="text-2xl font-black text-white mt-2">${g.wins.length}× ${g.kind === 'gold' || g.kind === 'silver' || g.kind === 'bronze' ? 'Champion' : 'Winner'}</p>
+        <p class="text-xs font-bold" style="color:${st.glow}">${escapeHTML(window.dnText(user))}${g.org ? ` · hosted by ${escapeHTML(g.org)}` : ''}</p></div>
+        <div class="space-y-2 pt-2">${g.wins.sort((a, b) => (b.season || 0) - (a.season || 0)).map(x => `<div class="flex items-center gap-3 p-3 rounded-xl bg-gg-900 border border-white/5">
+            <span class="text-lg font-black w-10 text-center" style="color:${st.glow}">S${x.season || 1}</span>
+            <div class="flex-1 min-w-0"><p class="text-xs font-black text-white truncate">${escapeHTML(x.title)}</p><p class="text-[10px] text-gray-400">${[when(x), x.game, x.runnerUp ? 'beat ' + window.dnText(x.runnerUp) + ' to the title' : ''].filter(Boolean).map(escapeHTML).join(' · ')}</p></div></div>`).join('')}</div>`);
+};
+// Profile: compact title badge + cabinet
+window.getProfileBadges = (function(base) {
+    return function(username) {
+        const cab = window.cabinetFor(username);
+        const rest = window._baseGetProfileBadges22(username);
+        if (!cab.length) return rest;
+        const total = cab.reduce((n, g) => n + g.wins.length, 0), top = cab[0], st = window.TROPHY_STYLE[top.kind];
+        const pill = `<span class="text-[8px] px-1.5 py-0.5 rounded font-black whitespace-nowrap border" style="color:${st.glow};border-color:${st.glow}66;background:${st.glow}1a">🏆 ${top.wins.length > 1 ? top.wins.length + '× ' : ''}${escapeHTML(top.name)}${total > top.wins.length ? ` +${total - top.wins.length}` : ''}</span>`;
+        return [pill, rest].filter(Boolean).join(' ');
+    };
+})(window.getProfileBadges);
+window._baseOpenUserProfileModal22d = window._baseOpenUserProfileModal22d || window.openUserProfileModal;
+window.openUserProfileModal = function(username, e) {
+    const r = window._baseOpenUserProfileModal22d(username, e);
+    const tag = (username || '').replace('@', '');
+    const draw = () => { const b = document.getElementById('profileDynamicBadgesBox'); if (b && window.activeProfileUser === tag) b.innerHTML = window.getProfileBadges(tag); };
+    draw();
+    if (!window._titles) window.loadTitles().then(draw);
+    return r;
+};
+(function addTrophyCss() {
+    const st = document.createElement('style');
+    st.textContent = `.sg-trophy-float{animation:sgFloat 3.2s ease-in-out infinite}.sg-trophy:nth-child(2) .sg-trophy-float{animation-delay:.5s}.sg-trophy:nth-child(3) .sg-trophy-float{animation-delay:1s}
+    @keyframes sgFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+    .sg-trophy{overflow:hidden}.sg-trophy::after{content:'';position:absolute;top:-60%;left:-60%;width:40%;height:220%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);transform:rotate(20deg);animation:sgShine 4.5s ease-in-out infinite}
+    @keyframes sgShine{0%,70%{left:-60%}100%{left:130%}}
+    @media (prefers-reduced-motion:reduce){.sg-trophy-float,.sg-trophy::after{animation:none}}`;
+    document.head.appendChild(st);
+})();
+
+// ======================================================================
+// v22e: SINLESS LOGO AS DEFAULT PICTURE · CURRENT CHAMPION LABELS · TROPHY CABINET BEHIND A SMALL BUTTON
+// ======================================================================
+window._baseProfileFor22e = window._baseProfileFor22e || window.profileFor;
+window.profileFor = function(tag) {
+    const r = window._baseProfileFor22e(tag);
+    if (!r || !r.pfp || window.cleanPfp(r.pfp)) return r;
+    return { ...r, pfp: '' };
+};
+// Who holds each title right now: the latest champion of every competition (per host).
+// The label moves to the next winner as soon as a new season is crowned.
+window.currentChampions = function() {
+    const list = (window._titles && window._titles.list) || [], latest = {};
+    list.forEach(x => {
+        const k = (x.hostUid || '') + '|' + (x.compId || x.compName || x.title);
+        const cur = latest[k], tm = (x.at && x.at.seconds) || 0, ctm = cur ? (cur.at && cur.at.seconds) || 0 : -1;
+        if (!cur || (x.season || 0) > (cur.season || 0) || ((x.season || 0) === (cur.season || 0) && tm > ctm)) latest[k] = x;
+    });
+    return Object.values(latest);
+};
+window.currentTitlesOf = function(user) {
+    const k = (user || '').replace('@', '').toLowerCase();
+    return window.currentChampions().filter(x => x.tag === k).sort((a, b) => window.TROPHY_STYLE[window.trophyKind(a)].rank - window.TROPHY_STYLE[window.trophyKind(b)].rank);
+};
+// Small gold "👑 Sinless Super League Champion" label shown next to a name
+window.champLabel = function(user, small) {
+    const cur = window.currentTitlesOf(user); if (!cur.length) return '';
+    const x = cur[0], st = window.TROPHY_STYLE[window.trophyKind(x)];
+    const name = (x.compName || x.title.replace(/ Champion$/, '')) + ' Champion';
+    return `<span class="inline-flex items-center ml-1.5 ${small ? 'text-[8px]' : 'text-[9px]'} font-black px-1.5 py-0.5 rounded-md whitespace-nowrap max-w-[190px] truncate" style="color:${st.glow};background:${st.glow}1f;border:1px solid ${st.glow}55" title="${escapeHTML(name)}">👑 ${escapeHTML(name)}${cur.length > 1 ? ` +${cur.length - 1}` : ''}</span>`;
+};
+// Feed: only current champions get a label (keeps the feed clean)
+window.titleBadgeShort = function(user) { return window.champLabel(user, true); };
+// Profile: current-champion labels + a small trophy button that opens the cabinet
+window.getProfileBadges = function(username) {
+    const tag = (username || '').replace('@', '');
+    const cur = window.currentTitlesOf(tag);
+    const total = window.titlesFor(tag).length;
+    const labels = cur.slice(0, 1).map(x => { const st = window.TROPHY_STYLE[window.trophyKind(x)]; return `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-md whitespace-nowrap" style="color:${st.glow};background:${st.glow}1f;border:1px solid ${st.glow}55">👑 ${escapeHTML((x.compName || x.title.replace(/ Champion$/, '')) + ' Champion')}</span>`; }).join(' ');
+    const more = cur.length > 1 ? `<span class="text-[9px] font-black text-amber-300">+${cur.length - 1}</span>` : '';
+    const btn = total ? `<button onclick="window.openTrophyCabinet('${escapeHTML(tag)}')" class="shrink-0 inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow whitespace-nowrap" title="Trophy cabinet">🏆 ${total} troph${total > 1 ? 'ies' : 'y'}</button>` : '';
+    return [btn, labels, more, window._baseGetProfileBadges22(username)].filter(Boolean).join(' ');
+};
+window.openTrophyCabinet = function(user) {
+    const html = window.trophyCabinetHtml(user); if (!html) return;
+    window.openPanel(`🏆 ${window.dnText(user)}`, html.replace('mt-3 rounded-3xl', 'rounded-3xl'));
+};
+// openTrophy (one trophy's seasons) gets a way back to the cabinet
+window._baseOpenTrophy22e = window._baseOpenTrophy22e || window.openTrophy;
+window.openTrophy = function(user, i) {
+    window._baseOpenTrophy22e(user, i);
+    const body = document.querySelector('#sgPanel .space-y-2') ;
+    const panel = document.getElementById('sgPanelBody') || (body && body.parentElement);
+    panel && panel.insertAdjacentHTML('afterbegin', `<button onclick="window.openTrophyCabinet('${escapeHTML(user)}')" class="text-[11px] font-black text-amber-300 mb-1">← Trophy cabinet</button>`);
 };

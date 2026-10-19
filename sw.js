@@ -2,7 +2,7 @@
 // - Lets the app be installed on the home screen.
 // - Always tries the internet first, so updates you upload to GitHub show up straight away.
 // - If there's no internet, it opens the last saved copy of the app instead of a blank page.
-const CACHE = 'sinless-gg-v10';
+const CACHE = 'sinless-gg-v15';
 const APP_FILES = ['./', './index.html', './tailwind.css', './styles.css', './app.js', './firebase-config.js', './manifest.json', './icon-192.png', './icon-512.png', './logo-96.png', './icon-180.png'];
 
 self.addEventListener('install', (event) => {
