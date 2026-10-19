@@ -1063,9 +1063,9 @@ window.tempProfileCover = null;
 window.openEditProfileModal = function() {
     const cleanUser = window.activeProfileUser || (window.myUsername || '@SinlessGaming').replace('@','');
     const data = window.userProfiles[cleanUser.toLowerCase()] || {
-        displayName: cleanUser === 'SinlessGaming' ? 'Sinless Gaming' : cleanUser,
-        bio: 'Passionate gamer & creator on Sinless GG!',
-        website: 'https://sinlessgg.com'
+        displayName: cleanUser,
+        bio: '',
+        website: ''
     };
 
     document.getElementById('editDisplayNameInput').value = data.displayName || '';
@@ -3009,7 +3009,7 @@ window.renderFeedCard = function(p, me) {
             <div class="flex items-center justify-between pt-2 border-t border-cyan-500/15 text-xs text-gray-300 font-bold">
                 <button onclick="window.toggleGGPost('${pId}')" class="flex items-center space-x-1.5 ${hasGGed ? 'text-cyan-400' : 'hover:text-cyan-400'} transition">
                     <i class="fa-solid fa-thumbs-up"></i>
-                    <span>${window.formatCount(p.ggsCount || 0)}</span>
+                    <span>${window.formatCount(p.ggsCount || 0)} GGs</span>
                 </button>
                 <button onclick="window.openPostDetail('${pId}', true)" class="flex items-center space-x-1.5 hover:text-cyan-400 transition">
                     <i class="fa-solid fa-comment"></i>
@@ -3023,8 +3023,9 @@ window.renderFeedCard = function(p, me) {
                     <i class="fa-solid fa-coins"></i>
                     <span>Tip</span>
                 </button>
-                <button onclick="window.sharePost('${pId}')" class="flex items-center space-x-1.5 hover:text-cyan-400 transition">
-                    <i class="fa-solid fa-share-nodes"></i>
+                <button onclick="window.openRepostMenu('${pId}')" class="flex items-center space-x-1.5 hover:text-emerald-400 transition ${window.myRepostOf && window.myRepostOf(pId) ? 'text-emerald-400' : ''}">
+                    <i class="fa-solid fa-retweet"></i>
+                    <span>${window.repostCount ? window.formatCount(window.repostCount(pId)) : ''}</span>
                 </button>
             </div>
         </div>
@@ -3246,9 +3247,9 @@ window.renderPostDetail = function(p) {
             </div>
 
             <div class="grid grid-cols-4 gap-2 text-xs font-bold">
-                <button id="pdGGBtn" onclick="window.toggleGGPost('${pId}')" class="py-2.5 rounded-xl bg-gg-900 border border-cyan-500/20 flex flex-col items-center gap-1"><i class="fa-solid fa-thumbs-up text-base"></i><span>GG</span></button>
+                <button id="pdGGBtn" onclick="window.toggleGGPost('${pId}')" class="py-2.5 rounded-xl bg-gg-900 border border-cyan-500/20 flex flex-col items-center gap-1"><i class="fa-solid fa-thumbs-up text-base"></i><span>GGs</span></button>
                 <button onclick="document.getElementById('postDetailReplyInput').focus()" class="py-2.5 rounded-xl bg-gg-900 border border-cyan-500/20 text-gray-300 flex flex-col items-center gap-1"><i class="fa-solid fa-comment text-base"></i><span>Reply</span></button>
-                <button onclick="window.sharePost('${pId}')" class="py-2.5 rounded-xl bg-gg-900 border border-cyan-500/20 text-gray-300 flex flex-col items-center gap-1"><i class="fa-solid fa-share-nodes text-base"></i><span>Share</span></button>
+                <button onclick="window.openRepostMenu('${pId}')" class="py-2.5 rounded-xl bg-gg-900 border border-emerald-500/30 text-emerald-400 flex flex-col items-center gap-1"><i class="fa-solid fa-retweet text-base"></i><span>Repost</span></button>
                 <button onclick="window.tipCreator('${pId}', '${p.user}')" class="py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex flex-col items-center gap-1"><i class="fa-solid fa-coins text-base"></i><span>Tip</span></button>
             </div>
 
@@ -4339,8 +4340,8 @@ window.fetchRankingPosts = async function(kind) {
     if (window.db) {
         try {
             const q = kind === 'week'
-                ? query(collection(window.db, 'posts'), where('createdAt', '>=', new Date(Date.now() - 7 * 86400000)), orderBy('createdAt', 'desc'), limit(1000))
-                : query(collection(window.db, 'posts'), orderBy('ggsCount', 'desc'), limit(1000));
+                ? query(collection(window.db, 'posts'), where('createdAt', '>=', new Date(Date.now() - 7 * 86400000)), orderBy('createdAt', 'desc'), limit(600))
+                : query(collection(window.db, 'posts'), orderBy('ggsCount', 'desc'), limit(300));
             const snap = await getDocs(q);
             snap.forEach(d => posts.push({ id: d.id, docId: d.id, ...d.data() }));
         } catch (e) { console.warn('Ranking fetch failed, using loaded posts:', e); }
@@ -5853,7 +5854,7 @@ window.initApp = async function() {
 };
 // after saving your profile, refresh names everywhere
 window._baseSaveProfile2 = window._baseSaveProfile2 || window.saveUserProfileChanges;
-window.saveUserProfileChanges = async function() { await window._baseSaveProfile2(); window.loadAllProfiles(); };
+window.saveUserProfileChanges = async function() { await window._baseSaveProfile2(); window.refreshOneProfile && window.refreshOneProfile(window.me()); };
 
 // ======================================================================
 // v13: GAMERTAGS, ADMIN PANEL, BANS, LOBBY CHAT, PHONE ALERTS
@@ -9363,9 +9364,9 @@ window.renderFeedCard = function(p, me) {
             <p class="text-sm text-gray-100 whitespace-pre-wrap break-words">${formatMentions(p.caption)}</p>
             <div class="rounded-2xl border border-cyan-500/25 overflow-hidden scale-[0.98] origin-top">${inner.replace(/data-post-id="/, 'data-quoted-id="')}</div>
             <div class="flex items-center gap-4 text-xs text-gray-400 font-bold pt-1">
-                <button onclick="window.toggleGGPost('${pid}')" class="${(p.ggsBy || []).includes(window.uidNow()) ? 'text-cyan-400' : ''}"><i class="fa-solid fa-thumbs-up mr-1"></i>${p.ggsCount || 0}</button>
+                <button onclick="window.toggleGGPost('${pid}')" class="${(p.ggsBy || []).includes(window.uidNow()) ? 'text-cyan-400' : ''}"><i class="fa-solid fa-thumbs-up mr-1"></i>${p.ggsCount || 0} GGs</button>
                 <button onclick="window.openPostDetail('${pid}', true)"><i class="fa-regular fa-comment mr-1"></i>${p.commentsCount || 0}</button>
-                <button onclick="window.makeRepost('${p.repostOf}', false)"><i class="fa-solid fa-retweet mr-1"></i></button>
+                <button onclick="window.openRepostMenu('${pid}')" class="hover:text-emerald-400"><i class="fa-solid fa-retweet mr-1"></i>${window.formatCount(window.repostCount(pid)) || ''}</button>
             </div>
         </div>`;
     }
@@ -9397,9 +9398,7 @@ window.openPostActions = function(postId) {
     if (!p) return;
     const target = p.repostOf && !p.caption ? p.repostOf : postId;
     const extra = [
-        { icon: 'fa-bookmark', label: window.isSaved(target) ? 'Remove from Saved' : 'Save post', run: () => window.toggleSave(target) },
-        { icon: 'fa-retweet', label: 'Repost', run: () => window.makeRepost(target, false) },
-        { icon: 'fa-pen-to-square', label: 'Quote post', run: () => window.makeRepost(target, true) }
+        { icon: 'fa-bookmark', label: window.isSaved(target) ? 'Remove from Saved' : 'Save post', run: () => window.toggleSave(target) }
     ];
     if (window.isMyPost(p)) {
         window.openActionSheet('Your post', [...extra,
@@ -9943,3 +9942,133 @@ window.setCurrency = function(c) {
     else setTimeout(window.loadTranslator, 4000);       // load quietly so switching is instant
     setTimeout(window.updateLangBadge, 500);
 })();
+
+
+// ======================================================================
+// v18b: REPOST BUTTON (replaces Share): Repost · Quote · Share in one pop-up
+// ======================================================================
+window.repostCount = function(id) {
+    const n = (window.fypposts || []).filter(p => p.repostOf === id).length;
+    return n || 0;
+};
+window.myRepostOf = function(id) {
+    if (!window.currentUser) return null;
+    return (window.fypposts || []).find(p => p.repostOf === id && !p.caption && window.isMyPost(p)) || null;
+};
+window.openRepostMenu = function(postId) {
+    const p = window.findPost(postId) || (window.postFetchCache || {})[postId];
+    const target = p && p.repostOf && !p.caption ? p.repostOf : postId;
+    const mine = window.myRepostOf(target);
+    window.openActionSheet('Repost', [
+        mine ? { icon: 'fa-retweet', label: 'Undo repost', danger: true, run: () => window.undoRepost(mine.docId || mine.id) }
+             : { icon: 'fa-retweet', label: 'Repost', run: () => window.makeRepost(target, false) },
+        { icon: 'fa-pen-to-square', label: 'Quote (add your thoughts)', run: () => window.makeRepost(target, true) },
+        { icon: 'fa-share-nodes', label: 'Share to WhatsApp, X, link…', run: () => window.sharePost(target) }
+    ]);
+};
+
+// ======================================================================
+// v19: FAST & LIGHT — protect the free Firebase allowance (50,000 reads a day)
+// ======================================================================
+// 1) Profiles: keep a copy on the phone and only re-download everyone every 6 hours.
+//    Anyone new since then is fetched one by one, only when their name appears on screen.
+window.PROFILE_CACHE_KEY = 'sg_profiles_v1';
+window.PROFILE_REFRESH_MS = 6 * 3600000;
+window.slimProfile = function(p) {
+    return { uid: p.uid || '', gamertag: p.gamertag || '', displayName: p.displayName || '', pfp: p.pfp || '', verified: !!p.verified,
+        xp: Number(p.xp) || 0, shelf: (p.shelf || []).slice(0, 12).map(x => ({ kind: x.kind, title: x.title, img: x.img || '', rating: x.rating || 0 })) };
+};
+window.saveProfileCache = function() {
+    try {
+        const slim = {}; Object.entries(window.allProfilesMap || {}).forEach(([k, p]) => { slim[k] = window.slimProfile(p); });
+        localStorage.setItem(window.PROFILE_CACHE_KEY, JSON.stringify({ at: window._profilesAt || Date.now(), map: slim }));
+    } catch (e) {}
+};
+(function restoreProfiles() {
+    try {
+        const c = JSON.parse(localStorage.getItem(window.PROFILE_CACHE_KEY) || 'null');
+        if (c && c.map) { window.allProfilesMap = { ...c.map, ...(window.allProfilesMap || {}) }; window._profilesAt = c.at; }
+    } catch (e) {}
+})();
+window._baseLoadAllProfiles19 = window._baseLoadAllProfiles19 || window.loadAllProfiles;
+window.loadAllProfiles = function(force) {
+    const fresh = window._profilesAt && Date.now() - window._profilesAt < window.PROFILE_REFRESH_MS && Object.keys(window.allProfilesMap || {}).length;
+    if (!force && fresh) { window.renderFypFeed && window.renderFypFeed(); return Promise.resolve(); }
+    if (window._profilesLoading) return window._profilesLoading;
+    window._profilesLoading = window._baseLoadAllProfiles19().then(() => {
+        window._profilesAt = Date.now();
+        window.saveProfileCache();
+    }).finally(() => { window._profilesLoading = null; });
+    return window._profilesLoading;
+};
+window.refreshOneProfile = async function(tag) {
+    const p = await window.getProfile(tag, true);
+    if (p) { window.allProfilesMap[tag.toLowerCase()] = { ...p, gamertag: p.gamertag || tag }; window.saveProfileCache(); }
+    window.renderFypFeed && window.renderFypFeed();
+};
+// names we don't know yet are fetched in small batches (1 read each, once)
+window._missingProfiles = new Set(); window._askedProfiles = new Set();
+window._baseProfileFor19 = window._baseProfileFor19 || window.profileFor;
+window.profileFor = function(tag) {
+    const r = window._baseProfileFor19(tag);
+    const k = (tag || '').replace('@', '').toLowerCase();
+    if (!r && k && k !== 'guest' && window.db && !window._askedProfiles.has(k) && window._askedProfiles.size < 300) {
+        window._askedProfiles.add(k); window._missingProfiles.add(k);
+        clearTimeout(window._missT);
+        window._missT = setTimeout(async () => {
+            const ks = [...window._missingProfiles].slice(0, 25); window._missingProfiles.clear();
+            let got = 0;
+            await Promise.all(ks.map(async key => { const p = await window.getProfile(key); if (p) { window.allProfilesMap[key] = { ...p, gamertag: p.gamertag || key }; got++; } }));
+            if (got) { window.saveProfileCache(); window.renderFypFeed && window.renderFypFeed(); }
+        }, 1500);
+    }
+    return r;
+};
+// admin user list always needs the full fresh list
+window._baseRenderAdminUsers19 = window._baseRenderAdminUsers19 || window.renderAdminUsers;
+window.renderAdminUsers = async function() { await window.loadAllProfiles(true); return window._baseRenderAdminUsers19(); };
+
+// 2) Tables & Top: remember the ranking for 20 minutes (also between app opens)
+(function persistRankCache() {
+    try { const c = JSON.parse(localStorage.getItem('sg_rank_cache') || 'null'); if (c) Object.entries(c).forEach(([k, v]) => { if (Date.now() - v.at < 20 * 60000) window.rankCache[k] = v; }); } catch (e) {}
+})();
+window._baseFetchRankingPosts19 = window._baseFetchRankingPosts19 || window.fetchRankingPosts;
+window.fetchRankingPosts = async function(kind) {
+    const c = window.rankCache[kind];
+    if (c && Date.now() - c.at < 20 * 60000) return c.posts;
+    const posts = await window._baseFetchRankingPosts19(kind);
+    try {
+        const slim = (posts || []).map(p => ({ id: p.id, docId: p.docId, user: p.user, uid: p.uid, ggsCount: p.ggsCount || 0, viewsCount: p.viewsCount || 0, commentsCount: p.commentsCount || 0, game: p.game, createdAt: window.postTimeValue(p) }));
+        const all = JSON.parse(localStorage.getItem('sg_rank_cache') || '{}');
+        all[kind] = { at: Date.now(), posts: slim };
+        localStorage.setItem('sg_rank_cache', JSON.stringify(all));
+    } catch (e) {}
+    return posts;
+};
+
+// 3) Predictor table: remember standings for 10 minutes
+window._standCache = {};
+window._baseWeeklyStandings19 = window._baseWeeklyStandings19 || window.weeklyStandings;
+window.weeklyStandings = async function(wk) {
+    const c = window._standCache[wk];
+    if (c && Date.now() - c.at < 10 * 60000) return c.rows;
+    const rows = await window._baseWeeklyStandings19(wk);
+    window._standCache[wk] = { at: Date.now(), rows };
+    return rows;
+};
+
+// 4) Profile link: only show a website when the person actually added one
+window._baseEnhanceProfileView19 = window._baseEnhanceProfileView19 || window.enhanceProfileView;
+window.enhanceProfileView = async function(tag) {
+    const link = document.getElementById('profileLinkUrl');
+    const row = link && link.parentElement;
+    if (row) row.classList.add('hidden');
+    await window._baseEnhanceProfileView19(tag);
+    const prof = window.profileFor(tag) || (window.profileCache[(tag || '').toLowerCase()] || {}).data || {};
+    const site = (prof.website || '').trim();
+    if (row && site && window.activeProfileUser === tag) {
+        link.innerText = site.replace(/^https?:\/\//, '');
+        link.href = /^https?:\/\//.test(site) ? site : 'https://' + site;
+        row.classList.remove('hidden');
+    }
+};

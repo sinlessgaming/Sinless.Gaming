@@ -14,10 +14,10 @@
     <meta property="og:image:height" content="1200">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="https://sinlessgaming.github.io/Sinless.Gaming/logo-share.jpg">
-    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
+    <link rel="stylesheet" href="tailwind.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#02050b">
@@ -28,18 +28,6 @@
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
     <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        gg: { 950: '#02050b', 900: '#070f1e', 800: '#0f1d36', cyan: '#00f3ff', magenta: '#ff007f', orange: '#f97316' }
-                    }
-                }
-            }
-        }
-    </script>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-slate-950" onload="initApp()">
     <div id="google_translate_element" style="display:none"></div>
