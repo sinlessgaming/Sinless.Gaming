@@ -12868,3 +12868,131 @@ window._baseRenderFypFeed23b = window._baseRenderFypFeed23b || window.renderFypF
 window.renderFypFeed = function(...a) { const r = window._baseRenderFypFeed23b(...a); try { window.setupFeedAutoplay && window.setupFeedAutoplay(); } catch (e) {} return r; };
 window._baseCloseHighlight23b = window._baseCloseHighlight23b || window.closeHighlight;
 window.closeHighlight = function() { window._baseCloseHighlight23b(); setTimeout(() => window.feedVideoRatios && window.pickFeedVideoToPlay(), 300); };
+
+// ======================================================================
+// v24: PC LAYOUT — left menu, centred feed, right info rail, pop-up windows
+// (phones keep the normal app; this only switches on for wide screens)
+// ======================================================================
+window.DESK_MODALS = { userProfileModal: 'closeUserProfileModal', squadDetailsModal: 'closeSquadDetailsModal', postDetailModal: 'closePostDetail', dmModal: 'closeDmModal',
+    notifModal: 'closeNotifications', sgPanel: 'closePanel', hlModal: 'closeHighlight', loungeModal: 'closeLounge', adminModal: 'closeAdminPanel', gameModal: 'closeGame',
+    goLiveModal: 'closeGoLive', liveRoomModal: 'leaveLiveRoom', commentsModal: 'closeCommentsModal' };
+window.isDesk = () => window.matchMedia('(min-width: 1024px)').matches;
+window.buildDesktop = function() {
+    if (document.getElementById('deskNav')) return;
+    const bar = document.querySelector('main > .glass-panel'); if (bar) bar.id = 'mainNavBar';
+    document.body.classList.add('sg-desk');
+    const views = [...(bar ? bar.querySelectorAll('button[onclick*="switchView"]') : [])].map(b => ({ v: (b.getAttribute('onclick').match(/switchView\('(\w+)'\)/) || [])[1], html: b.innerHTML })).filter(x => x.v);
+    const item = (v, html) => { const ic = (html.match(/<i class="([^"]+)"/) || [])[1] || 'fa-solid fa-circle'; const label = html.replace(/<[^>]+>/g, '').trim();
+        return `<button class="dn-item" data-dn="${v}" onclick="window.switchView('${v}'); window.scrollTo({top:0})"><i class="${ic.replace(/\bmr-\d\b/, '')}"></i><span>${label}</span></button>`; };
+    const nav = document.createElement('aside'); nav.id = 'deskNav';
+    nav.innerHTML = `<div class="dn-logo" onclick="window.switchView('fyp'); window.scrollTo({top:0})"><img src="logo-96.png" alt=""><div>
+            <p class="notranslate" translate="no" style="font-weight:900;font-size:17px;color:#fff;letter-spacing:.04em;line-height:1">SINLESS <span style="color:#38bdf8">G</span><span style="color:#ef4444">G</span></p>
+            <p style="font-size:8.5px;color:#94a3b8;font-weight:800;letter-spacing:.14em;margin-top:4px;white-space:nowrap">PLAY • WATCH • CONNECT</p></div></div>
+        <button class="dn-post" style="margin:0 4px 12px" onclick="openUniversalCreateModal()"><i class="fa-solid fa-plus mr-1"></i> Create post</button>
+        ${views.map(x => item(x.v, x.html)).join('')}
+        <div class="dn-sep"></div>
+        <button class="dn-item" onclick="window.openNotifications()"><i class="fa-solid fa-bell"></i><span>Notifications</span><span id="dnNotif" class="dn-badge" style="display:none"></span></button>
+        <button class="dn-item" onclick="window.openDmModal()"><i class="fa-solid fa-envelope"></i><span>Messages</span><span id="dnDm" class="dn-badge" style="display:none"></span></button>
+        <button class="dn-item" onclick="window.openWallet && window.openWallet()"><i class="fa-solid fa-wallet"></i><span>Tips Wallet</span></button>
+        <button class="dn-item" onclick="window.openProgress && window.openProgress()"><i class="fa-solid fa-medal"></i><span>Level & Challenges</span></button>
+        <button class="dn-item" onclick="window.openSaved && window.openSaved()"><i class="fa-solid fa-bookmark"></i><span>Saved</span></button>
+        <button class="dn-item" id="dnAdmin" style="display:none" onclick="window.openAdminPanel()"><i class="fa-solid fa-user-shield"></i><span>Admin Panel</span></button>
+        <button class="dn-item" onclick="window.toggleDrawer(true)"><i class="fa-solid fa-ellipsis"></i><span>More</span></button>
+        <div class="dn-me" id="dnMe" onclick="window.deskMe()"></div>`;
+    document.body.appendChild(nav);
+    const rail = document.createElement('aside'); rail.id = 'deskRail'; document.body.appendChild(rail);
+    const bd = document.createElement('div'); bd.id = 'deskBackdrop'; bd.onclick = () => window.closeTopDeskModal(); document.body.appendChild(bd);
+    // turn full-screen pages into pop-up windows
+    Object.keys(window.DESK_MODALS).forEach(id => { const el = document.getElementById(id); if (!el) return; if (id !== 'commentsModal') el.classList.add('sg-desk-card');
+        new MutationObserver(window.syncDeskBackdrop).observe(el, { attributes: true, attributeFilter: ['class'] }); });
+    window.deskActive(); window.deskMeRender(); window.renderDeskRail(); window.syncDeskBadges();
+};
+window.openModalsTop = function() {
+    return Object.keys(window.DESK_MODALS).map(id => document.getElementById(id)).filter(el => el && !el.classList.contains('hidden'))
+        .sort((a, b) => (parseInt(getComputedStyle(b).zIndex) || 0) - (parseInt(getComputedStyle(a).zIndex) || 0));
+};
+window.syncDeskBackdrop = function() {
+    const bd = document.getElementById('deskBackdrop'); if (!bd) return;
+    const open = window.openModalsTop();
+    if (!open.length) { bd.classList.remove('on'); return; }
+    bd.classList.add('on');
+    bd.style.zIndex = String(Math.max(1, (parseInt(getComputedStyle(open[0]).zIndex) || 50) - 1));
+};
+window.closeTopDeskModal = function() {
+    const top = window.openModalsTop()[0]; if (!top) return;
+    const fn = window[window.DESK_MODALS[top.id]];
+    if (typeof fn === 'function') fn(); else top.classList.add('hidden');
+    setTimeout(window.syncDeskBackdrop, 50);
+};
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.isDesk() && document.body.classList.contains('sg-desk')) window.closeTopDeskModal(); });
+window.deskActive = function(v) {
+    v = v || (document.querySelector('.view-section:not(.hidden)') || { id: 'view-fyp' }).id.replace('view-', '');
+    document.querySelectorAll('#deskNav [data-dn]').forEach(b => b.classList.toggle('on', b.dataset.dn === v));
+};
+window.deskMe = function() { if (window.isSignedIn()) window.openUserProfileModal(window.me()); else window.openAccountModal && window.openAccountModal(); };
+window.deskMeRender = function() {
+    const el = document.getElementById('dnMe'); if (!el) return;
+    const signed = window.isSignedIn && window.isSignedIn();
+    const tag = signed ? window.me() : '';
+    el.innerHTML = signed
+        ? `${window.avatarHtml(tag, 'w-10 h-10', 'rounded-xl', 'text-xs').replace(/onclick="[^"]*"/, '')}<div class="min-w-0"><p style="color:#fff;font-weight:800;font-size:14px" class="truncate">${escapeHTML(window.myDisplayName || tag)}</p><p style="color:#22d3ee;font-size:12px;font-weight:700" class="truncate">@${escapeHTML(tag)}</p></div>`
+        : `<img src="${window.SG_DEFAULT_PFP}" alt=""><div><p style="color:#fff;font-weight:800;font-size:14px">Sign in</p><p style="color:#94a3b8;font-size:12px">Join the community</p></div>`;
+    const adm = document.getElementById('dnAdmin'); if (adm) adm.style.display = window.isAppAdmin ? '' : 'none';
+};
+window.syncDeskBadges = function() {
+    [['notifBadge', 'dnNotif'], ['dmBadge', 'dnDm']].forEach(([from, to]) => {
+        const a = document.getElementById(from), b = document.getElementById(to); if (!a || !b) return;
+        const show = !a.classList.contains('hidden') && a.innerText.trim() && a.innerText.trim() !== '0';
+        b.style.display = show ? 'flex' : 'none'; b.innerText = a.innerText.trim();
+    });
+};
+window.renderDeskRail = function() {
+    const rail = document.getElementById('deskRail'); if (!rail || !window.matchMedia('(min-width: 1280px)').matches) return;
+    const card = (title, body, more) => body ? `<div class="dr-card"><div class="dr-title"><span>${title}</span>${more || ''}</div>${body}</div>` : '';
+    // live & today's matches
+    const ms = (window.liveMatchesCache || []).filter(m => m.state !== 'post').slice(0, 5);
+    const matches = ms.map(m => { const live = m.state === 'in';
+        return `<button class="dr-row" onclick="window.openLounge('${m.id}')"><span style="font-size:10px;font-weight:900;color:${live ? '#f87171' : '#64748b'};width:44px">${live ? '● ' + escapeHTML(m.clock || 'LIVE') : new Date(m.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+            <span style="flex:1;font-size:13px;font-weight:800;color:#fff" class="truncate">${escapeHTML(m.home.abbr)} <span style="color:${live ? '#fca5a5' : '#22d3ee'}">${live ? `${m.home.score}-${m.away.score}` : 'vs'}</span> ${escapeHTML(m.away.abbr)}</span>
+            <span style="font-size:10px;color:#64748b">${escapeHTML(m.leagueShort || '')}</span></button>`; }).join('');
+    // my next matches
+    let mine = '';
+    if (window.isSignedIn && window.isSignedIn() && window.matchesOf) {
+        const today = window.dayStartOf(Date.now());
+        const up = window.matchesOf(window.me()).filter(x => !x.played).sort((a, b) => (a.when ?? 9e15) - (b.when ?? 9e15)).slice(0, 3);
+        mine = up.map(x => `<button class="dr-row" onclick="window.openTournamentById('${x.t.id}'); window.switchView('tournaments')"><span style="width:4px;align-self:stretch;border-radius:4px;background:${x.color}"></span>
+            <span style="flex:1;min-width:0"><span style="display:block;font-size:11px;font-weight:900;color:${x.color}" class="truncate">${escapeHTML(window.compShort(x.t))}</span>
+            <span style="display:block;font-size:13px;font-weight:800;color:#fff" class="truncate">vs ${escapeHTML(window.isRealPlayer(x.opp) ? window.dnText(x.opp) : 'TBD')}</span></span>
+            <span style="font-size:10px;color:#94a3b8;font-weight:700">${x.when === null ? '—' : x.when === today ? 'Today' : new Date(x.when).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}</span></button>`).join('');
+    }
+    // headlines
+    const news = (window.newsForYou ? window.newsForYou() : []).slice(0, 4).map(n => `<button class="dr-row" onclick="window.openNews(${window.newsRegister(n)})">
+        ${n.img ? `<img src="${escapeHTML(n.img)}" loading="lazy" alt="" style="width:52px;height:52px;border-radius:10px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">` : ''}
+        <span style="min-width:0"><span style="display:block;font-size:12.5px;font-weight:700;color:#e2e8f0;line-height:1.3" class="line-clamp-2">${escapeHTML(n.title)}</span><span style="font-size:10px;color:#64748b">${escapeHTML(n.source || '')}</span></span></button>`).join('');
+    // upcoming tournaments
+    const now = Date.now();
+    const tourns = (window.tournamentsList || []).filter(t => t.startAt && (t.endAt || t.startAt) >= now && t.status !== 'finished').sort((a, b) => a.startAt - b.startAt).slice(0, 3)
+        .map(t => `<button class="dr-row" onclick="window.openTournamentById('${t.id}'); window.switchView('tournaments')"><span style="font-size:18px">🏆</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:800;color:#fff" class="truncate">${escapeHTML(t.title)}</span>
+            <span style="font-size:11px;color:#94a3b8">${t.startAt > now ? 'Starts ' + new Date(t.startAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : 'Live now'}</span></span></button>`).join('');
+    rail.innerHTML = card('⚽ Matches today', matches, `<button onclick="window.switchView('news')">All ›</button>`)
+        + card('📅 Your next matches', mine, `<button onclick="window.openMyMatches()">See all ›</button>`)
+        + card('🏆 Tournaments', tourns, `<button onclick="window.switchView('tournaments'); window.setTourTab && window.setTourTab('calendar')">Calendar ›</button>`)
+        + card('📰 Headlines', news, `<button onclick="window.switchView('news')">More ›</button>`)
+        + `<div class="dr-foot"><a href="about.html">About</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="contact.html">Contact</a><br>© 2026 Sinless GG</div>`;
+};
+window._baseSwitchView24 = window._baseSwitchView24 || window.switchView;
+window.switchView = function(v) { window._baseSwitchView24(v); window.deskActive && window.deskActive(v); };
+window.initDesktop = function() {
+    if (!window.isDesk()) return;
+    window.buildDesktop();
+};
+window.matchMedia('(min-width: 1024px)').addEventListener && window.matchMedia('(min-width: 1024px)').addEventListener('change', (e) => {
+    if (e.matches) { window.buildDesktop(); document.body.classList.add('sg-desk'); window.renderDeskRail(); } else document.body.classList.remove('sg-desk');
+});
+window.matchMedia('(min-width: 1280px)').addEventListener && window.matchMedia('(min-width: 1280px)').addEventListener('change', () => window.renderDeskRail());
+setTimeout(window.initDesktop, 300);
+setInterval(() => { if (document.body.classList.contains('sg-desk') && document.visibilityState === 'visible') { window.renderDeskRail(); window.deskMeRender(); window.syncDeskBadges(); } }, 20000);
+setTimeout(() => { window.renderDeskRail(); window.deskMeRender(); }, 3500);
+window._baseAfterAuthChange24 = window._baseAfterAuthChange24 || window.afterAuthChange;
+window.afterAuthChange = async function(u) { const r = await window._baseAfterAuthChange24(u); setTimeout(() => { window.deskMeRender && window.deskMeRender(); window.renderDeskRail && window.renderDeskRail(); }, 500); return r; };
+['notifBadge', 'dmBadge'].forEach(id => { const el = document.getElementById(id); if (el) new MutationObserver(() => window.syncDeskBadges()).observe(el, { attributes: true, childList: true, characterData: true, subtree: true }); });
