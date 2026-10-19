@@ -10072,3 +10072,644 @@ window.enhanceProfileView = async function(tag) {
         row.classList.remove('hidden');
     }
 };
+
+// ======================================================================
+// v20: HIDE GOOGLE TRANSLATE'S BARS, POP-UPS AND HIGHLIGHTS (app just looks native)
+// ======================================================================
+(function hideTranslatorChrome() {
+    const st = document.createElement('style');
+    st.textContent = `
+        .goog-te-banner-frame, iframe.goog-te-banner-frame, body > .skiptranslate, .skiptranslate > iframe, #goog-gt-tt, #goog-gt-vt, .goog-te-balloon-frame,
+        .goog-tooltip, .goog-tooltip:hover, .goog-te-spinner-pos, .goog-te-menu-frame,
+        .VIpgJd-ZVi9od-ORHb-OEVmcd, .VIpgJd-ZVi9od-aZ2wEe-wOHMyf, .VIpgJd-ZVi9od-aZ2wEe-OiiCO, .VIpgJd-yAWNEb-L7lbkb, .VIpgJd-ZVi9od-xl07Ob-OEVmcd, .VIpgJd-suEOdc,
+        [id^="goog-gt-"], div[class^="VIpgJd-yAWNEb"] { display:none !important; visibility:hidden !important; height:0 !important; }
+        html, body { top:0 !important; }
+        body { position: static !important; }
+        .goog-text-highlight, .VIpgJd-yAWNEb-VIpgJd-fmcmS-sn54Q { background:none !important; box-shadow:none !important; border:none !important; }
+        font[style] { background-color: transparent !important; box-shadow: none !important; }`;
+    document.head.appendChild(st);
+    const fix = () => {
+        if (document.body && document.body.style.top && document.body.style.top !== '0px') document.body.style.top = '0px';
+        document.querySelectorAll('iframe.skiptranslate, iframe.goog-te-banner-frame, .VIpgJd-ZVi9od-ORHb-OEVmcd').forEach(f => { f.style.display = 'none'; });
+    };
+    new MutationObserver(fix).observe(document.documentElement, { childList: true, subtree: false, attributes: true, attributeFilter: ['style', 'class'] });
+    if (document.body) new MutationObserver(fix).observe(document.body, { attributes: true, attributeFilter: ['style'] });
+    setInterval(fix, 1500);
+})();
+
+// ======================================================================
+// v20: ARCADE — addictive one-touch football mini games + weekly leaderboards
+// gameScores/{game}_{week}_{uid} = { game, week, gw: game_week, uid, user, score, at }
+// ======================================================================
+window.GAMES = {
+    keepy: { name: 'Keepy-Uppy', emoji: '⚽', desc: 'Tap the ball to keep it up. Don’t let it drop!', color: 'from-emerald-500 to-cyan-500' },
+    penalty: { name: 'Penalty King', emoji: '🥅', desc: 'Tap where to shoot. Beat the keeper. One miss and it’s over.', color: 'from-amber-400 to-red-500' }
+};
+window.bestScore = (g) => { try { return parseInt(localStorage.getItem('sg_best_' + g)) || 0; } catch (e) { return 0; } };
+window.playTab = 'arcade';
+window.setPlayTab = function(tab) {
+    window.playTab = tab;
+    document.querySelectorAll('[data-playtab]').forEach(b => {
+        b.className = `flex-1 py-2.5 text-xs font-black border-b-2 ${b.dataset.playtab === tab ? 'text-white border-cyan-400' : 'text-gray-500 border-transparent'}`;
+    });
+    if (tab === 'arcade') window.renderArcade(); else window.renderFantasy();
+};
+window._baseSwitchView20 = window._baseSwitchView20 || window.switchView;
+window.switchView = function(v) { window._baseSwitchView20(v); if (v === 'play') window.setPlayTab(window.playTab || 'arcade'); };
+
+window.arcadeBoard = 'keepy';
+window.renderArcade = async function() {
+    const box = document.getElementById('playBody');
+    box.innerHTML = Object.entries(window.GAMES).map(([id, g]) => `
+        <div class="glass-panel rounded-2xl overflow-hidden border border-cyan-500/25 shadow-xl">
+            <div class="flex items-center gap-3 p-3.5">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br ${g.color} flex items-center justify-center text-4xl shrink-0 shadow-lg">${g.emoji}</div>
+                <div class="flex-1 min-w-0"><p class="text-sm font-black text-white">${g.name}</p><p class="text-[11px] text-gray-400 leading-snug">${g.desc}</p>
+                    <p class="text-[10px] font-black text-amber-400 mt-1">🏅 Your best: ${window.bestScore(id)}</p></div>
+            </div>
+            <button onclick="window.openGame('${id}')" class="w-full py-3 bg-gradient-to-r ${g.color} text-slate-950 font-black text-sm uppercase tracking-wider">▶ Play</button>
+        </div>`).join('') + `
+        <div class="glass-panel rounded-2xl overflow-hidden border border-amber-500/25">
+            <div class="flex items-center justify-between px-3 pt-3"><p class="text-xs font-black text-white uppercase tracking-wider">🏆 This week's best</p>
+                <div class="flex gap-1">${Object.entries(window.GAMES).map(([id, g]) => `<button onclick="window.arcadeBoard='${id}'; window.renderArcade()" class="px-2.5 py-1 rounded-full text-[10px] font-black ${window.arcadeBoard === id ? 'bg-white text-slate-950' : 'bg-gg-900 text-gray-400'}">${g.emoji} ${g.name}</button>`).join('')}</div></div>
+            <div id="arcadeBoardBody" class="pt-2"><p class="text-xs text-gray-500 text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i></p></div>
+            <p class="text-[9px] text-gray-500 text-center pb-2">Resets every Monday · winners get bragging rights 😎</p>
+        </div>`;
+    const rows = await window.loadGameBoard(window.arcadeBoard);
+    const el = document.getElementById('arcadeBoardBody'); if (!el) return;
+    el.innerHTML = rows.length ? rows.slice(0, 25).map((r, i) => `<div class="flex items-center justify-between px-3 py-2 ${r.uid === window.uidNow() ? 'bg-amber-500/10' : ''}">
+        <div class="flex items-center gap-2 min-w-0"><span class="w-6 text-center text-sm">${['🥇', '🥈', '🥉'][i] || `<span class="text-[10px] text-gray-500 font-black">#${i + 1}</span>`}</span>${window.avatarHtml(r.user, 'w-7 h-7', 'rounded-lg', 'text-[9px]')}<span class="text-xs font-bold text-white truncate">${window.dn(r.user)}</span></div>
+        <span class="text-sm font-black text-amber-400">${r.score}</span></div>`).join('') : `<p class="text-xs text-gray-400 text-center py-6">No scores yet this week. Be the first! 🔥</p>`;
+};
+window._boardCache = {};
+window.loadGameBoard = async function(game, force) {
+    const key = `${game}_${window.weekKey(Date.now())}`;
+    const c = window._boardCache[key];
+    if (!force && c && Date.now() - c.at < 90000) return c.rows;
+    const rows = [];
+    try { const s = await getDocs(query(collection(window.db, 'gameScores'), where('gw', '==', key), limit(500))); s.forEach(d => rows.push(d.data())); } catch (e) {}
+    rows.sort((a, b) => b.score - a.score);
+    const out = rows.filter(r => !window.isBlocked(r.user));
+    window._boardCache[key] = { at: Date.now(), rows: out };
+    return out;
+};
+window.submitGameScore = async function(game, score) {
+    const isBest = score > window.bestScore(game);
+    if (isBest) { try { localStorage.setItem('sg_best_' + game, score); } catch (e) {} }
+    window.addXP && window.addXP(2, 'game');
+    window.bumpChallenge && window.bumpChallenge('game');
+    if (!window.isSignedIn() || !score) return { isBest };
+    const wk = window.weekKey(Date.now()), gw = `${game}_${wk}`, id = `${gw}_${window.uidNow()}`;
+    let weekBest = 0;
+    try {
+        const ref = doc(window.db, 'gameScores', id);
+        const cur = await getDoc(ref);
+        weekBest = cur.exists() ? cur.data().score : 0;
+        if (score > weekBest) { await setDoc(ref, { game, week: wk, gw, uid: window.uidNow(), user: window.me(), score: Math.floor(score), at: serverTimestamp() }); weekBest = score; delete window._boardCache[gw]; }
+    } catch (e) {}
+    let rank = 0;
+    try { const rows = await window.loadGameBoard(game, true); rank = rows.findIndex(r => r.uid === window.uidNow()) + 1; } catch (e) {}
+    return { isBest, weekBest, rank };
+};
+
+// ---------- Game shell ----------
+window.game = null;
+window.openGame = function(id) {
+    window.pauseFeedVideos && window.pauseFeedVideos();
+    document.getElementById('gameModal').classList.remove('hidden');
+    document.getElementById('gameTitle').innerText = `${window.GAMES[id].emoji} ${window.GAMES[id].name}`;
+    const cv = document.getElementById('gameCanvas');
+    const fit = () => {
+        const r = cv.parentElement.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+        cv.width = r.width * dpr; cv.height = r.height * dpr;
+        const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        if (window.game) { window.game.W = r.width; window.game.H = r.height; }
+    };
+    window.game = { id, state: 'ready', score: 0, W: 0, H: 0, ctx: cv.getContext('2d'), fx: [], t: 0 };
+    fit();
+    window.onresize = fit;
+    (id === 'keepy' ? window.keepyInit : window.penaltyInit)(window.game);
+    window.showGameOverlay('ready');
+    cv.onpointerdown = (e) => {
+        e.preventDefault();
+        const g = window.game; if (!g) return;
+        const r = cv.getBoundingClientRect();
+        const x = e.clientX - r.left, y = e.clientY - r.top;
+        if (g.state === 'ready') { window.startGame(); }
+        if (g.state === 'play') g.tap(x, y);
+    };
+    const loop = (ts) => {
+        const g = window.game; if (!g) return;
+        const dt = Math.min(0.033, ((ts - (g.last || ts)) / 1000) || 0); g.last = ts;
+        if (g.state === 'play') g.update(dt);
+        g.draw();
+        // effects
+        const ctx = g.ctx;
+        g.fx = g.fx.filter(f => (f.life -= dt) > 0);
+        g.fx.forEach(f => { ctx.globalAlpha = Math.max(0, f.life / f.max); ctx.fillStyle = f.color || '#fff'; ctx.font = `900 ${f.size || 22}px system-ui`; ctx.textAlign = 'center'; ctx.fillText(f.text, f.x, f.y - (1 - f.life / f.max) * 40); ctx.globalAlpha = 1; });
+        g.raf = requestAnimationFrame(loop);
+    };
+    window.game.raf = requestAnimationFrame(loop);
+};
+window.fxText = (g, text, x, y, color, size = 24, life = 0.8) => g.fx.push({ text, x, y, color, size, life, max: life });
+window.startGame = function() {
+    const g = window.game;
+    g.score = 0; g.state = 'play';
+    document.getElementById('gameScoreTop').innerText = '0';
+    document.getElementById('gameOverlay').innerHTML = '';
+    g.reset();
+};
+window.setGameScore = function(n) { window.game.score = n; document.getElementById('gameScoreTop').innerText = n; };
+window.gameOver = async function(reason) {
+    const g = window.game; if (!g || g.state !== 'play') return;
+    g.state = 'over';
+    if (navigator.vibrate) try { navigator.vibrate(120); } catch (e) {}
+    const score = g.score, prevBest = window.bestScore(g.id);
+    window.showGameOverlay('over', { score, reason, best: Math.max(score, prevBest), newBest: score > prevBest });
+    const res = await window.submitGameScore(g.id, score);
+    const rk = document.getElementById('gameRankLine');
+    if (rk && res && res.rank) rk.innerHTML = `🏆 You're <b class="text-amber-400">#${res.rank}</b> this week${res.weekBest > score ? ` (week best ${res.weekBest})` : ''}`;
+};
+window.showGameOverlay = function(kind, d = {}) {
+    const g = window.game, info = window.GAMES[g.id];
+    const ov = document.getElementById('gameOverlay');
+    if (kind === 'ready') {
+        ov.innerHTML = `<div onclick="window.startGame()" class="text-center bg-black/60 backdrop-blur-sm rounded-3xl px-8 py-7 border border-white/10 cursor-pointer">
+            <div class="text-6xl mb-2">${info.emoji}</div><p class="text-xl font-black text-white">${info.name}</p><p class="text-xs text-gray-300 mt-1 max-w-[220px]">${info.desc}</p>
+            <p class="text-xs font-black text-amber-400 mt-3">Best: ${window.bestScore(g.id)}</p>
+            <p class="mt-4 text-sm font-black text-cyan-300 animate-pulse">TAP TO START</p></div>`;
+    } else {
+        ov.innerHTML = `<div class="text-center bg-black/75 backdrop-blur-sm rounded-3xl px-7 py-6 border border-white/10 w-full max-w-[300px]">
+            <p class="text-sm font-black ${d.reason === 'saved' ? 'text-red-400' : 'text-gray-300'} uppercase tracking-wider">${d.reason === 'saved' ? '🧤 Saved!' : d.reason === 'wide' ? '😬 Wide!' : 'Game over'}</p>
+            <p class="text-6xl font-black text-white my-1">${d.score}</p>
+            ${d.newBest ? '<p class="text-sm font-black text-amber-400">🎉 NEW BEST!</p>' : `<p class="text-xs text-gray-400">Best: ${d.best}</p>`}
+            <p id="gameRankLine" class="text-[11px] text-gray-300 mt-1">${window.isSignedIn() ? '…' : 'Sign in to join the weekly leaderboard'}</p>
+            <button onclick="window.startGame()" class="mt-4 w-full py-3.5 rounded-2xl bg-gradient-to-r ${info.color} text-slate-950 font-black text-base uppercase">↻ Play again</button>
+            <div class="flex gap-2 mt-2">
+                <button onclick="window.shareGameScore()" class="flex-1 py-2.5 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-xs font-black"><i class="fa-solid fa-share-nodes mr-1"></i>Challenge friends</button>
+                <button onclick="window.closeGame()" class="flex-1 py-2.5 rounded-xl bg-gg-900 border border-white/10 text-gray-300 text-xs font-black">Exit</button>
+            </div></div>`;
+    }
+};
+window.shareGameScore = async function() {
+    const g = window.game; if (!g) return;
+    const text = `I scored ${g.score} in ${window.GAMES[g.id].name} ${window.GAMES[g.id].emoji} on Sinless GG. Can you beat me?`;
+    const url = window.isSignedIn() ? window.inviteLink() : location.origin + location.pathname;
+    try { if (navigator.share) { await navigator.share({ title: 'Sinless GG Arcade', text, url }); return; } } catch (e) { return; }
+    window.copyText(text + ' ' + url);
+};
+window.closeGame = function() {
+    const g = window.game;
+    if (g) cancelAnimationFrame(g.raf);
+    window.game = null; window.onresize = null;
+    document.getElementById('gameModal').classList.add('hidden');
+    if (!document.getElementById('view-play').classList.contains('hidden') && window.playTab === 'arcade') window.renderArcade();
+};
+
+// pitch background used by both games
+window.drawPitch = function(g) {
+    const { ctx, W, H } = g;
+    const grd = ctx.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, '#04260f'); grd.addColorStop(1, '#0b4d1f');
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 0.07; ctx.fillStyle = '#fff';
+    for (let i = 0; i < 8; i += 2) ctx.fillRect(0, (H / 8) * i, W, H / 8);
+    ctx.globalAlpha = 1;
+};
+
+// ---------- ⚽ KEEPY-UPPY ----------
+window.keepyInit = function(g) {
+    g.reset = function() {
+        const r = Math.max(26, Math.min(g.W, g.H) * 0.075);
+        g.ball = { x: g.W / 2, y: g.H * 0.35, vx: 0, vy: -200, r, a: 0, spin: 0 };
+        g.flash = 0;
+    };
+    g.reset();
+    g.tap = function(x, y) {
+        const b = g.ball;
+        const dx = x - b.x, dy = y - b.y;
+        if (Math.hypot(dx, dy) > b.r * 2.1) return;                       // missed the ball
+        const lvl = Math.min(g.score, 60);
+        b.vy = -(880 + lvl * 6);
+        b.vx += (-dx / b.r) * 240 + (Math.random() - 0.5) * 60;
+        b.vx = Math.max(-520, Math.min(520, b.vx));
+        b.spin = -dx / b.r * 9;
+        window.setGameScore(g.score + 1);
+        g.flash = 0.12;
+        window.fxText(g, '+1', b.x, b.y - b.r, '#fde047', 22, 0.6);
+        const m = { 10: '🔥 NICE!', 25: '⚡ SKILLS!', 50: '👑 WORLD CLASS!', 75: '🐐 GOAT MODE!', 100: '🤯 UNREAL!' }[g.score];
+        if (m) window.fxText(g, m, g.W / 2, g.H * 0.25, '#22d3ee', 30, 1.4);
+        if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
+    };
+    g.update = function(dt) {
+        const b = g.ball, lvl = Math.min(g.score, 60);
+        const grav = 1350 + lvl * 22;
+        b.vy += grav * dt; b.x += b.vx * dt; b.y += b.vy * dt;
+        b.vx *= (1 - 0.4 * dt);
+        b.a += b.spin * dt; b.spin *= (1 - 1.5 * dt);
+        if (b.x < b.r) { b.x = b.r; b.vx = Math.abs(b.vx) * 0.85; }
+        if (b.x > g.W - b.r) { b.x = g.W - b.r; b.vx = -Math.abs(b.vx) * 0.85; }
+        if (b.y < b.r) { b.y = b.r; b.vy = Math.abs(b.vy) * 0.3; }
+        if (b.y - b.r > g.H) window.gameOver('drop');
+        g.flash = Math.max(0, g.flash - dt);
+    };
+    g.draw = function() {
+        const { ctx, W, H, ball: b } = g;
+        window.drawPitch(g);
+        const ground = H - 6;
+        ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(0, ground, W, 2);
+        const hgt = Math.max(0, ground - b.y), sh = Math.max(0.25, 1 - hgt / H);
+        ctx.fillStyle = `rgba(0,0,0,${0.35 * sh})`; ctx.beginPath(); ctx.ellipse(b.x, ground, b.r * sh, b.r * 0.25 * sh, 0, 0, Math.PI * 2); ctx.fill();
+        if (g.flash > 0) { ctx.strokeStyle = `rgba(253,224,71,${g.flash * 6})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 1.6, 0, Math.PI * 2); ctx.stroke(); }
+        ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.a);
+        ctx.font = `${b.r * 2}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚽', 0, b.r * 0.08);
+        ctx.restore();
+        ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.font = `900 ${Math.min(W, H) * 0.32}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        if (g.state === 'play') ctx.fillText(g.score, W / 2, H * 0.55);
+    };
+};
+
+// ---------- 🥅 PENALTY KING ----------
+window.penaltyInit = function(g) {
+    const layout = () => {
+        g.goal = { x: g.W * 0.1, y: g.H * 0.14, w: g.W * 0.8, h: Math.min(g.H * 0.24, g.W * 0.36) };
+        g.spot = { x: g.W / 2, y: g.H * 0.82 };
+    };
+    g.reset = function() {
+        layout();
+        g.ballR = Math.max(14, g.W * 0.04);
+        g.kw = g.W * (0.15 + Math.min(g.score, 25) * 0.006);                 // keeper width grows
+        g.keeper = { x: g.goal.x + g.goal.w / 2, dir: Math.random() < 0.5 ? -1 : 1, dive: 0, diveTo: null, t: 0 };
+        g.shot = null; g.result = null; g.pause = 0;
+    };
+    g.reset();
+    g.tap = function(x, y) {
+        if (g.shot || g.pause > 0) return;
+        const G = g.goal;
+        const wide = x < G.x || x > G.x + G.w || y < G.y || y > G.y + G.h;
+        const lvl = Math.min(g.score, 30);
+        g.shot = { tx: x, ty: y, t: 0, T: Math.max(0.36, 0.55 - lvl * 0.006), wide,
+            react: Math.max(0.1, 0.3 - lvl * 0.009), speed: g.W * (0.85 + lvl * 0.07), wrong: Math.random() < Math.max(0.12, 0.3 - lvl * 0.008) };
+    };
+    g.update = function(dt) {
+        const G = g.goal, k = g.keeper;
+        if (g.pause > 0) { g.pause -= dt; if (g.pause <= 0) { if (g.result === 'goal') g.reset(); } return; }
+        if (!g.shot) {
+            // keeper sways along the line, trying to cover the goal
+            k.t += dt;
+            const sway = g.W * (0.18 + Math.min(g.score, 30) * 0.008);
+            k.x += k.dir * sway * dt;
+            const minX = G.x + g.kw / 2, maxX = G.x + G.w - g.kw / 2;
+            if (k.x < minX) { k.x = minX; k.dir = 1; } if (k.x > maxX) { k.x = maxX; k.dir = -1; }
+            if (Math.random() < dt * 0.6) k.dir *= -1;
+            return;
+        }
+        const s = g.shot; s.t += dt;
+        if (s.t > s.react) {
+            const target = s.wrong && s.t < s.react + 0.12 ? k.x - Math.sign(s.tx - k.x) * g.W : s.tx;
+            const step = s.speed * dt;
+            k.x += Math.max(-step, Math.min(step, target - k.x));
+            k.x = Math.max(G.x, Math.min(G.x + G.w, k.x));
+            k.dive = Math.min(1, k.dive + dt * 5);
+        }
+        if (s.t >= s.T) {
+            if (s.wide) { window.gameOver('wide'); return; }
+            const top = s.ty < G.y + G.h * 0.3;
+            const reach = g.kw / 2 + g.ballR - (top ? g.kw * 0.18 : 0);
+            if (Math.abs(k.x - s.tx) <= reach) { g.result = 'saved'; window.gameOver('saved'); return; }
+            g.result = 'goal'; g.pause = 0.75;
+            window.setGameScore(g.score + 1);
+            window.fxText(g, top && (s.tx < G.x + G.w * 0.2 || s.tx > G.x + G.w * 0.8) ? 'TOP BINS! 🎯' : 'GOAL! ⚽', g.W / 2, G.y + G.h + 40, '#fde047', 30, 0.9);
+            if (navigator.vibrate) try { navigator.vibrate([20, 30, 20]); } catch (e) {}
+        }
+    };
+    g.draw = function() {
+        const { ctx, W, H } = g; const G = g.goal, k = g.keeper;
+        window.drawPitch(g);
+        // box lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
+        ctx.strokeRect(W * 0.04, G.y + G.h, W * 0.92, H * 0.42); ctx.strokeRect(W * 0.25, G.y + G.h, W * 0.5, H * 0.16);
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(g.spot.x, g.spot.y + g.ballR * 1.6, 3, 0, Math.PI * 2); ctx.fill();
+        // net
+        ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(G.x, G.y, G.w, G.h);
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+        for (let x = G.x; x <= G.x + G.w; x += 14) { ctx.beginPath(); ctx.moveTo(x, G.y); ctx.lineTo(x, G.y + G.h); ctx.stroke(); }
+        for (let y = G.y; y <= G.y + G.h; y += 14) { ctx.beginPath(); ctx.moveTo(G.x, y); ctx.lineTo(G.x + G.w, y); ctx.stroke(); }
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(G.x, G.y + G.h); ctx.lineTo(G.x, G.y); ctx.lineTo(G.x + G.w, G.y); ctx.lineTo(G.x + G.w, G.y + G.h); ctx.stroke();
+        // keeper
+        const kh = G.h * 0.8, kw = g.kw * (1 + k.dive * 0.15);
+        ctx.save(); ctx.translate(k.x, G.y + G.h - kh / 2);
+        if (g.shot && k.dive) ctx.rotate((g.shot.tx > k.x ? 1 : -1) * k.dive * 0.5);
+        ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-kw / 2, -kh / 2, kw, kh, 10) : ctx.rect(-kw / 2, -kh / 2, kw, kh); ctx.fill();
+        ctx.font = `${Math.min(kw * 0.6, kh * 0.45)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🧤', 0, -kh * 0.1);
+        ctx.restore();
+        // ball
+        let bx = g.spot.x, by = g.spot.y, br = g.ballR;
+        if (g.shot) { const p = Math.min(1, g.shot.t / g.shot.T), e = 1 - Math.pow(1 - p, 2); bx += (g.shot.tx - bx) * e; by += (g.shot.ty - by) * e; br *= 1 - 0.35 * e; }
+        if (g.result === 'goal' && g.shot) { bx = g.shot.tx; by = g.shot.ty; br = g.ballR * 0.65; }
+        ctx.font = `${br * 2}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚽', bx, by);
+        if (g.state === 'play' && !g.shot) { ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '800 13px system-ui'; ctx.fillText('Tap inside the goal to shoot', W / 2, H * 0.93); }
+        ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.font = `900 ${Math.min(W, H) * 0.28}px system-ui`;
+        if (g.state === 'play') ctx.fillText(g.score, W / 2, H * 0.58);
+    };
+};
+
+// ======================================================================
+// v20: FANTASY FOOTBALL (Premier League, real FPL points)
+// fantasy/{uid} = { uid, user, squad:[15 ids], xi:[11 ids], captain, value, gw: { "<event>": { xi, captain } }, updatedAt }
+// Data: official Fantasy Premier League (players, prices, live points).
+// ======================================================================
+window.FPL = 'https://fantasy.premierleague.com/api/';
+window.fetchJsonRelay = async function(url) {
+    const tries = [url, 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url), 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), 'https://corsproxy.io/?url=' + encodeURIComponent(url)];
+    for (const u of tries) {
+        try { const r = await fetch(u); if (!r.ok) continue; return await r.json(); } catch (e) {}
+    }
+    throw new Error('offline');
+};
+window.fpl = null;
+window.loadFpl = async function(force) {
+    if (window.fpl && !force && Date.now() - window.fpl.at < 3 * 3600000) return window.fpl;
+    try { const c = JSON.parse(localStorage.getItem('sg_fpl') || 'null'); if (c && !force && Date.now() - c.at < 6 * 3600000) { window.fpl = c; return c; } } catch (e) {}
+    if (window._fplReq) return window._fplReq;
+    window._fplReq = window.loadFplNow().finally(() => { window._fplReq = null; });
+    return window._fplReq;
+};
+window.loadFplNow = async function() {
+    const j = await window.fetchJsonRelay(window.FPL + 'bootstrap-static/');
+    const data = {
+        at: Date.now(),
+        teams: Object.fromEntries((j.teams || []).map(t => [t.id, { id: t.id, short: t.short_name, name: t.name }])),
+        players: (j.elements || []).map(p => ({ id: p.id, name: p.web_name, team: p.team, pos: p.element_type, cost: p.now_cost, pts: p.total_points, form: p.form, st: p.status, ep: p.event_points, chance: p.chance_of_playing_next_round })),
+        events: (j.events || []).map(e => ({ id: e.id, deadline: new Date(e.deadline_time).getTime(), cur: e.is_current, next: e.is_next, done: e.finished }))
+    };
+    window.fpl = data;
+    try { localStorage.setItem('sg_fpl', JSON.stringify(data)); } catch (e) {}
+    return data;
+};
+window.fplPlayer = (id) => window.fpl && window.fpl.players.find(p => p.id === id);
+window.POS = { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+window.POS_NEED = { 1: 2, 2: 5, 3: 5, 4: 3 };
+window.BUDGET = 1000;
+window.fmtCost = (c) => '£' + (c / 10).toFixed(1) + 'm';
+window.nextEvent = () => (window.fpl.events.find(e => e.next) || window.fpl.events.find(e => e.deadline > Date.now()));
+window.curEvent = () => (window.fpl.events.find(e => e.cur) || [...window.fpl.events].reverse().find(e => e.deadline < Date.now()));
+
+window.myFantasy = null;      // saved team
+window.fDraft = null;         // team being edited { squad, xi, captain }
+window.loadMyFantasy = async function() {
+    if (!window.isSignedIn()) return null;
+    try { const s = await getDoc(doc(window.db, 'fantasy', window.uidNow())); window.myFantasy = s.exists() ? s.data() : null; } catch (e) {}
+    return window.myFantasy;
+};
+
+window.fantasyView = 'team';
+window.renderFantasy = async function() {
+    const box = document.getElementById('playBody');
+    box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading Premier League players…</p>`;
+    try { await window.loadFpl(); } catch (e) {
+        box.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center space-y-2"><p class="text-3xl">📡</p><p class="text-xs font-bold text-white">Couldn't load Fantasy data</p><button onclick="window.renderFantasy()" class="text-cyan-400 text-xs font-bold underline">Try again</button></div>`; return;
+    }
+    if (window.isSignedIn() && window.myFantasy === null && !window._fantasyLoaded) { window._fantasyLoaded = true; await window.loadMyFantasy(); }
+    if (window.playTab !== 'fantasy') return;
+    const ne = window.nextEvent();
+    const tabs = `<div class="flex gap-2">${[['team', '⚽ My Team'], ['table', '🏆 Leaderboard'], ['rules', 'ℹ️ How it works']].map(([k, l]) => `<button onclick="window.fantasyView='${k}'; window.renderFantasy()" class="flex-1 py-2 rounded-xl text-[11px] font-black ${window.fantasyView === k ? 'bg-emerald-500 text-slate-950' : 'bg-gg-900 text-gray-300 border border-emerald-500/20'}">${l}</button>`).join('')}</div>`;
+    const head = `<div class="glass-panel rounded-2xl p-3.5 border border-emerald-500/30 flex items-center justify-between">
+        <div><p class="text-xs font-black text-white uppercase tracking-wider">🏆 Sinless Fantasy</p><p class="text-[10px] text-gray-400">Premier League · real FPL points</p></div>
+        ${ne ? `<div class="text-right"><p class="text-[9px] text-gray-400 font-bold uppercase">GW${ne.id} deadline</p><p class="text-xs font-black text-emerald-400">${window.fmtCountdown(ne.deadline)}</p></div>` : ''}</div>`;
+    if (window.fantasyView === 'rules') { box.innerHTML = head + tabs + window.fantasyRulesHtml(); return; }
+    if (window.fantasyView === 'table') { box.innerHTML = head + tabs + `<div id="fantasyTable"><p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i></p></div>`; window.renderFantasyTable(); return; }
+    if (!window.isSignedIn()) { box.innerHTML = head + tabs + `<div class="glass-panel p-8 rounded-2xl text-center text-xs text-gray-400">Sign in to build your Fantasy team.</div>`; return; }
+    if (!window.fDraft) window.fDraft = window.myFantasy ? { squad: [...window.myFantasy.squad], xi: [...window.myFantasy.xi], captain: window.myFantasy.captain } : { squad: [], xi: [], captain: null };
+    box.innerHTML = head + tabs + window.fantasyTeamHtml();
+    window.fantasyLivePoints();
+};
+window.fmtCountdown = function(ms) {
+    const d = ms - Date.now(); if (d <= 0) return 'Locked';
+    const h = Math.floor(d / 3600000), m = Math.floor(d % 3600000 / 60000);
+    return h >= 48 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${m}m`;
+};
+window.fantasyRulesHtml = function() {
+    return `<div class="glass-panel rounded-2xl p-4 border border-cyan-500/20 text-xs text-gray-300 space-y-2 leading-relaxed">
+        <p>1️⃣ Pick <b>15 players</b> with a <b>£100m</b> budget: 2 GK, 5 DEF, 5 MID, 3 FWD. Max <b>3 players</b> from one club.</p>
+        <p>2️⃣ Choose your <b>starting 11</b> (1 GK, at least 3 DEF, 2 MID, 1 FWD). Bench players don't score.</p>
+        <p>3️⃣ Pick a <b>captain ©</b>: their points count <b>double</b>.</p>
+        <p>4️⃣ Your team locks at each gameweek <b>deadline</b>. Change it as much as you like before then. Free transfers, no hits!</p>
+        <p>5️⃣ Points come from the official Fantasy Premier League scores. The weekly leaderboard crowns a 👑 champion every gameweek.</p>
+        <p class="text-[10px] text-gray-500">Player data © Fantasy Premier League. Sinless Fantasy is a free fan game, not affiliated with the Premier League.</p></div>`;
+};
+window.fSquadPlayers = () => (window.fDraft.squad || []).map(window.fplPlayer).filter(Boolean);
+window.fSpent = () => window.fSquadPlayers().reduce((a, p) => a + p.cost, 0);
+window.fantasyTeamHtml = function() {
+    const d = window.fDraft, players = window.fSquadPlayers();
+    const team = (id) => (window.fpl.teams[id] || {}).short || '';
+    const card = (p, starter) => {
+        const cap = d.captain === p.id;
+        const warn = p.st !== 'a' ? `<span class="absolute -top-1 -left-1 text-[10px]">${p.st === 'i' ? '🚑' : p.st === 's' ? '🟥' : '⚠️'}</span>` : '';
+        return `<button onclick="window.fantasyPlayerMenu(${p.id})" class="relative w-[19%] min-w-[62px] flex flex-col items-center">
+            ${warn}${cap ? '<span class="absolute -top-1 -right-0 w-4 h-4 rounded-full bg-amber-400 text-slate-950 text-[9px] font-black flex items-center justify-center">C</span>' : ''}
+            <div class="w-10 h-10 rounded-full ${starter ? 'bg-white text-slate-950' : 'bg-gg-800 text-gray-300'} flex items-center justify-center text-[9px] font-black border-2 ${cap ? 'border-amber-400' : 'border-emerald-300/40'}">${escapeHTML(team(p.team))}</div>
+            <p class="text-[9px] font-black text-white bg-black/60 rounded px-1 mt-0.5 truncate max-w-full">${escapeHTML(p.name)}</p>
+            <p class="text-[8px] text-emerald-300 font-bold" data-live-pts="${p.id}">${window.fmtCost(p.cost)}</p></button>`;
+    };
+    const slot = (pos) => `<button onclick="window.openPlayerPicker(${pos})" class="w-[19%] min-w-[62px] flex flex-col items-center opacity-80"><div class="w-10 h-10 rounded-full border-2 border-dashed border-white/50 text-white flex items-center justify-center text-lg">+</div><p class="text-[9px] text-white font-black mt-0.5">${window.POS[pos]}</p></button>`;
+    const rows = [1, 2, 3, 4].map(pos => {
+        const starters = players.filter(p => p.pos === pos && d.xi.includes(p.id));
+        return `<div class="flex justify-center gap-1.5 flex-wrap">${starters.map(p => card(p, true)).join('')}</div>`;
+    }).join('');
+    const bench = players.filter(p => !d.xi.includes(p.id));
+    const missing = [1, 2, 3, 4].flatMap(pos => Array(Math.max(0, window.POS_NEED[pos] - players.filter(p => p.pos === pos).length)).fill(pos));
+    const spent = window.fSpent(), bank = window.BUDGET - spent;
+    const ready = players.length === 15;
+    const ne = window.nextEvent();
+    const saved = window.myFantasy && JSON.stringify([window.myFantasy.squad, window.myFantasy.xi, window.myFantasy.captain]) === JSON.stringify([d.squad, d.xi, d.captain]);
+    return `
+        <div class="flex items-center justify-between text-[11px] font-bold px-1">
+            <span class="text-gray-400">${players.length}/15 players</span>
+            <span class="${bank < 0 ? 'text-red-400' : 'text-emerald-400'}">Bank: ${window.fmtCost(bank)}</span>
+            <span id="fantasyGwPts" class="text-amber-400"></span>
+        </div>
+        <div class="rounded-2xl p-3 space-y-4 border border-emerald-500/30" style="background:repeating-linear-gradient(180deg,#0b5d24 0 44px,#0a5321 44px 88px)">
+            ${players.length ? rows : '<p class="text-center text-sm font-black text-white py-6">Build your dream team 👇</p>'}
+            ${missing.length ? `<div class="flex justify-center gap-1.5 flex-wrap pt-2 border-t border-white/20">${missing.map(slot).join('')}</div>` : ''}
+        </div>
+        ${bench.length ? `<div class="glass-panel rounded-2xl p-2.5 border border-cyan-500/15"><p class="text-[9px] font-black text-gray-400 uppercase mb-1.5">Bench</p><div class="flex justify-center gap-1.5 flex-wrap">${bench.map(p => card(p, false)).join('')}</div></div>` : ''}
+        <p class="text-[10px] text-gray-500 text-center">Tap a player to make captain, bench, start or transfer.</p>
+        <button onclick="window.saveFantasy()" ${ready ? '' : 'disabled'} class="w-full py-3.5 rounded-2xl font-black text-sm uppercase ${ready ? (saved ? 'bg-gg-900 border border-emerald-500/40 text-emerald-400' : 'bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950') : 'bg-gg-900 text-gray-600'}">${!ready ? `Pick ${15 - players.length} more` : saved ? `✓ Saved for GW${ne ? ne.id : ''}` : `💾 Save team for GW${ne ? ne.id : ''}`}</button>
+        ${players.length < 15 ? `<button onclick="window.autoPickFantasy()" class="w-full py-2.5 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-xs font-black">⚡ Auto-pick the rest for me</button>` : ''}`;
+};
+window.fCanAdd = function(p) {
+    const d = window.fDraft, players = window.fSquadPlayers();
+    if (d.squad.includes(p.id)) return 'In your team';
+    if (players.filter(x => x.pos === p.pos).length >= window.POS_NEED[p.pos]) return `You have ${window.POS_NEED[p.pos]} ${window.POS[p.pos]}s`;
+    if (players.filter(x => x.team === p.team).length >= 3) return 'Max 3 from this club';
+    if (window.fSpent() + p.cost > window.BUDGET) return 'Not enough money';
+    return '';
+};
+window.openPlayerPicker = function(pos, q = '') {
+    window.panelKind = 'fpick'; window.pickPos = pos;
+    const list = window.fpl.players.filter(p => p.pos === pos && (!q || p.name.toLowerCase().includes(q.toLowerCase()) || ((window.fpl.teams[p.team] || {}).name || '').toLowerCase().includes(q.toLowerCase())))
+        .sort((a, b) => b.pts - a.pts).slice(0, 80);
+    const bank = window.BUDGET - window.fSpent();
+    window.openPanel(`Pick a ${({ 1: 'Goalkeeper', 2: 'Defender', 3: 'Midfielder', 4: 'Forward' })[pos]} · Bank ${window.fmtCost(bank)}`, `
+        <input id="fpickQ" value="${escapeHTML(q)}" placeholder="Search player or club…" oninput="clearTimeout(window._fpq); window._fpq=setTimeout(()=>window.openPlayerPicker(${pos}, this.value), 300)" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none">
+        <div class="space-y-1.5">${list.map(p => { const why = window.fCanAdd(p); return `<button ${why ? 'disabled' : ''} onclick="window.addFantasyPlayer(${p.id})" class="w-full flex items-center justify-between p-2.5 rounded-xl ${why ? 'bg-gg-950 opacity-50' : 'bg-gg-900 border border-cyan-500/15'} text-left">
+            <div class="flex items-center gap-2.5 min-w-0"><span class="w-9 h-9 rounded-full bg-white text-slate-950 text-[9px] font-black flex items-center justify-center shrink-0">${escapeHTML((window.fpl.teams[p.team] || {}).short || '')}</span>
+            <div class="min-w-0"><p class="text-xs font-black text-white truncate">${escapeHTML(p.name)} ${p.st !== 'a' ? (p.st === 'i' ? '🚑' : p.st === 's' ? '🟥' : '⚠️') : ''}</p><p class="text-[10px] text-gray-400">${p.pts} pts · form ${escapeHTML(String(p.form))}${why ? ' · ' + why : ''}</p></div></div>
+            <span class="text-xs font-black text-emerald-400 shrink-0">${window.fmtCost(p.cost)}</span></button>`; }).join('')}</div>`);
+    if (q) { const i = document.getElementById('fpickQ'); i.focus(); i.setSelectionRange(q.length, q.length); }
+};
+window.addFantasyPlayer = function(id) {
+    const p = window.fplPlayer(id); if (!p || window.fCanAdd(p)) return;
+    const d = window.fDraft;
+    d.squad.push(id);
+    window.fixXi();
+    window.closePanel();
+    window.renderFantasy();
+};
+// keep a valid starting 11 automatically (1 GK, 3+ DEF, 2+ MID, 1+ FWD)
+window.fixXi = function() {
+    const d = window.fDraft, players = window.fSquadPlayers();
+    d.xi = d.xi.filter(id => d.squad.includes(id));
+    const byPos = (pos) => players.filter(p => p.pos === pos).sort((a, b) => b.pts - a.pts);
+    const xiOf = (pos) => d.xi.map(window.fplPlayer).filter(p => p && p.pos === pos);
+    const need = { 1: [1, 1], 2: [3, 5], 3: [2, 5], 4: [1, 3] };
+    [1, 2, 3, 4].forEach(pos => { for (const p of byPos(pos)) { if (xiOf(pos).length >= need[pos][0]) break; if (!d.xi.includes(p.id)) d.xi.push(p.id); } });
+    const pool = players.filter(p => !d.xi.includes(p.id) && p.pos !== 1).sort((a, b) => b.pts - a.pts);
+    for (const p of pool) { if (d.xi.length >= 11) break; if (xiOf(p.pos).length < need[p.pos][1]) d.xi.push(p.id); }
+    while (d.xi.length > 11) d.xi.pop();
+    if (!d.captain || !d.xi.includes(d.captain)) d.captain = [...d.xi].map(window.fplPlayer).filter(Boolean).sort((a, b) => b.pts - a.pts)[0]?.id || null;
+};
+window.validXi = function(xi) {
+    const ps = xi.map(window.fplPlayer).filter(Boolean), c = (pos) => ps.filter(p => p.pos === pos).length;
+    return ps.length === 11 && c(1) === 1 && c(2) >= 3 && c(3) >= 2 && c(4) >= 1;
+};
+window.fantasyPlayerMenu = function(id) {
+    const d = window.fDraft, p = window.fplPlayer(id); if (!p) return;
+    const starter = d.xi.includes(id);
+    const items = [];
+    if (starter && d.captain !== id) items.push({ icon: 'fa-copyright', label: 'Make captain (double points)', run: () => { d.captain = id; window.renderFantasy(); } });
+    if (starter) items.push({ icon: 'fa-chair', label: 'Move to bench', run: () => {
+        const bench = window.fSquadPlayers().filter(x => !d.xi.includes(x.id));
+        const swap = bench.find(b => window.validXi([...d.xi.filter(x => x !== id), b.id]));
+        if (!swap) { showToast("Can't bench: your starting 11 would break the formation."); return; }
+        d.xi = [...d.xi.filter(x => x !== id), swap.id]; if (d.captain === id) d.captain = swap.id; window.renderFantasy();
+    } });
+    else items.push({ icon: 'fa-person-running', label: 'Bring into starting 11', run: () => {
+        const out = d.xi.map(window.fplPlayer).filter(Boolean).sort((a, b) => (a.pos === p.pos ? -1 : 1) - (b.pos === p.pos ? -1 : 1) || a.pts - b.pts).find(x => window.validXi([...d.xi.filter(y => y !== x.id), id]));
+        if (!out) { showToast('No valid swap for that formation.'); return; }
+        d.xi = [...d.xi.filter(y => y !== out.id), id]; if (d.captain === out.id) d.captain = id; window.renderFantasy();
+    } });
+    items.push({ icon: 'fa-right-left', label: `Transfer out (${window.fmtCost(p.cost)})`, danger: true, run: () => {
+        d.squad = d.squad.filter(x => x !== id); d.xi = d.xi.filter(x => x !== id); if (d.captain === id) d.captain = null; window.fixXi(); window.renderFantasy(); window.openPlayerPicker(p.pos);
+    } });
+    window.openActionSheet(`${p.name} · ${(window.fpl.teams[p.team] || {}).short} · ${p.pts} pts`, items);
+};
+window.autoPickFantasy = function() {
+    const d = window.fDraft;
+    for (const pos of [1, 2, 3, 4]) {
+        const avg = 0;
+        while (window.fSquadPlayers().filter(p => p.pos === pos).length < window.POS_NEED[pos]) {
+            const left = 15 - window.fSquadPlayers().length;
+            const budgetPer = (window.BUDGET - window.fSpent()) / Math.max(1, left);
+            const cand = window.fpl.players.filter(p => p.pos === pos && p.st === 'a' && !window.fCanAdd(p) && p.cost <= budgetPer * 1.35)
+                .sort((a, b) => (b.pts / b.cost) - (a.pts / a.cost))[0]
+                || window.fpl.players.filter(p => p.pos === pos && !window.fCanAdd(p)).sort((a, b) => a.cost - b.cost)[0];
+            if (!cand) break;
+            d.squad.push(cand.id);
+        }
+    }
+    window.fixXi();
+    window.renderFantasy();
+};
+window.saveFantasy = async function() {
+    if (window.needSignIn('play Fantasy')) return;
+    const d = window.fDraft;
+    if (window.fSquadPlayers().length !== 15) return;
+    if (window.fSpent() > window.BUDGET) { showToast('⚠️ Over budget. Transfer someone out.'); return; }
+    if (!window.validXi(d.xi)) { showToast('⚠️ Starting 11 needs 1 GK, 3+ DEF, 2+ MID, 1+ FWD.'); return; }
+    const ne = window.nextEvent();
+    if (!ne || Date.now() >= ne.deadline) { showToast('🔒 The deadline has passed. Try again after the gameweek.'); return; }
+    const first = !window.myFantasy;
+    const data = { uid: window.uidNow(), user: window.me(), squad: d.squad, xi: d.xi, captain: d.captain, value: window.fSpent(), updatedAt: serverTimestamp(),
+        gw: { ...((window.myFantasy && window.myFantasy.gw) || {}), [ne.id]: { xi: d.xi, captain: d.captain, deadline: ne.deadline } } };
+    try {
+        await setDoc(doc(window.db, 'fantasy', window.uidNow()), data);
+        window.myFantasy = { ...data };
+        showToast(`✅ Team saved for Gameweek ${ne.id}!`);
+        if (first) { window.addXP && window.addXP(20, 'challenge'); }
+        window.bumpChallenge && window.bumpChallenge('fantasy');
+        delete window._fTable;
+        window.renderFantasy();
+    } catch (e) { showToast("⚠️ Couldn't save. Did you add the new Firebase rules?"); }
+};
+// points for a gameweek from FPL live data
+window._live = {};
+window.loadLive = async function(ev) {
+    const c = window._live[ev];
+    const e = window.fpl.events.find(x => x.id === ev);
+    if (c && (Date.now() - c.at < (e && e.done ? 6 * 3600000 : 120000))) return c.pts;
+    window._liveReq = window._liveReq || {};
+    if (window._liveReq[ev]) return window._liveReq[ev];          // one download at a time
+    window._liveReq[ev] = window.fetchJsonRelay(window.FPL + `event/${ev}/live/`).then(j => {
+        const pts = {}; (j.elements || []).forEach(x => { pts[x.id] = (x.stats && x.stats.total_points) || 0; });
+        window._live[ev] = { at: Date.now(), pts };
+        return pts;
+    }).finally(() => { window._liveReq[ev] = null; });
+    return window._liveReq[ev];
+};
+window.teamPicksFor = function(team, ev) {
+    const keys = Object.keys(team.gw || {}).map(Number).filter(k => k <= ev).sort((a, b) => b - a);
+    return keys.length ? team.gw[keys[0]] : null;
+};
+window.teamPoints = function(picks, pts) {
+    if (!picks) return null;
+    return picks.xi.reduce((a, id) => a + (pts[id] || 0) * (id === picks.captain ? 2 : 1), 0);
+};
+window.fantasyLivePoints = async function() {
+    if (!window.myFantasy) return;
+    const ce = window.curEvent(); if (!ce) return;
+    const picks = window.teamPicksFor(window.myFantasy, ce.id); if (!picks) return;
+    try {
+        const pts = await window.loadLive(ce.id);
+        const el = document.getElementById('fantasyGwPts');
+        if (el) el.innerText = `GW${ce.id}: ${window.teamPoints(picks, pts)} pts`;
+        picks.xi.forEach(id => { const t = document.querySelector(`[data-live-pts="${id}"]`); if (t && window.fDraft && window.fDraft.xi.includes(id)) t.innerText = `${(pts[id] || 0) * (id === picks.captain ? 2 : 1)} pts`; });
+    } catch (e) {}
+};
+window.renderFantasyTable = async function() {
+    const el = document.getElementById('fantasyTable'); if (!el) return;
+    const ce = window.curEvent();
+    if (!ce) { el.innerHTML = '<p class="text-xs text-gray-400 text-center py-8">The season hasn’t started yet.</p>'; return; }
+    try {
+        if (!window._fTable || Date.now() - window._fTable.at > 120000) {
+            const teams = []; const s = await getDocs(query(collection(window.db, 'fantasy'), limit(500))); s.forEach(d => teams.push(d.data()));
+            const [cur, prev] = await Promise.all([window.loadLive(ce.id), ce.id > 1 ? window.loadLive(ce.id - 1) : Promise.resolve({})]);
+            const score = (pts, ev) => teams.map(t => ({ user: t.user, uid: t.uid, pts: window.teamPoints(window.teamPicksFor(t, ev), pts) })).filter(r => r.pts !== null && !window.isBlocked(r.user)).sort((a, b) => b.pts - a.pts);
+            window._fTable = { at: Date.now(), cur: score(cur, ce.id), prev: ce.id > 1 ? score(prev, ce.id - 1) : [] };
+        }
+    } catch (e) { el.innerHTML = '<p class="text-xs text-gray-400 text-center py-8">Couldn’t load the leaderboard. <button onclick="window.renderFantasyTable()" class="text-cyan-400 underline">Retry</button></p>'; return; }
+    const { cur, prev } = window._fTable;
+    const champ = prev[0];
+    el.innerHTML = `${champ ? `<div class="glass-panel rounded-2xl p-3.5 border border-amber-500/40 flex items-center gap-3 mb-3"><span class="text-3xl">👑</span><div><p class="text-[10px] text-amber-400 font-black uppercase">GW${ce.id - 1} champion</p><p class="text-sm font-black text-white">${window.dn(champ.user)} · ${champ.pts} pts</p></div></div>` : ''}
+        <div class="glass-panel rounded-2xl overflow-hidden border border-emerald-500/25">
+            <p class="px-3 py-2 text-[10px] font-black text-gray-400 uppercase border-b border-cyan-500/10">Gameweek ${ce.id} ${ce.done ? '· final' : '· live'}</p>
+            ${cur.length ? cur.slice(0, 100).map((r, i) => `<div class="flex items-center justify-between px-3 py-2.5 ${r.uid === window.uidNow() ? 'bg-emerald-500/10' : ''}">
+                <div class="flex items-center gap-2 min-w-0"><span class="w-6 text-center text-sm">${['🥇', '🥈', '🥉'][i] || `<span class="text-[10px] text-gray-500 font-black">#${i + 1}</span>`}</span>${window.avatarHtml(r.user, 'w-7 h-7', 'rounded-lg', 'text-[9px]')}<span class="text-xs font-bold text-white truncate">${window.dn(r.user)}</span></div>
+                <span class="text-sm font-black text-emerald-400">${r.pts}</span></div>`).join('') : '<p class="text-xs text-gray-400 text-center py-6">No teams for this gameweek yet. Save yours before the deadline!</p>'}
+        </div>`;
+};
+
+// New weekly challenges (from next week, so this week's list doesn't change)
+window.CHALLENGE_POOL.push(
+    { id: 'arcade5', type: 'game', target: 5, label: 'Play 5 Arcade games', icon: '🎮' },
+    { id: 'fantasy1', type: 'fantasy', target: 1, label: 'Save your Fantasy team', icon: '🏆' }
+);
+window._baseWeekChallenges20 = window._baseWeekChallenges20 || window.weekChallenges;
+window.weekChallenges = function(wk = window.weekKey(Date.now())) {
+    if (wk < '2026-10-26') {
+        const full = window.CHALLENGE_POOL; window.CHALLENGE_POOL = full.slice(0, 12);
+        try { return window._baseWeekChallenges20(wk); } finally { window.CHALLENGE_POOL = full; }
+    }
+    return window._baseWeekChallenges20(wk);
+};
+window.XP_RULES.game = [2, 10];

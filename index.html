@@ -207,6 +207,17 @@
         </div>
     </div>
 
+    <!-- v20: Mini game screen -->
+    <div id="gameModal" class="hidden fixed inset-0 bg-black flex flex-col select-none" style="z-index:258;touch-action:none">
+        <div class="shrink-0 flex items-center justify-between px-3 py-2 bg-gg-950/90">
+            <button onclick="window.closeGame()" class="w-9 h-9 rounded-xl bg-gg-800 text-white"><i class="fa-solid fa-arrow-left"></i></button>
+            <p id="gameTitle" class="text-sm font-black text-white"></p>
+            <p id="gameScoreTop" class="text-sm font-black text-amber-400 min-w-[60px] text-right">0</p>
+        </div>
+        <div class="relative flex-1"><canvas id="gameCanvas" class="absolute inset-0 w-full h-full"></canvas>
+            <div id="gameOverlay" class="absolute inset-0 flex items-center justify-center p-6"></div></div>
+    </div>
+
     <!-- v17: General full-screen panel (progress, invite, saved, shelf, group info) -->
     <div id="sgPanel" class="hidden fixed inset-0 bg-gg-950 flex flex-col" style="z-index:264">
         <div class="w-full max-w-xl mx-auto flex flex-col h-[100dvh]">
@@ -357,6 +368,7 @@
             <button onclick="switchView('news')" id="nav-news" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-newspaper mr-1"></i> News</button>
             <button onclick="switchView('trending')" id="nav-trending" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-chart-line mr-1"></i> Trending</button>
             <button onclick="switchView('predict')" id="nav-predict" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-bullseye mr-1"></i> Predict</button>
+            <button onclick="switchView('play')" id="nav-play" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-gamepad mr-1"></i> Play</button>
             <button onclick="switchView('market')" id="nav-market" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-store mr-1"></i> Market</button>
             <button onclick="switchView('clans')" id="nav-clans" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-shield-halved mr-1"></i> Squads</button>
             <button onclick="switchView('chat')" id="nav-chat" class="flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap"><i class="fa-solid fa-comments mr-1"></i> Lobbies</button>
@@ -434,6 +446,15 @@
                 <button data-predtab="table" onclick="window.setPredictTab('table')" class="flex-1 py-2 text-xs font-black">🏆 Table</button>
             </div>
             <div id="predictBody" class="space-y-2.5"></div>
+        </div>
+
+        <!-- VIEW: PLAY (Arcade + Fantasy) -->
+        <div id="view-play" class="view-section hidden flex-1 flex flex-col space-y-3 pb-6">
+            <div class="flex glass-panel rounded-2xl overflow-hidden border border-cyan-500/20">
+                <button data-playtab="arcade" onclick="window.setPlayTab('arcade')" class="flex-1 py-2.5 text-xs font-black">🎮 Arcade</button>
+                <button data-playtab="fantasy" onclick="window.setPlayTab('fantasy')" class="flex-1 py-2.5 text-xs font-black">🏆 Fantasy</button>
+            </div>
+            <div id="playBody" class="space-y-3"></div>
         </div>
 
         <!-- VIEW: NEWS & GIST -->
