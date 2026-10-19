@@ -12776,11 +12776,11 @@ window.feedVideoCardHtml = function(v) {
             </div>
             <button onclick="event.stopPropagation(); window.hideFeedVideo(${i}, this)" class="w-7 h-7 rounded-full text-gray-500 hover:text-white" title="Not interested"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <button onclick="window.playFeedVideo(${i})" class="block w-full text-left">
-            <div class="relative aspect-video bg-gg-900"><img src="${img}" loading="lazy" alt="" class="w-full h-full object-cover">
-                <span class="absolute inset-0 flex items-center justify-center"><span class="w-14 h-14 rounded-full bg-red-600/90 text-white text-xl flex items-center justify-center shadow-xl"><i class="fa-solid fa-play"></i></span></span></div>
-            <p class="px-3 pt-2.5 text-sm font-black text-white leading-snug line-clamp-2">${escapeHTML(v.title)}</p>
-        </button>
+        <div data-yt-auto="${v.vid}" class="relative aspect-video bg-black">
+            <button onclick="window.playFeedVideo(${i})" class="absolute inset-0 w-full h-full"><img src="${img}" loading="lazy" alt="" class="w-full h-full object-cover">
+                <span class="absolute inset-0 flex items-center justify-center"><span class="w-14 h-14 rounded-full bg-red-600/90 text-white text-xl flex items-center justify-center shadow-xl"><i class="fa-solid fa-play"></i></span></span></button>
+        </div>
+        <button onclick="window.playFeedVideo(${i})" class="block w-full text-left"><p class="px-3 pt-2.5 text-sm font-black text-white leading-snug line-clamp-2">${escapeHTML(v.title)}</p></button>
         <div class="flex items-center gap-2 px-3 py-2.5 text-[11px] font-black">
             <button onclick="window.playFeedVideo(${i})" class="flex-1 py-2 rounded-xl bg-gg-900 border border-cyan-500/25 text-cyan-300">🔥 GG &amp; 💬 Comment</button>
             <button onclick="window.watchCat='${v.cat}'; window.switchView('watch')" class="px-3 py-2 rounded-xl bg-gg-900 border border-red-500/30 text-red-300">More in Watch ›</button>
@@ -12813,3 +12813,55 @@ window.playHighlight = function(i) {
     if (window.taste && v && cat && cat !== 'football' && before !== null) { window.taste.news.football = before; window.taste.news[cat] = Math.min(60, (window.taste.news[cat] || 0) + 1); window.saveTasteSoon(); }
 };
 setTimeout(() => window.refreshFeedVideos(null), 4000);
+
+// ======================================================================
+// v23b: VIDEOS FROM WATCH AUTOPLAY IN THE FEED (like TikTok)
+// The most visible video plays on its own (muted; tap the speaker for sound), others stop.
+// Works together with people's uploaded videos — only one thing plays at a time.
+// ======================================================================
+window.ytMount = function(stage) {
+    if (stage.querySelector('iframe')) return;
+    const vid = stage.getAttribute('data-yt-auto'); if (!/^[\w-]{6,20}$/.test(vid)) return;
+    const f = document.createElement('iframe');
+    f.src = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&loop=1&playlist=${vid}&enablejsapi=1`;
+    f.className = 'absolute inset-0 w-full h-full border-0';
+    f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    f.setAttribute('data-yt-frame', '1');
+    f.onload = () => { if (!window.feedMuted) setTimeout(() => { try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*'); } catch (e) {} }, 600); };
+    stage.appendChild(f);
+    if (!stage.querySelector('.yt-sound-hint')) stage.insertAdjacentHTML('beforeend', `<button onclick="event.stopPropagation(); window.toggleFeedMute()" class="yt-sound-hint feed-mute-btn absolute bottom-2 right-2 z-10 w-9 h-9 rounded-full bg-black/60 text-white text-sm flex items-center justify-center"><i class="fa-solid ${window.feedMuted ? 'fa-volume-xmark' : 'fa-volume-high'}"></i></button>`);
+};
+window.ytUnmount = function(stage) { stage.querySelector('iframe[data-yt-frame]')?.remove(); stage.querySelector('.yt-sound-hint')?.remove(); };
+window.ytCommand = function(func) {
+    document.querySelectorAll('iframe[data-yt-frame]').forEach(f => { try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*'); } catch (e) {} });
+};
+window._baseSetupFeedAutoplay23b = window._baseSetupFeedAutoplay23b || window.setupFeedAutoplay;
+window.setupFeedAutoplay = function() {
+    window._baseSetupFeedAutoplay23b();
+    if (!window.feedVideoObserver) return;
+    document.querySelectorAll('[data-yt-auto]').forEach(el => window.feedVideoObserver.observe(el));
+};
+window._basePickFeedVideoToPlay23b = window._basePickFeedVideoToPlay23b || window.pickFeedVideoToPlay;
+window.pickFeedVideoToPlay = function() {
+    const feedVisible = !document.getElementById('view-fyp').classList.contains('hidden');
+    const overlayOpen = ['postDetailModal', 'mediaZoomModal', 'storyViewerModal', 'userProfileModal', 'hlModal', 'gameModal', 'liveRoomModal'].some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); });
+    let best = null, bestRatio = 0.6;
+    if (feedVisible && !overlayOpen && !window.dataSaver) window.feedVideoRatios.forEach((r, el) => { if (r >= bestRatio && document.body.contains(el)) { best = el; bestRatio = r; } });
+    const ytBest = best && best.hasAttribute && best.hasAttribute('data-yt-auto') ? best : null;
+    document.querySelectorAll('[data-yt-auto]').forEach(st => { if (st === ytBest) window.ytMount(st); else window.ytUnmount(st); });
+    if (ytBest) { window.pauseFeedVideos(); return; }
+    window._basePickFeedVideoToPlay23b();
+};
+window._baseToggleFeedMute23b = window._baseToggleFeedMute23b || window.toggleFeedMute;
+window.toggleFeedMute = function() { window._baseToggleFeedMute23b(); window.ytCommand(window.feedMuted ? 'mute' : 'unMute'); };
+// stop feed videos whenever the page / tab changes
+document.addEventListener('visibilitychange', () => { if (document.hidden) document.querySelectorAll('[data-yt-auto]').forEach(window.ytUnmount); });
+window._baseSwitchView23b = window._baseSwitchView23b || window.switchView;
+window.switchView = function(v) { window._baseSwitchView23b(v); if (v !== 'fyp') document.querySelectorAll('[data-yt-auto]').forEach(window.ytUnmount); else setTimeout(() => window.pickFeedVideoToPlay && window.feedVideoRatios && window.pickFeedVideoToPlay(), 300); };
+window._basePlayFeedVideo23b = window._basePlayFeedVideo23b || window.playFeedVideo;
+window.playFeedVideo = function(i) { document.querySelectorAll('[data-yt-auto]').forEach(window.ytUnmount); window._basePlayFeedVideo23b(i); };
+// the news/video cards are added after the posts, so start watching them after every feed redraw
+window._baseRenderFypFeed23b = window._baseRenderFypFeed23b || window.renderFypFeed;
+window.renderFypFeed = function(...a) { const r = window._baseRenderFypFeed23b(...a); try { window.setupFeedAutoplay && window.setupFeedAutoplay(); } catch (e) {} return r; };
+window._baseCloseHighlight23b = window._baseCloseHighlight23b || window.closeHighlight;
+window.closeHighlight = function() { window._baseCloseHighlight23b(); setTimeout(() => window.feedVideoRatios && window.pickFeedVideoToPlay(), 300); };
