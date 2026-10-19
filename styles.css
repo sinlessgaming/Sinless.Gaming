@@ -119,7 +119,14 @@ body {
     box-sizing: border-box;
     box-shadow: 10px 0 30px rgba(0, 0, 0, 0.8);
     pointer-events: auto;
+    /* phones: let the menu scroll so Account Settings, Sign out and the bottom links are reachable */
+    height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
 }
+.side-drawer > * { flex-shrink: 0; }
 
 .side-drawer.active {
     left: 0;

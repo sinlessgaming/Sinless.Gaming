@@ -5986,10 +5986,12 @@ window.isAppAdmin = false;
 window.isBanned = false;
 
 window.checkAdminAndBan = async function(user) {
-    window.isAppAdmin = false; window.isBanned = false;
-    if (!user || !window.db) return;
-    try { const c = await getDoc(doc(window.db, 'config', 'admins')); window.isAppAdmin = c.exists() && (c.data().uids || []).includes(user.uid); } catch (e) {}
-    try { const b = await getDoc(doc(window.db, 'banned', user.uid)); window.isBanned = b.exists(); } catch (e) {}
+    if (!user || !window.db) { window.isAppAdmin = false; window.isBanned = false; return; }
+    // work out the answer first, then switch — so the flag never blinks to "not admin" while checking
+    let adm = window.isAppAdmin, ban = window.isBanned;
+    try { const c = await getDoc(doc(window.db, 'config', 'admins')); adm = c.exists() && (c.data().uids || []).includes(user.uid); } catch (e) {}
+    try { const b = await getDoc(doc(window.db, 'banned', user.uid)); ban = b.exists(); } catch (e) {}
+    window.isAppAdmin = adm; window.isBanned = ban;
     document.getElementById('adminPanelItem') && document.getElementById('adminPanelItem').classList.toggle('hidden', !window.isAppAdmin);
     document.getElementById('bannedBanner') && document.getElementById('bannedBanner').classList.toggle('hidden', !window.isBanned);
 };
@@ -6045,7 +6047,8 @@ window.adminBoxFor = function(tab) {
     const el = document.getElementById('adminBody');
     return { get innerHTML() { return el.innerHTML; }, set innerHTML(v) { if (window.adminTab === tab) el.innerHTML = v; } };
 };
-window.openAdminPanel = function() {
+window.openAdminPanel = async function() {
+    if (!window.isAppAdmin && window.currentUser) await window.checkAdminAndBan(window.currentUser);   // double-check with the server
     if (!window.isAppAdmin) { showToast("Admins only."); return; }
     document.getElementById('adminModal').classList.remove('hidden');
     window.setAdminTab(window.adminTab);
