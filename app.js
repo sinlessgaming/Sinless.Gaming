@@ -60,6 +60,8 @@ const sgWrapSnap = (s) => {
 const getDoc = async (...a) => sgWrapSnap(await _fsGetDoc(...a));
 const getDocs = async (...a) => sgWrapSnap(await _fsGetDocs(...a));
 const onSnapshot = (...a) => { let done = false; return _fsOnSnapshot(...a.map(x => { if (typeof x === 'function' && !done) { done = true; return (snap) => x(sgWrapSnap(snap)); } return x; })); };
+window.tourScopeSquad = null;
+window.scopedTourns = () => (window.tournamentsList || []).filter(t => !window.tourScopeSquad || t.squadId === window.tourScopeSquad);
 // Clean anything saved on this phone by older versions too
 try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -1256,6 +1258,7 @@ window.defaultPublicCategorySquads = [
     { id: 'cat_squad_other', name: 'OTHER GAMES HUB', tag: 'OTH', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'OTHER GAMES', isOfficial: true, isPublic: true, inviteCode: 'SQ-OTH01', members: [], subRooms: ['Rules/Announcements', 'chat', 'Matchmaking'], bio: 'Every other game: Free Fire, PUBG, Fortnite, Roblox, Minecraft, GTA, NBA 2K, console & PC.', rooms: { 'Rules/Announcements': [], 'chat': [], 'Matchmaking': [] } },
     { id: 'cat_squad_movies', name: 'MOVIES & TV HUB', tag: 'MOV', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'MOVIES', isOfficial: true, isPublic: true, inviteCode: 'SQ-MOV01', members: [], subRooms: ['Rules/Announcements', 'chat'], bio: 'Movies, series, trailers, reviews and spoiler talk (mark your spoilers!).', rooms: { 'Rules/Announcements': [], 'chat': [] } },
     { id: 'cat_squad_anime', name: 'ANIME HUB', tag: 'ANI', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'ANIME', isOfficial: true, isPublic: true, inviteCode: 'SQ-ANI01', members: [], subRooms: ['Rules/Announcements', 'chat'], bio: 'Anime & manga: new episodes, power rankings, recommendations and debates.', rooms: { 'Rules/Announcements': [], 'chat': [] } },
+    { id: 'cat_squad_general', name: 'GENERAL LOUNGE', tag: 'GEN', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'GENERAL', isOfficial: true, isPublic: true, inviteCode: 'SQ-GEN01', members: [], subRooms: ['Rules/Announcements', 'chat'], bio: 'Hang out, share what you love, meet the community.', rooms: { 'Rules/Announcements': [], 'chat': [] } },
     { id: 'cat_squad_books', name: 'BOOKS & READERS HUB', tag: 'BKS', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'BOOKS', isOfficial: true, isPublic: true, inviteCode: 'SQ-BKS01', members: [], subRooms: ['Rules/Announcements', 'chat'], bio: 'For readers: what you are reading, book clubs, reviews, novels, comics & webtoons.', rooms: { 'Rules/Announcements': [], 'chat': [] } }
 ];
 
@@ -6528,7 +6531,7 @@ window.renderSquadChannel = function() {
                 : `<div class="flex space-x-2.5 pt-2.5 pr-1 rounded-lg hover:bg-gg-900/40 cursor-pointer" onclick="window.openSquadMessageActions('${m.id}')">
                        ${window.avatarHtml(m.sender, 'w-8 h-8', 'rounded-full', 'text-[10px]')}
                        <div class="flex-1 min-w-0">
-                           <div class="flex items-center">${window.nameLink(m.sender, `text-xs font-bold ${role === 'owner' ? 'text-amber-300' : role === 'admin' ? 'text-cyan-300' : 'text-white'}`)}${window.roleBadge(role)}${window.champLabel ? window.champLabel(m.sender, true) : ''}<span class="text-[9px] text-gray-500 ml-2">${m.timestamp ? window.timeAgo(m.timestamp) : ''}</span>${pinned ? '<i class="fa-solid fa-thumbtack text-[9px] text-amber-400 ml-1.5"></i>' : ''}</div>
+                           <div class="flex items-center">${window.nameLink(m.sender, `text-xs font-bold ${role === 'owner' ? 'text-amber-300' : role === 'admin' ? 'text-cyan-300' : 'text-white'}`)}${window.roleBadge(role)}${window.verifiedTick ? window.verifiedTick(m.sender) : ''}${window.champLabel ? window.champLabel(m.sender, true) : ''}<span class="text-[9px] text-gray-500 ml-2">${m.timestamp ? window.timeAgo(m.timestamp) : ''}</span>${pinned ? '<i class="fa-solid fa-thumbtack text-[9px] text-amber-400 ml-1.5"></i>' : ''}</div>
                            ${body}
                        </div>
                    </div>`;
@@ -6705,7 +6708,7 @@ window.renderSquadMembers = async function() {
             <div class="flex items-center justify-between p-2 rounded-xl hover:bg-gg-900/60 cursor-pointer" onclick="window.openMemberActions('${escapeHTML(r.tag)}')">
                 <div class="flex items-center space-x-2.5 min-w-0">
                     ${window.avatarHtml(r.tag, 'w-9 h-9', 'rounded-full', 'text-[10px]').replace(/onclick="[^"]*"/, '')}
-                    <span class="text-sm font-bold truncate ${r.role === 'owner' ? 'text-amber-300' : r.role === 'admin' ? 'text-cyan-300' : 'text-white'}">${window.dn(r.tag)}</span>${window.roleBadge(r.role)}${window.champLabel ? window.champLabel(r.tag, true) : ''}${muted ? '<span class="text-[10px] ml-1">🔇</span>' : ''}
+                    <span class="text-sm font-bold truncate ${r.role === 'owner' ? 'text-amber-300' : r.role === 'admin' ? 'text-cyan-300' : 'text-white'}">${window.dn(r.tag)}</span>${window.roleBadge(r.role)}${window.verifiedTick ? window.verifiedTick(r.tag, true) : ''}${window.champLabel ? window.champLabel(r.tag, true) : ''}${muted ? '<span class="text-[10px] ml-1">🔇</span>' : ''}
                 </div>
                 <i class="fa-solid fa-ellipsis text-gray-500"></i>
             </div>`;
@@ -7270,7 +7273,7 @@ window.saveTasteSoon = function() {
 window.postTags = function(p) {
     return [...new Set(((p.caption || p.text || '').match(/#[\p{L}\p{N}_]{2,30}/gu) || []).map(x => x.slice(1).toLowerCase()))].slice(0, 5);
 };
-window.POST_TO_NEWS_CAT = { 'FOOTBALL': 'football', 'FC MOBILE': 'gaming', 'EA SPORTS FC': 'gaming', 'EFOOTBALL': 'gaming', 'DLS': 'gaming', 'CALL OF DUTY': 'gaming', 'OTHER GAMES': 'gaming', 'LIVE STREAM': 'gaming', 'WRESTLING': 'wrestling', 'MOVIES': 'movies', 'ANIME': 'anime', 'BOOKS': 'books' };
+window.POST_TO_NEWS_CAT = { 'GENERAL': 'wow', 'FOOTBALL': 'football', 'FC MOBILE': 'gaming', 'EA SPORTS FC': 'gaming', 'EFOOTBALL': 'gaming', 'DLS': 'gaming', 'CALL OF DUTY': 'gaming', 'OTHER GAMES': 'gaming', 'LIVE STREAM': 'gaming', 'WRESTLING': 'wrestling', 'MOVIES': 'movies', 'ANIME': 'anime', 'BOOKS': 'books' };
 
 // weight > 0 = liked it, < 0 = not for me
 window.tasteAdd = function(p, w) {
@@ -7402,6 +7405,7 @@ window.notInterested = function(postId) {
 // ======================================================================
 window.NEWS_CATS = [
     { id: 'foryou', label: '✨ For You' },
+    { id: 'wow', label: '🚀 Wow & Tech', color: 'text-sky-300', post: 'GENERAL' },
     { id: 'football', label: '⚽ Football', color: 'text-emerald-400', post: 'FOOTBALL' },
     { id: 'gaming', label: '🎮 Gaming', color: 'text-cyan-300', post: 'OTHER GAMES' },
     { id: 'movies', label: '🎬 Movies & TV', color: 'text-rose-400', post: 'MOVIES' },
@@ -7410,6 +7414,12 @@ window.NEWS_CATS = [
     { id: 'wrestling', label: '🤼 Wrestling', color: 'text-amber-400', post: 'WRESTLING' }
 ];
 window.NEWS_SOURCES = {
+    wow: [
+        ['Interesting Engineering', 'https://interestingengineering.com/feed'],
+        ['New Atlas', 'https://newatlas.com/index.rss'],
+        ['ScienceAlert', 'https://www.sciencealert.com/feed'],
+        ['Futurism', 'https://futurism.com/feed']
+    ],
     football: [
         ['BBC Sport', 'https://feeds.bbci.co.uk/sport/football/rss.xml'],
         ['The Guardian', 'https://www.theguardian.com/football/rss'],
@@ -7549,7 +7559,7 @@ window.newsForYou = function() {
     const t = window.taste.news;
     const cats = Object.keys(window.NEWS_SOURCES).filter(c => (window.newsByCat[c] || []).length);
     const w = {};
-    cats.forEach(c => { w[c] = 1 + Math.max(0, t[c] || 0); });
+    cats.forEach(c => { w[c] = 1 + Math.max(0, t[c] || 0) + (c === 'wow' ? 0.6 : 0); });
     const ptr = {}; cats.forEach(c => { ptr[c] = 0; });
     const credit = {}; cats.forEach(c => { credit[c] = 0; });
     const total = cats.reduce((a, c) => a + w[c], 0) || 1;
@@ -7745,7 +7755,7 @@ setTimeout(() => window.loadNews(false), 2500);
 // Only admins create/edit ads. Everyone can add to the view/tap counters.
 // ======================================================================
 window.adsList = [];
-window.AD_CATS = ['FOOTBALL', 'FC MOBILE', 'EA SPORTS FC', 'EFOOTBALL', 'DLS', 'WRESTLING', 'CALL OF DUTY', 'OTHER GAMES', 'MOVIES', 'ANIME', 'BOOKS'];
+window.AD_CATS = ['GENERAL', 'FOOTBALL', 'FC MOBILE', 'EA SPORTS FC', 'EFOOTBALL', 'DLS', 'WRESTLING', 'CALL OF DUTY', 'OTHER GAMES', 'MOVIES', 'ANIME', 'BOOKS'];
 
 window.listenToAds = function() {
     if (!window.db || window.adsUnsub) return;
@@ -10803,7 +10813,7 @@ window.renderFantasy = async function() {
 // ======================================================================
 // v21: CLEAN MARKET — no game accounts, coins or shady items
 // ======================================================================
-window.MARKET_BLOCKED = /\b(account|acct|acc|login|password|coins?|fc ?points|diamonds?|uc\b|cp\b|v-?bucks|robux|gift ?card|top-?up|hack|mod ?menu|cheat|aimbot|crack(ed)?|replica|fake|counterfeit|weed|gun|bet(ting)?)\b/i;
+window.MARKET_BLOCKED = /\b(account|acct|acc|login|password|coins?|fc ?points|diamonds?|uc\b|cp\b|v-?bucks|robux|gift ?card|top-?up|hack|mod ?menu|cheat|aimbot|crack(ed)?|replica|fake|counterfeit|weed|gun|bet(ting)?|followers?|likes|insta(gram)?|tiktok|snap(chat)?|handle|page admin)\b/i;
 window._baseSubmitMarket21 = window._baseSubmitMarket21 || window.submitMarketListingToCloud;
 window.submitMarketListingToCloud = async function(...args) {
     const t = (document.getElementById('marketTitleInput') || {}).value || '';
@@ -11145,7 +11155,7 @@ window.renderAdminStats = async function() {
 // ======================================================================
 window.WATCH_CATS = [
     { id: 'football', label: '⚽ Football' }, { id: 'gaming', label: '🎮 Gaming' }, { id: 'wrestling', label: '🤼 Wrestling' },
-    { id: 'movies', label: '🎬 Movies & TV' }, { id: 'anime', label: '🍥 Anime' }, { id: 'books', label: '📚 Books & Learning' }
+    { id: 'movies', label: '🎬 Movies & TV' }, { id: 'anime', label: '🍥 Anime' }, { id: 'books', label: '📚 Books & Learning' }, { id: 'wow', label: '🚀 Wow & Tech' }
 ];
 window.WATCH_DEFAULT = [
     { id: 'UCG5qGWdu8nIRZqJ_GgDwQ-w', name: 'Premier League', cat: 'football' }, { id: 'UCyGa1YEx9ST66rYrJTGIKOw', name: 'UEFA', cat: 'football' },
@@ -11158,12 +11168,14 @@ window.WATCH_DEFAULT = [
     { id: 'UCjmJDM5pRKbUlVIzDYYWb6g', name: 'Warner Bros.', cat: 'movies' }, { id: 'UCz97F7dMxBNOfGYu3rx8aCw', name: 'Sony Pictures', cat: 'movies' },
     { id: 'UCq0OueAsdxH6b8nyAspwViw', name: 'Universal Pictures', cat: 'movies' },
     { id: 'UC6pGDc4bFGD1_36IKv3FnYg', name: 'Crunchyroll', cat: 'anime' },
-    { id: 'UCsooa4yRKGN_zEE8iknghZA', name: 'TED-Ed', cat: 'books' }
+    { id: 'UCsooa4yRKGN_zEE8iknghZA', name: 'TED-Ed', cat: 'books' },
+    { id: 'UCsXVk37bltHxD1rDPwtNM8Q', name: 'Kurzgesagt', cat: 'wow' }, { id: 'UCHnyfMqiRRG1u-2MsSQLbXA', name: 'Veritasium', cat: 'wow' },
+    { id: 'UCBJycsmduvYEL83R_U4JriQ', name: 'Marques Brownlee', cat: 'wow' }, { id: 'UCLA_DiR1FfKNvjuUpBHmylQ', name: 'NASA', cat: 'wow' }
 ];
 window.watchCfg = { channels: window.WATCH_DEFAULT, featured: [] };
 window.loadWatchCfg = async function() {
     if (window._watchCfgAt && Date.now() - window._watchCfgAt < 10 * 60000) return;
-    try { const s = await getDoc(doc(window.db, 'config', 'watch')); if (s.exists() && (s.data().channels || []).length) window.watchCfg = { channels: s.data().channels, featured: s.data().featured || [] }; } catch (e) {}
+    try { const s = await getDoc(doc(window.db, 'config', 'watch')); if (s.exists() && (s.data().channels || []).length) { const ch = s.data().channels; const have = new Set(ch.map(c => c.cat)); window.watchCfg = { channels: [...ch, ...window.WATCH_DEFAULT.filter(c => !have.has(c.cat))], featured: s.data().featured || [] }; } } catch (e) {}
     window._watchCfgAt = Date.now();
 };
 window.watchCat = 'football';
@@ -11974,7 +11986,7 @@ window.renderCalendar = function() {
     const now = new Date();
     const m = window.calMonth || new Date(now.getFullYear(), now.getMonth(), 1);
     window.calMonth = m;
-    const ts = (window.tournamentsList || []).map(t => ({ t, s: t.startAt || window.postTimeValue(t) || null, e: t.endAt || null })).filter(x => x.s);
+    const ts = window.scopedTourns().map(t => ({ t, s: t.startAt || window.postTimeValue(t) || null, e: t.endAt || null })).filter(x => x.s);
     const y = m.getFullYear(), mo = m.getMonth();
     const first = new Date(y, mo, 1), days = new Date(y, mo + 1, 0).getDate();
     const lead = (first.getDay() + 6) % 7;                // weeks start Monday
@@ -12109,7 +12121,7 @@ window.calView = 'plan'; window.calHost = 'all'; window.calSeasonIdx = null;
 window._baseRenderCalendar22c = window._baseRenderCalendar22c || window.renderCalendar;
 window.renderCalendar = function() {
     const box = document.getElementById('tourExtraBody');
-    const all = window.tournamentsList || [];
+    const all = window.scopedTourns();
     const hosts = [...new Map(all.filter(t => t.hostId && t.startAt).map(t => [t.hostId, t.hostOrg || 'League'])).entries()];
     const toggle = `<div class="flex gap-1.5 overflow-x-auto scrollbar-none">
         ${[['plan', '📋 Season plan'], ['month', '🗓️ Month']].map(([k, l]) => `<button onclick="window.calView='${k}'; window.renderCalendar()" class="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black ${window.calView === k ? 'bg-amber-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-white/10'}">${l}</button>`).join('')}
@@ -12215,7 +12227,7 @@ window.matchDate = function(t, m) {
 window.isRealPlayer = (p) => p && !/^Club_\d+$/.test(p) && !['Open Spot', 'TBD', '__BYE__'].includes(p);
 window.matchesOf = function(user) {
     const me = (user || '').replace('@', '').toLowerCase(), out = [];
-    (window.tournamentsList || []).forEach((t, ti) => {
+    window.scopedTourns().forEach((t, ti) => {
         if (!(t.players || []).some(p => (p || '').toLowerCase() === me)) return;
         (t.matches || []).forEach(m => {
             const side = (m.p1 || '').toLowerCase() === me ? 1 : (m.p2 || '').toLowerCase() === me ? 2 : 0; if (!side) return;
@@ -12891,6 +12903,7 @@ window.buildDesktop = function() {
         <button class="dn-post" style="margin:0 4px 12px" onclick="openUniversalCreateModal()"><i class="fa-solid fa-plus mr-1"></i> Create post</button>
         ${views.map(x => item(x.v, x.html)).join('')}
         <div class="dn-sep"></div>
+        <button class="dn-item" onclick="window.openSearch()"><i class="fa-solid fa-magnifying-glass"></i><span>Search</span></button>
         <button class="dn-item" onclick="window.openNotifications()"><i class="fa-solid fa-bell"></i><span>Notifications</span><span id="dnNotif" class="dn-badge" style="display:none"></span></button>
         <button class="dn-item" onclick="window.openDmModal()"><i class="fa-solid fa-envelope"></i><span>Messages</span><span id="dnDm" class="dn-badge" style="display:none"></span></button>
         <button class="dn-item" onclick="window.openWallet && window.openWallet()"><i class="fa-solid fa-wallet"></i><span>Tips Wallet</span></button>
@@ -12996,3 +13009,769 @@ setTimeout(() => { window.renderDeskRail(); window.deskMeRender(); }, 3500);
 window._baseAfterAuthChange24 = window._baseAfterAuthChange24 || window.afterAuthChange;
 window.afterAuthChange = async function(u) { const r = await window._baseAfterAuthChange24(u); setTimeout(() => { window.deskMeRender && window.deskMeRender(); window.renderDeskRail && window.renderDeskRail(); }, 500); return r; };
 ['notifBadge', 'dmBadge'].forEach(id => { const el = document.getElementById(id); if (el) new MutationObserver(() => window.syncDeskBadges()).observe(el, { attributes: true, childList: true, characterData: true, subtree: true }); });
+
+// ======================================================================
+// v25: STORIES — viewers can ❤️ like, the owner sees who viewed & liked
+// stories/{id}/views/{uid} = { uid, user, at, liked }
+// ======================================================================
+window.storyMine = (st) => (window.currentUser && st.uid === window.currentUser.uid) || (st.user || '').toLowerCase() === window.meLower();
+window.storyIsCloud = (st) => st && st.id && !String(st.id).startsWith('local');
+window._storyViewCache = {};
+window._baseShowStory25 = window._baseShowStory25 || window.showStory;
+window.showStory = function() {
+    window._baseShowStory25();
+    const st = window.storyViewer.list[window.storyViewer.index]; if (!st) return;
+    const box = document.getElementById('storyCaption'); if (!box) return;
+    const mine = window.storyMine(st), cloud = window.storyIsCloud(st) && window.isSignedIn();
+    let bar = '';
+    if (cloud && !mine) {
+        const liked = !!(window._storyViewCache[st.id] && window._storyViewCache[st.id].liked);
+        bar = `<div class="flex items-center justify-center gap-3 pt-2"><button id="storyLikeBtn" onclick="event.stopPropagation(); window.likeStory()" class="px-5 py-2.5 rounded-full ${liked ? 'bg-magenta text-white' : 'bg-white/15 text-white'} text-sm font-black backdrop-blur">${liked ? '❤️ Liked' : '🤍 Like'}</button>
+            <button onclick="event.stopPropagation(); window.replyToStory()" class="px-5 py-2.5 rounded-full bg-white/15 text-white text-sm font-black backdrop-blur">💬 Reply</button></div>`;
+        // record the view once
+        if (!window._storyViewCache[st.id]) {
+            window._storyViewCache[st.id] = { liked: false };
+            setDoc(doc(window.db, 'stories', st.id, 'views', window.uidNow()), { uid: window.uidNow(), user: window.me(), at: serverTimestamp() }, { merge: true }).catch(() => {});
+            getDoc(doc(window.db, 'stories', st.id, 'views', window.uidNow())).then(s => { if (s.exists() && s.data().liked) { window._storyViewCache[st.id].liked = true; const b = document.getElementById('storyLikeBtn'); if (b) { b.className = b.className.replace('bg-white/15', 'bg-magenta'); b.innerHTML = '❤️ Liked'; } } }).catch(() => {});
+        }
+    } else if (cloud && mine) {
+        bar = `<div class="flex justify-center pt-2"><button id="storyViewersBtn" onclick="event.stopPropagation(); window.openStoryViewers('${st.id}')" class="px-5 py-2.5 rounded-full bg-white/15 text-white text-sm font-black backdrop-blur">👁 … viewers</button></div>`;
+        getDocs(collection(window.db, 'stories', st.id, 'views')).then(s => {
+            let v = 0, l = 0; s.forEach(d => { v++; if (d.data().liked) l++; });
+            const b = document.getElementById('storyViewersBtn'); if (b) b.innerHTML = `👁 ${v} viewer${v === 1 ? '' : 's'} · ❤️ ${l}`;
+        }).catch(() => { const b = document.getElementById('storyViewersBtn'); if (b) b.innerHTML = '👁 Viewers'; });
+    }
+    box.insertAdjacentHTML('beforeend', bar);
+};
+window.likeStory = async function() {
+    const st = window.storyViewer.list[window.storyViewer.index]; if (!st || window.needSignIn('like stories')) return;
+    const c = window._storyViewCache[st.id] = window._storyViewCache[st.id] || {};
+    c.liked = !c.liked;
+    const b = document.getElementById('storyLikeBtn');
+    if (b) { b.className = `px-5 py-2.5 rounded-full ${c.liked ? 'bg-magenta' : 'bg-white/15'} text-white text-sm font-black backdrop-blur`; b.innerHTML = c.liked ? '❤️ Liked' : '🤍 Like'; }
+    try {
+        await setDoc(doc(window.db, 'stories', st.id, 'views', window.uidNow()), { uid: window.uidNow(), user: window.me(), liked: c.liked, at: serverTimestamp() }, { merge: true });
+        if (c.liked && st.uid) window.notify(st.uid, 'story', { text: 'liked your story ❤️' });
+    } catch (e) {}
+};
+window.replyToStory = async function() {
+    const st = window.storyViewer.list[window.storyViewer.index]; if (!st) return;
+    clearTimeout(window.storyViewer.timer); document.getElementById('storyVideo')?.pause();
+    window.closeStoryViewer();
+    window.openDmModal && window.openDmModal(st.user);
+};
+window.openStoryViewers = async function(id) {
+    clearTimeout(window.storyViewer.timer); document.getElementById('storyVideo')?.pause();
+    let list = [];
+    try { const s = await getDocs(collection(window.db, 'stories', id, 'views')); s.forEach(d => list.push(d.data())); } catch (e) {}
+    list.sort((a, b) => (b.liked ? 1 : 0) - (a.liked ? 1 : 0) || ((b.at && b.at.seconds) || 0) - ((a.at && a.at.seconds) || 0));
+    const likes = list.filter(x => x.liked).length;
+    document.getElementById('storyViewerModal').classList.add('hidden');
+    window._storyResume = true;
+    window.openPanel(`👁 Story viewers`, `<p class="text-xs text-gray-400 px-1">${list.length} viewer${list.length === 1 ? '' : 's'} · ❤️ ${likes} like${likes === 1 ? '' : 's'}</p>
+        ${list.length ? list.map(x => `<button onclick="window.openUserProfileModal('${escapeHTML(x.user)}')" class="w-full flex items-center gap-3 p-2.5 rounded-xl bg-gg-900 border border-white/5 text-left">
+            ${window.avatarHtml(x.user, 'w-10 h-10', 'rounded-full', 'text-xs').replace(/onclick="[^"]*"/, '')}
+            <div class="flex-1 min-w-0"><p class="text-sm font-bold text-white truncate">${window.dn(x.user)}</p><p class="text-[10px] text-gray-500">@${escapeHTML(x.user)}${x.at && x.at.seconds ? ' · ' + window.timeAgo(x.at.seconds * 1000) : ''}</p></div>
+            ${x.liked ? '<span class="text-lg">❤️</span>' : ''}</button>`).join('') : '<p class="text-xs text-gray-500 text-center py-8">No views yet.</p>'}`);
+};
+window._baseClosePanel25 = window._baseClosePanel25 || window.closePanel;
+window.closePanel = function() {
+    window._baseClosePanel25();
+    if (window._storyResume) { window._storyResume = false; document.getElementById('storyViewerModal').classList.remove('hidden'); window.showStory(); }
+};
+
+// ======================================================================
+// v25: GG MARKET — gadgets & consoles, photos/screenshots, 🛡️ Sinless GG middleman
+// ======================================================================
+window.MARKET_CATS = { consoles: '🎮 Consoles', controllers: '🕹️ Controllers & acc.', games: '💿 Games', phones: '📱 Phones & tablets', pc: '🖥️ PC & parts', audio: '🎧 Audio', merch: '👕 Jerseys & merch', other: '📦 Other' };
+window.marketFiles = [];
+window.marketCat = 'all';
+window.marketPickImages = function(input) {
+    const files = [...(input.files || [])].filter(f => /^image\//.test(f.type));
+    window.marketFiles = [...window.marketFiles, ...files].slice(0, 5);
+    input.value = '';
+    window.renderMarketPreview();
+};
+window.renderMarketPreview = function() {
+    const box = document.getElementById('marketImgPreview'); if (!box) return;
+    box.innerHTML = window.marketFiles.map((f, i) => `<div class="relative shrink-0"><img src="${URL.createObjectURL(f)}" class="w-16 h-16 rounded-xl object-cover border border-cyan-500/30" alt="">
+        <button onclick="window.marketFiles.splice(${i},1); window.renderMarketPreview()" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black">✕</button></div>`).join('');
+};
+window.submitMarketListingToCloud = async function() {
+    if (window.needSignIn('sell on GG Market')) return;
+    const v = (id) => (document.getElementById(id) || {}).value || '';
+    const title = v('marketTitleInput').trim(), price = v('marketPriceInput').trim(), desc = v('marketDescInput').trim();
+    if (!title || !price) { showToast('⚠️ Add what you are selling and the price.'); return; }
+    if (window.MARKET_BLOCKED.test(title + ' ' + desc)) {
+        await window.sgDialog({ title: '🚫 Not allowed on GG Market', message: 'Game or social media accounts, coins/points, top-ups, gift-card codes, cheats, fakes and anything illegal can’t be listed. These break the games’ rules and attract scams.\n\nYou can sell consoles, controllers, games, phones, PC parts, headsets, jerseys and gadgets.', okText: 'OK', cancelText: 'Close' });
+        return;
+    }
+    const btn = document.getElementById('marketSubmitBtn'); btn.disabled = true;
+    const images = [];
+    try {
+        for (let i = 0; i < window.marketFiles.length; i++) {
+            btn.innerText = `Uploading photo ${i + 1}/${window.marketFiles.length}…`;
+            const r = await window.uploadToCloudinary(window.marketFiles[i]); images.push(r.url);
+        }
+        btn.innerText = 'Publishing…';
+        await addDoc(collection(window.db, 'market'), {
+            title: title.slice(0, 90), price: price.slice(0, 30), desc: desc.slice(0, 1500), category: v('marketCatSelect') || 'other', condition: v('marketCondSelect') || 'Used',
+            location: v('marketLocInput').trim().slice(0, 40), images, middleman: !!(document.getElementById('marketMiddleman') || {}).checked,
+            user: window.me(), uid: window.uidNow(), status: 'available', createdAt: serverTimestamp()
+        });
+        showToast('🛍️ Your item is live on GG Market!');
+        ['marketTitleInput', 'marketPriceInput', 'marketDescInput', 'marketLocInput'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        window.marketFiles = []; window.renderMarketPreview();
+        window.closeMarketModal();
+    } catch (e) { showToast('⚠️ Couldn’t publish. Check your connection and try again.'); }
+    btn.disabled = false; btn.innerText = 'Publish Listing';
+};
+window.renderMarketList = function() {
+    const container = document.getElementById('marketListContainer'); if (!container) return;
+    const cats = document.getElementById('marketCats');
+    if (cats) cats.innerHTML = [['all', '🌐 All'], ...Object.entries(window.MARKET_CATS)].map(([k, l]) => `<button onclick="window.marketCat='${k}'; window.renderMarketList()" class="shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black ${window.marketCat === k ? 'bg-cyan-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'}">${l}</button>`).join('');
+    const all = (window.marketListings || []).filter(m => m.status !== 'sold' && !window.MARKET_BLOCKED.test((m.title || '') + ' ' + (m.desc || '')));
+    const list = window.marketCat === 'all' ? all : all.filter(m => (m.category || 'other') === window.marketCat);
+    if (!list.length) { container.innerHTML = `<div class="glass-panel p-6 rounded-2xl text-center text-xs text-gray-400">Nothing here yet. Tap <b>+ List Item</b> to sell your console, controller or gadget!</div>`; return; }
+    container.innerHTML = list.map(m => {
+        const mine = m.uid && m.uid === window.uidNow(), img = (m.images || [])[0];
+        return `<div class="glass-panel rounded-2xl overflow-hidden border border-cyan-500/20">
+            ${img ? `<button onclick="window.openMarketItem('${m.id}')" class="block w-full relative bg-gg-950"><img src="${window.cldSized(img, 900)}" loading="lazy" alt="" class="w-full max-h-72 object-cover">${(m.images || []).length > 1 ? `<span class="absolute bottom-2 right-2 px-2 py-0.5 rounded-lg bg-black/70 text-white text-[10px] font-black">📸 ${(m.images || []).length}</span>` : ''}</button>` : ''}
+            <div class="p-3.5 space-y-1.5">
+                <div class="flex items-start justify-between gap-2">
+                    <button onclick="window.openMarketItem('${m.id}')" class="text-left min-w-0"><h4 class="text-sm font-extrabold text-white leading-snug">${escapeHTML(m.title)}</h4></button>
+                    <span class="text-sm font-black text-amber-400 shrink-0">${escapeHTML(m.price)}</span>
+                </div>
+                <div class="flex flex-wrap gap-1 text-[9px] font-black">
+                    <span class="px-1.5 py-0.5 rounded bg-gg-900 text-cyan-300 border border-cyan-500/20">${window.MARKET_CATS[m.category] || '📦 Other'}</span>
+                    ${m.condition ? `<span class="px-1.5 py-0.5 rounded bg-gg-900 text-gray-300 border border-white/10">${escapeHTML(m.condition)}</span>` : ''}
+                    ${m.location ? `<span class="px-1.5 py-0.5 rounded bg-gg-900 text-gray-300 border border-white/10">📍 ${escapeHTML(m.location)}</span>` : ''}
+                    ${m.middleman ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">🛡️ Middleman OK</span>' : ''}
+                </div>
+                <p class="text-[10px] text-gray-400">Seller: ${window.nameLink(m.user, 'font-bold text-cyan-400')}</p>
+                <div class="flex gap-2 pt-1">
+                    ${mine ? `<button onclick="window.markSold('${m.id}')" class="flex-1 py-2 rounded-xl bg-gg-900 border border-amber-500/30 text-amber-300 text-[11px] font-black">✅ Mark sold</button>
+                              <button onclick="window.deleteListing('${m.id}')" class="px-3 py-2 rounded-xl bg-gg-900 border border-red-500/30 text-red-400 text-[11px] font-black">Delete</button>`
+                           : `<button onclick="openDmModal('${escapeHTML(m.user)}', event)" class="flex-1 py-2 rounded-xl bg-cyan-400 text-slate-950 text-[11px] font-black uppercase">💬 Message seller</button>
+                              ${m.middleman ? `<button onclick="window.requestMiddleman('${m.id}')" class="flex-1 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[11px] font-black">🛡️ Use middleman</button>` : ''}
+                              ${window.isAppAdmin ? `<button onclick="window.deleteListing('${m.id}')" class="px-3 py-2 rounded-xl bg-gg-900 border border-red-500/30 text-red-400 text-[11px] font-black">🗑</button>` : ''}`}
+                </div>
+            </div></div>`;
+    }).join('') + `<p class="text-[10px] text-gray-500 text-center px-4">Stay safe: never pay before you've seen the item or the middleman confirms. Report anything suspicious.</p>`;
+};
+window.openMarketItem = function(id) {
+    const m = (window.marketListings || []).find(x => x.id === id); if (!m) return;
+    window.openPanel(`🛍️ ${m.title}`, `${(m.images || []).map(u => `<img src="${window.cldSized(u, 1200)}" alt="" class="w-full rounded-2xl border border-white/10">`).join('')}
+        <div class="glass-panel rounded-2xl p-3.5 space-y-1.5"><p class="text-xl font-black text-amber-400">${escapeHTML(m.price)}</p>
+        <p class="text-[11px] text-gray-400">${window.MARKET_CATS[m.category] || ''} · ${escapeHTML(m.condition || '')}${m.location ? ' · 📍 ' + escapeHTML(m.location) : ''}</p>
+        ${m.desc ? `<p class="text-sm text-gray-200 whitespace-pre-wrap break-words">${escapeHTML(m.desc)}</p>` : ''}
+        <p class="text-[11px] text-gray-400 pt-1">Seller: ${window.nameLink(m.user, 'font-bold text-cyan-400')}</p></div>
+        ${m.uid !== window.uidNow() ? `<button onclick="window.closePanel(); openDmModal('${escapeHTML(m.user)}')" class="w-full py-3 rounded-2xl bg-cyan-400 text-slate-950 text-xs font-black uppercase">💬 Message seller</button>
+        ${m.middleman ? `<button onclick="window.requestMiddleman('${m.id}')" class="w-full py-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-black uppercase">🛡️ Request Sinless GG middleman</button>` : ''}` : ''}`);
+};
+window.markSold = async function(id) {
+    try { await updateDoc(doc(window.db, 'market', id), { status: 'sold' }); showToast('✅ Marked as sold'); } catch (e) { showToast('⚠️ Couldn’t update.'); }
+};
+window.deleteListing = async function(id) {
+    const ok = await window.sgConfirm('Remove this listing?', { title: 'Delete listing', okText: 'Delete', danger: true }); if (!ok) return;
+    try { await deleteDoc(doc(window.db, 'market', id)); showToast('Listing removed'); } catch (e) { showToast('⚠️ Couldn’t delete.'); }
+};
+// 🛡️ Middleman: opens a 3-way group chat (buyer + seller + Sinless GG admin). No money goes through the app.
+window.requestMiddleman = async function(id) {
+    if (window.needSignIn('use the middleman')) return;
+    const m = (window.marketListings || []).find(x => x.id === id); if (!m || !m.uid) return;
+    if (m.uid === window.uidNow()) { showToast('This is your own listing.'); return; }
+    const ok = await window.sgConfirm(`A Sinless GG middleman will join a group chat with you and @${m.user} to oversee this deal:\n\n${m.title} · ${m.price}\n\nDon't send money or items until the middleman confirms each step.`, { title: '🛡️ Request middleman', okText: 'Start safe deal' });
+    if (!ok) return;
+    try {
+        let admins = [];
+        try { const c = await getDoc(doc(window.db, 'config', 'admins')); admins = (c.exists() ? c.data().uids || [] : []).filter(u => u !== window.uidNow() && u !== m.uid).slice(0, 2); } catch (e) {}
+        const adminTags = [];
+        for (const u of admins) { try { const s = await getDocs(query(collection(window.db, 'profiles'), where('uid', '==', u), limit(1))); s.forEach(d => adminTags.push(d.data().gamertag || 'SinlessGG')); } catch (e) { adminTags.push('SinlessGG'); } }
+        const name = `🛡️ Deal: ${m.title}`.slice(0, 40);
+        const memberUids = [window.uidNow(), m.uid, ...admins], members = [window.me(), m.user, ...adminTags];
+        const ref = await addDoc(collection(window.db, 'groups'), { name, ownerUid: window.uidNow(), memberUids, members, deal: { listingId: m.id, title: m.title, price: m.price, seller: m.user, buyer: window.me() },
+            lastText: 'Middleman deal started', lastFrom: window.uidNow(), lastUser: window.me(), lastAt: serverTimestamp(), createdAt: serverTimestamp() });
+        await addDoc(collection(window.db, 'groups', ref.id, 'messages'), { fromUid: window.uidNow(), fromUser: window.me(),
+            text: `🛡️ Middleman deal for "${m.title}" (${m.price}).\nBuyer: @${window.me()} · Seller: @${m.user}\nSinless GG will guide each step. Don't send money or items until the middleman confirms. Keep everything in this chat.`, createdAt: serverTimestamp() });
+        [m.uid, ...admins].forEach(u => window.notify(u, 'group', { postId: 'group:' + ref.id, text: `started a 🛡️ middleman deal: ${m.title}` }));
+        window.closePanel && window.closePanel();
+        window.groupThreads = [{ id: ref.id, name, ownerUid: window.uidNow(), memberUids, members }, ...(window.groupThreads || []).filter(g => g.id !== ref.id)];
+        window.openDmModal && await window.openDmModal();
+        window.openGroupThread && window.openGroupThread(ref.id);
+        if (!admins.length) showToast('Deal chat created. Our team will be added soon.');
+    } catch (e) { showToast('⚠️ Couldn’t start the deal chat. Try again.'); }
+};
+
+// ======================================================================
+// v25: REAL-LOOKING VIEWS — your first look at a post counts straight away;
+// after that a view only counts for every 30 seconds you actually keep watching.
+// ======================================================================
+window.VIEW_RULES.repeatEveryMs = 30000;
+window.VIEW_RULES.maxPerStay = 3;
+window.viewedPosts = (() => { try { return new Set(JSON.parse(localStorage.getItem('sg_viewed_posts') || '[]')); } catch (e) { return new Set(); } })();
+window.markViewed = function(id) {
+    window.viewedPosts.add(id);
+    try { localStorage.setItem('sg_viewed_posts', JSON.stringify([...window.viewedPosts].slice(-1500))); } catch (e) {}
+};
+window.startViewStay = function(id) {
+    const R = window.VIEW_RULES;
+    const st = window.viewState[id] || (window.viewState[id] = {});
+    if (st.timer || st.interval) return;
+    st.countThisStay = 0;
+    const first = !window.viewedPosts.has(id);
+    const tick = () => {
+        if (st.countThisStay >= R.maxPerStay) { clearInterval(st.interval); st.interval = null; return; }
+        window.addPostViews(id, 1); st.countThisStay++;
+    };
+    st.timer = setTimeout(() => {
+        st.timer = null;
+        tick(); window.markViewed(id);
+        st.interval = setInterval(tick, R.repeatEveryMs);
+    }, first ? R.firstAfterMs : R.repeatEveryMs);
+};
+
+// ======================================================================
+// v25: DOWNLOAD WITH SINLESS GG WATERMARK (like TikTok) — logo + name + @creator
+// Made by Cloudinary on the fly; nothing extra is stored.
+// ======================================================================
+window.cldWatermarkUrl = function(url, kind, user, withLogo) {
+    if (!url || !url.includes('res.cloudinary.com') || !url.includes('/upload/')) return null;
+    const [base, rest] = url.split('/upload/');
+    const parts = rest.split('/');
+    if (parts.length > 1 && /(^|,)(f_|q_|w_|c_|vc_|so_|l_|fl_)/.test(parts[0])) parts.shift();
+    const txt = (s) => encodeURIComponent(s).replace(/%2C/g, '%252C').replace(/%2F/g, '%252F');
+    const b64 = btoa(location.origin.startsWith('http') && !location.hostname.includes('localhost') ? `${location.origin}/logo-96.png` : 'https://sinlessgg.com/logo-96.png').replace(/\+/g, '-').replace(/\//g, '_');
+    const steps = [kind === 'video' ? 'q_auto:good,c_limit,w_1080' : 'q_auto:good,c_limit,w_1600'];
+    if (withLogo) steps.push(`l_fetch:${b64},w_0.13,fl_relative,g_north_west,x_24,y_24,o_92`);
+    steps.push(`l_text:Arial_38_bold:${txt('Sinless GG')},co_white,o_92,g_south_west,x_28,y_74`);
+    steps.push(`l_text:Arial_28_bold:${txt('@' + (user || 'sinlessgg') + ' · sinlessgg.com')},co_white,o_85,g_south_west,x_28,y_32`);
+    steps.push(`f_${kind === 'video' ? 'mp4' : 'jpg'},fl_attachment:sinlessgg_${(user || 'post').replace(/\W/g, '')}_${Date.now().toString(36)}`);
+    return `${base}/upload/${steps.join('/')}/${parts.join('/')}`;
+};
+window.downloadPostMedia = async function(postId) {
+    const p = window.findPost(postId) || (window.postFetchCache || {})[postId]; if (!p) return;
+    const media = (p.mediaList || []).filter(m => m && m.url);
+    if (!media.length) { showToast('This post has no photo or video.'); return; }
+    let m = media[0];
+    if (media.length > 1) {
+        const pick = await window.sgPrompt(`This post has ${media.length} items. Which one? (1-${media.length})`, { title: '⬇️ Download', defaultValue: '1', okText: 'Download' });
+        if (pick === null) return;
+        m = media[Math.min(media.length, Math.max(1, parseInt(pick) || 1)) - 1];
+    }
+    const kind = m.type === 'video' ? 'video' : 'image';
+    showToast(kind === 'video' ? '⏳ Preparing your video with the Sinless GG mark… this can take a moment.' : '⏳ Preparing download…');
+    let url = window.cldWatermarkUrl(m.url, kind, p.user, true);
+    if (!url) { showToast('This file can’t be downloaded.'); return; }
+    try { const r = await fetch(url, { method: 'HEAD' }); if (!r.ok) url = window.cldWatermarkUrl(m.url, kind, p.user, false); }
+    catch (e) { url = window.cldWatermarkUrl(m.url, kind, p.user, false); }
+    const a = document.createElement('a'); a.href = url; a.rel = 'noopener'; a.download = '';
+    document.body.appendChild(a); a.click(); a.remove();
+};
+window._baseOpenActionSheet25 = window._baseOpenActionSheet25 || window.openActionSheet;
+window._baseOpenPostActions25 = window._baseOpenPostActions25 || window.openPostActions;
+window.openPostActions = function(postId) {
+    const p = window.findPost(postId) || (window.postFetchCache || {})[postId];
+    const has = p && (p.mediaList || []).some(m => m && m.url && m.url.includes('res.cloudinary.com'));
+    if (!has) return window._baseOpenPostActions25(postId);
+    const orig = window.openActionSheet;
+    window.openActionSheet = (title, items) => orig(title, [{ icon: 'fa-download', label: 'Download (with Sinless GG mark)', run: () => window.downloadPostMedia(postId) }, ...items]);
+    try { window._baseOpenPostActions25(postId); } finally { window.openActionSheet = orig; }
+};
+
+// ======================================================================
+// v25: SQUAD TOURNAMENT HUB — everything from the Tournaments page, inside the squad
+// (events with full bracket/table/scores/forfeits/seasons, my matches, calendar, champions)
+// ======================================================================
+window.squadTourTab = 'events';
+window.tourOpenSpots = function(t) {
+    if (!t || t.status === 'finished') return 0;
+    if (t.format === 'LEAGUE') return (t.players || []).filter(p => /^Club_\d+$/.test(p)).length;
+    return Math.max(0, (t.maxPlayers || 8) - window.realPlayers(t).length);
+};
+window._tourHome = null;
+window.tourNodes = function() {
+    if (!window._tourNodeRefs) { const a = document.getElementById('tournamentsDedicatedContainer'), b = document.getElementById('tourExtraBody'); if (a && b) window._tourNodeRefs = { a, b }; }
+    return window._tourNodeRefs || {};
+};
+window.parkTourNodes = function(into) {
+    const { a, b } = window.tourNodes();
+    if (!a || !b) return;
+    if (!window._tourHome) window._tourHome = { parent: a.parentElement, next: b.nextSibling };
+    into.appendChild(a); into.appendChild(b);
+};
+window.restoreTourNodes = function() {
+    const { a, b } = window.tourNodes();
+    window.tourScopeSquad = null;
+    if (!a || !b || !window._tourHome) return;
+    if (a.parentElement !== window._tourHome.parent) { window._tourHome.parent.insertBefore(a, window._tourHome.next); window._tourHome.parent.insertBefore(b, window._tourHome.next); }
+    a.classList.toggle('hidden', window.tourTab !== 'list'); b.classList.toggle('hidden', window.tourTab === 'list');
+};
+window.renderSquadTournaments = function() {
+    if (window._squadRendering) return;
+    const sq = window.activeSquadDetails, box = document.getElementById('squadRoomMsgsBox');
+    if (!sq || !box) return;
+    window.restoreTourNodes();
+    window.tourScopeSquad = sq.id;
+    const list = window.scopedTourns();
+    const canHost = window.canHostInSquad(sq);
+    const tabs = [['events', '🏟️ Events'], ['mine', '⚽ My matches'], ['calendar', '📅 Calendar'], ['champs', '👑 Champions']];
+    box.innerHTML = `<div class="space-y-3 py-2">
+        <div class="flex gap-1.5 overflow-x-auto scrollbar-none">${tabs.map(([k, l]) => `<button onclick="window.squadTourTab='${k}'; window.renderSquadTournaments()" class="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black ${window.squadTourTab === k ? 'bg-amber-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-white/10'}">${l}</button>`).join('')}</div>
+        ${canHost ? `<button onclick="window.openCreateSquadSquadTournamentModal()" class="w-full py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs uppercase shadow-lg"><i class="fa-solid fa-trophy mr-1.5"></i> Host a tournament or league season</button>` : ''}
+        <div id="squadTourSlot" class="space-y-3"></div></div>`;
+    const slot = document.getElementById('squadTourSlot');
+    const t = window.squadTourTab;
+    if (t === 'events') {
+        if (!list.length) { window.restoreTourNodes(); window.tourScopeSquad = sq.id; slot.innerHTML = `<div class="text-center py-10 space-y-2"><div class="text-4xl">🏆</div><p class="text-sm font-bold text-white">No tournaments yet</p><p class="text-xs text-gray-400">${canHost ? 'Host the first one above. It also shows on the main Tournaments page so new players can find your squad.' : 'Squad tournaments will show up here.'}</p></div>`; return; }
+        if (!window.activeTournament || window.activeTournament.squadId !== sq.id) window.activeTournament = list[0];
+        window.parkTourNodes(slot);
+        document.getElementById('tournamentsDedicatedContainer').classList.remove('hidden');
+        document.getElementById('tourExtraBody').classList.add('hidden');
+        window._squadRendering = true;
+        try { window.renderTournamentsTabDedicated(); } finally { window._squadRendering = false; }
+    } else if (t === 'mine' || t === 'calendar') {
+        window.parkTourNodes(slot);
+        document.getElementById('tournamentsDedicatedContainer').classList.add('hidden');
+        document.getElementById('tourExtraBody').classList.remove('hidden');
+        window.tourTab = t;
+        if (t === 'mine') { window.mmUser = null; window.renderMyMatches(); } else window.renderCalendar();
+    } else {
+        window.restoreTourNodes(); window.tourScopeSquad = sq.id;
+        const ids = new Set(list.map(x => x.id));
+        const titles = ((window._titles && window._titles.list) || []).filter(x => ids.has(x.tournId)).sort((a, b) => ((b.at && b.at.seconds) || 0) - ((a.at && a.at.seconds) || 0));
+        const current = new Set(window.currentChampions().map(x => x.tournId));
+        slot.innerHTML = titles.length ? titles.map(x => { const st = window.TROPHY_STYLE[window.trophyKind(x)];
+            return `<button onclick="window.openUserProfileModal('${escapeHTML(x.user)}')" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-gg-900 border border-white/5 text-left">
+                <div class="shrink-0">${window.trophySvg(window.trophyKind(x), 44)}</div>
+                <div class="flex-1 min-w-0"><p class="text-sm font-black text-white truncate">${window.dn(x.user)} ${current.has(x.tournId) ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black align-middle">CURRENT</span>' : ''}</p>
+                <p class="text-[11px] font-bold truncate" style="color:${st.glow}">${escapeHTML(x.title)}${x.season ? ' · S' + x.season : ''}</p></div></button>`; }).join('')
+            : `<div class="text-center py-10 space-y-2"><div class="text-4xl">👑</div><p class="text-sm font-bold text-white">No champions yet</p><p class="text-xs text-gray-400">When a squad tournament is finished, its winner is crowned here.</p></div>`;
+    }
+};
+// Inside a squad, only that squad's tournaments are listed at the top of the bracket view
+window._baseRenderTournamentsTabDedicated25 = window._baseRenderTournamentsTabDedicated25 || window.renderTournamentsTabDedicated;
+window.renderTournamentsTabDedicated = function() {
+    const box = document.getElementById('tournamentsDedicatedContainer');
+    const inSquad = box && window.tourScopeSquad && box.closest('#squadDetailsModal');
+    if (inSquad) { const keep = window.returnToSquadId; window.returnToSquadId = null; try { window._baseRenderTournamentsTabDedicated25(); } finally { window.returnToSquadId = keep; } }
+    else window._baseRenderTournamentsTabDedicated25();
+    if (!box) return;
+    if (inSquad) {
+        const ids = new Set(window.scopedTourns().map(t => t.id));
+        box.querySelectorAll('button[onclick*="switchActiveTournament"]').forEach(b => { const m = b.getAttribute('onclick').match(/switchActiveTournament\('([^']+)'\)/); if (m && !ids.has(m[1])) b.remove(); });
+    }
+};
+// leaving the 🏆 room or closing the squad puts the Tournaments page back together
+window._baseSwitchSquadSubRoom25 = window._baseSwitchSquadSubRoom25 || window.switchSquadSubRoom;
+window.switchSquadSubRoom = function(room) { if (room !== 'Tournaments') window.restoreTourNodes(); return window._baseSwitchSquadSubRoom25(room); };
+window._baseCloseSquadDetailsModal25 = window._baseCloseSquadDetailsModal25 || window.closeSquadDetailsModal;
+window.closeSquadDetailsModal = function() { window.restoreTourNodes(); window.tourTab = window.tourTab === 'mine' || window.tourTab === 'calendar' ? window.tourTab : 'list'; return window._baseCloseSquadDetailsModal25(); };
+window._baseSwitchView25 = window._baseSwitchView25 || window.switchView;
+window.switchView = function(v) { if (v === 'tournaments') window.restoreTourNodes(); return window._baseSwitchView25(v); };
+
+// Squad admins: quick "+ room" button next to the room buttons
+window._baseRenderSquadHeader25 = window._baseRenderSquadHeader25 || window.renderSquadHeader;
+window.renderSquadHeader = function() {
+    window._baseRenderSquadHeader25();
+    const sq = window.activeSquadDetails, nav = document.getElementById('squadSubRoomsNav');
+    if (sq && nav && window.isSquadAdmin(sq) && !nav.querySelector('[data-addroom]'))
+        nav.insertAdjacentHTML('beforeend', `<button data-addroom onclick="window.editChannel(null)" title="Create a room" class="px-3 py-2 rounded-xl text-xs font-black bg-gg-900 text-cyan-300 border border-dashed border-cyan-500/50">＋</button>`);
+};
+
+// ---------- Squad tournaments are open to everyone — join the squad first ----------
+window._baseJoinActiveTournament25 = window._baseJoinActiveTournament25 || window.joinActiveTournament;
+window.joinActiveTournament = async function(id) {
+    const t = (window.tournamentsList || []).find(x => x.id === id);
+    const sq = t && t.squadId && (window.clansData || []).find(c => c.id === t.squadId);
+    if (sq && window.isSignedIn() && !window.isSquadMember(sq)) {
+        if (window.needSignIn('join tournaments')) return;
+        const ok = await window.sgConfirm(`"${t.title}" is run by the squad ${sq.name}.\n\nJoin the squad first: that's where the chat, rules, fixtures and announcements are. You'll be taken to the rules, then you can register.`, { title: '🛡️ Join the squad first', okText: `Join ${sq.name.slice(0, 18)}` });
+        if (!ok) return;
+        await window.toggleSquadMembership(sq.id);
+        const fresh = (window.clansData || []).find(c => c.id === sq.id) || sq;
+        if (!window.isSquadMember(fresh)) return;
+        window.pendingSquadReg = id;
+        window.openSquadDetailsModal(sq.id);
+        const rules = window.squadChannels(fresh).find(c => /rules|announce/i.test(c.name)) || window.squadChannels(fresh)[0];
+        if (rules) window.switchSquadSubRoom(rules.name);
+        return;
+    }
+    return window._baseJoinActiveTournament25(id);
+};
+window._baseRenderSquadChannel25 = window._baseRenderSquadChannel25 || window.renderSquadChannel;
+window.renderSquadChannel = function() {
+    window._baseRenderSquadChannel25();
+    const sq = window.activeSquadDetails, id = window.pendingSquadReg;
+    if (!sq || !id || window.activeSquadSubRoom === 'Tournaments') return;
+    const t = (window.tournamentsList || []).find(x => x.id === id);
+    if (!t || (t.players || []).some(p => (p || '').toLowerCase() === window.meLower())) { window.pendingSquadReg = null; return; }
+    if (t.squadId !== sq.id) return;
+    const box = document.getElementById('squadRoomMsgsBox');
+    box.insertAdjacentHTML('afterbegin', `<div class="sticky top-0 z-10 mb-2 p-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow-xl">
+        <p class="text-[11px] font-black">👋 Welcome to ${escapeHTML(sq.name)}! Read the rules, then:</p>
+        <button onclick="window.finishPendingReg()" class="mt-2 w-full py-2 rounded-xl bg-slate-950 text-amber-300 text-xs font-black uppercase">🏆 Register for ${escapeHTML(t.title)}</button></div>`);
+};
+window.finishPendingReg = async function() {
+    const id = window.pendingSquadReg; window.pendingSquadReg = null; if (!id) return;
+    await window._baseJoinActiveTournament25(id);
+    window.squadTourTab = 'events';
+    const t = (window.tournamentsList || []).find(x => x.id === id); if (t) window.activeTournament = t;
+    window.switchSquadSubRoom('Tournaments');
+};
+
+// ---------- Open tournaments in the feed (by category) ----------
+window.openTournamentsFor = function(cat) {
+    const now = Date.now();
+    return (window.tournamentsList || []).filter(t => window.tourOpenSpots(t) > 0 && (!t.endAt || t.endAt > now) && (cat === 'ALL' || (t.game || '').toUpperCase() === cat))
+        .sort((a, b) => (a.startAt || 9e15) - (b.startAt || 9e15)).slice(0, 6);
+};
+window.joinFromFeed = function(id) {
+    const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+    window.activeTournament = t;
+    window.switchView('tournaments'); window.setTourTab && window.setTourTab('list'); window.scrollTo({ top: 0 });
+    window.joinActiveTournament(id);
+};
+window._baseRenderFypFeed25 = window._baseRenderFypFeed25 || window.renderFypFeed;
+window.renderFypFeed = function(...a) {
+    const r = window._baseRenderFypFeed25(...a);
+    const box = document.getElementById('fypFeedContainer'); const f = window.activeCategoryFilter || 'ALL';
+    if (!box || window.feedMode === 'following' || ['LIVE STREAM', 'GENERAL', 'MOVIES', 'ANIME', 'BOOKS'].includes(f)) return r;
+    const ts = window.openTournamentsFor(f); if (!ts.length) return r;
+    const card = (t) => { const sq = t.squadId && (window.clansData || []).find(c => c.id === t.squadId); const spots = window.tourOpenSpots(t);
+        return `<div class="shrink-0 w-60 rounded-2xl p-3 bg-gg-900 border border-amber-500/30 space-y-1.5">
+            <p class="text-[9px] font-black text-amber-300 uppercase tracking-wider truncate">${escapeHTML(t.game || '')}${sq ? ' · 🛡️ ' + escapeHTML(sq.name) : ''}</p>
+            <p class="text-sm font-black text-white leading-snug line-clamp-2">${escapeHTML(t.title)}</p>
+            <p class="text-[10px] text-gray-400">${spots} spot${spots === 1 ? '' : 's'} left${t.startAt ? ' · starts ' + new Date(t.startAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : ''} · 🏆 ${escapeHTML(t.prizePool || 'Bragging rights')}</p>
+            <button onclick="window.joinFromFeed('${t.id}')" class="w-full py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 text-[11px] font-black uppercase">Join tournament</button></div>`; };
+    const strip = document.createElement('div'); strip.setAttribute('data-tourn-strip', '1');
+    strip.innerHTML = `<div class="glass-panel rounded-2xl p-3 border border-amber-500/30"><div class="flex items-center justify-between mb-2"><p class="text-xs font-black text-white">🏆 Open tournaments${f !== 'ALL' ? ' · ' + escapeHTML(f) : ''}</p><button onclick="window.switchView('tournaments')" class="text-[10px] font-black text-amber-300">See all ›</button></div>
+        <div class="flex gap-2 overflow-x-auto scrollbar-none">${ts.map(card).join('')}</div></div>`;
+    const kids = [...box.children].filter(el => el.querySelector('[data-post-id]') || el.hasAttribute('data-post-id'));
+    const at = kids[f === 'ALL' ? 2 : 0];
+    if (at) (f === 'ALL' ? at.after(strip) : at.before(strip)); else box.prepend(strip);
+    return r;
+};
+
+// ======================================================================
+// v25: SWIPE TO REPLY in DMs and group chats (like WhatsApp). On PC: hover a message and tap ↩
+// ======================================================================
+window.dmReplyTo = null;
+window.dmMsgsById = {};
+window.msgPreview = (m) => m.isAudio ? '🎤 Voice note' : m.isImage ? '📷 Photo' : (m.text || '').slice(0, 90);
+window.renderDmMessages = function(msgs) {
+    const box = document.getElementById('dmMessagesContainer');
+    const dm = window.activeDm; if (!dm || !box) return;
+    if (!msgs.length) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">${dm.group ? `Say hi to the group 👋` : `Say hi to @${escapeHTML(dm.partnerTag)} 👋`}</p>`; return; }
+    const uid = window.uidNow(), now = Date.now();
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+    let prevFrom = null;
+    window.dmMsgsById = {}; msgs.forEach(m => { if (m.id) window.dmMsgsById[m.id] = m; });
+    box.innerHTML = msgs.filter(m => !(m.isImage && now - window.postTimeValue(m) > 86400000) && !window.isBlocked(m.fromUser)).map(m => {
+        const mine = m.fromUid === uid;
+        const body = m.isAudio ? window.audioMsgHtml(m, mine)
+            : m.isImage ? `<img src="${window.cldSized(m.imageUrl, 600)}" class="max-h-56 rounded-xl object-contain cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.imageUrl}')"><p class="text-[8px] opacity-70 mt-1">📷 disappears 24h after sending</p>`
+            : `<p class="whitespace-pre-wrap break-words">${formatMentions(m.text || '')}</p>`;
+        const q = m.replyTo ? `<button onclick="event.stopPropagation(); window.jumpToMsg('${escapeHTML(m.replyTo.id || '')}')" class="block w-full text-left mb-1 px-2 py-1 rounded-lg border-l-4 ${mine ? 'bg-slate-950/15 border-slate-950/40' : 'bg-white/5 border-magenta'}">
+                <p class="text-[10px] font-black ${mine ? 'text-slate-900' : 'text-magenta'}">${escapeHTML(m.replyTo.fromUid === uid ? 'You' : window.dnText(m.replyTo.from || ''))}</p>
+                <p class="text-[11px] ${mine ? 'text-slate-800' : 'text-gray-300'} truncate">${escapeHTML(m.replyTo.text || '')}</p></button>` : '';
+        const showName = dm.group && !mine && prevFrom !== m.fromUid;
+        prevFrom = m.fromUid;
+        return `<div class="dm-row flex items-center gap-1 ${mine ? 'justify-end' : 'justify-start'}" data-mid="${escapeHTML(m.id || '')}">
+                ${mine ? `<button onclick="window.setDmReply('${escapeHTML(m.id || '')}')" class="dm-reply text-gray-500 hover:text-cyan-300 text-xs px-1" title="Reply">↩</button>` : ''}
+                <div class="dm-bubble max-w-[78%] px-3 py-2 rounded-2xl text-sm ${mine ? 'bg-cyan-500 text-slate-950 rounded-br-sm' : 'bg-gg-900 text-white border border-cyan-500/15 rounded-bl-sm'}" style="touch-action:pan-y">
+                    ${showName ? `<p class="text-[10px] font-black text-magenta mb-0.5">${escapeHTML(window.dnText(m.fromUser))}</p>` : ''}
+                    ${q}${body}
+                    <p class="text-[9px] mt-0.5 ${mine ? 'text-slate-800' : 'text-gray-500'} text-right">${m.createdAt ? window.timeAgo(window.postTimeValue(m)) : 'sending…'}</p>
+                </div>
+                ${!mine ? `<button onclick="window.setDmReply('${escapeHTML(m.id || '')}')" class="dm-reply text-gray-500 hover:text-cyan-300 text-xs px-1" title="Reply">↩</button>` : ''}
+            </div>`;
+    }).join('');
+    window.bindDmSwipes(box);
+    if (nearBottom || !window._dmRendered) box.scrollTop = box.scrollHeight;
+    window._dmRendered = true;
+};
+window.bindDmSwipes = function(box) {
+    box.querySelectorAll('.dm-row').forEach(row => {
+        const b = row.querySelector('.dm-bubble'); if (!b) return;
+        let x0 = null, y0 = 0, dx = 0, locked = false;
+        b.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; locked = false; b.style.transition = 'none'; }, { passive: true });
+        b.addEventListener('touchmove', (e) => {
+            if (x0 === null) return;
+            const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+            if (!locked && Math.abs(my) > Math.abs(mx)) { x0 = null; return; }
+            locked = true; dx = Math.max(0, Math.min(80, mx));
+            b.style.transform = `translateX(${dx}px)`;
+        }, { passive: true });
+        b.addEventListener('touchend', () => {
+            b.style.transition = 'transform .2s'; b.style.transform = '';
+            if (dx > 55) { if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) {} window.setDmReply(row.dataset.mid); }
+            x0 = null; dx = 0;
+        });
+    });
+};
+window.setDmReply = function(id) {
+    const m = window.dmMsgsById[id]; if (!m) return;
+    window.dmReplyTo = { id, text: window.msgPreview(m), from: m.fromUser || '', fromUid: m.fromUid || '' };
+    let bar = document.getElementById('dmReplyBar');
+    const comp = document.getElementById('dmComposer');
+    if (!bar && comp) { comp.insertAdjacentHTML('beforebegin', `<div id="dmReplyBar" class="shrink-0 px-3 pt-2 bg-gg-900/95 border-t border-cyan-500/15"></div>`); bar = document.getElementById('dmReplyBar'); }
+    if (!bar) return;
+    bar.classList.remove('hidden');
+    bar.innerHTML = `<div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-gg-950 border-l-4 border-cyan-400">
+        <div class="flex-1 min-w-0"><p class="text-[10px] font-black text-cyan-300">Replying to ${escapeHTML(window.dmReplyTo.fromUid === window.uidNow() ? 'yourself' : window.dnText(window.dmReplyTo.from))}</p><p class="text-xs text-gray-300 truncate">${escapeHTML(window.dmReplyTo.text)}</p></div>
+        <button onclick="window.clearDmReply()" class="w-7 h-7 rounded-full bg-gg-800 text-gray-300 text-xs">✕</button></div>`;
+    document.getElementById('dmInputText')?.focus();
+};
+window.clearDmReply = function() { window.dmReplyTo = null; const bar = document.getElementById('dmReplyBar'); if (bar) { bar.classList.add('hidden'); bar.innerHTML = ''; } };
+window.jumpToMsg = function(id) {
+    const row = document.querySelector(`#dmMessagesContainer .dm-row[data-mid="${CSS.escape(id)}"]`); if (!row) return;
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const b = row.querySelector('.dm-bubble'); if (b) { b.style.boxShadow = '0 0 0 3px #ff007f'; setTimeout(() => { b.style.boxShadow = ''; }, 1200); }
+};
+window._baseSendDmMessage25 = window._baseSendDmMessage25 || window.sendDmMessage;
+window.sendDmMessage = async function(payload) {
+    if (window.dmReplyTo && payload) { payload = { ...payload, replyTo: { ...window.dmReplyTo } }; window.clearDmReply(); }
+    return window._baseSendDmMessage25(payload);
+};
+// switching chats clears the reply
+['openDmThread', 'openGroupThread', 'closeDmModal'].forEach(fn => {
+    const base = window['_base_' + fn + '25'] = window['_base_' + fn + '25'] || window[fn];
+    if (typeof base === 'function') window[fn] = function(...a) { window.clearDmReply(); window._dmRendered = false; return base.apply(this, a); };
+});
+(function dmReplyCss() {
+    const st = document.createElement('style');
+    st.textContent = `@media (hover:hover){ .dm-row .dm-reply{opacity:0;transition:opacity .15s} .dm-row:hover .dm-reply{opacity:1} } @media (hover:none){ .dm-row .dm-reply{display:none} }`;
+    document.head.appendChild(st);
+})();
+
+// ======================================================================
+// v26: PHONE ALERTS WHEN THE APP IS CLOSED (Firebase Cloud Messaging + a small free Cloudflare helper)
+// config/push = { url: 'https://….workers.dev', vapid: 'B…' }  (set by an admin in Admin → 🔔 Push)
+// users/{uid}.fcmTokens = this person's phones/browsers that accept alerts
+// ======================================================================
+window.SG_PUSH = { url: '', vapid: '' };
+window.loadPushCfg = async function() {
+    if (window._pushCfgAt && Date.now() - window._pushCfgAt < 30 * 60000) return window.SG_PUSH;
+    try { const s = await getDoc(doc(window.db, 'config', 'push')); if (s.exists()) window.SG_PUSH = { url: (s.data().url || '').replace(/\/$/, ''), vapid: s.data().vapid || '' }; } catch (e) {}
+    window._pushCfgAt = Date.now();
+    return window.SG_PUSH;
+};
+window.registerPushToken = async function(silent) {
+    if (!window.isSignedIn() || !window.messaging || !('Notification' in window) || Notification.permission !== 'granted') return false;
+    const cfg = await window.loadPushCfg(); if (!cfg.vapid) return false;
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        const token = await getToken(window.messaging, { vapidKey: cfg.vapid, serviceWorkerRegistration: reg });
+        if (!token) return false;
+        if (localStorage.getItem('sg_push_token') !== token || localStorage.getItem('sg_push_uid') !== window.uidNow()) {
+            await setDoc(doc(window.db, 'users', window.uidNow()), { fcmTokens: arrayUnion(token), pushOn: true }, { merge: true });
+            try { localStorage.setItem('sg_push_token', token); localStorage.setItem('sg_push_uid', window.uidNow()); } catch (e) {}
+        }
+        return true;
+    } catch (e) { if (!silent) console.warn('push token', e); return false; }
+};
+window._baseSetupPushNotifications26 = window._baseSetupPushNotifications26 || window.setupPushNotifications;
+window.setupPushNotifications = async function() {
+    await window._baseSetupPushNotifications26();
+    if (window.alertsEnabled()) {
+        const ok = await window.registerPushToken(false);
+        if (ok) showToast('🔔 Phone alerts on, even when the app is closed!');
+    }
+};
+// keep the token fresh after sign-in
+window._baseAfterAuthChange26 = window._baseAfterAuthChange26 || window.afterAuthChange;
+window.afterAuthChange = async function(u) { const r = await window._baseAfterAuthChange26(u); if (u) setTimeout(() => window.registerPushToken(true), 4000); return r; };
+// every new notification is also sent to the phone (the helper checks it's real before sending)
+window.pushPing = async function(id) {
+    const cfg = await window.loadPushCfg(); if (!cfg.url || !id) return;
+    try { await fetch(cfg.url + '/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), keepalive: true }); } catch (e) {}
+};
+window.notify = async function(toUid, type, extra = {}) {
+    if (!window.isSignedIn() || !toUid || toUid === window.currentUser.uid) return;
+    try {
+        const ref = await addDoc(collection(window.db, 'notifications'), window.cleanForCloud({
+            toUid, fromUid: window.currentUser.uid, fromUser: window.me(), type,
+            postId: extra.postId || null, text: (extra.text || '').slice(0, 140), read: false, createdAt: serverTimestamp()
+        }));
+        window.pushPing(ref && ref.id);
+    } catch (e) {}
+};
+// Admin → 🔔 Push
+window._baseSetAdminTab26 = window._baseSetAdminTab26 || window.setAdminTab;
+window.setAdminTab = function(tab) {
+    if (tab !== 'push') return window._baseSetAdminTab26(tab);
+    window.adminTab = 'push';
+    document.querySelectorAll('[data-admintab]').forEach(b => { b.className = `flex-1 py-2 text-xs font-black border-b-2 ${b.dataset.admintab === tab ? 'text-white border-cyan-400' : 'text-gray-500 border-transparent'}`; });
+    window.renderAdminPush();
+};
+window.renderAdminPush = async function() {
+    const box = document.getElementById('adminBody'); window._pushCfgAt = 0;
+    const cfg = await window.loadPushCfg();
+    const f = 'w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-white';
+    const perm = 'Notification' in window ? Notification.permission : 'unsupported';
+    box.innerHTML = `<div class="glass-panel rounded-2xl p-3.5 border border-cyan-500/20 space-y-2">
+            <p class="text-sm font-black text-white">🔔 Alerts when the app is closed</p>
+            <p class="text-[11px] text-gray-400">Paste the two values from the setup guide. Everyone's app picks them up automatically, no update needed.</p>
+            <label class="block text-[10px] text-gray-400 font-bold">Helper address (Cloudflare worker)<input id="apUrl" value="${escapeHTML(cfg.url)}" placeholder="https://sinlessgg-push.yourname.workers.dev" class="${f} mt-1"></label>
+            <label class="block text-[10px] text-gray-400 font-bold">Web push key (VAPID public key from Firebase)<input id="apVapid" value="${escapeHTML(cfg.vapid)}" placeholder="B…" class="${f} mt-1"></label>
+            <button onclick="window.saveAdminPush()" class="w-full py-2.5 rounded-xl bg-cyan-400 text-slate-950 text-xs font-black uppercase">Save</button></div>
+        <div class="glass-panel rounded-2xl p-3.5 border border-white/10 space-y-2">
+            <p class="text-xs font-black text-white">Test on this phone</p>
+            <p class="text-[11px] text-gray-400">Alerts permission here: <b class="text-white">${perm}</b> · status: <b id="apStatus" class="text-white">…</b></p>
+            <button onclick="window.adminTestPush()" class="w-full py-2.5 rounded-xl bg-gg-900 border border-magenta/40 text-magenta text-xs font-black uppercase">Send me a test alert</button>
+            <p class="text-[10px] text-gray-500">Tip: after tapping, close the app or lock your phone. The alert should arrive within a few seconds.</p></div>`;
+    if (cfg.url) fetch(cfg.url + '/health').then(r => r.json()).then(j => { document.getElementById('apStatus').innerText = j.ok ? '✅ helper is online' : '⚠️ helper not ready'; }).catch(() => { document.getElementById('apStatus').innerText = '⚠️ can’t reach the helper'; });
+    else document.getElementById('apStatus').innerText = 'not set up yet';
+};
+window.saveAdminPush = async function() {
+    const url = document.getElementById('apUrl').value.trim().replace(/\/$/, ''), vapid = document.getElementById('apVapid').value.trim();
+    if (url && !/^https:\/\/[\w.-]+(\/.*)?$/.test(url)) { showToast('The helper address must start with https://'); return; }
+    try { await setDoc(doc(window.db, 'config', 'push'), { url, vapid }); window._pushCfgAt = 0; showToast('✅ Saved for everyone'); window.renderAdminPush(); }
+    catch (e) { showToast('⚠️ Couldn’t save. Did you paste the new Firebase rules?'); }
+};
+window.adminTestPush = async function() {
+    if (!window.alertsEnabled()) await window._baseSetupPushNotifications26();
+    const ok = await window.registerPushToken(false);
+    if (!ok) { showToast('⚠️ Couldn’t turn on alerts here. Check the key and that alerts are allowed.'); return; }
+    try {
+        const ref = await addDoc(collection(window.db, 'notifications'), { toUid: window.uidNow(), fromUid: window.uidNow(), fromUser: window.me(), type: 'test', postId: null, text: 'Test alert from Sinless GG 🎉', read: false, createdAt: serverTimestamp() });
+        await window.pushPing(ref.id);
+        showToast('📨 Sent! Close or lock the app to see it.');
+    } catch (e) { showToast('⚠️ Test failed.'); }
+};
+
+// ======================================================================
+// v26: VERIFIED CREATORS — you verify them by hand; squads can spot them easily
+// ======================================================================
+window.isVerified = (tag) => { const p = window.profileFor && window.profileFor(tag); return !!(p && p.verified); };
+window.verifiedTick = function(tag, pill) {
+    if (!window.isVerified(tag)) return '';
+    return pill ? `<span class="ml-1.5 text-[8px] font-black px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/40 whitespace-nowrap">✔ CREATOR</span>`
+                : `<span class="ml-1 text-sky-400 text-[11px]" title="Verified creator">✔</span>`;
+};
+window._baseGetProfileBadges26 = window._baseGetProfileBadges26 || window.getProfileBadges;
+window.getProfileBadges = function(username) {
+    const v = window.isVerified(username) ? `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-300 border border-sky-500/40 whitespace-nowrap">✔ Verified creator</span>` : '';
+    return [v, window._baseGetProfileBadges26(username)].filter(Boolean).join(' ');
+};
+// App admins: verify straight from someone's profile
+window._baseOpenUserProfileModal26 = window._baseOpenUserProfileModal26 || window.openUserProfileModal;
+window.openUserProfileModal = function(username, e) {
+    const r = window._baseOpenUserProfileModal26(username, e);
+    const tag = (username || '').replace('@', '');
+    document.getElementById('adminVerifyBtn')?.remove();
+    if (window.isAppAdmin && tag.toLowerCase() !== window.meLower()) {
+        const on = window.isVerified(tag), anchor = document.getElementById('profileMatchesBtn') || document.getElementById('profileBioText');
+        anchor && anchor.insertAdjacentHTML('afterend', `<button id="adminVerifyBtn" onclick="window.profileToggleVerify('${escapeHTML(tag)}', ${!on})" class="mt-2 w-full py-2.5 rounded-xl text-xs font-black ${on ? 'bg-gg-900 border border-white/10 text-gray-300' : 'bg-sky-500/15 border border-sky-500/40 text-sky-300'}">🛡️ Admin: ${on ? 'Remove creator verification' : '✔ Verify this creator'}</button>`);
+    }
+    return r;
+};
+window.profileToggleVerify = async function(tag, on) {
+    const ok = await window.sgConfirm(on ? `Give @${tag} the ✔ Verified creator badge? Do this for creators who perform very well or bring people to Sinless GG.` : `Remove @${tag}'s ✔ Verified creator badge?`, { title: on ? '✔ Verify creator' : 'Remove verification', okText: on ? 'Verify' : 'Remove' });
+    if (!ok) return;
+    try {
+        await updateDoc(doc(window.db, 'profiles', tag.toLowerCase()), { verified: on });
+        const k = tag.toLowerCase();
+        if (window.allProfilesMap[k]) window.allProfilesMap[k].verified = on;
+        if (window.profileCache[k] && window.profileCache[k].data) window.profileCache[k].data.verified = on;
+        if (window.userProfiles[k]) window.userProfiles[k].verified = on;
+        try { const c = JSON.parse(localStorage.getItem('sg_profiles_v1') || 'null'); if (c && c.map && c.map[k]) { c.map[k].verified = on; localStorage.setItem('sg_profiles_v1', JSON.stringify(c)); } } catch (e) {}
+        if (on) { const pr = window.profileFor(tag); if (pr && pr.uid) window.notify(pr.uid, 'verified', { text: 'You are now a ✔ Verified creator on Sinless GG! 🎉' }); }
+        showToast(on ? `✔ @${tag} is now a verified creator` : `Verification removed from @${tag}`);
+        window.openUserProfileModal(tag);
+    } catch (e) { showToast('⚠️ Couldn’t update.'); }
+};
+// Squad members room: verified creators on top so admins spot them straight away
+window._baseRenderSquadMembers26 = window._baseRenderSquadMembers26 || window.renderSquadMembers;
+window.renderSquadMembers = async function(...a) {
+    const r = await window._baseRenderSquadMembers26(...a);
+    const sq = window.activeSquadDetails, box = document.getElementById('squadRoomMsgsBox');
+    if (!sq || !box || box.querySelector('[data-vcreators]')) return r;
+    const vs = (sq.members || []).filter(t => window.isVerified(t));
+    if (vs.length) box.insertAdjacentHTML('afterbegin', `<div data-vcreators class="mb-3 p-3 rounded-2xl bg-sky-500/10 border border-sky-500/30">
+        <p class="text-[10px] font-black text-sky-300 uppercase tracking-wider mb-2">✔ Verified creators in this squad · ${vs.length}</p>
+        <div class="flex flex-wrap gap-2">${vs.map(t => `<button onclick="window.openUserProfileModal('${escapeHTML(t)}')" class="flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full bg-gg-900 border border-sky-500/30">${window.avatarHtml(t, 'w-6 h-6', 'rounded-full', 'text-[8px]').replace(/onclick="[^"]*"/, '')}<span class="text-[11px] font-bold text-white">${window.dn(t)}</span><span class="text-sky-400 text-[10px]">✔</span></button>`).join('')}</div></div>`);
+    return r;
+};
+
+// ======================================================================
+// v26: 🔍 SEARCH — people, squads, tournaments and posts in one place
+// ======================================================================
+window.searchTab = 'all';
+window.openSearch = function() {
+    if (!Object.keys(window.allProfilesMap || {}).length && window.loadAllProfiles) window.loadAllProfiles();
+    window.openPanel('🔍 Search', `<input id="sgSearchInput" autocomplete="off" placeholder="Search people, squads, tournaments, posts…" oninput="window.runSearch()" class="w-full bg-gg-900 border border-cyan-500/40 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-400">
+        <div id="sgSearchTabs" class="flex gap-1.5 overflow-x-auto scrollbar-none"></div><div id="sgSearchResults" class="space-y-2"></div>`);
+    setTimeout(() => document.getElementById('sgSearchInput')?.focus(), 80);
+    window.runSearch();
+};
+window.runSearch = function() {
+    const q = ((document.getElementById('sgSearchInput') || {}).value || '').trim().toLowerCase().replace(/^@/, '');
+    const tabsBox = document.getElementById('sgSearchTabs'), out = document.getElementById('sgSearchResults'); if (!out) return;
+    const has = (...xs) => xs.some(x => (x || '').toLowerCase().includes(q));
+    const people = {};
+    Object.values(window.allProfilesMap || {}).forEach(p => { if (p && p.gamertag) people[p.gamertag.toLowerCase()] = p; });
+    (window.fypposts || []).forEach(p => { if (p.user && !people[p.user.toLowerCase()]) people[p.user.toLowerCase()] = { gamertag: p.user, displayName: p.displayName }; });
+    const P = !q ? [] : Object.values(people).filter(p => !window.isBlocked(p.gamertag) && has(p.gamertag, p.displayName))
+        .sort((a, b) => (b.verified ? 1 : 0) - (a.verified ? 1 : 0) || (a.gamertag.toLowerCase().startsWith(q) ? 0 : 1) - (b.gamertag.toLowerCase().startsWith(q) ? 0 : 1)).slice(0, 20);
+    const S = !q ? [] : (window.clansData || []).filter(s => has(s.name, s.tag, s.game)).slice(0, 15);
+    const T = !q ? [] : (window.tournamentsList || []).filter(t => has(t.title, t.game, t.compName, t.hostOrg)).slice(0, 15);
+    const Po = !q ? [] : (window.fypposts || []).filter(p => !p.repostOf && has(p.caption, p.user, p.game)).slice(0, 20);
+    const tabs = [['all', 'All'], ['people', `People ${P.length || ''}`], ['squads', `Squads ${S.length || ''}`], ['tourn', `Tournaments ${T.length || ''}`], ['posts', `Posts ${Po.length || ''}`]];
+    tabsBox.innerHTML = tabs.map(([k, l]) => `<button onclick="window.searchTab='${k}'; window.runSearch()" class="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black ${window.searchTab === k ? 'bg-cyan-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-white/10'}">${l}</button>`).join('');
+    if (!q) { out.innerHTML = `<p class="text-xs text-gray-500 text-center py-10">Type a gamertag, name, squad, tournament or word.</p>`; return; }
+    const row = (onclick, left, title, sub) => `<button onclick="${onclick}" class="w-full flex items-center gap-3 p-2.5 rounded-xl bg-gg-900 border border-white/5 text-left">${left}<div class="min-w-0 flex-1"><p class="text-sm font-bold text-white truncate">${title}</p><p class="text-[10px] text-gray-500 truncate">${sub}</p></div></button>`;
+    const sec = (k, label, items) => (window.searchTab === 'all' || window.searchTab === k) && items.length ? `<p class="text-[10px] font-black text-gray-400 uppercase tracking-wider px-1 pt-1">${label}</p>${items.join('')}` : '';
+    const html = sec('people', 'People', P.map(p => row(`window.closePanel(); window.openUserProfileModal('${escapeHTML(p.gamertag)}')`, window.avatarHtml(p.gamertag, 'w-10 h-10', 'rounded-full', 'text-xs').replace(/onclick="[^"]*"/, ''), `${escapeHTML(p.displayName || p.gamertag)}${p.verified ? ' <span class="text-sky-400">✔</span>' : ''}`, `@${escapeHTML(p.gamertag)}`)))
+        + sec('squads', 'Squads', S.map(s => row(`window.closePanel(); window.switchView('clans'); window.openSquadDetailsModal('${s.id}')`, `<span class="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-300 flex items-center justify-center text-sm font-black shrink-0">${escapeHTML((s.tag || s.name || '?').slice(0, 3))}</span>`, escapeHTML(s.name), `${escapeHTML(s.game || '')} · ${(s.members || []).length} members${s.isOfficial ? ' · official' : ''}`)))
+        + sec('tourn', 'Tournaments', T.map(t => row(`window.closePanel(); window.switchView('tournaments'); window.openTournamentById('${t.id}')`, `<span class="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center text-lg shrink-0">🏆</span>`, escapeHTML(t.title), `${escapeHTML(t.game || '')} · ${window.tourOpenSpots(t) ? window.tourOpenSpots(t) + ' spots left' : t.status === 'finished' ? 'finished' : 'full'}`)))
+        + sec('posts', 'Posts', Po.map(p => row(`window.closePanel(); window.openPostDetail('${p.docId || p.id}')`, window.avatarHtml(p.user, 'w-10 h-10', 'rounded-xl', 'text-xs').replace(/onclick="[^"]*"/, ''), escapeHTML((p.caption || '📷 Media').slice(0, 80)), `@${escapeHTML(p.user)} · ${escapeHTML(p.game || '')}`)));
+    out.innerHTML = html || `<p class="text-xs text-gray-500 text-center py-10">Nothing found for “${escapeHTML(q)}”.</p>`;
+};
+
+// ======================================================================
+// v26: 📊 WEEKLY RECAP INSIDE EACH SQUAD (not in the main feed)
+// ======================================================================
+window.squadWeekKey = () => window.weekKey ? window.weekKey(Date.now()) : new Date().toISOString().slice(0, 10);
+window.squadWeekly = function(sq) {
+    const since = Date.now() - 7 * 864e5, members = new Set((sq.members || []).map(m => (m || '').toLowerCase()));
+    // most active in chat
+    const counts = {};
+    Object.values(window.activeSquadRooms || sq.rooms || {}).forEach(list => (list || []).forEach(m => { const t = m.timestamp || (m.createdAt && m.createdAt.seconds * 1000) || 0; if (t >= since && m.sender) counts[m.sender] = (counts[m.sender] || 0) + 1; }));
+    const active = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    // top clip by members
+    const clip = (window.fypposts || []).filter(p => members.has((p.user || '').toLowerCase()) && !p.repostOf && window.postTimeValue(p) >= since)
+        .sort((a, b) => (b.ggsCount || 0) * 3 + (b.viewsCount || 0) * 0.1 - ((a.ggsCount || 0) * 3 + (a.viewsCount || 0) * 0.1))[0];
+    // champions crowned this week + this week's fixtures
+    const tours = (window.tournamentsList || []).filter(t => t.squadId === sq.id), ids = new Set(tours.map(t => t.id));
+    const champs = ((window._titles && window._titles.list) || []).filter(x => ids.has(x.tournId) && x.at && x.at.seconds * 1000 >= since);
+    let played = 0, upcoming = 0;
+    const today = window.dayStartOf ? window.dayStartOf(Date.now()) : 0;
+    tours.forEach(t => (t.matches || []).forEach(m => { const d = window.matchDate ? window.matchDate(t, m) : null; if (m.winner && m.status === 'approved' && d !== null && d >= since && d <= Date.now()) played++; else if (!m.winner && d !== null && d >= today && d < today + 7 * 864e5) upcoming++; }));
+    return { active, clip, champs, played, upcoming };
+};
+window._baseRenderSquadChannel26 = window._baseRenderSquadChannel26 || window.renderSquadChannel;
+window.renderSquadChannel = function() {
+    window._baseRenderSquadChannel26();
+    const sq = window.activeSquadDetails, room = window.activeSquadSubRoom, box = document.getElementById('squadRoomMsgsBox');
+    if (!sq || !box || !window.isSquadMember(sq)) return;
+    const main = (window.squadChannels(sq).find(c => c.name === 'chat') || window.squadChannels(sq).find(c => !c.staff && !c.adminOnly) || {}).name;
+    if (room !== main || box.querySelector('[data-weekly]')) return;
+    const key = `sg_weekly_hide_${sq.id}_${window.squadWeekKey()}`;
+    let hidden = false; try { hidden = !!localStorage.getItem(key); } catch (e) {}
+    const w = window.squadWeekly(sq);
+    const items = [];
+    if (w.active.length) items.push(`<p class="text-[11px] text-gray-200">💬 <b>Most active:</b> ${w.active.map(([t, n]) => `${window.dn(t)} <span class="text-gray-500">(${n})</span>`).join(', ')}</p>`);
+    if (w.clip) items.push(`<button onclick="window.openPostDetail('${w.clip.docId || w.clip.id}')" class="block text-left text-[11px] text-gray-200">🎬 <b>Top clip:</b> ${window.dn(w.clip.user)}: “${escapeHTML((w.clip.caption || 'Watch').slice(0, 50))}” <span class="text-cyan-300">· ${w.clip.ggsCount || 0} GGs ›</span></button>`);
+    if (w.champs.length) items.push(`<p class="text-[11px] text-gray-200">👑 <b>New champion${w.champs.length > 1 ? 's' : ''}:</b> ${w.champs.map(x => `${window.dn(x.user)} <span class="text-amber-300">(${escapeHTML(x.compName || x.title)})</span>`).join(', ')}</p>`);
+    if (w.played || w.upcoming) items.push(`<p class="text-[11px] text-gray-200">⚽ <b>Matches:</b> ${w.played} played this week · ${w.upcoming} coming up in the next 7 days</p>`);
+    if (!items.length) return;
+    box.insertAdjacentHTML('afterbegin', `<div data-weekly class="sticky top-0 z-10 mb-3 rounded-2xl border border-magenta/30 overflow-hidden shadow-xl" style="background:linear-gradient(135deg,rgba(40,6,28,.96),rgba(4,24,32,.96))">
+        <button onclick="window.toggleWeekly('${key}')" class="w-full flex items-center justify-between px-3.5 py-2.5"><span class="text-xs font-black text-white">📊 This week in ${escapeHTML(sq.name)}</span><span class="text-[10px] font-black text-magenta">${hidden ? 'Show ›' : 'Hide'}</span></button>
+        ${hidden ? '' : `<div class="px-3.5 pb-3 space-y-1.5">${items.join('')}</div>`}</div>`);
+};
+window.toggleWeekly = function(key) {
+    try { if (localStorage.getItem(key)) localStorage.removeItem(key); else localStorage.setItem(key, '1'); } catch (e) {}
+    const box = document.getElementById('squadRoomMsgsBox'); box.querySelector('[data-weekly]')?.remove(); window.renderSquadChannel();
+};
