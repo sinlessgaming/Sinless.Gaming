@@ -60,6 +60,13 @@ const sgWrapSnap = (s) => {
 const getDoc = async (...a) => sgWrapSnap(await _fsGetDoc(...a));
 const getDocs = async (...a) => sgWrapSnap(await _fsGetDocs(...a));
 const onSnapshot = (...a) => { let done = false; return _fsOnSnapshot(...a.map(x => { if (typeof x === 'function' && !done) { done = true; return (snap) => x(sgWrapSnap(snap)); } return x; })); };
+// v28: the @name people see. Everything inside the app stays linked to the permanent gamertag (the hidden ID),
+// so changing your @name never loses trophies, matches, squads, posts or messages.
+window.hnd = function(tag) {
+    const t = String(tag == null ? '' : tag).replace(/^@/, '');
+    try { const p = window.profileFor && window.profileFor(t); if (p && p.handle && /^[A-Za-z0-9_]{3,20}$/.test(p.handle)) return p.handle; } catch (e) {}
+    return t;
+};
 window.tourScopeSquad = null;
 window.scopedTourns = () => (window.tournamentsList || []).filter(t => !window.tourScopeSquad || t.squadId === window.tourScopeSquad);
 // Clean anything saved on this phone by older versions too
@@ -215,7 +222,7 @@ setInterval(() => {
 }, 60000);
 
 window.tipCreator = async function(postId, creatorUsername) {
-    const tipAmount = await window.sgPrompt(`How many GG Coins do you want to tip @${creatorUsername}?`, { title: '🪙 Tip Creator', defaultValue: '10', inputType: 'number', note: `Your balance: ${window.myGGCoins} GG Coins`, okText: 'Send Tip' });
+    const tipAmount = await window.sgPrompt(`How many GG Coins do you want to tip @${window.hnd(creatorUsername)}?`, { title: '🪙 Tip Creator', defaultValue: '10', inputType: 'number', note: `Your balance: ${window.myGGCoins} GG Coins`, okText: 'Send Tip' });
     const amount = parseInt(tipAmount);
 
     if (isNaN(amount) || amount <= 0) return;
@@ -234,7 +241,7 @@ window.tipCreator = async function(postId, creatorUsername) {
         if (window.renderFypFeed) window.renderFypFeed();
     }
 
-    showToast(`🪙 Successfully tipped ${amount} GG Coins to @${creatorUsername}!`);
+    showToast(`🪙 Successfully tipped ${amount} GG Coins to @${window.hnd(creatorUsername)}!`);
 
     const targetId = post ? (post.docId || post.id) : postId;
     if (window.db && targetId && !String(targetId).startsWith('local_')) {
@@ -830,7 +837,7 @@ window.openCommentsModal = function(postId) {
     document.getElementById('commentsModal').classList.remove('hidden');
 
     const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
-    document.getElementById('commentsPostUser').innerText = post ? `@${post.user}` : '';
+    document.getElementById('commentsPostUser').innerText = post ? `@${window.hnd(post.user)}` : '';
 
     loadCommentsForPost(postId);
 };
@@ -992,7 +999,7 @@ window.openUserProfileModal = function(username, e = null) {
     const userRank = rankMap[cleanUser.toLowerCase()] || '--';
 
     document.getElementById('profileDisplayName').innerText = profileData.displayName;
-    document.getElementById('profileGamertag').innerText = `@${cleanUser}`;
+    document.getElementById('profileGamertag').innerText = `@${window.hnd(cleanUser)}`;
     document.getElementById('profileBioText').innerText = profileData.bio || '';
 
     const badgeContainer = document.getElementById('profileDynamicBadgesBox');
@@ -1231,9 +1238,9 @@ window.toggleFollowUser = function(cleanUser) {
     let key = cleanUser.toLowerCase();
     window.userFollowsState[key] = !window.userFollowsState[key];
     if (window.userFollowsState[key]) {
-        showToast(`Started following @${cleanUser}!`);
+        showToast(`Started following @${window.hnd(cleanUser)}!`);
     } else {
-        showToast(`Unfollowed @${cleanUser}.`);
+        showToast(`Unfollowed @${window.hnd(cleanUser)}.`);
     }
     window.openUserProfileModal(cleanUser);
 };
@@ -1759,10 +1766,10 @@ window.toggleSquadAdmin = function(member) {
     const index = squad.admins.findIndex(a => a.toLowerCase() === member.toLowerCase());
     if (index !== -1) {
         squad.admins.splice(index, 1);
-        showToast(`Demoted @${member} from Admin.`);
+        showToast(`Demoted @${window.hnd(member)} from Admin.`);
     } else {
         squad.admins.push(member);
-        showToast(`Promoted @${member} to Squad Admin!`);
+        showToast(`Promoted @${window.hnd(member)} to Squad Admin!`);
     }
 
     localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
@@ -1771,7 +1778,7 @@ window.toggleSquadAdmin = function(member) {
 
 window.transferOwnership = async function(newOwner) {
     const squad = window.activeSquadDetails;
-    if (!squad || !(await window.sgConfirm(`@${newOwner} will become the owner of ${squad.name}. You will no longer be the owner.`, { title: 'Transfer Ownership?', okText: 'Transfer', danger: true }))) return;
+    if (!squad || !(await window.sgConfirm(`@${window.hnd(newOwner)} will become the owner of ${squad.name}. You will no longer be the owner.`, { title: 'Transfer Ownership?', okText: 'Transfer', danger: true }))) return;
 
     squad.owner = newOwner;
     squad.leader = newOwner;
@@ -1779,7 +1786,7 @@ window.transferOwnership = async function(newOwner) {
 
     localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
     window.openSquadDetailsModal(squad.id);
-    showToast(`👑 Ownership transferred to @${newOwner}!`);
+    showToast(`👑 Ownership transferred to @${window.hnd(newOwner)}!`);
 };
 
 window.sendSquadRoomMessage = function() {
@@ -2407,7 +2414,7 @@ window.confirmManualAddPlayer = function() {
     localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
     window.renderTournamentsTab();
     window.renderTournamentsTabDedicated();
-    showToast(`Added @${cleanPlayer} to match!`);
+    showToast(`Added @${window.hnd(cleanPlayer)} to match!`);
     window.closeManualAddPlayerModal();
 };
 
@@ -2488,7 +2495,7 @@ window.submitMatchScoreReport = function() {
     }
 
     localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
-    showToast(isHost ? `Match Score Updated & Approved! Winner: @${match.winner}` : `Score submitted! Pending Host Approval.`);
+    showToast(isHost ? `Match Score Updated & Approved! Winner: @${window.hnd(match.winner)}` : `Score submitted! Pending Host Approval.`);
     window.closeMatchReportModal();
     window.renderTournamentsTab();
     window.renderTournamentsTabDedicated();
@@ -2848,7 +2855,7 @@ function renderBracketMatchCardHex(m, tournId, isHost, theme = 'red') {
                 <span class="text-cyan-400 font-black uppercase tracking-wider">${m.stage || 'Fixture'}</span>
                 <div class="flex items-center space-x-1">
                     ${hasStream ? '<span class="text-[8px] bg-red-600 text-white font-extrabold px-1.5 py-0.5 rounded animate-pulse">🔴 Live Stream</span>' : ''}
-                    ${isDisputed ? '<span class="text-[8px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.5 rounded">⚠️ Disputed</span>' : (isCompleted ? '<span class="text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black px-1.5 py-0.5 rounded">✓ Final</span>' : '<span class="text-[8px] text-gray-400">Report Score</span>')}
+                    ${isDisputed ? window.pendingLabel(m) : (isCompleted ? '<span class="text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black px-1.5 py-0.5 rounded">✓ Final</span>' : '<span class="text-[8px] text-gray-400">Report Score</span>')}
                 </div>
             </div>
 
@@ -3376,7 +3383,7 @@ window.floatVideo = function(postId, rawUrl, btn) {
     const box = document.getElementById('floatingPlayer');
     const v = document.getElementById('floatingVideo');
     const p = window.findPost(postId);
-    document.getElementById('floatingPlayerLabel').innerText = p ? '@' + p.user : 'Video';
+    document.getElementById('floatingPlayerLabel').innerText = p ? '@' + window.hnd(p.user) : 'Video';
     box.dataset.postId = postId;
     v.src = window.cldSized(rawUrl, 720, 'video');
     v.muted = false;
@@ -3430,7 +3437,7 @@ window.sharePost = function(postId) {
     const p = window.findPost(postId);
     const link = window.postLink(postId);
     const snippet = p && p.caption ? (p.caption.length > 100 ? p.caption.slice(0, 100) + '…' : p.caption) : '';
-    const text = p ? `${snippet ? `"${snippet}" — ` : ''}@${p.user} on Sinless GG 🎮` : 'Check this out on Sinless GG 🎮';
+    const text = p ? `${snippet ? `"${snippet}" — ` : ''}@${window.hnd(p.user)} on Sinless GG 🎮` : 'Check this out on Sinless GG 🎮';
     window.activeShare = { link, text };
 
     const enc = encodeURIComponent;
@@ -3706,7 +3713,7 @@ window.openDmModal = function(username = 'SinlessGaming', e = null) {
     window.activeDmUser = cleanUser;
 
     const headerUser = document.getElementById('dmHeaderUser');
-    if (headerUser) headerUser.innerText = `@${cleanUser}`;
+    if (headerUser) headerUser.innerText = `@${window.hnd(cleanUser)}`;
 
     window.renderDmThread();
     document.getElementById('dmModal').classList.remove('hidden');
@@ -3728,7 +3735,7 @@ window.renderDmThread = function() {
     const msgs = window.dmMessagesList[threadKey] || [];
 
     if (msgs.length === 0) {
-        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Start a private chat with @${window.activeDmUser}!</p>`;
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Start a private chat with @${window.hnd(window.activeDmUser)}!</p>`;
         return;
     }
 
@@ -3738,7 +3745,7 @@ window.renderDmThread = function() {
             return `
                 <div class="flex flex-col ${isMine ? 'items-end' : 'items-start'} my-1">
                     <div class="p-2 bg-gg-900 rounded-2xl border border-cyan-500/20 max-w-xs space-y-1">
-                        <span class="text-[9px] text-cyan-400 font-bold block">@${m.sender}</span>
+                        <span class="text-[9px] text-cyan-400 font-bold block">@${window.hnd(m.sender)}</span>
                         <img src="${m.imageUrl}" class="max-h-48 rounded-xl object-contain cursor-pointer" onclick="window.openMediaZoomModal('image', '${m.imageUrl}')">
                     </div>
                 </div>
@@ -3780,7 +3787,7 @@ window.sendDirectMessage = function() {
 };
 
 window.toggleDirectVoiceCall = function() {
-    showToast(`📞 Direct Voice Call Connected with @${window.activeDmUser || 'Gamer'}!`);
+    showToast(`📞 Direct Voice Call Connected with @${window.hnd(window.activeDmUser || 'Gamer')}!`);
 };
 
 window.openMarketModal = function() { document.getElementById('marketModal').classList.remove('hidden'); };
@@ -4430,7 +4437,7 @@ window.creatorRow = function(c, i, line, score) {
                 <span class="w-7 text-center font-black ${top ? 'text-lg' : 'text-amber-400 text-xs'}">${medal || '#' + (i + 1)}</span>
                 ${window.avatarHtml(c.gamertag, 'w-9 h-9', 'rounded-xl', 'text-[10px]').replace(/onclick="[^"]*"/, '')}
                 <div class="min-w-0">
-                    <h4 class="font-bold text-white truncate">@${c.gamertag}</h4>
+                    <h4 class="font-bold text-white truncate">@${window.hnd(c.gamertag)}</h4>
                     <p class="text-[9px] text-gray-400 truncate">${line}</p>
                 </div>
             </div>
@@ -4605,7 +4612,7 @@ window.ensureMyProfile = async function() {
                 createdAt: serverTimestamp()
             }));
         } else if (snap.data().uid !== window.currentUser.uid) {
-            showToast(`⚠️ The gamertag @${window.me()} belongs to another account.`);
+            showToast(`⚠️ The gamertag @${window.hnd(window.me())} belongs to another account.`);
         }
         window.profileCache[key] = null;
     } catch (e) { console.warn('Profile setup failed', e); }
@@ -4664,7 +4671,7 @@ window.countFollows = async function(field, uid) {
 window.toggleFollowUser = async function(tag) {
     if (window.needSignIn('follow gamers')) return;
     const prof = await window.getProfile(tag);
-    if (!prof || !prof.uid) { showToast(`@${tag} hasn't signed in to Sinless GG yet.`); return; }
+    if (!prof || !prof.uid) { showToast(`@${window.hnd(tag)} hasn't signed in to Sinless GG yet.`); return; }
     if (prof.uid === window.currentUser.uid) return;
     const id = `${window.currentUser.uid}_${prof.uid}`;
     const ref = doc(window.db, 'follows', id);
@@ -4673,11 +4680,11 @@ window.toggleFollowUser = async function(tag) {
         if (following) {
             await deleteDoc(ref);
             window.myFollowing.uids.delete(prof.uid); window.myFollowing.users.delete(tag.toLowerCase());
-            showToast(`Unfollowed @${tag}.`);
+            showToast(`Unfollowed @${window.hnd(tag)}.`);
         } else {
             await setDoc(ref, { fromUid: window.currentUser.uid, toUid: prof.uid, fromUser: window.me(), toUser: prof.gamertag || tag, createdAt: serverTimestamp() });
             window.myFollowing.uids.add(prof.uid); window.myFollowing.users.add(tag.toLowerCase());
-            showToast(`✅ Following @${tag}!`);
+            showToast(`✅ Following @${window.hnd(tag)}!`);
             window.notify(prof.uid, 'follow', { text: 'started following you' });
         }
     } catch (e) { showToast("⚠️ Couldn't update follow. Check your connection."); }
@@ -4820,7 +4827,7 @@ window.listenToNotifications = function() {
         window.updateNotifBadge();
         if (unread > prevUnread && prevUnread !== null && window.notifPrimed) {
             const n = window.notifList.find(x => !x.read);
-            if (n && !['dm', 'group'].includes(n.type)) showToast(`🔔 @${n.fromUser} ${window.notifText(n)}`);
+            if (n && !['dm', 'group'].includes(n.type)) showToast(`🔔 @${window.hnd(n.fromUser)} ${window.notifText(n)}`);
         }
         window.notifPrimed = true;
         if (!document.getElementById('notifModal').classList.contains('hidden')) window.renderNotifications();
@@ -4936,7 +4943,7 @@ window.loadBlocked = async function() {
 };
 
 window.blockUser = async function(tag) {
-    const ok = await window.sgConfirm(`You won't see posts, replies, stories or messages from @${tag}. You can unblock them later in Account Settings.`, { title: `Block @${tag}?`, okText: 'Block', danger: true });
+    const ok = await window.sgConfirm(`You won't see posts, replies, stories or messages from @${window.hnd(tag)}. You can unblock them later in Account Settings.`, { title: `Block @${window.hnd(tag)}?`, okText: 'Block', danger: true });
     if (!ok) return;
     window.blockedUsers.add(tag.toLowerCase());
     await window.saveBlocked();
@@ -4944,14 +4951,14 @@ window.blockUser = async function(tag) {
     window.closeUserProfileModal && window.closeUserProfileModal();
     window.closePostDetail && window.activeDetailPostId && window.closePostDetail();
     window.renderFypFeed(); window.mergeStories && window.mergeStories();
-    showToast(`🚫 @${tag} blocked.`);
+    showToast(`🚫 @${window.hnd(tag)} blocked.`);
 };
 
 window.unblockUser = async function(tag) {
     window.blockedUsers.delete(tag.toLowerCase());
     await window.saveBlocked();
     window.renderBlockedList(); window.renderFypFeed(); window.mergeStories && window.mergeStories();
-    showToast(`@${tag} unblocked.`);
+    showToast(`@${window.hnd(tag)} unblocked.`);
 };
 
 window.renderBlockedList = function() {
@@ -4960,7 +4967,7 @@ window.renderBlockedList = function() {
     const list = [...window.blockedUsers];
     box.innerHTML = list.length ? list.map(t => `
         <div class="flex items-center justify-between text-xs bg-gg-950 rounded-xl px-3 py-2 border border-cyan-500/10">
-            <span class="text-gray-300 font-bold">@${escapeHTML(t)}</span>
+            <span class="text-gray-300 font-bold">@${window.hnd(escapeHTML(t))}</span>
             <button onclick="window.unblockUser('${escapeHTML(t)}')" class="text-cyan-400 font-bold">Unblock</button>
         </div>`).join('') : `<p class="text-[10px] text-gray-500">You haven't blocked anyone.</p>`;
 };
@@ -4993,18 +5000,18 @@ window.submitReport = async function(reason) {
 window.openPostActions = function(postId) {
     const p = window.findPost(postId);
     if (!p) return;
-    window.openActionSheet(`@${p.user}'s post`, [
+    window.openActionSheet(`@${window.hnd(p.user)}'s post`, [
         { icon: 'fa-link', label: 'Copy link', run: () => { window.activeShare = { link: window.postLink(postId) }; window.copyShareLink(); } },
-        { icon: 'fa-user-plus', label: window.amFollowing(p.user) ? `Unfollow @${p.user}` : `Follow @${p.user}`, run: () => window.toggleFollowUser(p.user) },
+        { icon: 'fa-user-plus', label: window.amFollowing(p.user) ? `Unfollow @${window.hnd(p.user)}` : `Follow @${window.hnd(p.user)}`, run: () => window.toggleFollowUser(p.user) },
         { icon: 'fa-flag', label: 'Report post', danger: true, run: () => window.reportPost(postId) },
-        { icon: 'fa-ban', label: `Block @${p.user}`, danger: true, run: () => window.blockUser(p.user) }
+        { icon: 'fa-ban', label: `Block @${window.hnd(p.user)}`, danger: true, run: () => window.blockUser(p.user) }
     ]);
 };
 window.openUserActions = function(tag) {
-    window.openActionSheet(`@${tag}`, [
+    window.openActionSheet(`@${window.hnd(tag)}`, [
         { icon: 'fa-envelope', label: 'Send message', run: () => { window.closeUserProfileModal(); window.openDmModal(tag); } },
         { icon: 'fa-link', label: 'Copy profile link', run: () => { window.activeShare = { link: `${location.origin}${location.pathname}#user=${tag}` }; window.copyShareLink(); } },
-        { icon: 'fa-ban', label: `Block @${tag}`, danger: true, run: () => window.blockUser(tag) }
+        { icon: 'fa-ban', label: `Block @${window.hnd(tag)}`, danger: true, run: () => window.blockUser(tag) }
     ]);
 };
 window.openActionSheet = function(title, items) {
@@ -5330,18 +5337,18 @@ window.toggleSquadAdmin = function(member) {
     const isAdmin = squad.admins.some(a => a.toLowerCase() === member.toLowerCase());
     squad.admins = isAdmin ? squad.admins.filter(a => a.toLowerCase() !== member.toLowerCase()) : [...squad.admins, member];
     window.switchSquadSubRoom('Roster');
-    window.updateSquadCloud(squad, { admins: squad.admins }, isAdmin ? `Removed @${member} as admin.` : `🛡️ @${member} is now an admin!`);
+    window.updateSquadCloud(squad, { admins: squad.admins }, isAdmin ? `Removed @${window.hnd(member)} as admin.` : `🛡️ @${window.hnd(member)} is now an admin!`);
 };
 
 window.transferOwnership = async function(newOwner) {
     const squad = window.activeSquadDetails;
     if (!squad) return;
-    const ok = await window.sgConfirm(`@${newOwner} will become the owner of ${squad.name}.`, { title: 'Transfer Ownership?', okText: 'Transfer', danger: true });
+    const ok = await window.sgConfirm(`@${window.hnd(newOwner)} will become the owner of ${squad.name}.`, { title: 'Transfer Ownership?', okText: 'Transfer', danger: true });
     if (!ok) return;
     const prof = await window.getProfile(newOwner);
-    if (!prof || !prof.uid) { showToast(`@${newOwner} needs to sign in once before they can own a squad.`); return; }
+    if (!prof || !prof.uid) { showToast(`@${window.hnd(newOwner)} needs to sign in once before they can own a squad.`); return; }
     const admins = [...new Set([...(squad.admins || []), newOwner])];
-    await window.updateSquadCloud(squad, { owner: newOwner, leader: newOwner, ownerUid: prof.uid, admins }, `👑 @${newOwner} now owns ${squad.name}!`);
+    await window.updateSquadCloud(squad, { owner: newOwner, leader: newOwner, ownerUid: prof.uid, admins }, `👑 @${window.hnd(newOwner)} now owns ${squad.name}!`);
 };
 
 window.promptCreateSubRoom = async function() {
@@ -5485,12 +5492,12 @@ window.startDmFromInput = function() {
 
 window.openDmThread = async function(tag) {
     if (tag.toLowerCase() === window.meLower()) { showToast("That's you 😄"); return; }
-    if (window.isBlocked(tag)) { showToast(`You blocked @${tag}. Unblock them in Account Settings to chat.`); return; }
+    if (window.isBlocked(tag)) { showToast(`You blocked @${window.hnd(tag)}. Unblock them in Account Settings to chat.`); return; }
     const box = document.getElementById('dmMessagesContainer');
     box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Opening chat…</p>`;
     const prof = await window.getProfile(tag);
     if (!prof || !prof.uid) {
-        box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">@${escapeHTML(tag)} hasn't signed in to Sinless GG yet,<br>so they can't receive messages.</p>`;
+        box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">@${window.hnd(escapeHTML(tag))} hasn't signed in to Sinless GG yet,<br>so they can't receive messages.</p>`;
         return;
     }
     const threadId = window.threadIdFor(window.currentUser.uid, prof.uid);
@@ -5518,7 +5525,7 @@ window.openDmThread = async function(tag) {
 
 window.renderDmMessages = function(msgs) {
     const box = document.getElementById('dmMessagesContainer');
-    if (!msgs.length) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Say hi to @${escapeHTML(window.activeDm.partnerTag)} 👋</p>`; return; }
+    if (!msgs.length) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Say hi to @${window.hnd(escapeHTML(window.activeDm.partnerTag))} 👋</p>`; return; }
     const uid = window.currentUser.uid;
     const now = Date.now();
     box.innerHTML = msgs.filter(m => !(m.isImage && now - window.postTimeValue(m) > 86400000)).map(m => {
@@ -5570,7 +5577,7 @@ window.afterAuthChange = async function(user) {
     const tag = user ? window.me() : 'Guest';
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
     set('drawerName', user ? (window.myDisplayName || tag) : 'Guest');
-    set('drawerTag', user ? '@' + tag : 'Not signed in');
+    set('drawerTag', user ? '@' + window.hnd(tag) : 'Not signed in');
     const av = document.getElementById('drawerAvatar');
     if (av) { const myP = user && window.profileFor && window.profileFor(tag); av.innerHTML = `<img src="${myP && myP.pfp ? window.cldSized(myP.pfp, 120) : window.SG_DEFAULT_PFP}" class="w-full h-full object-cover rounded-xl" alt="">`; }
 
@@ -5702,7 +5709,7 @@ window.mentionCandidates = function(q) {
     const add = (tag, name) => {
         const k = (tag || '').toLowerCase();
         if (!k || seen.has(k) || k === window.meLower() || k === 'guest' || window.isBlocked(k)) return;
-        if (q && !k.includes(q) && !(name || '').toLowerCase().includes(q)) return;
+        if (q && !k.includes(q) && !(name || '').toLowerCase().includes(q) && !window.hnd(tag).toLowerCase().includes(q)) return;
         seen.add(k); out.push({ tag, name: name || tag });
     };
     // people you follow first, then everyone else
@@ -5724,7 +5731,7 @@ window.onMentionInput = function(el) {
     box.innerHTML = list.map((c, i) => `
         <button type="button" onmousedown="event.preventDefault()" onclick="window.pickMention(${i})" class="w-full flex items-center space-x-2.5 px-3 py-2 hover:bg-gg-800 text-left">
             ${window.avatarHtml(c.tag, 'w-8 h-8', 'rounded-full', 'text-[10px]').replace(/onclick="[^"]*"/, '')}
-            <span class="min-w-0"><span class="block text-xs font-bold text-white truncate">${escapeHTML(c.name)}</span><span class="block text-[10px] text-gray-400">@${escapeHTML(c.tag)}</span></span>
+            <span class="min-w-0"><span class="block text-xs font-bold text-white truncate">${escapeHTML(c.name)}</span><span class="block text-[10px] text-gray-400">@${window.hnd(escapeHTML(c.tag))}</span></span>
         </button>`).join('');
     const r = el.getBoundingClientRect();
     const below = r.top < window.innerHeight / 2;
@@ -5740,7 +5747,7 @@ window.pickMention = function(i) {
     if (!s) return;
     const c = s.list[i];
     const v = s.el.value;
-    s.el.value = v.slice(0, s.start) + '@' + c.tag + ' ' + v.slice(s.end);
+    s.el.value = v.slice(0, s.start) + '@' + window.hnd(c.tag) + ' ' + v.slice(s.end);
     const pos = s.start + c.tag.length + 2;
     s.el.focus(); s.el.setSelectionRange(pos, pos);
     window.hideMentionBox();
@@ -5955,6 +5962,7 @@ window.askForGamertag = function(user) {
                 const snap = await getDoc(doc(window.db, 'profiles', t.toLowerCase()));
                 if (input.value.trim() !== t) return;
                 if (snap.exists() && snap.data().uid !== user.uid) { status.innerHTML = `<span class="text-red-400">@${escapeHTML(t)} is taken. Try another.</span>`; return; }
+                try { const h = await getDoc(doc(window.db, 'handles', t.toLowerCase())); if (h.exists() && h.data().uid !== user.uid) { status.innerHTML = `<span class="text-red-400">@${escapeHTML(t)} is taken. Try another.</span>`; return; } } catch (e) {}
                 okTag = t; btn.disabled = false; btn.classList.remove('opacity-50');
                 status.innerHTML = `<span class="text-emerald-400">✓ @${escapeHTML(t)} is available!</span>`;
             } catch (e) { status.innerHTML = `<span class="text-red-400">Couldn't check. Are you online?</span>`; }
@@ -5974,11 +5982,11 @@ window.askForGamertag = function(user) {
                 window.myDisplayName = displayName;
                 modal.classList.add('hidden');
                 btn.innerText = "Let's go";
-                showToast(`🎮 Welcome to Sinless GG, @${okTag}!`);
+                showToast(`🎮 Welcome to Sinless GG, @${window.hnd(okTag)}!`);
                 resolve(okTag);
             } catch (e) {
                 btn.disabled = false; btn.innerText = "Let's go";
-                status.innerHTML = `<span class="text-red-400">Someone just took @${escapeHTML(okTag)}. Pick another.</span>`;
+                status.innerHTML = `<span class="text-red-400">Someone just took @${window.hnd(escapeHTML(okTag))}. Pick another.</span>`;
             }
         };
     });
@@ -6017,7 +6025,7 @@ window.afterAuthChange = async function(user) {
         const prof = await window.getProfile(tag, true);
         window.myDisplayName = (prof && prof.displayName) || window.myDisplayName || tag;
         const status = document.getElementById('accountModalStatusText');
-        if (status) status.innerText = `Signed in as ${window.myDisplayName} (@${tag})`;
+        if (status) status.innerText = `Signed in as ${window.myDisplayName} (@${window.hnd(tag)})`;
         const uidBox = document.getElementById('myUidText');
         if (uidBox) uidBox.innerText = user.uid;
     } else {
@@ -6087,12 +6095,12 @@ window.renderAdminReports = async function() {
                     <span class="text-xs font-black text-red-400">🚩 ${groups[id].length} report${groups[id].length === 1 ? '' : 's'}</span>
                     <span class="text-[10px] text-gray-400">${Object.entries(reasons).map(([k, v]) => `${escapeHTML(k)} ×${v}`).join(' · ')}</span>
                 </div>
-                ${p ? `<div class="text-xs text-gray-200"><b class="text-white">${window.dn(p.user)}</b> <span class="text-gray-500">@${escapeHTML(p.user)}</span><p class="mt-1 line-clamp-3">${escapeHTML(p.caption || '(photo/video post)')}</p></div>` : `<p class="text-xs text-gray-500">Post already deleted.</p>`}
+                ${p ? `<div class="text-xs text-gray-200"><b class="text-white">${window.dn(p.user)}</b> <span class="text-gray-500">@${window.hnd(escapeHTML(p.user))}</span><p class="mt-1 line-clamp-3">${escapeHTML(p.caption || '(photo/video post)')}</p></div>` : `<p class="text-xs text-gray-500">Post already deleted.</p>`}
                 <div class="grid grid-cols-2 gap-2 pt-1">
                     ${p ? `<button onclick="window.closeAdminPanel(); window.openPostDetail('${id}')" class="py-2 rounded-xl bg-gg-900 text-gray-200 text-[11px] font-bold">👁 View post</button>` : ''}
                     <button onclick="window.adminDismissReports('${id}')" class="py-2 rounded-xl bg-gg-900 text-emerald-400 text-[11px] font-bold">✓ Keep post</button>
                     ${p ? `<button onclick="window.adminRemovePost('${id}')" class="py-2 rounded-xl bg-red-600/20 text-red-400 text-[11px] font-bold">🗑 Remove post</button>` : ''}
-                    ${p && p.uid ? `<button onclick="window.adminBan('${p.uid}', '${escapeHTML(p.user)}')" class="py-2 rounded-xl bg-red-600 text-white text-[11px] font-bold">🚫 Ban @${escapeHTML(p.user)}</button>` : ''}
+                    ${p && p.uid ? `<button onclick="window.adminBan('${p.uid}', '${escapeHTML(p.user)}')" class="py-2 rounded-xl bg-red-600 text-white text-[11px] font-bold">🚫 Ban @${window.hnd(escapeHTML(p.user))}</button>` : ''}
                 </div>
             </div>`);
     }
@@ -6120,21 +6128,21 @@ window.adminRemovePost = async function(postId) {
     window.renderFypFeed(); showToast('🗑 Post removed.'); window.renderAdminReports();
 };
 window.adminBan = async function(uid, tag) {
-    const ok = await window.sgConfirm(`@${tag} won't be able to post, reply, chat, follow or message anyone. You can unban them later.`, { title: `Ban @${tag}?`, okText: 'Ban', danger: true });
+    const ok = await window.sgConfirm(`@${window.hnd(tag)} won't be able to post, reply, chat, follow or message anyone. You can unban them later.`, { title: `Ban @${window.hnd(tag)}?`, okText: 'Ban', danger: true });
     if (!ok) return;
-    try { await setDoc(doc(window.db, 'banned', uid), { tag, by: window.me(), createdAt: serverTimestamp() }); showToast(`🚫 @${tag} banned.`); }
+    try { await setDoc(doc(window.db, 'banned', uid), { tag, by: window.me(), createdAt: serverTimestamp() }); showToast(`🚫 @${window.hnd(tag)} banned.`); }
     catch (e) { showToast("⚠️ Couldn't ban. Check rules."); }
     if (window.adminTab === 'users') window.renderAdminUsers(); else window.renderAdminReports();
 };
 window.adminUnban = async function(uid, tag) {
-    try { await deleteDoc(doc(window.db, 'banned', uid)); showToast(`@${tag} unbanned.`); } catch (e) {}
+    try { await deleteDoc(doc(window.db, 'banned', uid)); showToast(`@${window.hnd(tag)} unbanned.`); } catch (e) {}
     window.renderAdminUsers();
 };
 window.adminToggleVerify = async function(tag, on) {
     try {
         await updateDoc(doc(window.db, 'profiles', tag.toLowerCase()), { verified: on });
         if (window.allProfilesMap[tag.toLowerCase()]) window.allProfilesMap[tag.toLowerCase()].verified = on;
-        showToast(on ? `✔ @${tag} verified!` : `Removed verification from @${tag}.`);
+        showToast(on ? `✔ @${window.hnd(tag)} verified!` : `Removed verification from @${window.hnd(tag)}.`);
     } catch (e) { showToast("⚠️ Couldn't update. Check rules."); }
     window.renderAdminUsers(); window.renderFypFeed();
 };
@@ -6156,7 +6164,7 @@ window.renderAdminUsers = async function() {
             <div class="flex items-center justify-between p-2.5 rounded-xl bg-gg-900/60 border border-cyan-500/10">
                 <div class="flex items-center space-x-2 min-w-0">
                     ${window.avatarHtml(p.gamertag, 'w-9 h-9', 'rounded-xl', 'text-[10px]')}
-                    <div class="min-w-0"><p class="text-xs font-bold text-white truncate">${escapeHTML(p.displayName || p.gamertag)} ${p.verified ? '<i class="fa-solid fa-circle-check text-sky-400"></i>' : ''}</p><p class="text-[10px] text-gray-500">@${escapeHTML(p.gamertag)}</p></div>
+                    <div class="min-w-0"><p class="text-xs font-bold text-white truncate">${escapeHTML(p.displayName || p.gamertag)} ${p.verified ? '<i class="fa-solid fa-circle-check text-sky-400"></i>' : ''}</p><p class="text-[10px] text-gray-500">@${window.hnd(escapeHTML(p.gamertag))}</p></div>
                 </div>
                 <div class="flex space-x-1.5 shrink-0">
                     <button onclick="window.adminToggleVerify('${escapeHTML(p.gamertag)}', ${!p.verified})" class="px-2 py-1.5 rounded-lg text-[10px] font-bold ${p.verified ? 'bg-gg-800 text-gray-300' : 'bg-sky-500/20 text-sky-400'}">${p.verified ? 'Unverify' : '✔ Verify'}</button>
@@ -9626,7 +9634,7 @@ window.openGroupThread = function(gid) {
 window.renderDmMessages = function(msgs) {
     const box = document.getElementById('dmMessagesContainer');
     const dm = window.activeDm; if (!dm) return;
-    if (!msgs.length) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">${dm.group ? `Say hi to the group 👋` : `Say hi to @${escapeHTML(dm.partnerTag)} 👋`}</p>`; return; }
+    if (!msgs.length) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">${dm.group ? `Say hi to the group 👋` : `Say hi to @${window.hnd(escapeHTML(dm.partnerTag))} 👋`}</p>`; return; }
     const uid = window.uidNow();
     const now = Date.now();
     let prevFrom = null;
@@ -9737,7 +9745,7 @@ window.addToGroup = async function(gid) {
     } catch (e) { showToast("⚠️ Couldn't add."); }
 };
 window.removeFromGroup = async function(gid, uid, tag) {
-    try { await updateDoc(doc(window.db, 'groups', gid), { memberUids: arrayRemove(uid), members: arrayRemove(tag) }); showToast(`Removed @${tag}`); window.closePanel(); } catch (e) { showToast("⚠️ Couldn't remove."); }
+    try { await updateDoc(doc(window.db, 'groups', gid), { memberUids: arrayRemove(uid), members: arrayRemove(tag) }); showToast(`Removed @${window.hnd(tag)}`); window.closePanel(); } catch (e) { showToast("⚠️ Couldn't remove."); }
 };
 window.leaveGroup = async function(gid) {
     const ok = await window.sgConfirm('Leave this group? You will stop getting its messages.', { title: 'Leave group', okText: 'Leave', danger: true });
@@ -12426,7 +12434,7 @@ window.joinActiveTournament = async function(id) {
     if (r !== 'ok') { showToast(REG_MSG[r]); return; }
     window.renderTournamentsTabDedicated(); window.renderTournamentsTab && window.renderTournamentsTab();
     await window.saveTournament(t);
-    showToast(`✅ Registered for ${t.title} as @${tag}`);
+    showToast(`✅ Registered for ${t.title} as @${window.hnd(tag)}`);
     if (t.hostUid && t.hostUid !== window.uidNow()) window.notify(t.hostUid, 'tournament', { text: `joined your tournament ${t.title}` });
 };
 // Host / admin: add a player by their gamertag (must be a real Sinless GG account)
@@ -12436,13 +12444,13 @@ window.addPlayerByTag = async function(id) {
     if (!raw) return;
     const tag = raw.trim().replace(/^@/, '');
     const prof = await window.getProfile(tag, true);
-    if (!prof) { showToast(`❌ No player with the gamertag @${tag}. Check the spelling.`); return; }
+    if (!prof) { showToast(`❌ No player with the gamertag @${window.hnd(tag)}. Check the spelling.`); return; }
     const real = prof.gamertag || tag;
     const r = window.registerPlayer(t, real);
     if (r !== 'ok') { showToast(REG_MSG[r]); return; }
     window.renderTournamentsTabDedicated();
     await window.saveTournament(t);
-    showToast(`✅ @${real} added to ${t.title}`);
+    showToast(`✅ @${window.hnd(real)} added to ${t.title}`);
     if (prof.uid) window.notify(prof.uid, 'tournament', { text: `added you to ${t.title} 🏆 Check My Matches for your fixtures.` });
 };
 
@@ -12948,7 +12956,7 @@ window.deskMeRender = function() {
     const signed = window.isSignedIn && window.isSignedIn();
     const tag = signed ? window.me() : '';
     el.innerHTML = signed
-        ? `${window.avatarHtml(tag, 'w-10 h-10', 'rounded-xl', 'text-xs').replace(/onclick="[^"]*"/, '')}<div class="min-w-0"><p style="color:#fff;font-weight:800;font-size:14px" class="truncate">${escapeHTML(window.myDisplayName || tag)}</p><p style="color:#22d3ee;font-size:12px;font-weight:700" class="truncate">@${escapeHTML(tag)}</p></div>`
+        ? `${window.avatarHtml(tag, 'w-10 h-10', 'rounded-xl', 'text-xs').replace(/onclick="[^"]*"/, '')}<div class="min-w-0"><p style="color:#fff;font-weight:800;font-size:14px" class="truncate">${escapeHTML(window.myDisplayName || tag)}</p><p style="color:#22d3ee;font-size:12px;font-weight:700" class="truncate">@${window.hnd(escapeHTML(tag))}</p></div>`
         : `<img src="${window.SG_DEFAULT_PFP}" alt=""><div><p style="color:#fff;font-weight:800;font-size:14px">Sign in</p><p style="color:#94a3b8;font-size:12px">Join the community</p></div>`;
     const adm = document.getElementById('dnAdmin'); if (adm) adm.style.display = window.isAppAdmin ? '' : 'none';
 };
@@ -13071,7 +13079,7 @@ window.openStoryViewers = async function(id) {
     window.openPanel(`👁 Story viewers`, `<p class="text-xs text-gray-400 px-1">${list.length} viewer${list.length === 1 ? '' : 's'} · ❤️ ${likes} like${likes === 1 ? '' : 's'}</p>
         ${list.length ? list.map(x => `<button onclick="window.openUserProfileModal('${escapeHTML(x.user)}')" class="w-full flex items-center gap-3 p-2.5 rounded-xl bg-gg-900 border border-white/5 text-left">
             ${window.avatarHtml(x.user, 'w-10 h-10', 'rounded-full', 'text-xs').replace(/onclick="[^"]*"/, '')}
-            <div class="flex-1 min-w-0"><p class="text-sm font-bold text-white truncate">${window.dn(x.user)}</p><p class="text-[10px] text-gray-500">@${escapeHTML(x.user)}${x.at && x.at.seconds ? ' · ' + window.timeAgo(x.at.seconds * 1000) : ''}</p></div>
+            <div class="flex-1 min-w-0"><p class="text-sm font-bold text-white truncate">${window.dn(x.user)}</p><p class="text-[10px] text-gray-500">@${window.hnd(escapeHTML(x.user))}${x.at && x.at.seconds ? ' · ' + window.timeAgo(x.at.seconds * 1000) : ''}</p></div>
             ${x.liked ? '<span class="text-lg">❤️</span>' : ''}</button>`).join('') : '<p class="text-xs text-gray-500 text-center py-8">No views yet.</p>'}`);
 };
 window._baseClosePanel25 = window._baseClosePanel25 || window.closePanel;
@@ -13181,7 +13189,7 @@ window.requestMiddleman = async function(id) {
     if (window.needSignIn('use the middleman')) return;
     const m = (window.marketListings || []).find(x => x.id === id); if (!m || !m.uid) return;
     if (m.uid === window.uidNow()) { showToast('This is your own listing.'); return; }
-    const ok = await window.sgConfirm(`A Sinless GG middleman will join a group chat with you and @${m.user} to oversee this deal:\n\n${m.title} · ${m.price}\n\nDon't send money or items until the middleman confirms each step.`, { title: '🛡️ Request middleman', okText: 'Start safe deal' });
+    const ok = await window.sgConfirm(`A Sinless GG middleman will join a group chat with you and @${window.hnd(m.user)} to oversee this deal:\n\n${m.title} · ${m.price}\n\nDon't send money or items until the middleman confirms each step.`, { title: '🛡️ Request middleman', okText: 'Start safe deal' });
     if (!ok) return;
     try {
         let admins = [];
@@ -13193,7 +13201,7 @@ window.requestMiddleman = async function(id) {
         const ref = await addDoc(collection(window.db, 'groups'), { name, ownerUid: window.uidNow(), memberUids, members, deal: { listingId: m.id, title: m.title, price: m.price, seller: m.user, buyer: window.me() },
             lastText: 'Middleman deal started', lastFrom: window.uidNow(), lastUser: window.me(), lastAt: serverTimestamp(), createdAt: serverTimestamp() });
         await addDoc(collection(window.db, 'groups', ref.id, 'messages'), { fromUid: window.uidNow(), fromUser: window.me(),
-            text: `🛡️ Middleman deal for "${m.title}" (${m.price}).\nBuyer: @${window.me()} · Seller: @${m.user}\nSinless GG will guide each step. Don't send money or items until the middleman confirms. Keep everything in this chat.`, createdAt: serverTimestamp() });
+            text: `🛡️ Middleman deal for "${m.title}" (${m.price}).\nBuyer: @${window.hnd(window.me())} · Seller: @${window.hnd(m.user)}\nSinless GG will guide each step. Don't send money or items until the middleman confirms. Keep everything in this chat.`, createdAt: serverTimestamp() });
         [m.uid, ...admins].forEach(u => window.notify(u, 'group', { postId: 'group:' + ref.id, text: `started a 🛡️ middleman deal: ${m.title}` }));
         window.closePanel && window.closePanel();
         window.groupThreads = [{ id: ref.id, name, ownerUid: window.uidNow(), memberUids, members }, ...(window.groupThreads || []).filter(g => g.id !== ref.id)];
@@ -13245,7 +13253,7 @@ window.cldWatermarkUrl = function(url, kind, user, withLogo) {
     const steps = [kind === 'video' ? 'q_auto:good,c_limit,w_1080' : 'q_auto:good,c_limit,w_1600'];
     if (withLogo) steps.push(`l_fetch:${b64},w_0.13,fl_relative,g_north_west,x_24,y_24,o_92`);
     steps.push(`l_text:Arial_38_bold:${txt('Sinless GG')},co_white,o_92,g_south_west,x_28,y_74`);
-    steps.push(`l_text:Arial_28_bold:${txt('@' + (user || 'sinlessgg') + ' · sinlessgg.com')},co_white,o_85,g_south_west,x_28,y_32`);
+    steps.push(`l_text:Arial_28_bold:${txt('@' + window.hnd(user || 'sinlessgg') + ' · sinlessgg.com')},co_white,o_85,g_south_west,x_28,y_32`);
     steps.push(`f_${kind === 'video' ? 'mp4' : 'jpg'},fl_attachment:sinlessgg_${(user || 'post').replace(/\W/g, '')}_${Date.now().toString(36)}`);
     return `${base}/upload/${steps.join('/')}/${parts.join('/')}`;
 };
@@ -13462,7 +13470,7 @@ window.msgPreview = (m) => m.isAudio ? '🎤 Voice note' : m.isImage ? '📷 Pho
 window.renderDmMessages = function(msgs) {
     const box = document.getElementById('dmMessagesContainer');
     const dm = window.activeDm; if (!dm || !box) return;
-    if (!msgs.length) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">${dm.group ? `Say hi to the group 👋` : `Say hi to @${escapeHTML(dm.partnerTag)} 👋`}</p>`; return; }
+    if (!msgs.length) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">${dm.group ? `Say hi to the group 👋` : `Say hi to @${window.hnd(escapeHTML(dm.partnerTag))} 👋`}</p>`; return; }
     const uid = window.uidNow(), now = Date.now();
     const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
     let prevFrom = null;
@@ -13668,7 +13676,7 @@ window.openUserProfileModal = function(username, e) {
     return r;
 };
 window.profileToggleVerify = async function(tag, on) {
-    const ok = await window.sgConfirm(on ? `Give @${tag} the ✔ Verified creator badge? Do this for creators who perform very well or bring people to Sinless GG.` : `Remove @${tag}'s ✔ Verified creator badge?`, { title: on ? '✔ Verify creator' : 'Remove verification', okText: on ? 'Verify' : 'Remove' });
+    const ok = await window.sgConfirm(on ? `Give @${window.hnd(tag)} the ✔ Verified creator badge? Do this for creators who perform very well or bring people to Sinless GG.` : `Remove @${window.hnd(tag)}'s ✔ Verified creator badge?`, { title: on ? '✔ Verify creator' : 'Remove verification', okText: on ? 'Verify' : 'Remove' });
     if (!ok) return;
     try {
         await updateDoc(doc(window.db, 'profiles', tag.toLowerCase()), { verified: on });
@@ -13678,7 +13686,7 @@ window.profileToggleVerify = async function(tag, on) {
         if (window.userProfiles[k]) window.userProfiles[k].verified = on;
         try { const c = JSON.parse(localStorage.getItem('sg_profiles_v1') || 'null'); if (c && c.map && c.map[k]) { c.map[k].verified = on; localStorage.setItem('sg_profiles_v1', JSON.stringify(c)); } } catch (e) {}
         if (on) { const pr = window.profileFor(tag); if (pr && pr.uid) window.notify(pr.uid, 'verified', { text: 'You are now a ✔ Verified creator on Sinless GG! 🎉' }); }
-        showToast(on ? `✔ @${tag} is now a verified creator` : `Verification removed from @${tag}`);
+        showToast(on ? `✔ @${window.hnd(tag)} is now a verified creator` : `Verification removed from @${window.hnd(tag)}`);
         window.openUserProfileModal(tag);
     } catch (e) { showToast('⚠️ Couldn’t update.'); }
 };
@@ -13713,7 +13721,7 @@ window.runSearch = function() {
     const people = {};
     Object.values(window.allProfilesMap || {}).forEach(p => { if (p && p.gamertag) people[p.gamertag.toLowerCase()] = p; });
     (window.fypposts || []).forEach(p => { if (p.user && !people[p.user.toLowerCase()]) people[p.user.toLowerCase()] = { gamertag: p.user, displayName: p.displayName }; });
-    const P = !q ? [] : Object.values(people).filter(p => !window.isBlocked(p.gamertag) && has(p.gamertag, p.displayName))
+    const P = !q ? [] : Object.values(people).filter(p => !window.isBlocked(p.gamertag) && has(p.gamertag, p.displayName, p.handle))
         .sort((a, b) => (b.verified ? 1 : 0) - (a.verified ? 1 : 0) || (a.gamertag.toLowerCase().startsWith(q) ? 0 : 1) - (b.gamertag.toLowerCase().startsWith(q) ? 0 : 1)).slice(0, 20);
     const S = !q ? [] : (window.clansData || []).filter(s => has(s.name, s.tag, s.game)).slice(0, 15);
     const T = !q ? [] : (window.tournamentsList || []).filter(t => has(t.title, t.game, t.compName, t.hostOrg)).slice(0, 15);
@@ -13723,10 +13731,10 @@ window.runSearch = function() {
     if (!q) { out.innerHTML = `<p class="text-xs text-gray-500 text-center py-10">Type a gamertag, name, squad, tournament or word.</p>`; return; }
     const row = (onclick, left, title, sub) => `<button onclick="${onclick}" class="w-full flex items-center gap-3 p-2.5 rounded-xl bg-gg-900 border border-white/5 text-left">${left}<div class="min-w-0 flex-1"><p class="text-sm font-bold text-white truncate">${title}</p><p class="text-[10px] text-gray-500 truncate">${sub}</p></div></button>`;
     const sec = (k, label, items) => (window.searchTab === 'all' || window.searchTab === k) && items.length ? `<p class="text-[10px] font-black text-gray-400 uppercase tracking-wider px-1 pt-1">${label}</p>${items.join('')}` : '';
-    const html = sec('people', 'People', P.map(p => row(`window.closePanel(); window.openUserProfileModal('${escapeHTML(p.gamertag)}')`, window.avatarHtml(p.gamertag, 'w-10 h-10', 'rounded-full', 'text-xs').replace(/onclick="[^"]*"/, ''), `${escapeHTML(p.displayName || p.gamertag)}${p.verified ? ' <span class="text-sky-400">✔</span>' : ''}`, `@${escapeHTML(p.gamertag)}`)))
+    const html = sec('people', 'People', P.map(p => row(`window.closePanel(); window.openUserProfileModal('${escapeHTML(p.gamertag)}')`, window.avatarHtml(p.gamertag, 'w-10 h-10', 'rounded-full', 'text-xs').replace(/onclick="[^"]*"/, ''), `${escapeHTML(p.displayName || p.gamertag)}${p.verified ? ' <span class="text-sky-400">✔</span>' : ''}`, `@${window.hnd(escapeHTML(p.gamertag))}`)))
         + sec('squads', 'Squads', S.map(s => row(`window.closePanel(); window.switchView('clans'); window.openSquadDetailsModal('${s.id}')`, `<span class="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-300 flex items-center justify-center text-sm font-black shrink-0">${escapeHTML((s.tag || s.name || '?').slice(0, 3))}</span>`, escapeHTML(s.name), `${escapeHTML(s.game || '')} · ${(s.members || []).length} members${s.isOfficial ? ' · official' : ''}`)))
         + sec('tourn', 'Tournaments', T.map(t => row(`window.closePanel(); window.switchView('tournaments'); window.openTournamentById('${t.id}')`, `<span class="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center text-lg shrink-0">🏆</span>`, escapeHTML(t.title), `${escapeHTML(t.game || '')} · ${window.tourOpenSpots(t) ? window.tourOpenSpots(t) + ' spots left' : t.status === 'finished' ? 'finished' : 'full'}`)))
-        + sec('posts', 'Posts', Po.map(p => row(`window.closePanel(); window.openPostDetail('${p.docId || p.id}')`, window.avatarHtml(p.user, 'w-10 h-10', 'rounded-xl', 'text-xs').replace(/onclick="[^"]*"/, ''), escapeHTML((p.caption || '📷 Media').slice(0, 80)), `@${escapeHTML(p.user)} · ${escapeHTML(p.game || '')}`)));
+        + sec('posts', 'Posts', Po.map(p => row(`window.closePanel(); window.openPostDetail('${p.docId || p.id}')`, window.avatarHtml(p.user, 'w-10 h-10', 'rounded-xl', 'text-xs').replace(/onclick="[^"]*"/, ''), escapeHTML((p.caption || '📷 Media').slice(0, 80)), `@${window.hnd(escapeHTML(p.user))} · ${escapeHTML(p.game || '')}`)));
     out.innerHTML = html || `<p class="text-xs text-gray-500 text-center py-10">Nothing found for “${escapeHTML(q)}”.</p>`;
 };
 
@@ -13774,4 +13782,576 @@ window.renderSquadChannel = function() {
 window.toggleWeekly = function(key) {
     try { if (localStorage.getItem(key)) localStorage.removeItem(key); else localStorage.setItem(key, '1'); } catch (e) {}
     const box = document.getElementById('squadRoomMsgsBox'); box.querySelector('[data-weekly]')?.remove(); window.renderSquadChannel();
+};
+
+// ======================================================================
+// v27: FEED SHOWS WHAT YOU HAVEN'T SEEN FIRST
+// Posts you've already looked at drop below new ones when the feed refreshes.
+// (They're still on the creator's profile and further down the feed.)
+// ======================================================================
+window.isSeenPost = (p) => window.viewedPosts && (window.viewedPosts.has(p.docId || p.id) || window.viewedPosts.has(p.id));
+window.rebuildFeedOrder = function() {
+    const all = window.fypposts || [];
+    const now = Date.now();
+    const mine = (p) => (p.user || '').toLowerCase() === window.meLower();
+    const few = all.length < window.FEED_SHUFFLE_BELOW;
+    const rank = (list) => list.map(p => ({ p, s: window.feedScore(p) * (few ? (0.3 + Math.random() * 1.4) : (0.9 + Math.random() * 0.2)) })).sort((a, b) => b.s - a.s).map(x => x.p);
+    // 1) your own brand-new posts, 2) fresh posts you haven't seen (newest first), 3) other unseen posts (ranked), 4) seen posts (ranked)
+    const ownNew = all.filter(p => mine(p) && now - window.postTimeValue(p) < 10 * 60000 && !window.isSeenPost(p)).sort((a, b) => window.postTimeValue(b) - window.postTimeValue(a));
+    const ids = new Set(ownNew.map(p => p.docId || p.id));
+    const unseen = all.filter(p => !ids.has(p.docId || p.id) && !window.isSeenPost(p));
+    const fresh = unseen.filter(p => now - window.postTimeValue(p) < window.FEED_FRESH_MS).sort((a, b) => window.postTimeValue(b) - window.postTimeValue(a));
+    const freshIds = new Set(fresh.map(p => p.docId || p.id));
+    const otherUnseen = rank(unseen.filter(p => !freshIds.has(p.docId || p.id)));
+    const seen = rank(all.filter(p => !ids.has(p.docId || p.id) && window.isSeenPost(p)));
+    window.feedOrder = [...ownNew, ...fresh, ...otherUnseen, ...seen].map(p => p.docId || p.id);
+    window.pendingNewIds.clear();
+    window.updateNewPostsPill();
+};
+
+// ======================================================================
+// v27: HOST / ADMIN TOOLS — 🔀 shuffle the draw before any game, ❌ remove a player added by mistake
+// ======================================================================
+window.tourHasResults = (t) => (t.matches || []).some(m => m.s1 !== null && m.s1 !== undefined && m.s1 !== '');
+window.shuffleArr = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+window.shuffleTournament = async function(id) {
+    const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.canManageTourn(t)) return;
+    if (window.tourHasResults(t)) { showToast('Scores are already in, so the draw can’t be shuffled now.'); return; }
+    const ok = await window.sgConfirm(t.format === 'LEAGUE' ? 'Shuffle the fixtures? Everyone gets a new random order of opponents and matchdays.' : 'Shuffle the draw? Players are placed in new random spots in the bracket.', { title: '🔀 Shuffle', okText: 'Shuffle' });
+    if (!ok) return;
+    if (t.format === 'LEAGUE') {
+        t.players = window.shuffleArr(t.players || []);
+        t.matches = window.makeLeagueMatches(t.players, t.leagueH2H || '1x');
+    } else {
+        const first = Math.min(...(t.matches || []).map(m => m.round || 1));
+        const r1 = (t.matches || []).filter(m => (m.round || 1) === first);
+        const slots = window.shuffleArr(r1.flatMap(m => [m.p1 || 'Open Spot', m.p2 || 'Open Spot']));
+        r1.forEach((m, i) => { m.p1 = slots[i * 2]; m.p2 = slots[i * 2 + 1]; m.winner = null; m.status = 'approved'; });
+    }
+    t.eliminated = [];
+    window.renderTournamentsTabDedicated();
+    await window.saveTournament(t);
+    showToast('🔀 Shuffled! New draw saved for everyone.');
+};
+window.openRemovePlayer = function(id) {
+    const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.canManageTourn(t)) return;
+    const ps = window.realPlayers(t);
+    window.openPanel(`❌ Remove a player`, `<p class="text-xs text-gray-400">Remove someone added to <b class="text-white">${escapeHTML(t.title)}</b> by mistake. Their spot opens up again.</p>
+        ${ps.length ? ps.map(p => `<div class="flex items-center gap-3 p-2.5 rounded-xl bg-gg-900 border border-white/5">${window.avatarHtml(p, 'w-9 h-9', 'rounded-full', 'text-xs').replace(/onclick="[^"]*"/, '')}
+            <div class="flex-1 min-w-0"><p class="text-sm font-bold text-white truncate">${window.dn(p)}</p><p class="text-[10px] text-gray-500">@${window.hnd(escapeHTML(p))}</p></div>
+            <button onclick="window.removeTournPlayer('${t.id}', '${escapeHTML(p)}')" class="px-3 py-2 rounded-xl bg-red-500/15 border border-red-500/40 text-red-300 text-[11px] font-black">Remove</button></div>`).join('') : '<p class="text-xs text-gray-500 text-center py-6">No players yet.</p>'}`);
+};
+window.removeTournPlayer = async function(id, tag) {
+    const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.canManageTourn(t)) return;
+    const is = (p) => (p || '').toLowerCase() === tag.toLowerCase();
+    const played = (t.matches || []).filter(m => (is(m.p1) || is(m.p2)) && m.s1 !== null && m.s1 !== undefined && m.s1 !== '');
+    if (t.format !== 'LEAGUE' && played.length) { showToast(`@${window.hnd(tag)} has already played in the bracket. Use 🏳️ Forfeit on their match instead.`); return; }
+    const ok = await window.sgConfirm(`Remove @${window.hnd(tag)} from ${t.title}?${played.length ? `\n\nTheir ${played.length} played result${played.length > 1 ? 's' : ''} will be cleared.` : ''}`, { title: '❌ Remove player', okText: 'Remove', danger: true });
+    if (!ok) return;
+    if (t.format === 'LEAGUE') {
+        const used = new Set((t.players || []).filter(p => /^Club_\d+$/.test(p)).map(p => +p.split('_')[1]));
+        let k = 1; while (used.has(k)) k++;
+        const ph = `Club_${k}`;
+        t.players = (t.players || []).map(p => is(p) ? ph : p);
+        (t.matches || []).forEach(m => {
+            if (is(m.p1) || is(m.p2)) { if (is(m.p1)) m.p1 = ph; if (is(m.p2)) m.p2 = ph; m.s1 = null; m.s2 = null; m.winner = null; m.status = 'approved'; delete m.forfeit; delete m.reportedBy; }
+        });
+    } else {
+        t.players = (t.players || []).filter(p => !is(p));
+        (t.matches || []).forEach(m => { if (is(m.p1)) m.p1 = 'Open Spot'; if (is(m.p2)) m.p2 = 'Open Spot'; });
+    }
+    t.eliminated = (t.eliminated || []).filter(p => !is(p));
+    window.closePanel();
+    window.renderTournamentsTabDedicated();
+    await window.saveTournament(t);
+    showToast(`@${window.hnd(tag)} removed. Their spot is open again.`);
+    const pr = await window.getProfile(tag); if (pr && pr.uid) window.notify(pr.uid, 'tournament', { text: `removed you from ${t.title}. Ask the host if this was a mistake.` });
+};
+window._baseRenderTournamentsTabDedicated27 = window._baseRenderTournamentsTabDedicated27 || window.renderTournamentsTabDedicated;
+window.renderTournamentsTabDedicated = function() {
+    window._baseRenderTournamentsTabDedicated27();
+    const t = window.activeTournament, box = document.getElementById('tournamentsDedicatedContainer');
+    const bar = box && box.querySelector('[data-season-bar]');
+    if (!t || !bar || !window.canManageTourn(t) || t.status === 'finished' || bar.querySelector('[data-hosttools]')) return;
+    const canShuffle = !window.tourHasResults(t) && window.realPlayers(t).length >= 2;
+    bar.insertAdjacentHTML('beforeend', `<span data-hosttools class="flex gap-1.5 flex-wrap">
+        ${canShuffle ? `<button onclick="window.shuffleTournament('${t.id}')" class="px-2.5 py-1 rounded-lg bg-magenta/15 text-magenta border border-magenta/40 uppercase">🔀 Shuffle draw</button>` : ''}
+        ${window.realPlayers(t).length ? `<button onclick="window.openRemovePlayer('${t.id}')" class="px-2.5 py-1 rounded-lg bg-red-500/10 text-red-300 border border-red-500/30 uppercase">❌ Remove player</button>` : ''}</span>`);
+};
+
+// ======================================================================
+// v28: POINTS ON THE TOP RANK · RESULT CONFIRMATION · FRIENDLY vs HOST TROPHIES · CLIPS OF THE WEEK
+//      REPORTS FOR PEOPLE & LISTINGS · REAL ACCOUNT DELETION · FIRST-VISIT FIXES
+// ======================================================================
+
+// ---------- 1) Points: daily streak bonuses + invites count towards the Top rank ----------
+window.STREAK_BONUS = { 3: 15, 7: 50, 14: 100, 30: 250, 50: 400, 100: 1000 };
+window.INVITE_POINTS = 50;
+window._baseLoadMyStats28 = window._baseLoadMyStats28 || window.loadMyStats;
+window.loadMyStats = async function(...a) {
+    const r = await window._baseLoadMyStats28(...a);
+    const s = window.myStats || {}, today = window.todayStr();
+    let last = ''; try { last = localStorage.getItem('sg_streak_bonus_day') || ''; } catch (e) {}
+    if (window.isSignedIn() && s.lastDay === today && last !== today) {
+        try { localStorage.setItem('sg_streak_bonus_day', today); } catch (e) {}
+        const b = window.STREAK_BONUS[s.streak];
+        if (b) { window.addXP(b, 'challenge'); setTimeout(() => showToast(`🔥 ${s.streak}-day streak bonus: +${b} points towards the Top rank!`), 3200); }
+    }
+    return r;
+};
+// Invites: a smaller reward (+50) so fake accounts aren't worth it
+window.creditInvites = async function(silent) {
+    if (!window.isSignedIn()) return 0;
+    const n = await window.myInviteCount();
+    const diff = n - (window.myStats.invitesCredited || 0);
+    if (diff > 0) {
+        window.myStats.invitesCredited = n;
+        const pts = window.INVITE_POINTS * diff;
+        window.addXP(pts, 'invite');
+        window.bumpChallenge('invite', diff);
+        const msg = `🎉 ${diff} friend${diff === 1 ? '' : 's'} joined with your invite! +${pts} points`;
+        if (!silent) showToast(msg); else setTimeout(() => showToast(msg), 3000);
+    }
+    return n;
+};
+window._baseOpenInvite28 = window._baseOpenInvite28 || window.openInvite;
+window.openInvite = async function(...a) {
+    const r = window._baseOpenInvite28(...a);
+    setTimeout(() => { const p = document.querySelector('#sgPanelBody .glass-panel p.text-xs.text-gray-400'); if (p && /\+100 XP/.test(p.innerHTML)) p.innerHTML = p.innerHTML.replace('+100 XP', `+${window.INVITE_POINTS} points`) + ' Points push you up the <b class="text-white">Top</b> rank.'; }, 0);
+    return r;
+};
+// Score = points (daily logins, streaks, challenges, invites, posting) + 2 per GG + 1 per 20 views
+window.rankScore = (c) => (c.xp || 0) + 2 * (c.ggs || 0) + Math.floor((c.views || 0) / 20);
+window.topXpCache = null;
+window.fetchTopXp = async function() {
+    if (window.topXpCache && Date.now() - window.topXpCache.at < 10 * 60000) return window.topXpCache.map;
+    const map = {};
+    try { const s = await getDocs(query(collection(window.db, 'profiles'), orderBy('xp', 'desc'), limit(300))); s.forEach(d => { const x = d.data(); if (x.gamertag && !x.deleted) map[x.gamertag.toLowerCase()] = { tag: x.gamertag, xp: Number(x.xp) || 0 }; }); } catch (e) {}
+    if (window.isSignedIn() && window.me()) { const k = window.meLower(); map[k] = { tag: (map[k] && map[k].tag) || window.me(), xp: Math.max((map[k] && map[k].xp) || 0, window.myStats.xp || 0) }; }
+    window.topXpCache = { at: Date.now(), map };
+    return map;
+};
+window.topScoreList = async function() {
+    const [posts, xp] = await Promise.all([window.fetchRankingPosts('all'), window.fetchTopXp()]);
+    const by = {};
+    window.buildCreatorStats(posts).forEach(c => { by[c.gamertag.toLowerCase()] = { ...c, xp: 0 }; });
+    Object.entries(xp).forEach(([k, v]) => { by[k] = by[k] || { gamertag: v.tag, posts: 0, ggs: 0, replies: 0, views: 0 }; by[k].xp = v.xp; });
+    return Object.values(by).filter(c => !window.isBlocked(c.gamertag) && !(window.isDemoAccount && window.isDemoAccount(c.gamertag)))
+        .map(c => ({ ...c, score: window.rankScore(c) })).filter(c => c.score > 0)
+        .sort((a, b) => b.score - a.score || b.ggs - a.ggs);
+};
+window.rankSort.all = 'score';
+window._baseRenderTopAccounts28 = window._baseRenderTopAccounts28 || window.renderTopAccounts;
+window.renderTopAccounts = async function() {
+    const view = document.getElementById('view-popular');
+    if (view && !view.querySelector('[data-by="score"]')) {
+        const grp = view.querySelector('[data-ranksort="all"]')?.parentElement;
+        grp && grp.insertAdjacentHTML('afterbegin', `<button data-ranksort="all" data-by="score" onclick="window.setRankSort('all','score')" class="px-2.5 py-1 rounded-full text-[10px] font-black bg-white text-slate-950">⭐ Score</button>`);
+        window.setRankSort('all', window.rankSort.all); return;
+    }
+    if (view && !view.querySelector('[data-score-help]')) view.querySelector('#topAccountsList')?.insertAdjacentHTML('beforebegin', `<p data-score-help class="text-[10px] text-gray-400 leading-snug">⭐ <b class="text-white">Score</b> = your points (open the app daily, keep your 🔥 streak, finish challenges, invite friends) + 2 per GG + 1 per 20 views.</p>`);
+    if (window.rankSort.all !== 'score') return window._baseRenderTopAccounts28();
+    const box = document.getElementById('topAccountsList'); if (!box) return;
+    if (!box.innerHTML.trim()) box.innerHTML = `<p class="text-xs text-gray-400 text-center py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading the Top rank…</p>`;
+    const list = (await window.topScoreList()).slice(0, 250);
+    if (window.rankSort.all !== 'score') return;
+    if (!list.length) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">No one ranked yet.</p>`; return; }
+    box.innerHTML = list.map((c, i) => window.creatorRowV2({ ...c }, i, `Lv ${window.levelOf(c.xp).lv} · ${window.formatCount(c.xp)} pts · ${window.formatCount(c.ggs)} GGs`)
+        .replace(/<div><p class="font-black text-cyan-400 text-xs">[\s\S]*?VIEWS<\/p><\/div>/, `<div><p class="font-black text-amber-400 text-sm">${window.formatCount(c.score)}</p><p class="text-[8px] text-gray-500 font-bold">SCORE</p></div>`)).join('');
+};
+// Profile "Global rank" uses the same Score
+window._baseOpenUserProfileModal28 = window._baseOpenUserProfileModal28 || window.openUserProfileModal;
+window.openUserProfileModal = function(username, e) {
+    const r = window._baseOpenUserProfileModal28(username, e);
+    const tag = (username || '').replace('@', '');
+    window.topScoreList().then(list => {
+        if (window.activeProfileUser !== tag) return;
+        const i = list.findIndex(c => c.gamertag.toLowerCase() === tag.toLowerCase());
+        const el = document.getElementById('profileRankBadge'); if (el) el.innerText = i >= 0 ? `#${i + 1}` : '--';
+    }).catch(() => {});
+    return r;
+};
+
+// ---------- 2) Match results: both players confirm, host/admin makes the final call ----------
+window.claimOf = (m, tag) => (m.claims || {})[(tag || '').toLowerCase()];
+window.pendingLabel = function(m) {
+    const c = m.claims || {}, a = c[(m.p1 || '').toLowerCase()], b = c[(m.p2 || '').toLowerCase()];
+    if (a && b && (a.s1 !== b.s1 || a.s2 !== b.s2)) return '<span class="text-[8px] bg-red-500 text-white font-black px-1.5 py-0.5 rounded">⚠️ Scores differ</span>';
+    return '<span class="text-[8px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.5 rounded">⏳ Waiting to confirm</span>';
+};
+window._baseSubmitMatchScoreReport28 = window._baseSubmitMatchScoreReport28 || window.submitMatchScoreReport;
+window.submitMatchScoreReport = async function() {
+    const t = window.activeTournament, m = window.activeMatchForReporting;
+    const s1 = parseInt(document.getElementById('reportP1ScoreInput')?.value), s2 = parseInt(document.getElementById('reportP2ScoreInput')?.value);
+    const me = window.meLower(), mgr = t && window.canManageTourn(t);
+    const isPlayer = m && [m.p1, m.p2].some(p => (p || '').toLowerCase() === me);
+    if (m && isPlayer && !isNaN(s1) && !isNaN(s2)) {
+        m.claims = m.claims || {};
+        m.claims[me] = { s1, s2, by: window.me(), at: Date.now(), proof: window._matchProof || (window.claimOf(m, me) || {}).proof || '' };
+    }
+    if (m && mgr && window._matchProof) m.proof = window._matchProof;
+    window._matchProof = null;
+    const r = await window._baseSubmitMatchScoreReport28();
+    if (!t || !m || mgr || !isPlayer || m.status !== 'disputed') return r;
+    const oppTag = (m.p1 || '').toLowerCase() === me ? m.p2 : m.p1, opp = window.claimOf(m, oppTag);
+    const tell = async (p, text) => { const pr = await window.getProfile(p); if (pr && pr.uid) window.notify(pr.uid, 'tournament', { text }); };
+    if (opp && opp.s1 === s1 && opp.s2 === s2) {
+        window.approveMatchNow(t, m); m.confirmedBy = window.me(); delete m.conflict;
+        window.renderTournamentsTabDedicated(); await window.saveTournament(t);
+        showToast('✅ Both players agree. Score is final and the table is updated.');
+        tell(oppTag, `confirmed your score ${s1}–${s2} in ${t.title} ✅`);
+    } else if (opp) {
+        m.conflict = true; window.renderTournamentsTabDedicated(); await window.saveTournament(t);
+        showToast('⚠️ Your score is different from your opponent’s. The host or an admin will decide.');
+        if (t.hostUid && t.hostUid !== window.uidNow()) window.notify(t.hostUid, 'tournament', { text: `⚠️ Players reported different scores in ${t.title}. Tap to decide.` });
+    } else {
+        showToast(`📨 Score sent. ${window.dnText(oppTag)} must confirm it (or the host/admin approves).`);
+        tell(oppTag, `reported ${window.dnText(m.p1)} ${s1}–${s2} ${window.dnText(m.p2)} in ${t.title}. Tap to confirm ✅`);
+    }
+    return r;
+};
+window._baseConfirmOpponentScore28 = window._baseConfirmOpponentScore28 || window.confirmOpponentScore;
+window.confirmOpponentScore = async function() {
+    const m = window.activeMatchForReporting;
+    if (m) { m.claims = m.claims || {}; m.claims[window.meLower()] = { s1: m.s1, s2: m.s2, by: window.me(), at: Date.now(), proof: '' }; delete m.conflict; }
+    return window._baseConfirmOpponentScore28();
+};
+// Optional screenshot proof in the score form
+window._baseOpenMatchReportModal28 = window._baseOpenMatchReportModal28 || window.openMatchReportModal;
+window.openMatchReportModal = function(matchId) {
+    window._baseOpenMatchReportModal28(matchId);
+    window._matchProof = null;
+    const m = window.activeMatchForReporting, mvp = document.getElementById('matchMvpInput'); if (!m || !mvp) return;
+    document.querySelectorAll('[data-proofbox],[data-claimsbox]').forEach(x => x.remove());
+    const proofs = [m.p1, m.p2].map(p => window.claimOf(m, p)).filter(Boolean).concat(m.proof ? [{ by: 'Host', proof: m.proof, s1: m.s1, s2: m.s2 }] : []);
+    mvp.insertAdjacentHTML('afterend', `<div data-proofbox class="flex items-center gap-2">
+        <label class="flex-1 cursor-pointer py-2 rounded-xl bg-gg-950 border border-dashed border-cyan-500/40 text-cyan-300 text-[11px] font-black text-center">📸 <span data-prooflabel>Add screenshot of the final score (optional)</span>
+        <input type="file" accept="image/*" class="hidden" onchange="window.pickMatchProof(this)"></label></div>
+        ${proofs.length ? `<div data-claimsbox class="space-y-1">${proofs.map(c => `<div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-gg-950 border border-white/5 text-[10px]"><span class="text-gray-300"><b class="text-white">${escapeHTML(window.dnText(c.by))}</b> says ${c.s1}–${c.s2}</span>${c.proof ? `<button onclick="window.openPanel('📸 Score proof', '<img src=&quot;${window.cldSized(c.proof, 1200)}&quot; class=&quot;w-full rounded-2xl&quot;>')" class="text-cyan-300 font-black">View proof</button>` : '<span class="text-gray-600">no photo</span>'}</div>`).join('')}</div>` : ''}`);
+};
+window.pickMatchProof = async function(input) {
+    const f = input.files && input.files[0]; if (!f) return;
+    const lab = input.parentElement.querySelector('[data-prooflabel]');
+    lab.textContent = 'Uploading…';
+    try { const up = await window.prepareAndUpload(f, (p) => { lab.textContent = `Uploading ${p}%`; }, 1600, 1600); window._matchProof = up.url; lab.textContent = '✅ Screenshot added'; }
+    catch (e) { lab.textContent = '⚠️ Upload failed. Try again'; }
+};
+// Host / admin queue: every score waiting for a decision, with both players' claims
+window.pendingResults = (t) => (t.matches || []).filter(m => m.status === 'disputed' && m.s1 !== null && m.s1 !== undefined);
+window.openResultsQueue = function(id) {
+    const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.canManageTourn(t)) return;
+    const list = window.pendingResults(t);
+    const opt = (m, c, i) => `<button onclick="window.decideResult('${t.id}','${m.id}',${c.s1},${c.s2})" class="flex-1 py-2 rounded-xl ${i ? 'bg-gg-900 border border-cyan-500/40 text-cyan-300' : 'bg-emerald-400 text-slate-950'} text-[11px] font-black">✅ ${c.s1}–${c.s2}${c.by ? ` <span class="font-bold opacity-70">(${escapeHTML(window.dnText(c.by))})</span>` : ''}</button>`;
+    window.openPanel('⏳ Results to approve', `<p class="text-xs text-gray-400">Players who didn't confirm each other's score. You make the final call. Check the screenshots if they sent one.</p>
+        ${list.length ? list.map(m => { const cs = [m.p1, m.p2].map(p => window.claimOf(m, p)).filter(Boolean); const uniq = cs.length ? cs.filter((c, i) => cs.findIndex(x => x.s1 === c.s1 && x.s2 === c.s2) === i) : [{ s1: m.s1, s2: m.s2, by: m.reportedBy }];
+            return `<div class="p-3 rounded-2xl bg-gg-900 border ${uniq.length > 1 ? 'border-red-500/40' : 'border-amber-500/30'} space-y-2">
+                <div class="flex items-center justify-between"><p class="text-xs font-black text-white">${window.dn(m.p1)} <span class="text-gray-500">vs</span> ${window.dn(m.p2)}</p><span class="text-[9px] text-gray-500">${escapeHTML(m.stage || '')}</span></div>
+                ${uniq.length > 1 ? '<p class="text-[10px] font-black text-red-300">⚠️ The players reported different scores</p>' : `<p class="text-[10px] text-amber-300">Only ${escapeHTML(window.dnText((cs[0] || {}).by || m.reportedBy || 'one player'))} reported. Waiting for the other player.</p>`}
+                ${cs.filter(c => c.proof).map(c => `<img src="${window.cldSized(c.proof, 700)}" alt="" class="w-full rounded-xl border border-white/10" loading="lazy"><p class="text-[9px] text-gray-500 -mt-1">📸 from ${escapeHTML(window.dnText(c.by))}</p>`).join('')}
+                <div class="flex gap-2">${uniq.map((c, i) => opt(m, c, i)).join('')}</div>
+                <button onclick="window.closePanel(); window.openMatchReportModal('${m.id}')" class="w-full py-1.5 text-[10px] font-black text-gray-400">✏️ Enter a different score</button></div>`; }).join('') : '<p class="text-xs text-gray-500 text-center py-8">Nothing waiting. All results are final ✅</p>'}`);
+};
+window.decideResult = async function(tid, mid, s1, s2) {
+    const t = (window.tournamentsList || []).find(x => x.id === tid); if (!t || !window.canManageTourn(t)) return;
+    const m = (t.matches || []).find(x => x.id === mid); if (!m) return;
+    Object.assign(m, { s1, s2, winner: s1 > s2 ? m.p1 : s2 > s1 ? m.p2 : 'DRAW', approvedBy: window.me() }); delete m.conflict;
+    window.approveMatchNow(t, m);
+    window.renderTournamentsTabDedicated(); await window.saveTournament(t);
+    showToast(`✅ Final score ${s1}–${s2} approved. Table updated.`);
+    [m.p1, m.p2].forEach(async p => { const pr = await window.getProfile(p); if (pr && pr.uid && pr.uid !== window.uidNow()) window.notify(pr.uid, 'tournament', { text: `approved the final score ${window.dnText(m.p1)} ${s1}–${s2} ${window.dnText(m.p2)} in ${t.title}` }); });
+    window.openResultsQueue(tid);
+};
+
+// ---------- 3) Friendly tournaments don't give trophies. Only Host seasons (long-term competitions) do ----------
+window.isFriendly = (t) => !t.compId;
+window._baseFinishSeason28 = window._baseFinishSeason28 || window.finishSeason;
+window.finishSeason = async function(id) {
+    const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+    if (!window.isFriendly(t)) return window._baseFinishSeason28(id);
+    const order = window.finalOrderOf(t);
+    if (!order.length) { showToast('No results yet. Approve some match scores first.'); return; }
+    const ok = await window.sgConfirm(`Finish ${t.title}? ${window.dnText(order[0])} is shown as the winner of this friendly.\n\nFriendly tournaments don't add trophies or champion labels. Those come only from Host competitions (Host tab → leagues & cups with seasons).`, { title: '🤝 Finish friendly', okText: 'Finish' });
+    if (!ok) return;
+    try {
+        await updateDoc(doc(window.db, 'tournaments', t.id), { status: 'finished', champion: order[0], finalOrder: order, finishedAt: Date.now() });
+        Object.assign(t, { status: 'finished', champion: order[0], finalOrder: order });
+        const prof = await window.getProfile(order[0]); if (prof && prof.uid) window.notify(prof.uid, 'tournament', { text: `🎉 You won the friendly ${t.title}!` });
+        showToast(`🏁 ${window.dnText(order[0])} wins ${t.title}!`); window.renderTournamentsTabDedicated();
+    } catch (e) { showToast("⚠️ Couldn't finish. Try again."); }
+};
+// Older trophies from friendlies are hidden from cabinets and labels
+window._baseLoadTitles28 = window._baseLoadTitles28 || window.loadTitles;
+window.loadTitles = async function() {
+    const list = await window._baseLoadTitles28();
+    if (window._titles && !window._titles.filtered) { window._titles.list = window._titles.list.filter(x => x.compId || x.hostOrg); window._titles.filtered = true; }
+    return (window._titles && window._titles.list) || list;
+};
+
+// ---------- Host tools bar: results queue + friendly chip ----------
+window._baseRenderTournamentsTabDedicated28 = window._baseRenderTournamentsTabDedicated28 || window.renderTournamentsTabDedicated;
+window.renderTournamentsTabDedicated = function() {
+    window._baseRenderTournamentsTabDedicated28();
+    const t = window.activeTournament, bar = document.querySelector('#tournamentsDedicatedContainer [data-season-bar]');
+    if (!t || !bar) return;
+    if (window.isFriendly(t) && !bar.querySelector('[data-friendly]')) bar.insertAdjacentHTML('afterbegin', `<span data-friendly class="px-2 py-1 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/30" title="Friendlies don't give trophies">🤝 Friendly · no trophy</span>`);
+    const n = window.pendingResults(t).length;
+    if (window.canManageTourn(t) && n && !bar.querySelector('[data-resq]')) bar.insertAdjacentHTML('beforeend', `<button data-resq onclick="window.openResultsQueue('${t.id}')" class="px-2.5 py-1 rounded-lg bg-amber-400 text-slate-950 uppercase animate-pulse">⏳ Approve results (${n})</button>`);
+};
+
+// ---------- 4) Clips of the Week: the 3 most-GG'd videos of the last 7 days ----------
+window.clipsOfWeek = function(posts) {
+    return (posts || []).filter(p => (p.mediaList || []).some(m => m.type === 'video') && Date.now() - window.postTimeValue(p) < 7 * 864e5 && !window.isBlocked(p.user))
+        .sort((a, b) => (b.ggsCount || 0) - (a.ggsCount || 0) || (b.viewsCount || 0) - (a.viewsCount || 0)).filter(p => (p.ggsCount || 0) > 0).slice(0, 3);
+};
+window.clipKing = null;
+window.renderClipsOfWeek = async function() {
+    const view = document.getElementById('view-standings'); if (!view) return;
+    const posts = await window.fetchRankingPosts('week');
+    const top = window.clipsOfWeek(posts.length ? posts : window.fypposts);
+    window.clipKing = top[0] ? top[0].user : null;
+    let box = view.querySelector('[data-clips-week]');
+    if (!box) { box = document.createElement('div'); box.setAttribute('data-clips-week', '1'); view.prepend(box); }
+    if (!top.length) { box.innerHTML = ''; return; }
+    const order = top.length === 3 ? [1, 0, 2] : top.map((_, i) => i);
+    box.innerHTML = `<div class="glass-panel rounded-2xl p-4 border border-magenta/30 space-y-3"><div><h3 class="text-xs font-black text-white uppercase tracking-wider">🎬 Clips of the Week</h3><p class="text-[9px] text-gray-400 mt-0.5">The most GG'd videos of the last 7 days. #1 gets the 🎬 Clip King label.</p></div>
+        <div class="grid grid-cols-3 gap-2 items-end">${order.map(i => { const p = top[i], v = (p.mediaList || []).find(m => m.type === 'video');
+            return `<button onclick="window.openPostDetail('${p.docId || p.id}')" class="text-left"><div class="relative rounded-xl overflow-hidden border ${i === 0 ? 'border-amber-400 h-40' : 'border-white/10 h-32'} bg-black">
+                <img src="${window.cldPoster(v.url, 400)}" alt="" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'">
+                <span class="absolute top-1 left-1 text-lg">${['🥇', '🥈', '🥉'][i]}</span><span class="absolute bottom-1 right-1 text-[9px] font-black px-1.5 py-0.5 rounded bg-black/70 text-white">👍 ${window.formatCount(p.ggsCount || 0)}</span>
+                <i class="fa-solid fa-play absolute inset-0 m-auto w-6 h-6 text-white/80 text-xl"></i></div>
+                <p class="text-[10px] font-black text-white truncate mt-1">${window.dn(p.user)}</p></button>`; }).join('')}</div></div>`;
+};
+window._baseRenderLadder28 = window._baseRenderLadder28 || window.renderLadder;
+window.renderLadder = async function(...a) { const r = await window._baseRenderLadder28(...a); try { await window.renderClipsOfWeek(); } catch (e) {} return r; };
+window._baseGetProfileBadges28 = window._baseGetProfileBadges28 || window.getProfileBadges;
+window.getProfileBadges = function(u) {
+    const b = window._baseGetProfileBadges28(u);
+    return window.clipKing && (u || '').replace('@', '').toLowerCase() === window.clipKing.toLowerCase() ? `<span class="text-[8px] px-1.5 py-0.5 rounded font-black bg-magenta/15 text-magenta border border-magenta/40 whitespace-nowrap">🎬 Clip King</span> ${b}` : b;
+};
+window.fetchRankingPosts('week').then(p => { const t = window.clipsOfWeek(p); window.clipKing = t[0] ? t[0].user : null; }).catch(() => {});
+
+// ---------- 5) Reports for people and market listings (plus the admin queue) ----------
+window.reportThing = function(kind, id, tag, uid, text) {
+    if (window.needSignIn('report')) return;
+    window.reportTarget = { kind, id, tag, uid: uid || '', text: (text || '').slice(0, 400) };
+    const sheet = document.getElementById('reportSheet');
+    const h = sheet.querySelector('h3'), sub = sheet.querySelector('p');
+    if (h) h.textContent = kind === 'user' ? `Why are you reporting @${window.hnd(tag)}?` : kind === 'listing' ? 'What’s wrong with this listing?' : 'Why are you reporting this?';
+    if (sub) sub.textContent = 'Only admins see reports. The person won’t know it was you.';
+    sheet.classList.remove('hidden');
+};
+window._baseSubmitReport28 = window._baseSubmitReport28 || window.submitReport;
+window.submitReport = async function(reason) {
+    const t = window.reportTarget;
+    const sheet = document.getElementById('reportSheet'), h = sheet && sheet.querySelector('h3'), sub = sheet && sheet.querySelector('p');
+    if (h) h.textContent = 'Why are you reporting this?'; if (sub) sub.textContent = 'Posts with several reports are hidden automatically.';
+    if (!t || typeof t !== 'object') return window._baseSubmitReport28(reason);
+    window.closeReportSheet(); window.reportTarget = null;
+    const key = `${t.kind}:${t.id}`; let done = {}; try { done = JSON.parse(localStorage.getItem('sinless_reported') || '{}'); } catch (e) {}
+    if (done[key]) { showToast('You already reported this. Thanks!'); return; }
+    try {
+        await addDoc(collection(window.db, 'reports'), { kind: t.kind, targetId: t.id, targetTag: t.tag || '', targetUid: t.uid || '', text: t.text || '', reason, reporterUid: window.uidNow(), reporter: window.me(), createdAt: serverTimestamp() });
+        done[key] = Date.now(); try { localStorage.setItem('sinless_reported', JSON.stringify(done)); } catch (e) {}
+        showToast("🛡️ Thanks. Report sent to the Sinless GG team.");
+    } catch (e) { showToast("⚠️ Couldn't send report. Try again."); }
+};
+window._baseOpenUserActions28 = window._baseOpenUserActions28 || window.openUserActions;
+window.openUserActions = function(tag) {
+    window._baseOpenUserActions28(tag);
+    const items = window.actionSheetItems || [];
+    if (items.some(i => i.report)) return;
+    items.splice(items.length - 1, 0, { report: 1, icon: 'fa-flag', label: `Report @${window.hnd(tag)}`, danger: true, run: async () => { const p = await window.getProfile(tag); window.reportThing('user', tag.toLowerCase(), tag, p && p.uid, (p && p.bio) || ''); } });
+    window.openActionSheet(`@${window.hnd(tag)}`, items);
+};
+window._baseOpenMarketItem28 = window._baseOpenMarketItem28 || window.openMarketItem;
+window.openMarketItem = function(id) {
+    window._baseOpenMarketItem28(id);
+    const m = (window.marketListings || []).find(x => x.id === id), parent = document.getElementById('sgPanelBody');
+    if (!m || !parent) return;
+    parent.insertAdjacentHTML('beforeend', `${m.middleman ? `<div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-100 leading-snug"><b>🛡️ How the middleman works:</b> a Sinless GG admin joins a 3-way chat with you and the seller to check the item, photos and the seller's history before you meet or pay. <b>Sinless GG never holds or sends money</b> and isn't part of the sale, so always pay only when you have the item in your hands.</div>` : ''}
+        ${m.uid !== window.uidNow() ? `<button onclick="window.reportThing('listing','${m.id}','${escapeHTML(m.user)}','${m.uid || ''}', ${JSON.stringify(((m.title || '') + ' · ' + (m.price || '')).slice(0, 200)).replace(/"/g, '&quot;')})" class="w-full py-2.5 rounded-2xl bg-gg-900 border border-red-500/30 text-red-300 text-[11px] font-black">🚩 Report this listing</button>` : ''}`);
+};
+window._baseRenderAdminReports28 = window._baseRenderAdminReports28 || window.renderAdminReports;
+window.renderAdminReports = async function() {
+    let all = [];
+    try { const s = await getDocs(query(collection(window.db, 'reports'), limit(300))); s.forEach(d => all.push({ id: d.id, ...d.data() })); } catch (e) {}
+    let dels = [];
+    try { const s = await getDocs(query(collection(window.db, 'deletionRequests'), limit(100))); s.forEach(d => dels.push({ id: d.id, ...d.data() })); } catch (e) {}
+    await window._baseRenderAdminReports28();
+    if (window.adminTab !== 'reports') return;
+    const box = document.getElementById('adminBody'); if (!box) return;
+    // drop the "post deleted" cards that are really people/listing reports
+    const others = all.filter(r => r.kind && r.kind !== 'post');
+    if (others.length) [...box.querySelectorAll('.glass-panel')].forEach(c => { if (c.querySelector(`button[onclick*="adminDismissReports('undefined')"]`)) c.remove(); });
+    const groups = {}; others.forEach(r => { const k = r.kind + ':' + r.targetId; (groups[k] = groups[k] || []).push(r); });
+    const LBL = { user: '👤 Person', listing: '🛍️ Market listing' };
+    const html = Object.values(groups).sort((a, b) => b.length - a.length).map(g => { const r = g[0], reasons = {}; g.forEach(x => reasons[x.reason] = (reasons[x.reason] || 0) + 1);
+        return `<div data-rep="${escapeHTML(r.kind + ':' + r.targetId)}" class="glass-panel rounded-2xl p-3 space-y-2 border border-orange-500/30">
+            <div class="flex items-center justify-between"><span class="text-xs font-black text-orange-300">${LBL[r.kind] || r.kind} · 🚩 ${g.length}</span><span class="text-[10px] text-gray-400">${Object.entries(reasons).map(([k, v]) => `${escapeHTML(k)} ×${v}`).join(' · ')}</span></div>
+            <p class="text-xs text-gray-200"><b class="text-white">${window.dn(r.targetTag)}</b> <span class="text-gray-500">@${window.hnd(escapeHTML(r.targetTag || ''))}</span></p>${r.text ? `<p class="text-[11px] text-gray-400 line-clamp-3">${escapeHTML(r.text)}</p>` : ''}
+            <p class="text-[9px] text-gray-500">Reported by ${g.map(x => '@' + escapeHTML(x.reporter || '?')).slice(0, 5).join(', ')}</p>
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="window.closeAdminPanel(); window.openUserProfileModal('${escapeHTML(r.targetTag)}')" class="py-2 rounded-xl bg-gg-900 text-gray-200 text-[11px] font-bold">👁 View profile</button>
+                <button onclick="window.adminDismissThing('${escapeHTML(r.kind)}','${escapeHTML(r.targetId)}')" class="py-2 rounded-xl bg-gg-900 text-emerald-400 text-[11px] font-bold">✓ Dismiss</button>
+                ${r.kind === 'listing' ? `<button onclick="window.deleteListing('${escapeHTML(r.targetId)}').then(()=>window.adminDismissThing('listing','${escapeHTML(r.targetId)}'))" class="py-2 rounded-xl bg-red-600/20 text-red-400 text-[11px] font-bold">🗑 Remove listing</button>` : ''}
+                ${r.targetUid ? `<button onclick="window.adminBan('${escapeHTML(r.targetUid)}', '${escapeHTML(r.targetTag)}')" class="py-2 rounded-xl bg-red-600 text-white text-[11px] font-bold">🚫 Ban @${window.hnd(escapeHTML(r.targetTag))}</button>` : ''}
+            </div></div>`; }).join('');
+    const delHtml = dels.map(d => `<div class="glass-panel rounded-2xl p-3 space-y-2 border border-gray-500/30"><p class="text-xs font-black text-gray-200">🗑️ Account deletion request · @${window.hnd(escapeHTML(d.tag || '?'))}</p>
+        <p class="text-[10px] text-gray-400">Their posts, stories and listings were already removed by the app. Tap Finish to erase the profile, then delete the login in Firebase → Authentication if it's still there.</p>
+        <button onclick="window.adminFinishDeletion('${escapeHTML(d.id)}','${escapeHTML((d.tag || '').toLowerCase())}')" class="w-full py-2 rounded-xl bg-red-600/20 text-red-300 text-[11px] font-black">Finish deletion</button></div>`).join('');
+    if (html || delHtml) {
+        const empty = box.querySelector('.fa-shield-heart'); if (empty) box.innerHTML = '';
+        box.insertAdjacentHTML('afterbegin', (delHtml ? `<p class="text-[10px] font-black text-gray-400 uppercase">Deletion requests</p>${delHtml}` : '') + (html ? `<p class="text-[10px] font-black text-orange-300 uppercase pt-1">People & listings</p>${html}<p class="text-[10px] font-black text-red-300 uppercase pt-2">Posts</p>` : ''));
+        if (!box.querySelector('.border-red-500\\/30')) box.insertAdjacentHTML('beforeend', '<p class="text-[10px] text-gray-500 text-center py-3">No reported posts.</p>');
+    }
+};
+window.adminDismissThing = async function(kind, id) {
+    try { const s = await getDocs(query(collection(window.db, 'reports'), where('targetId', '==', id), limit(300))); const jobs = []; s.forEach(d => { if (d.data().kind === kind) jobs.push(deleteDoc(doc(window.db, 'reports', d.id))); }); await Promise.all(jobs); } catch (e) {}
+    showToast('✓ Report closed.'); window.renderAdminReports();
+};
+window.adminFinishDeletion = async function(uid, tag) {
+    if (!(await window.sgConfirm(`Erase @${window.hnd(tag)}'s profile for good?`, { title: 'Finish deletion', okText: 'Erase', danger: true }))) return;
+    try { if (tag) await deleteDoc(doc(window.db, 'profiles', tag)); await deleteDoc(doc(window.db, 'users', uid)).catch(() => {}); await deleteDoc(doc(window.db, 'deletionRequests', uid)); showToast('🗑️ Profile erased.'); }
+    catch (e) { showToast('⚠️ Couldn’t erase. Did you publish the new rules?'); }
+    window.renderAdminReports();
+};
+
+// ---------- 6) Real account deletion (not just "reset this phone") ----------
+window.deleteAccountData = async function() {
+    if (!window.isSignedIn()) {
+        if (!(await window.sgConfirm('This clears Sinless GG data saved on this device.', { title: 'Reset this device?', okText: 'Reset', danger: true }))) return;
+        try { Object.keys(localStorage).filter(k => /^(sinless_|sg_)/.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+        location.reload(); return;
+    }
+    const tag = window.me(), uid = window.uidNow();
+    const typed = await window.sgPrompt(`This permanently deletes your account @${window.hnd(tag)}: your posts, stories, market listings and profile. Tips, trophies and points are lost. This can't be undone.\n\nType DELETE to confirm.`, { title: '🗑️ Delete my account', okText: 'Delete forever', placeholder: 'DELETE' });
+    if (!typed || typed.trim().toUpperCase() !== 'DELETE') { if (typed !== null) showToast('Not deleted. You must type DELETE.'); return; }
+    showToast('Deleting your account…');
+    const wipe = async (col, field) => { try { const s = await getDocs(query(collection(window.db, col), where(field, '==', uid), limit(500))); const jobs = []; s.forEach(d => jobs.push(deleteDoc(doc(window.db, col, d.id)).catch(() => {}))); await Promise.all(jobs); } catch (e) {} };
+    await Promise.all([wipe('posts', 'uid'), wipe('stories', 'uid'), wipe('market', 'uid')]);
+    try { await setDoc(doc(window.db, 'deletionRequests', uid), { uid, tag, at: serverTimestamp() }); } catch (e) {}
+    try { await setDoc(doc(window.db, 'profiles', window.meLower()), { displayName: 'Deleted account', bio: '', pfp: '', cover: '', website: '', deleted: true, gameIds: {}, shelf: [] }, { merge: true }); } catch (e) {}
+    try { await updateDoc(doc(window.db, 'users', uid), { fcmTokens: [] }); } catch (e) {}
+    try { Object.keys(localStorage).filter(k => /^(sinless_|sg_)/.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+    try { if (window.auth && window.auth.currentUser) await window.auth.currentUser.delete(); } catch (e) {}
+    try { await signOut(window.auth); } catch (e) {}
+    await window.sgConfirm('Your account has been deleted. Anything left is erased by our team within 30 days. Thanks for being part of Sinless GG.', { title: 'Account deleted', okText: 'OK', cancelText: 'Close' });
+    location.reload();
+};
+(function relabelDelete() { const b = document.querySelector('button[onclick="deleteAccountData()"]'); if (b) b.textContent = '🗑️ Delete my account'; })();
+
+// ---------- 7) First-visit fixes ----------
+// a) While the first posts are still loading, show "loading", not "No posts found"
+window._baseRenderFypFeed28 = window._baseRenderFypFeed28 || window.renderFypFeed;
+window.renderFypFeed = function(...a) {
+    const r = window._baseRenderFypFeed28(...a);
+    const box = document.getElementById('fypFeedContainer');
+    if (box && !window.cloudFeedLoaded && /No posts found/.test(box.textContent)) {
+        const slow = Date.now() - (window._sgStart || Date.now()) > 12000;
+        box.innerHTML = `<div class="space-y-3">${[0, 1].map(() => `<div class="glass-panel rounded-2xl p-4 space-y-3 animate-pulse"><div class="flex items-center gap-2"><div class="w-9 h-9 rounded-full bg-gg-800"></div><div class="h-3 w-28 rounded bg-gg-800"></div></div><div class="h-3 w-3/4 rounded bg-gg-800"></div><div class="h-44 rounded-xl bg-gg-800"></div></div>`).join('')}
+            <p class="text-[10px] text-gray-500 text-center">${slow ? '📶 Slow connection… still loading the latest posts' : 'Loading the latest posts…'}</p></div>`;
+        clearTimeout(window._feedSlowT); window._feedSlowT = setTimeout(() => { if (!window.cloudFeedLoaded) window.renderFypFeed(); }, 6000);
+    }
+    return r;
+};
+window._sgStart = window._sgStart || Date.now();
+// b) The suspension notice only exists for suspended accounts (search engines and AI readers were seeing it in the page)
+(function fixBanBanner() {
+    const b = document.getElementById('bannedBanner'); if (!b) return;
+    b.textContent = '';
+    new MutationObserver(() => { if (!b.classList.contains('hidden') && window.isBanned && !b.textContent) b.textContent = '🚫 Your account is suspended for breaking the rules. You can still browse.'; if (!window.isBanned) b.textContent = ''; }).observe(b, { attributes: true, attributeFilter: ['class'] });
+})();
+// c) Gamertag wording: clear about what can and can't change
+(function gtWording() { const p = [...document.querySelectorAll('p')].find(x => /You can't change it later/.test(x.textContent)); if (p) p.textContent = "This is your unique @name and your player ID in tournaments, so pick carefully. Your display name and photo can be changed any time."; })();
+// d) Ask for phone alerts at the right moment: right after joining a tournament
+window._baseJoinActiveTournament28 = window._baseJoinActiveTournament28 || window.joinActiveTournament;
+window.joinActiveTournament = async function(id) {
+    const t = (window.tournamentsList || []).find(x => x.id === id), had = t && (t.players || []).some(p => (p || '').toLowerCase() === window.meLower());
+    const r = await window._baseJoinActiveTournament28(id);
+    const now = t && (t.players || []).some(p => (p || '').toLowerCase() === window.meLower());
+    let asked = false; try { asked = !!localStorage.getItem('sg_alert_asked'); } catch (e) {}
+    if (!had && now && !asked && 'Notification' in window && Notification.permission === 'default') {
+        try { localStorage.setItem('sg_alert_asked', '1'); } catch (e) {}
+        setTimeout(async () => { if (await window.sgConfirm('Get a phone alert on match days and when your opponent reports a score?', { title: '🔔 Match alerts', okText: 'Turn on', cancelText: 'Not now' })) window.setupPushNotifications(); }, 1200);
+    }
+    return r;
+};
+
+// ======================================================================
+// v28: CHANGE YOUR @NAME (keeps every trophy, match, squad, post and message)
+// profiles/{gamertag}.handle = the new @name · handles/{newname} = { tag, uid } reserves it
+// The old @name keeps working as a link to you, and nobody else can take it.
+// ======================================================================
+window.HANDLE_DAYS = 30;
+window.tagFromHandle = function(x) {
+    const k = String(x || '').replace(/^@/, '').toLowerCase(); if (!k) return null;
+    const map = window.allProfilesMap || {};
+    if (map[k]) return map[k].gamertag || k;
+    const hit = Object.values(map).find(p => p && p.handle && p.handle.toLowerCase() === k);
+    if (hit) return hit.gamertag;
+    const c = Object.values(window.profileCache || {}).find(v => v && v.data && v.data.handle && v.data.handle.toLowerCase() === k);
+    return c ? c.data.gamertag : null;
+};
+window._baseGetProfile28 = window._baseGetProfile28 || window.getProfile;
+window.getProfile = async function(tag, force = false) {
+    const d = await window._baseGetProfile28(tag, force);
+    if (d || !window.db) return d;
+    const k = String(tag || '').replace(/^@/, '').toLowerCase(); if (!k) return d;
+    try { const h = await getDoc(doc(window.db, 'handles', k)); if (h.exists() && h.data().tag && h.data().tag !== k) return window._baseGetProfile28(h.data().tag, force); } catch (e) {}
+    return d;
+};
+window._baseOpenUserProfileModalH = window._baseOpenUserProfileModalH || window.openUserProfileModal;
+window.openUserProfileModal = function(username, e) {
+    const raw = String(username || '').replace(/^@/, '');
+    const real = window.tagFromHandle(raw);
+    if (real) return window._baseOpenUserProfileModalH(real, e);
+    window.getProfile(raw).then(p => { if (p && p.gamertag && p.gamertag.toLowerCase() !== raw.toLowerCase()) window._baseOpenUserProfileModalH(p.gamertag); });
+    return window._baseOpenUserProfileModalH(raw, e);
+};
+window._baseOpenDmModalH = window._baseOpenDmModalH || window.openDmModal;
+window.openDmModal = function(username, e) { const real = username && window.tagFromHandle(username); return window._baseOpenDmModalH(real || username, e); };
+
+window.openChangeHandle = async function() {
+    if (window.needSignIn('change your @name')) return;
+    const me = await window.getProfile(window.me(), true) || {};
+    const last = Number(me.handleAt) || 0, wait = last + window.HANDLE_DAYS * 864e5 - Date.now();
+    if (wait > 0 && !window.isAppAdmin) { showToast(`You can change your @name again in ${Math.ceil(wait / 864e5)} day(s).`); return; }
+    const cur = me.handle || window.me();
+    const raw = await window.sgPrompt(`Your @name is @${cur}.\n\nPick a new one (3–20 letters, numbers or _). Your trophies, matches, squads, posts and followers all stay with you. You can change it once every ${window.HANDLE_DAYS} days.`, { title: '✏️ Change @name', okText: 'Change', placeholder: 'newname' });
+    if (raw === null) return;
+    const h = raw.trim().replace(/^@/, '');
+    if (!window.validTag(h)) { showToast('3–20 letters, numbers or _ (no spaces).'); return; }
+    const k = h.toLowerCase(), myTag = window.meLower();
+    if (k === (me.handle || '').toLowerCase()) { showToast('That is already your @name.'); return; }
+    if (window.RESERVED_TAGS && window.RESERVED_TAGS.includes(k) && !window.isAppAdmin) { showToast('That @name is reserved.'); return; }
+    const back = k === myTag;                       // going back to the original gamertag is always allowed
+    try {
+        if (!back) {
+            const prof = await getDoc(doc(window.db, 'profiles', k));
+            if (prof.exists()) { showToast(`@${h} is taken. Try another.`); return; }
+            const taken = await getDoc(doc(window.db, 'handles', k));
+            if (taken.exists() && taken.data().uid !== window.uidNow()) { showToast(`@${h} is taken. Try another.`); return; }
+            if (!taken.exists()) await setDoc(doc(window.db, 'handles', k), { tag: myTag, uid: window.uidNow(), at: serverTimestamp() });
+        }
+        await setDoc(doc(window.db, 'profiles', myTag), { handle: back ? '' : h, handleAt: Date.now() }, { merge: true });
+        if (me.handle && me.handle.toLowerCase() !== k) { try { await deleteDoc(doc(window.db, 'handles', me.handle.toLowerCase())); } catch (e) {} }
+        const upd = { ...(window.allProfilesMap[myTag] || me), handle: back ? '' : h, handleAt: Date.now() };
+        window.allProfilesMap[myTag] = upd; window.profileCache[myTag] = { at: Date.now(), data: upd };
+        window.saveProfileCache && window.saveProfileCache();
+        showToast(`✅ You're now @${h}. Everything you've won and played is still yours.`);
+        window.updateDrawerProfile && window.updateDrawerProfile();
+        const tagEl = document.getElementById('drawerTag'); if (tagEl) tagEl.textContent = '@' + h;
+        window.renderFypFeed && window.renderFypFeed();
+        const hb = document.getElementById('editHandleRow'); if (hb) hb.querySelector('[data-cur]').textContent = '@' + h;
+    } catch (e) { console.warn(e); showToast('⚠️ Couldn’t change it. Did you publish the new Firebase rules?'); }
+};
+window._baseOpenEditProfileModalH = window._baseOpenEditProfileModalH || window.openEditProfileModal;
+window.openEditProfileModal = function(...a) {
+    const r = window._baseOpenEditProfileModalH(...a);
+    const name = document.getElementById('editDisplayNameInput');
+    if (name && !document.getElementById('editHandleRow')) name.insertAdjacentHTML('beforebegin', `<div id="editHandleRow" class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-gg-950 border border-cyan-500/30">
+        <div class="min-w-0"><p class="text-[9px] text-gray-500 font-bold uppercase">Your @name</p><p data-cur class="text-xs font-black text-cyan-300 truncate">@${escapeHTML(window.hnd(window.me()))}</p></div>
+        <button type="button" onclick="window.openChangeHandle()" class="shrink-0 px-3 py-1.5 rounded-lg bg-cyan-400 text-slate-950 text-[10px] font-black uppercase">Change</button></div>`);
+    else if (document.getElementById('editHandleRow')) document.querySelector('#editHandleRow [data-cur]').textContent = '@' + window.hnd(window.me());
+    return r;
 };

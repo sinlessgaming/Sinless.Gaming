@@ -265,3 +265,6 @@ body {
   #deskRail .dr-foot { font-size: 11px; color: #64748b; line-height: 1.9; padding: 0 6px; }
   #deskRail .dr-foot a:hover { color: #22d3ee; }
 }
+
+/* v28: hidden drawer items (Admin Panel for non-admins, Install App when installed) must stay hidden */
+.drawer-menu-item.hidden { display: none !important; }
