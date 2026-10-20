@@ -14355,3 +14355,124 @@ window.openEditProfileModal = function(...a) {
     else if (document.getElementById('editHandleRow')) document.querySelector('#editHandleRow [data-cur]').textContent = '@' + window.hnd(window.me());
     return r;
 };
+
+// ======================================================================
+// v28b: A FEED THAT KEEPS MOVING
+// • Things you haven't seen come first: new posts, then fresh news, trailers, highlights, wrestling…
+// • Posts and cards you've already seen drop lower (still there if you scroll, or on the gamer's profile)
+// • Every refresh / coming back to the app = a new mix on top. While you scroll, nothing jumps.
+// ======================================================================
+// more sources: FC Mobile, eFootball, EA SPORTS FC and wrestling news (Google News public feeds)
+(function moreSources() {
+    const gn = (q) => `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-GH&gl=GH&ceid=GH:en`;
+    const add = (cat, name, url) => { const l = window.NEWS_SOURCES[cat] = window.NEWS_SOURCES[cat] || []; if (!l.some(x => x[1] === url)) l.push([name, url]); };
+    add('gaming', 'EA SPORTS FC news', gn('"EA Sports FC" OR "EA FC 26"'));
+    add('gaming', 'FC Mobile news', gn('"FC Mobile" EA'));
+    add('gaming', 'eFootball news', gn('eFootball Konami'));
+    add('wrestling', 'WWE news', gn('WWE Raw OR SmackDown'));
+    add('football', 'Ghana football', gn('Ghana Premier League OR Black Stars'));
+    const ea = { id: 'UCoyaxd5LQSuP4ChkxK0pnZQ', name: 'EA SPORTS FC', cat: 'gaming' };
+    if (!window.WATCH_DEFAULT.some(c => c.id === ea.id)) window.WATCH_DEFAULT.splice(6, 0, ea);
+    window._baseLoadWatchCfg28b = window._baseLoadWatchCfg28b || window.loadWatchCfg;
+    window.loadWatchCfg = async function() { const r = await window._baseLoadWatchCfg28b(); const ch = window.watchCfg.channels || []; if (!ch.some(c => c.id === ea.id)) window.watchCfg.channels = [ea, ...ch]; return r; };
+})();
+// videos for "All": every category (wrestling, anime, movies… not just the top 5)
+window._baseLoadFeedVideos28b = window._baseLoadFeedVideos28b || window.loadFeedVideos;
+window.loadFeedVideos = async function(cat) {
+    if (cat) return window._baseLoadFeedVideos28b(cat);
+    const rs = await Promise.all(window.WATCH_CATS.map(c => window._baseLoadFeedVideos28b(c.id).catch(() => false)));
+    return rs.some(Boolean);
+};
+
+// cards you've seen (news + official videos), kept on this phone
+window.seenExtras = (() => { try { return new Set(JSON.parse(localStorage.getItem('sg_seen_extras') || '[]')); } catch (e) { return new Set(); } })();
+window.markExtraSeen = function(k) { if (!k || window.seenExtras.has(k)) return; window.seenExtras.add(k); try { localStorage.setItem('sg_seen_extras', JSON.stringify([...window.seenExtras].slice(-1500))); } catch (e) {} };
+window.extraKey = function(el) {
+    const v = el.querySelector('img[src*="i.ytimg.com/vi/"]'); if (v) { const m = v.src.match(/\/vi\/([^/]+)\//); if (m) return 'v:' + m[1]; }
+    const h = el.querySelector('h4'); return h ? 'n:' + h.textContent.trim().toLowerCase().slice(0, 80) : '';
+};
+window._extraObs = ('IntersectionObserver' in window) ? new IntersectionObserver((ents) => ents.forEach(e => {
+    const el = e.target;
+    if (e.isIntersecting && e.intersectionRatio >= 0.5) { el._seenT = setTimeout(() => window.markExtraSeen(el.getAttribute('data-xkey')), 1200); }
+    else clearTimeout(el._seenT);
+}), { threshold: [0, 0.5] }) : null;
+
+// a "mix" is fixed until the next refresh, so cards never jump while you scroll
+window.newFeedMix = function() {
+    window.feedMix = { seed: Math.floor(Math.random() * 1e9), seenPosts: new Set(window.viewedPosts || []), seenX: new Set(window.seenExtras), at: Date.now() };
+};
+window.newFeedMix();
+window.seededShuffle = function(arr, seed) {
+    const a = [...arr]; let s = seed || 1;
+    const rnd = () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+};
+['refreshFeed', 'showNewPosts'].forEach(fn => {
+    const base = window[fn]; if (!base || base._mix) return;
+    window[fn] = function(...a) { window.newFeedMix(); return base.apply(this, a); };
+    window[fn]._mix = true;
+});
+
+window._baseRenderFypFeed28b = window._baseRenderFypFeed28b || window.renderFypFeed;
+window.renderFypFeed = function(...a) {
+    const r = window._baseRenderFypFeed28b(...a);
+    try { window.mixFeedDom(); } catch (e) { console.warn('feed mix', e); }
+    return r;
+};
+window.mixFeedDom = function() {
+    const box = document.getElementById('fypFeedContainer');
+    if (!box || window.feedMode === 'following' || (window.activeCategoryFilter || 'ALL') === 'LIVE STREAM') return;
+    const kids = [...box.children];
+    const isPost = (el) => el.hasAttribute('data-post-id') || !!el.querySelector('[data-post-id]');
+    const isX = (el) => el.hasAttribute('data-news-card');
+    const posts = kids.filter(el => isPost(el) && !isX(el)), xs = kids.filter(isX);
+    if (!xs.length) return;
+    const mix = window.feedMix;
+    const pid = (el) => (el.getAttribute('data-post-id') || (el.querySelector('[data-post-id]') || {}).getAttribute?.('data-post-id') || '');
+    // your own new post (last 10 min) stays on top
+    const mine = (el) => { const p = window.findPost && window.findPost(pid(el)); return p && window.isMyPost(p) && Date.now() - window.postTimeValue(p) < 10 * 60000; };
+    const seenP = (el) => mix.seenPosts.has(pid(el)) && !mine(el);
+    xs.forEach(el => { if (!el.getAttribute('data-xkey')) el.setAttribute('data-xkey', window.extraKey(el)); });
+    const newP = posts.filter(el => !seenP(el)), oldP = posts.filter(seenP);
+    const newX = window.seededShuffle(xs.filter(el => !mix.seenX.has(el.getAttribute('data-xkey'))), mix.seed);
+    const oldX = window.seededShuffle(xs.filter(el => mix.seenX.has(el.getAttribute('data-xkey'))), mix.seed + 7);
+    const X = [...newX, ...oldX];
+    const every = posts.length < 8 ? 2 : posts.length < 20 ? 3 : posts.length < 40 ? 5 : 8;
+    const out = [];
+    let xi = 0; const takeX = (n) => { for (let i = 0; i < n && xi < X.length; i++) out.push(X[xi++]); };
+    // 1) never-seen posts first, with fresh cards between them
+    if (!newP.length) takeX(2);
+    newP.forEach((el, i) => { out.push(el); if ((i + 1) % every === 0) takeX(1); });
+    // 2) a burst of fresh news/videos
+    takeX(newP.length ? 2 : 1);
+    // 3) posts you've already seen, mixed in lower down
+    oldP.forEach((el, i) => { out.push(el); takeX(i < 2 ? 2 : 1); });
+    takeX(X.length);
+    // put everything back; other blocks (ads, tournament strip, headers) keep their slot
+    const others = kids.map((el, i) => ({ el, i })).filter(o => !posts.includes(o.el) && !xs.includes(o.el));
+    others.forEach(o => { if (o.el.tagName === 'P' && /caught up|Meanwhile/i.test(o.el.textContent)) { o.el.remove(); o.drop = true; } });
+    const keep = others.filter(o => !o.drop);
+    const seq = [...out];
+    keep.forEach(o => seq.splice(Math.min(o.i, seq.length), 0, o.el));
+    seq.forEach(el => box.appendChild(el));
+    if (window._extraObs) xs.forEach(el => { if (!el._obs) { el._obs = 1; window._extraObs.observe(el); } });
+};
+// coming back after 3+ min, or opening the app again: a new mix on top
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') window._hiddenAt28 = Date.now(); else if (window._hiddenAt28 && Date.now() - window._hiddenAt28 > 3 * 60000 && window.isFeedNearTop()) { window.newFeedMix(); window.renderFypFeed(); } });
+// Feed tab tapped again while already at the top = refresh with a new mix
+window._baseSwitchView28b = window._baseSwitchView28b || window.switchView;
+window.switchView = function(v) {
+    const was = !document.getElementById('view-fyp')?.classList.contains('hidden');
+    const r = window._baseSwitchView28b(v);
+    if (v === 'fyp' && (!was || window.isFeedNearTop()) && Date.now() - window.feedMix.at > 60000) { window.newFeedMix(); window.renderFypFeed(); }
+    return r;
+};
+// keep the tournament strip out of the very top slot, so the top is always something new
+window._baseMixFeedDom28c = window._baseMixFeedDom28c || window.mixFeedDom;
+window.mixFeedDom = function() {
+    window._baseMixFeedDom28c();
+    const box = document.getElementById('fypFeedContainer'); if (!box) return;
+    const strip = box.querySelector(':scope > [data-tourn-strip]');
+    if (strip && box.firstElementChild === strip) { const ref = box.children[3] || box.lastElementChild; if (ref && ref !== strip) ref.after(strip); }
+};
