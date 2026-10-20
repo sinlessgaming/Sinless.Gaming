@@ -14476,3 +14476,54 @@ window.mixFeedDom = function() {
     const strip = box.querySelector(':scope > [data-tourn-strip]');
     if (strip && box.firstElementChild === strip) { const ref = box.children[3] || box.lastElementChild; if (ref && ref !== strip) ref.after(strip); }
 };
+
+// ======================================================================
+// v28c: VIDEOS KEEP PLAYING
+// The feed used to redraw completely every time a view / GG / comment count changed,
+// which restarted every video. Now count changes just update the numbers in place.
+// A full redraw only happens when something real changes (new post, new mix, new news/videos…).
+// ======================================================================
+window.feedSig = function() {
+    const ps = (window.fypposts || []).map(p => [p.docId || p.id, (p.caption || '').length, (p.mediaList || []).map(m => m.url).join('|'), JSON.stringify(p.pollCounts || null), p.repostOf || '', (p.reportsCount || 0) >= (window.REPORT_HIDE_AT || 99)].join('~')).sort().join('^');
+    const extras = Object.values(window.newsByCat || {}).reduce((a, l) => a + l.length, 0) + ':' + Object.values(window.feedVids || {}).reduce((a, x) => a + ((x && x.list) || []).length, 0);
+    return [ps, extras, window.feedMode, window.activeCategoryFilter || 'ALL', window.feedMix && window.feedMix.seed, (window.feedOrder || []).join(','), window.pendingNewIds ? window.pendingNewIds.size : 0,
+        Object.keys(window.allProfilesMap || {}).length, ((window._titles && window._titles.list) || []).length, window.blockedUsers ? window.blockedUsers.size : 0, (window.adsList || []).length, window.isSignedIn && window.isSignedIn() ? window.me() : '', window.cloudFeedLoaded ? 1 : 0, window.dataSaver ? 1 : 0].join('#');
+};
+window.patchFeedCounts = function() {
+    const box = document.getElementById('fypFeedContainer'); if (!box) return;
+    const uid = window.currentUser ? window.currentUser.uid : 'guest_user';
+    box.querySelectorAll('[data-post-id]').forEach(card => {
+        const id = card.getAttribute('data-post-id'), p = window.findPost && window.findPost(id); if (!p) return;
+        const gg = card.querySelector(`button[onclick^="window.toggleGGPost('${id}')"]`);
+        if (gg) { const s = gg.querySelector('span'); if (s) s.textContent = `${window.formatCount(p.ggsCount || 0)} GGs`; const on = (p.ggsBy || []).includes(uid); gg.classList.toggle('text-cyan-400', on); }
+        const cm = card.querySelector(`button[onclick^="window.openPostDetail('${id}', true)"] span`); if (cm) cm.textContent = window.formatCount(p.commentsCount || 0);
+        const vw = card.querySelector(`#viewsCounterBadge_${CSS.escape(id)}`); if (vw) vw.textContent = window.formatCount(p.viewsCount || 0);
+    });
+};
+window._baseRenderFypFeed28c = window._baseRenderFypFeed28c || window.renderFypFeed;
+window.renderFypFeed = function(...a) {
+    const box = document.getElementById('fypFeedContainer');
+    const sig = window.feedSig();
+    if (box && box.children.length && sig === window._lastFeedSig && !window._forceFeed) { window.patchFeedCounts(); return; }
+    window._forceFeed = false;
+    window._lastFeedSig = sig;
+    const r = window._baseRenderFypFeed28c(...a);
+    // after a real redraw, start the most visible video again straight away
+    setTimeout(() => { try { window.setupFeedAutoplay && window.setupFeedAutoplay(); } catch (e) {} }, 60);
+    return r;
+};
+// things that must always redraw
+['refreshFeed', 'showNewPosts', 'setFeedMode', 'toggleDataSaver', 'filterFeed', 'setCategoryFilter'].forEach(fn => {
+    const base = window[fn]; if (!base || base._force) return;
+    window[fn] = function(...a) { window._forceFeed = true; return base.apply(this, a); };
+    window[fn]._force = true;
+});
+// after deleting / hiding / blocking, redraw for real
+['deletePost', 'hidePost', 'blockUser', 'unblockUser', 'submitUniversalPost', 'hideFeedVideo', 'notInterested'].forEach(fn => {
+    const base = window[fn]; if (!base || base._force2) return;
+    window[fn] = async function(...a) { const r = await base.apply(this, a); window._forceFeed = true; window.renderFypFeed(); return r; };
+    window[fn]._force2 = true;
+});
+// When the feed comes back into view, make sure something plays
+window._baseSwitchView28c = window._baseSwitchView28c || window.switchView;
+window.switchView = function(v) { const r = window._baseSwitchView28c(v); if (v === 'fyp') setTimeout(() => { try { window.setupFeedAutoplay(); } catch (e) {} }, 350); return r; };
