@@ -7712,7 +7712,7 @@ window.renderFypFeed = function() {
     // People first: lots of posts → news/videos only now and then. Few posts → they fill the gaps.
     const n = cards.length;
     const every = n < 8 ? 2 : n < 20 ? 3 : n < 40 ? 5 : n < 80 ? 8 : 12;
-    const maxX = n < 8 ? 40 : n < 20 ? 30 : n < 40 ? 12 : n < 80 ? 8 : 6;
+    const maxX = (n < 8 ? 40 : n < 20 ? 30 : n < 40 ? 12 : n < 80 ? 8 : 6) + (window.extraBoost || 0);
     let k = 0;
     const make = () => { const x = extras[k++], d = document.createElement('div'); d.setAttribute('data-news-card', '1');
         if (x.type === 'video') { d.setAttribute('data-vid-card', '1'); d.innerHTML = window.feedVideoCardHtml(x.v); } else d.innerHTML = window.newsCardHtml(x.n, { inFeed: true, small: true });
@@ -7723,7 +7723,7 @@ window.renderFypFeed = function() {
         return;
     }
     cards.forEach((c, i) => { if ((i + 1) % every === 0 && k < extras.length && k < maxX) c.after(make()); });
-    if (n < 40 && k < Math.min(extras.length, maxX)) {
+    if ((n < 40 || window.extraBoost) && k < Math.min(extras.length, maxX)) {
         box.insertAdjacentHTML('beforeend', `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">You're all caught up · more news & videos</p>`);
         while (k < Math.min(extras.length, maxX)) box.appendChild(make());
     }
@@ -14455,7 +14455,11 @@ window.mixFeedDom = function() {
     const keep = others.filter(o => !o.drop);
     const seq = [...out];
     keep.forEach(o => seq.splice(Math.min(o.i, seq.length), 0, o.el));
-    seq.forEach(el => box.appendChild(el));
+    // skip moving anything if the order is already right; moveBefore keeps playing videos playing
+    const cur = [...box.children];
+    if (seq.length === cur.length && seq.every((el, i) => el === cur[i])) { if (window._extraObs) xs.forEach(el => { if (!el._obs) { el._obs = 1; window._extraObs.observe(el); } }); return; }
+    const mv = typeof box.moveBefore === 'function';
+    seq.forEach(el => { try { mv ? box.moveBefore(el, null) : box.appendChild(el); } catch (e) { box.appendChild(el); } });
     if (window._extraObs) xs.forEach(el => { if (!el._obs) { el._obs = 1; window._extraObs.observe(el); } });
 };
 // coming back after 3+ min, or opening the app again: a new mix on top
@@ -14485,9 +14489,11 @@ window.mixFeedDom = function() {
 // ======================================================================
 window.feedSig = function() {
     const ps = (window.fypposts || []).map(p => [p.docId || p.id, (p.caption || '').length, (p.mediaList || []).map(m => m.url).join('|'), JSON.stringify(p.pollCounts || null), p.repostOf || '', (p.reportsCount || 0) >= (window.REPORT_HIDE_AT || 99)].join('~')).sort().join('^');
-    const extras = Object.values(window.newsByCat || {}).reduce((a, l) => a + l.length, 0) + ':' + Object.values(window.feedVids || {}).reduce((a, x) => a + ((x && x.list) || []).length, 0);
-    return [ps, extras, window.feedMode, window.activeCategoryFilter || 'ALL', window.feedMix && window.feedMix.seed, (window.feedOrder || []).join(','), window.pendingNewIds ? window.pendingNewIds.size : 0,
-        Object.keys(window.allProfilesMap || {}).length, ((window._titles && window._titles.list) || []).length, window.blockedUsers ? window.blockedUsers.size : 0, (window.adsList || []).length, window.isSignedIn && window.isSignedIn() ? window.me() : '', window.cloudFeedLoaded ? 1 : 0, window.dataSaver ? 1 : 0].join('#');
+    // news/videos arriving later only redraw if the feed had none yet (otherwise they show on the next refresh)
+    const nx = Object.values(window.newsByCat || {}).reduce((a, l) => a + l.length, 0), nv = Object.values(window.feedVids || {}).reduce((a, x) => a + ((x && x.list) || []).length, 0);
+    const extras = (nx > 0 ? 1 : 0) + ':' + (nv > 0 ? 1 : 0);
+    return [ps, extras, window.extraBoost || 0, window.feedMode, window.activeCategoryFilter || 'ALL', window.feedMix && window.feedMix.seed, (window.feedOrder || []).join(','), window.pendingNewIds ? window.pendingNewIds.size : 0,
+        window.blockedUsers ? window.blockedUsers.size : 0, (window.adsList || []).length, window.isSignedIn && window.isSignedIn() ? window.me() : '', window.cloudFeedLoaded ? 1 : 0, window.dataSaver ? 1 : 0].join('#');
 };
 window.patchFeedCounts = function() {
     const box = document.getElementById('fypFeedContainer'); if (!box) return;
@@ -14507,9 +14513,20 @@ window.renderFypFeed = function(...a) {
     if (box && box.children.length && sig === window._lastFeedSig && !window._forceFeed) { window.patchFeedCounts(); return; }
     window._forceFeed = false;
     window._lastFeedSig = sig;
+    // keep whatever is playing alive through the redraw (Chrome/Android can move it without restarting)
+    const canMove = typeof Element.prototype.moveBefore === 'function';
+    const ytSt = canMove && box && [...box.querySelectorAll('[data-yt-auto]')].find(st => st.querySelector('iframe[data-yt-frame]'));
+    const vid = canMove && box && [...box.querySelectorAll('video[data-feed-video]')].find(v => !v.paused);
+    let hold = null;
+    if (ytSt || vid) { hold = document.getElementById('sgMediaHold') || Object.assign(document.createElement('div'), { id: 'sgMediaHold' }); hold.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden'; if (!hold.parentNode) document.body.appendChild(hold);
+        try { if (ytSt) hold.moveBefore(ytSt, null); if (vid) hold.moveBefore(vid, null); } catch (e) { hold = null; } }
     const r = window._baseRenderFypFeed28c(...a);
-    // after a real redraw, start the most visible video again straight away
-    setTimeout(() => { try { window.setupFeedAutoplay && window.setupFeedAutoplay(); } catch (e) {} }, 60);
+    if (hold) {
+        try {
+            if (ytSt) { const nu = box.querySelector(`[data-yt-auto="${ytSt.getAttribute('data-yt-auto')}"]`); if (nu) { nu.parentNode.moveBefore(ytSt, nu); nu.remove(); window.feedVideoObserver && window.feedVideoObserver.observe(ytSt); } else ytSt.remove(); }
+            if (vid) { const nu = box.querySelector(`video[data-feed-video="${vid.getAttribute('data-feed-video')}"]`); if (nu) { nu.parentNode.moveBefore(vid, nu); nu.remove(); window.feedVideoObserver && window.feedVideoObserver.observe(vid); } else vid.remove(); }
+        } catch (e) {}
+    }
     return r;
 };
 // things that must always redraw
@@ -14527,3 +14544,231 @@ window.renderFypFeed = function(...a) {
 // When the feed comes back into view, make sure something plays
 window._baseSwitchView28c = window._baseSwitchView28c || window.switchView;
 window.switchView = function(v) { const r = window._baseSwitchView28c(v); if (v === 'fyp') setTimeout(() => { try { window.setupFeedAutoplay(); } catch (e) {} }, 350); return r; };
+
+// never stop videos just because the visibility list is being rebuilt
+window._basePickFeedVideoToPlay28c = window._basePickFeedVideoToPlay28c || window.pickFeedVideoToPlay;
+window.pickFeedVideoToPlay = function() { if (!window.feedVideoRatios || !window.feedVideoRatios.size) return; return window._basePickFeedVideoToPlay28c(); };
+// one smooth start: once news & videos have loaded, start the most visible video
+setTimeout(() => { try { window.setupFeedAutoplay(); } catch (e) {} }, 4000);
+
+// ======================================================================
+// v28e: MORE TO WATCH, READ AND SCROLL
+// • Watch: 🎬 Short Films (Omeleto, DUST, ALTER) · 🤖 AI Films (Runway) · 📼 Movie Recaps · 🍿 Free Movies (public-domain classics, Internet Archive)
+// • ▶ Clips: full-screen swipe-up videos (people's clips + official videos), one after another
+// • Endless feed: reach the bottom → older posts + more news & videos keep coming
+// • In-app news reader with "Up next", so one story leads to the next
+// All sources are official channels, filmmakers' own uploads, public news feeds or public-domain films.
+// ======================================================================
+(function moreWatch() {
+    const add = (c) => { if (!window.WATCH_CATS.some(x => x.id === c.id)) window.WATCH_CATS.push(c); };
+    add({ id: 'films', label: '🎬 Short Films' }); add({ id: 'ai', label: '🤖 AI Films' }); add({ id: 'recaps', label: '📼 Movie Recaps' }); add({ id: 'classics', label: '🍿 Free Movies' });
+    window.EXTRA_CHANNELS = [
+        { id: 'UCTMt7iMWa7jy0fNXIktwyLA', name: 'Omeleto', cat: 'films' }, { id: 'UC7sDT8jZ76VLV1u__krUutA', name: 'DUST', cat: 'films' },
+        { id: 'UCVF63PXQ71cdl3Mc0Gs-LIw', name: 'ALTER', cat: 'films' }, { id: 'UCUBqu_z5uP0AZhYtuyFZB3g', name: 'Runway', cat: 'ai' },
+        { id: 'UCyXD1jAZBdZ4u0K-GLYC77Q', name: 'Movie Recaps', cat: 'recaps' }
+    ];
+    window.EXTRA_CHANNELS.forEach(c => { if (!window.WATCH_DEFAULT.some(x => x.id === c.id)) window.WATCH_DEFAULT.push(c); });
+    window._baseLoadWatchCfg28e = window._baseLoadWatchCfg28e || window.loadWatchCfg;
+    window.loadWatchCfg = async function() { const r = await window._baseLoadWatchCfg28e(); const ch = window.watchCfg.channels || []; window.EXTRA_CHANNELS.forEach(c => { if (!ch.some(x => x.id === c.id)) ch.push(c); }); window.watchCfg.channels = ch; return r; };
+})();
+// videos for the feed: skip the "Free Movies" shelf (full films live in Watch)
+window._baseLoadFeedVideos28e = window._baseLoadFeedVideos28e || window._baseLoadFeedVideos28b;
+
+// ---------- 🍿 Free Movies: public-domain classics from the Internet Archive ----------
+window.classicsCache = null;
+window.loadClassics = async function() {
+    if (window.classicsCache && Date.now() - window.classicsCache.at < 6 * 3600e3) return window.classicsCache.list;
+    try { const c = JSON.parse(localStorage.getItem('sg_classics') || 'null'); if (c && Date.now() - c.at < 24 * 3600e3) { window.classicsCache = c; return c.list; } } catch (e) {}
+    const q = encodeURIComponent('collection:(feature_films) AND mediatype:(movies)');
+    const url = `https://archive.org/advancedsearch.php?q=${q}&fl[]=identifier&fl[]=title&fl[]=year&fl[]=description&sort[]=downloads+desc&rows=120&page=1&output=json`;
+    let list = [];
+    try { const r = await window.fetchTimeout(url, 15000); const j = await r.json(); list = ((j.response || {}).docs || []).filter(d => d.identifier && d.title).map(d => ({ id: d.identifier, title: String(d.title).slice(0, 120), year: d.year || '', desc: window.newsText(Array.isArray(d.description) ? d.description[0] : (d.description || '')).slice(0, 240) })); } catch (e) {}
+    if (list.length) { window.classicsCache = { at: Date.now(), list }; try { localStorage.setItem('sg_classics', JSON.stringify(window.classicsCache)); } catch (e) {} }
+    return list;
+};
+window.playClassic = function(id) {
+    const m = ((window.classicsCache || {}).list || []).find(x => x.id === id) || { id, title: 'Free movie' };
+    window.pauseFeedVideos && window.pauseFeedVideos();
+    window.openPanel(`🍿 ${escapeHTML(m.title)}`, `<div class="relative w-full rounded-2xl overflow-hidden bg-black" style="aspect-ratio:16/10"><iframe src="https://archive.org/embed/${encodeURIComponent(m.id)}" class="absolute inset-0 w-full h-full border-0" allow="autoplay; fullscreen" allowfullscreen></iframe></div>
+        <div class="glass-panel rounded-2xl p-3.5 space-y-1"><p class="text-sm font-black text-white">${escapeHTML(m.title)}${m.year ? ` <span class="text-gray-400 font-bold">(${escapeHTML(String(m.year))})</span>` : ''}</p>${m.desc ? `<p class="text-xs text-gray-400 leading-relaxed">${escapeHTML(m.desc)}</p>` : ''}
+        <p class="text-[10px] text-gray-500 pt-1">Public-domain film, free to watch, from the Internet Archive.</p></div>
+        <p class="text-[10px] font-black text-gray-400 uppercase pt-1">More free movies</p><div class="grid grid-cols-3 gap-2">${window.classicTiles(((window.classicsCache || {}).list || []).filter(x => x.id !== id).sort(() => Math.random() - 0.5).slice(0, 9))}</div>`);
+};
+window.classicTiles = (list) => list.map(m => `<button onclick="window.playClassic('${escapeHTML(m.id)}')" class="text-left"><div class="rounded-xl overflow-hidden bg-gg-900 border border-white/10" style="aspect-ratio:2/3"><img src="https://archive.org/services/img/${encodeURIComponent(m.id)}" loading="lazy" alt="" class="w-full h-full object-cover" onerror="this.style.opacity=0"></div><p class="text-[10px] font-bold text-white line-clamp-2 mt-1 leading-tight">${escapeHTML(m.title)}</p>${m.year ? `<p class="text-[9px] text-gray-500">${escapeHTML(String(m.year))}</p>` : ''}</button>`).join('');
+window._baseRenderWatch28e = window._baseRenderWatch28e || window.renderWatch;
+window.renderWatch = async function() {
+    if (window.watchCat !== 'classics') return window._baseRenderWatch28e();
+    await window._baseRenderWatch28e().catch(() => {});
+    const body = document.getElementById('watchBody'); if (!body || window.watchCat !== 'classics') return;
+    body.innerHTML = `<p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading free movies…</p>`;
+    const list = await window.loadClassics(); if (window.watchCat !== 'classics') return;
+    body.innerHTML = list.length ? `<div class="glass-panel rounded-2xl p-3 border border-amber-500/30"><p class="text-xs font-black text-white">🍿 Free full movies</p><p class="text-[10px] text-gray-400">Classic films that are free for everyone (public domain). Tap one to watch.</p></div>
+        <div class="grid grid-cols-3 gap-2">${window.classicTiles(window.seededShuffle(list, (window.feedMix && window.feedMix.seed) || 1).slice(0, 60))}</div>` : `<p class="text-xs text-gray-400 text-center py-8">Couldn't load free movies right now. Try again in a bit.</p>`;
+};
+
+// ---------- 📰 In-app reader: summary + Up next (one story leads to the next) ----------
+window.openNews = function(i) {
+    const n = window.newsRegistry[i]; if (!n) return;
+    window.taste.news[n.cat] = Math.min(60, (window.taste.news[n.cat] || 0) + 1.5); window.saveTasteSoon();
+    window.markExtraSeen && window.markExtraSeen('n:' + (n.title || '').trim().toLowerCase().slice(0, 80));
+    const info = window.newsCatInfo(n.cat);
+    const pool = [...(window.newsByCat[n.cat] || []), ...window.newsForYou()].filter((x, k, a) => x.link !== n.link && a.findIndex(y => y.link === x.link) === k);
+    const next = pool.filter(x => !(window.seenExtras || new Set()).has('n:' + (x.title || '').trim().toLowerCase().slice(0, 80))).slice(0, 10);
+    window.pauseFeedVideos && window.pauseFeedVideos();
+    window.openPanel(`${info.label ? info.label.split(' ')[0] : '📰'} ${escapeHTML(n.source)}`, `
+        ${n.img ? `<img src="${escapeHTML(n.img)}" alt="" class="w-full max-h-64 object-cover rounded-2xl bg-gg-900" onerror="this.remove()">` : ''}
+        <div class="space-y-2"><h2 class="text-lg font-black text-white leading-snug">${escapeHTML(n.title)}</h2><p class="text-[11px] text-gray-500">${escapeHTML(n.source)} · ${window.timeAgo(n.date)}</p>
+        ${n.desc ? `<p class="text-sm text-gray-200 leading-relaxed">${escapeHTML(n.desc)}</p>` : ''}</div>
+        <div class="grid grid-cols-3 gap-2"><a href="${escapeHTML(n.link)}" target="_blank" rel="noopener" class="col-span-2 py-3 rounded-xl bg-cyan-400 text-slate-950 text-xs font-black uppercase text-center">Read full story ↗</a>
+        <button onclick="window.discussNews(${i}); window.closePanel()" class="py-3 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-xs font-black">💬 Post</button></div>
+        ${next.length ? `<p class="text-[10px] font-black text-gray-400 uppercase pt-2">Up next</p><div class="space-y-2">${next.map(x => `<button onclick="window.openNews(${window.newsRegister(x)}); document.getElementById('sgPanelBody').scrollTop=0" class="w-full flex gap-3 items-center text-left p-2 rounded-xl bg-gg-900/70 border border-white/5">
+            ${x.img ? `<img src="${escapeHTML(x.img)}" loading="lazy" alt="" class="w-20 h-16 rounded-lg object-cover shrink-0 bg-gg-800" onerror="this.style.visibility='hidden'">` : `<div class="w-20 h-16 rounded-lg bg-gg-800 shrink-0 flex items-center justify-center text-xl">${(window.newsCatInfo(x.cat).label || '📰').split(' ')[0]}</div>`}
+            <div class="min-w-0"><p class="text-xs font-bold text-white leading-snug line-clamp-3">${escapeHTML(x.title)}</p><p class="text-[10px] text-gray-500 mt-0.5">${escapeHTML(x.source)} · ${window.timeAgo(x.date)}</p></div></button>`).join('')}</div>` : ''}`);
+};
+
+// ---------- ▶ Clips: full-screen, swipe up for the next one ----------
+window.clipsList = []; window.clipsShown = 0;
+window.buildClipsList = function() {
+    const seenP = window.viewedPosts || new Set(), seenX = window.seenExtras || new Set();
+    const posts = (window.fypposts || []).filter(p => !window.isBlocked(p.user) && (p.mediaList || []).some(m => m.type === 'video'))
+        .map(p => ({ kind: 'post', id: p.docId || p.id, p, url: p.mediaList.find(m => m.type === 'video').url, seen: seenP.has(p.docId || p.id) }));
+    const vids = window.videosForFeed ? window.videosForFeed(null).map(v => ({ kind: 'yt', id: v.vid, v, seen: seenX.has('v:' + v.vid) })) : [];
+    const seed = Date.now() % 1e9;
+    const un = window.seededShuffle([...posts.filter(x => !x.seen), ...vids.filter(x => !x.seen)], seed), old = window.seededShuffle([...posts.filter(x => x.seen), ...vids.filter(x => x.seen)], seed + 3);
+    // people's clips first among the new ones, then everything mixed
+    const unP = un.filter(x => x.kind === 'post'), unV = un.filter(x => x.kind === 'yt'), mixed = [];
+    while (unP.length || unV.length) { if (unP.length) mixed.push(unP.shift()); if (unV.length) mixed.push(unV.shift()); if (unV.length) mixed.push(unV.shift()); }
+    return [...mixed, ...old];
+};
+window.clipSlideHtml = function(c, i) {
+    const side = (icon, label, act) => `<button onclick="event.stopPropagation(); ${act}" class="flex flex-col items-center gap-1 text-white"><span class="w-11 h-11 rounded-full bg-black/45 flex items-center justify-center text-lg">${icon}</span><span class="text-[10px] font-black drop-shadow">${label}</span></button>`;
+    if (c.kind === 'post') {
+        const p = c.p, on = (p.ggsBy || []).includes(window.uidNow && window.uidNow());
+        return `<section data-clip="${i}" class="relative w-full shrink-0 snap-start bg-black flex items-center justify-center" style="height:100dvh">
+            <video data-clip-video src="${window.cldSized(c.url, 720, 'video')}" poster="${window.cldPoster ? window.cldPoster(c.url) : ''}" class="w-full h-full object-contain" playsinline loop muted preload="none" onclick="window.clipTap(this)"></video>
+            <div class="absolute right-3 bottom-28 flex flex-col gap-4">${side(on ? '💙' : '👍', window.formatCount(p.ggsCount || 0), `window.clipGG('${c.id}', this)`)}${side('💬', window.formatCount(p.commentsCount || 0), `window.closeClips(); window.openPostDetail('${c.id}', true)`)}${side('↗️', 'Share', `window.sharePost && window.sharePost('${c.id}')`)}</div>
+            <div class="absolute left-3 right-20 bottom-8 text-white space-y-1"><p class="text-sm font-black drop-shadow">${window.dn(p.user)} <span class="text-[11px] text-gray-300">@${escapeHTML(window.hnd(p.user))}</span></p>${p.caption ? `<p class="text-xs leading-snug line-clamp-3 drop-shadow">${escapeHTML(p.caption)}</p>` : ''}</div></section>`;
+    }
+    const v = c.v;
+    return `<section data-clip="${i}" class="relative w-full shrink-0 snap-start bg-black flex items-center justify-center" style="height:100dvh">
+        <div data-clip-yt="${escapeHTML(v.vid)}" class="relative w-full aspect-video bg-black"><img src="https://i.ytimg.com/vi/${escapeHTML(v.vid)}/hqdefault.jpg" alt="" class="absolute inset-0 w-full h-full object-cover"></div>
+        <div class="absolute right-3 bottom-28 flex flex-col gap-4">${side('↗️', 'Share', `window.shareClipVideo('${escapeHTML(v.vid)}')`)}${side('📺', 'Watch', `window.closeClips(); window.watchCat='${escapeHTML(v.cat || 'football')}'; window.switchView('watch')`)}</div>
+        <div class="absolute left-3 right-20 bottom-8 text-white space-y-1"><p class="text-sm font-black drop-shadow">${escapeHTML((v.ch && v.ch.name) || 'YouTube')} <span class="text-[9px] text-red-300 font-black">· OFFICIAL</span></p><p class="text-xs leading-snug line-clamp-3 drop-shadow">${escapeHTML(v.title || '')}</p></div></section>`;
+};
+window.openClips = function() {
+    window.pauseFeedVideos && window.pauseFeedVideos();
+    document.querySelectorAll('[data-yt-auto]').forEach(st => window.ytUnmount && window.ytUnmount(st));
+    window.clipsList = window.buildClipsList(); window.clipsShown = 0;
+    if (!window.clipsList.length) { showToast('Loading clips… try again in a few seconds.'); window.loadFeedVideos && window.loadFeedVideos(null); return; }
+    let box = document.getElementById('sgClips');
+    if (!box) { box = document.createElement('div'); box.id = 'sgClips'; box.className = 'fixed inset-0 bg-black'; box.style.zIndex = 290; document.body.appendChild(box); }
+    box.innerHTML = `<div id="sgClipsScroll" class="w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-none" style="overscroll-behavior:contain"></div>
+        <button onclick="window.closeClips()" class="absolute top-3 left-3 z-10 w-10 h-10 rounded-full bg-black/50 text-white text-lg">✕</button>
+        <button onclick="window.toggleFeedMute(); window.clipSyncMute()" id="sgClipsMute" class="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-black/50 text-white"><i class="fa-solid ${window.feedMuted ? 'fa-volume-xmark' : 'fa-volume-high'}"></i></button>
+        <p class="absolute top-5 left-0 right-0 text-center text-white text-xs font-black pointer-events-none">▶ Clips · swipe up</p>`;
+    box.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    window.appendClips(8);
+    window.clipObs = new IntersectionObserver((ents) => ents.forEach(e => { if (e.isIntersecting && e.intersectionRatio > 0.7) window.clipActivate(+e.target.getAttribute('data-clip')); }), { root: document.getElementById('sgClipsScroll'), threshold: [0.7] });
+    document.querySelectorAll('#sgClipsScroll [data-clip]').forEach(s => window.clipObs.observe(s));
+    setTimeout(() => window.clipActivate(0), 100);
+};
+window.appendClips = function(n) {
+    const sc = document.getElementById('sgClipsScroll'); if (!sc) return;
+    const from = window.clipsShown, to = Math.min(window.clipsList.length, from + n);
+    sc.insertAdjacentHTML('beforeend', window.clipsList.slice(from, to).map((c, k) => window.clipSlideHtml(c, from + k)).join(''));
+    window.clipsShown = to;
+    if (to >= window.clipsList.length && !sc.querySelector('[data-clip-end]')) sc.insertAdjacentHTML('beforeend', `<section data-clip-end class="w-full shrink-0 snap-start flex flex-col items-center justify-center gap-3 text-center px-8" style="height:100dvh"><p class="text-4xl">🎉</p><p class="text-white font-black">You've watched everything new</p><button onclick="window.closeClips(); window.openClips()" class="px-5 py-3 rounded-2xl bg-gradient-to-r from-magenta to-orange-500 text-white font-black text-xs uppercase">🔄 New mix</button><button onclick="window.closeClips(); window.switchView('watch')" class="text-cyan-300 text-xs font-black">Browse Watch ›</button></section>`);
+    if (window.clipObs) sc.querySelectorAll('[data-clip]').forEach(s => { if (!s._o) { s._o = 1; window.clipObs.observe(s); } });
+};
+window.clipActivate = function(i) {
+    if (window.clipCur === i && document.querySelector(`#sgClipsScroll [data-clip="${i}"] iframe, #sgClipsScroll [data-clip="${i}"] video:not([paused])`)) {}
+    window.clipCur = i;
+    const sc = document.getElementById('sgClipsScroll'); if (!sc) return;
+    sc.querySelectorAll('[data-clip]').forEach(s => {
+        const k = +s.getAttribute('data-clip'), cur = k === i;
+        const v = s.querySelector('video[data-clip-video]'), yt = s.querySelector('[data-clip-yt]');
+        if (v) { if (cur) { v.preload = 'auto'; v.muted = window.feedMuted; v.play().catch(() => {}); } else { if (!v.paused) v.pause(); if (k === i + 1) v.preload = 'auto'; } }
+        if (yt) {
+            const f = yt.querySelector('iframe');
+            if (cur && !f) { const id = yt.getAttribute('data-clip-yt'); const fr = document.createElement('iframe'); fr.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=${window.feedMuted ? 1 : 0}&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`; fr.className = 'absolute inset-0 w-full h-full border-0'; fr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; fr.setAttribute('data-clip-frame', '1'); yt.appendChild(fr); }
+            else if (!cur && f) f.remove();
+        }
+    });
+    const c = window.clipsList[i];
+    if (c) { if (c.kind === 'post') { if (!window.viewedPosts.has(c.id)) { window.markViewed(c.id); window.addPostViews && window.addPostViews(c.id, 1); } } else window.markExtraSeen && window.markExtraSeen('v:' + c.id); }
+    if (i >= window.clipsShown - 3) window.appendClips(8);
+};
+window.clipTap = function(v) { if (v.paused) v.play().catch(() => {}); else v.pause(); };
+window.clipSyncMute = function() {
+    document.querySelectorAll('#sgClipsScroll video[data-clip-video]').forEach(v => v.muted = window.feedMuted);
+    document.querySelectorAll('#sgClipsScroll iframe[data-clip-frame]').forEach(f => { try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: window.feedMuted ? 'mute' : 'unMute', args: [] }), '*'); } catch (e) {} });
+    const b = document.querySelector('#sgClipsMute i'); if (b) b.className = `fa-solid ${window.feedMuted ? 'fa-volume-xmark' : 'fa-volume-high'}`;
+};
+window.clipGG = async function(id, btn) {
+    if (window.needSignIn('give GGs')) return;
+    await window.toggleGGPost(id);
+    const p = window.findPost(id); if (!p || !btn) return;
+    const on = (p.ggsBy || []).includes(window.uidNow());
+    btn.querySelector('span').textContent = on ? '💙' : '👍'; btn.querySelectorAll('span')[1].textContent = window.formatCount(p.ggsCount || 0);
+};
+window.shareClipVideo = async function(vid) { const url = `https://www.youtube.com/watch?v=${vid}`; try { if (navigator.share) { await navigator.share({ title: 'Watch on Sinless GG', url }); return; } } catch (e) { return; } window.copyText && window.copyText(url); };
+window.closeClips = function() {
+    const box = document.getElementById('sgClips'); if (!box) return;
+    box.querySelectorAll('video').forEach(v => v.pause()); box.innerHTML = ''; box.classList.add('hidden');
+    document.body.style.overflow = '';
+    if (window.clipObs) { window.clipObs.disconnect(); window.clipObs = null; }
+    setTimeout(() => { try { window.setupFeedAutoplay(); } catch (e) {} }, 200);
+};
+window._basePickFeedVideoToPlay28e = window._basePickFeedVideoToPlay28e || window.pickFeedVideoToPlay;
+window.pickFeedVideoToPlay = function() {
+    const c = document.getElementById('sgClips');
+    if (c && !c.classList.contains('hidden') && c.innerHTML) { window.pauseFeedVideos(); document.querySelectorAll('[data-yt-auto]').forEach(st => window.ytUnmount(st)); return; }
+    return window._basePickFeedVideoToPlay28e();
+};
+
+// ---------- Endless feed: the bottom keeps loading ----------
+window.olderPostsDone = false;
+window.loadOlderPosts = async function() {
+    if (window._olderLoading || window.olderPostsDone || !window.db) return 0;
+    const all = window.fypposts || []; if (!all.length) return 0;
+    const oldest = Math.min(...all.map(p => window.postTimeValue(p)).filter(Boolean));
+    if (!isFinite(oldest)) return 0;
+    window._olderLoading = true;
+    let got = 0;
+    try {
+        const snap = await getDocs(query(collection(window.db, 'posts'), where('createdAt', '<', new Date(oldest)), orderBy('createdAt', 'desc'), limit(20)));
+        const have = new Set(all.map(p => p.docId || p.id));
+        snap.forEach(d => { if (!have.has(d.id)) { all.push({ id: d.id, docId: d.id, ...d.data() }); got++; window.feedMix && window.feedMix.seenPosts.add(d.id); } });
+        if (!got) window.olderPostsDone = true;
+    } catch (e) {}
+    window._olderLoading = false;
+    return got;
+};
+window.feedBottomHit = async function() {
+    if (window._bottomBusy || (window.feedMode === 'following')) return;
+    window._bottomBusy = true;
+    const got = await window.loadOlderPosts();
+    window.extraBoost = (window.extraBoost || 0) + 10;
+    window._forceFeed = true; window.renderFypFeed();
+    setTimeout(() => { window._bottomBusy = false; }, 1500);
+    return got;
+};
+(function feedSentinel() {
+    const tryAdd = () => {
+        const box = document.getElementById('fypFeedContainer'); if (!box || document.getElementById('sgFeedSentinel')) return;
+        box.insertAdjacentHTML('afterend', `<div id="sgFeedSentinel" class="py-6 text-center text-[10px] text-gray-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading more…</div>`);
+        if ('IntersectionObserver' in window) new IntersectionObserver((e) => { if (e[0].isIntersecting && window.cloudFeedLoaded && !document.getElementById('view-fyp')?.classList.contains('hidden')) window.feedBottomHit(); }, { rootMargin: '600px' }).observe(document.getElementById('sgFeedSentinel'));
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tryAdd); else tryAdd();
+})();
+// a fresh mix starts short again
+window._baseNewFeedMix28e = window._baseNewFeedMix28e || window.newFeedMix;
+window.newFeedMix = function() { window.extraBoost = 0; return window._baseNewFeedMix28e(); };
+
+// ---------- Gentle break reminder after a long session (keeps it healthy; Google & app stores like this) ----------
+(function breakReminder() {
+    let start = Date.now(), last = 0;
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - last > 30 * 60000) start = Date.now(); if (document.visibilityState === 'hidden') last = Date.now(); });
+    setInterval(() => { if (document.visibilityState === 'visible' && Date.now() - start > 90 * 60000) { start = Date.now(); showToast('⏰ 90 minutes on Sinless GG! Stretch, drink some water 💧 We’ll be here.'); } }, 60000);
+})();
