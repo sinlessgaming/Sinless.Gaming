@@ -15109,3 +15109,103 @@ window.switchView = function(v) {
     };
     setTimeout(go, 700);
 })();
+
+// ======================================================================
+// v30: GOOGLE ADSENSE (publisher ca-pub-1335697564441880)
+// Ads only on safe screens: For You feed, News, Tables, Top. Never in Watch, Clips, Free Movies, chats, DMs, admin.
+// The ad unit ID ("slot") is set by the admin in Admin → 📣 Ads → Google AdSense, so no upload is needed after approval.
+// config/adsense = { slot, on }
+// ======================================================================
+window.ADSENSE_CLIENT = 'ca-pub-1335697564441880';
+window.adsenseCfg = { slot: '', on: false };
+window.loadAdsenseCfg = async function() {
+    try { const s = await getDoc(doc(window.db, 'config', 'adsense')); if (s.exists()) window.adsenseCfg = { slot: String(s.data().slot || '').replace(/\D/g, ''), on: !!s.data().on }; } catch (e) {}
+    if (window.adsenseOn()) { window.renderFypFeed && window.renderFypFeed(); }
+};
+window.adsenseOn = () => window.adsenseCfg.on && /^\d{6,20}$/.test(window.adsenseCfg.slot) && !window.isStandaloneAdFree;
+setTimeout(() => window.loadAdsenseCfg(), 3000);
+(function adCss() { const st = document.createElement('style'); st.textContent = `ins.adsbygoogle[data-ad-status="unfilled"]{display:none!important}[data-gad]:has(ins[data-ad-status="unfilled"]){display:none}`; document.head.appendChild(st); })();
+window._gadNodes = {};
+window.gadNode = function(key) {
+    let n = window._gadNodes[key];
+    if (!n) {
+        n = document.createElement('div'); n.setAttribute('data-gad', key);
+        n.className = 'glass-panel rounded-2xl overflow-hidden border border-white/10 p-2';
+        n.innerHTML = `<p class="text-[9px] font-bold text-gray-500 uppercase tracking-wider px-1 pb-1">Advertisement</p>
+            <ins class="adsbygoogle" style="display:block" data-ad-client="${window.ADSENSE_CLIENT}" data-ad-slot="${window.adsenseCfg.slot}" data-ad-format="auto" data-full-width-responsive="true"></ins>`;
+        window._gadNodes[key] = n;
+    }
+    return n;
+};
+window.gadPlace = function(node, beforeEl, parent) {
+    const canMove = typeof parent.moveBefore === 'function';
+    if (node.isConnected && node.parentElement === parent && node.nextElementSibling === beforeEl) return;   // already in place
+    if (node._pushed && !canMove) { if (node.isConnected) return; return; }   // never reload a shown ad (Google rule: no auto-refresh)
+    try { if (canMove && node.isConnected) parent.moveBefore(node, beforeEl || null); else parent.insertBefore(node, beforeEl || null); } catch (e) { return; }
+    if (!node._pushed) requestAnimationFrame(() => { if (node._pushed || !node.isConnected || !node.offsetWidth) return; node._pushed = true; try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {} });
+};
+// keep shown ads alive while the feed redraws (Chrome/Android move them without reloading)
+window.gadHold = function() {
+    const hold = document.getElementById('sgAdHold') || Object.assign(document.createElement('div'), { id: 'sgAdHold' });
+    hold.style.cssText = 'position:fixed;left:-9999px;top:0;width:360px;overflow:hidden'; if (!hold.parentNode) document.body.appendChild(hold);
+    if (typeof hold.moveBefore !== 'function') return;
+    Object.values(window._gadNodes).forEach(n => { if (n.isConnected && n.parentElement !== hold) { try { hold.moveBefore(n, null); } catch (e) {} } });
+};
+// feed: first ad after the 5th card, then one every 10
+window._baseRenderFypFeed30 = window._baseRenderFypFeed30 || window.renderFypFeed;
+window.renderFypFeed = function(...a) {
+    const box0 = document.getElementById('fypFeedContainer'), sig0 = window.feedSig && window.feedSig();
+    if (box0 && (sig0 !== window._lastFeedSig || window._forceFeed)) window.gadHold();     // a real redraw is coming
+    const r = window._baseRenderFypFeed30(...a);
+    try {
+        const box = document.getElementById('fypFeedContainer');
+        if (!box || !window.adsenseOn() || window.feedMode === 'following' || (window.activeCategoryFilter || 'ALL') === 'LIVE STREAM') return r;
+        const items = [...box.children].filter(el => !el.hasAttribute('data-gad') && (el.hasAttribute('data-news-card') || el.hasAttribute('data-post-id') || el.querySelector('[data-post-id]')));
+        let k = 0;
+        for (let i = 5; i < items.length && k < 8; i += 10, k++) window.gadPlace(window.gadNode('feed' + k), items[i], box);
+    } catch (e) {}
+    return r;
+};
+// news: after the 4th story, then every 10
+window._baseRenderNews30 = window._baseRenderNews30 || window.renderNews;
+window.renderNews = function(...a) {
+    const r = window._baseRenderNews30(...a);
+    try {
+        const box = document.getElementById('newsListContainer');
+        if (box && window.adsenseOn() && window.activeNewsCat !== 'highlights') {
+            const items = [...box.children].filter(el => !el.hasAttribute('data-gad'));
+            let k = 0; for (let i = 4; i < items.length && k < 5; i += 10, k++) window.gadPlace(window.gadNode('news' + k), items[i], box);
+        }
+    } catch (e) {}
+    return r;
+};
+// Tables & Top: one ad under the header
+window._baseSwitchView30 = window._baseSwitchView30 || window.switchView;
+window.switchView = function(v) {
+    const r = window._baseSwitchView30(v);
+    if (window.adsenseOn() && (v === 'standings' || v === 'popular')) setTimeout(() => {
+        const host = v === 'standings' ? document.getElementById('ladderBody') : document.getElementById('topAccountsList');
+        if (host && host.parentElement) window.gadPlace(window.gadNode(v), host, host.parentElement);
+    }, 600);
+    return r;
+};
+// Admin → Ads: Google AdSense switch
+window._baseRenderAdminAds30 = window._baseRenderAdminAds30 || window.renderAdminAds;
+window.renderAdminAds = function(...a) {
+    const r = window._baseRenderAdminAds30(...a);
+    const box = document.getElementById('adminBody'); if (!box || box.querySelector('[data-gadmin]')) return r;
+    const c = window.adsenseCfg;
+    box.insertAdjacentHTML('afterbegin', `<div data-gadmin class="glass-panel rounded-2xl p-3.5 border border-emerald-400/30 space-y-2 mb-3">
+        <div class="flex items-center justify-between"><p class="text-xs font-black text-white">🟢 Google AdSense</p><span class="text-[10px] font-black ${window.adsenseOn() ? 'text-emerald-300' : 'text-gray-500'}">${window.adsenseOn() ? '● Showing ads' : '○ Off'}</span></div>
+        <p class="text-[10px] text-gray-400">Publisher: ${window.ADSENSE_CLIENT}. After Google approves the site, create a <b>Display ad</b> unit in AdSense and paste its <b>ad unit ID</b> (numbers only) here.</p>
+        <input id="gadSlotInput" inputmode="numeric" value="${escapeHTML(c.slot || '')}" placeholder="Ad unit ID e.g. 1234567890" class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white">
+        <label class="flex items-center gap-2 text-[11px] text-gray-300 font-bold"><input id="gadOnInput" type="checkbox" ${c.on ? 'checked' : ''} class="w-4 h-4"> Show Google ads (feed, news, tables, top)</label>
+        <button onclick="window.saveAdsenseCfg()" class="w-full py-2.5 rounded-xl bg-emerald-400 text-slate-950 text-xs font-black uppercase">Save</button></div>`);
+    return r;
+};
+window.saveAdsenseCfg = async function() {
+    const slot = (document.getElementById('gadSlotInput').value || '').replace(/\D/g, ''), on = document.getElementById('gadOnInput').checked;
+    if (on && !/^\d{6,20}$/.test(slot)) { showToast('Paste the ad unit ID (numbers only) first.'); return; }
+    try { await setDoc(doc(window.db, 'config', 'adsense'), { slot, on, at: Date.now() }); window.adsenseCfg = { slot, on }; window._gadNodes = {}; showToast(on ? '✅ Google ads switched on' : 'Google ads switched off'); document.querySelector('[data-gadmin]')?.remove(); window.renderAdminAds(); }
+    catch (e) { showToast('⚠️ Couldn’t save. Did you publish the new Firebase rules?'); }
+};
