@@ -1,9 +1,9 @@
 // Sinless GG service worker
 // - Lets the app be installed on the home screen.
-// - Opens instantly from the saved copy, and downloads the newest version in the background.
+// - Opens instantly from the saved copy. A new version is downloaded whole, then used on the next open.
 // - Each update has a new CACHE name, so the newest files are fetched as soon as an update is uploaded.
 // - If there's no internet, it opens the last saved copy of the app instead of a blank page.
-const CACHE = 'sinless-gg-v35';
+const CACHE = 'sinless-gg-v36';
 const APP_FILES = ['./', './index.html', './tailwind.css', './styles.css', './app.js', './firebase-config.js', './manifest.json', './icon-192.png', './icon-512.png', './logo-96.png', './icon-180.png'];
 
 self.addEventListener('install', (event) => {
@@ -25,9 +25,13 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
   // ads.txt and the legal pages always come fresh
   if (/\/(ads\.txt|robots\.txt|sitemap\.xml)$/.test(url.pathname)) return;
-  // Show the saved copy instantly (fast even on 2G), and quietly fetch the newest one for next time
+  // The app's own files are used as ONE matching set from this version's saved copy (never a mix of old + new files,
+  // which could break sign-in). A new version is downloaded whole in the background and swapped in on the next open.
+  const isApp = req.mode === 'navigate' || APP_FILES.some((f) => f !== './' && url.pathname.endsWith(f.slice(1)));
   event.respondWith(caches.open(CACHE).then(async (c) => {
-    const hit = await c.match(req, { ignoreSearch: req.mode === 'navigate' }) || (req.mode === 'navigate' ? await c.match('./index.html') : null);
+    const hit = await c.match(req, { ignoreSearch: true }) || (req.mode === 'navigate' ? await c.match('./index.html') : null);
+    if (hit && isApp) return hit;
+    // pictures and other files: saved copy instantly, refreshed quietly for next time
     const fresh = fetch(req).then((res) => { if (res && res.ok) c.put(req, res.clone()).catch(() => {}); return res; }).catch(() => hit);
     if (hit) { event.waitUntil(fresh.catch(() => {})); return hit; }
     return fresh.then((r) => r || caches.match('./index.html'));

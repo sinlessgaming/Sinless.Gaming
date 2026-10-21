@@ -7906,7 +7906,7 @@ window.previewCamera = async function(flip) {
 if (flip) window.liveFacing = window.liveFacing === 'user' ? 'environment' : 'user';
 try {
 const old = window.livePreviewStream;
-const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: window.liveFacing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
+const s = await navigator.mediaDevices.getUserMedia({ video: (innerHeight > innerWidth ? { facingMode: window.liveFacing, width: { ideal: 720 }, height: { ideal: 1280 }, aspectRatio: { ideal: 9 / 16 } } : { facingMode: window.liveFacing, width: { ideal: 1280 }, height: { ideal: 720 } }), audio: true });
 if (old) old.getTracks().forEach(t => t.stop());
 window.livePreviewStream = s;
 const v = document.getElementById('goLivePreview'); if (v) v.srcObject = s;
@@ -15649,3 +15649,697 @@ const fyp = !document.getElementById('view-fyp')?.classList.contains('hidden');
 if (playing && (!fyp || window.coveringOverlay())) { window.pauseFeedVideos && window.pauseFeedVideos(); document.querySelectorAll('#fypFeedContainer [data-yt-auto]').forEach(st => window.ytUnmount(st)); window._feedPausedByOverlay = true; }
 else if (window._feedPausedByOverlay && fyp && !window.coveringOverlay()) { window._feedPausedByOverlay = false; window.pickFeedVideoToPlay && window.feedVideoRatios && window.pickFeedVideoToPlay(); }
 }, 700);
+
+(function stayIn() {
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(p => { if (!p) navigator.storage.persist().catch(() => {}); }).catch(() => {}); } catch (e) {}
+try { if (navigator.serviceWorker) navigator.serviceWorker.ready.then(reg => { setInterval(() => reg.update().catch(() => {}), 30 * 60000); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); }); }); } catch (e) {}
+})();
+window._baseLogoutUser35 = window._baseLogoutUser35 || window.logoutUser;
+window.logoutUser = async function(...a) { window._chosenSignOut = true; try { localStorage.removeItem('sg_was_in'); } catch (e) {} return window._baseLogoutUser35(...a); };
+window._baseAfterAuth35 = window._baseAfterAuth35 || window.afterAuthChange;
+window.afterAuthChange = function(user) {
+try { if (user) localStorage.setItem('sg_was_in', window.me ? window.me() : '1'); } catch (e) {}
+const r = window._baseAfterAuth35 ? window._baseAfterAuth35(user) : undefined;
+if (!user && !window._chosenSignOut) {
+let was = null; try { was = localStorage.getItem('sg_was_in'); } catch (e) {}
+if (was) setTimeout(() => {
+if (window.isSignedIn() || document.getElementById('sgBackIn')) return;
+const el = document.createElement('div'); el.id = 'sgBackIn'; el.className = 'fixed left-3 right-3 bottom-20 mx-auto max-w-md rounded-2xl p-3 flex items-center gap-3 bg-gg-900 border border-magenta/50 shadow-2xl'; el.style.zIndex = 330;
+el.innerHTML = `<span class="text-xl">👋</span><p class="flex-1 text-xs font-bold text-white">Welcome back! Tap to continue as <b>${escapeHTML(String(was).replace(/^@/, ''))}</b></p><button onclick="this.parentElement.remove(); window.loginWithGoogle()" class="px-3 py-2 rounded-xl bg-magenta text-white text-[11px] font-black">Continue</button><button onclick="this.parentElement.remove()" class="text-gray-400 px-1">✕</button>`;
+document.body.appendChild(el);
+}, 5000);
+}
+if (user) document.getElementById('sgBackIn')?.remove();
+return r;
+};
+
+window.ytBlocked = (() => { try { return new Set(JSON.parse(localStorage.getItem('sg_yt_blocked') || '[]')); } catch (e) { return new Set(); } })();
+window.ytBlockedCh = (() => { try { return JSON.parse(localStorage.getItem('sg_yt_blockch') || '{}'); } catch (e) { return {}; } })();
+window.chBlocked = (id) => (window.ytBlockedCh[id] || 0) >= 2;
+window.vidOk = (v) => v && !window.ytBlocked.has(v.vid) && !(v.ch && window.chBlocked(v.ch.id));
+window.ytVidOf = (f) => ((f && f.src || '').match(/\/embed\/([\w-]{11})/) || [])[1];
+window.ytOnBlocked = function(f) {
+const vid = window.ytVidOf(f); if (!vid || f._ytDead) return; f._ytDead = true;
+window.ytBlocked.add(vid);
+const all = [...(window.feedVidReg || []), ...(window.shortsPool || []), ...(window.hlRegistry || [])], v = all.find(x => x && x.vid === vid);
+if (v && v.ch && v.ch.id) window.ytBlockedCh[v.ch.id] = (window.ytBlockedCh[v.ch.id] || 0) + 1;
+try { localStorage.setItem('sg_yt_blocked', JSON.stringify([...window.ytBlocked].slice(-500))); localStorage.setItem('sg_yt_blockch', JSON.stringify(window.ytBlockedCh)); } catch (e) {}
+const feedStage = f.closest('#fypFeedContainer [data-yt-auto]');
+if (feedStage) {
+const card = feedStage.closest('[data-news-card]') || feedStage.closest('.glass-panel');
+if (card && !card.hasAttribute('data-post-id')) { card.style.transition = 'opacity .3s'; card.style.opacity = '0'; setTimeout(() => card.remove(), 320); }
+else window.ytUnmount(feedStage);
+return;
+}
+const slide = f.closest('#sgClipsScroll [data-clip]');
+if (slide) { const sc = document.getElementById('sgClipsScroll'); f.remove(); setTimeout(() => sc && sc.scrollBy({ top: sc.clientHeight, behavior: 'smooth' }), 300); }
+};
+window.ytListen = function(f) {
+if (f._ytL) return; f._ytL = true; let n = 0;
+const ping = () => { try { f.contentWindow && f.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'sg', channel: 'widget' }), '*'); } catch (e) {} if (++n < 8 && f.isConnected) setTimeout(ping, 800); };
+f.addEventListener('load', () => { n = 0; ping(); });
+};
+window.addEventListener('message', (e) => {
+if (!/youtube/.test(String(e.origin))) return;
+let d; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (er) { return; }
+if (!d || !d.event) return;
+const f = [...document.querySelectorAll('iframe')].find(x => x.contentWindow === e.source); if (!f) return;
+if (d.event === 'onError' && [100, 101, 150, 153].includes(+d.info)) window.ytOnBlocked(f);
+else if (d.event === 'onStateChange') f._ytState = +d.info;
+else if (d.event === 'infoDelivery' && d.info && typeof d.info.playerState === 'number') f._ytState = d.info.playerState;
+});
+window.videosForFeed = (function(b) { return function(...a) { return b.apply(this, a).filter(window.vidOk); }; })(window.videosForFeed);
+window.loadShorts = (function(b) { return async function(...a) { const r = await b.apply(this, a); window.shortsPool = (window.shortsPool || []).filter(window.vidOk); return window.shortsPool; }; })(window.loadShorts);
+window.shortsChannels = (function(b) { return function() { return b().filter(c => !window.chBlocked(c.id)); }; })(window.shortsChannels);
+
+(function videoMemory() {
+try {
+const m = JSON.parse(localStorage.getItem('sg_vid_mem') || 'null');
+if (m && Date.now() - m.at < 12 * 3600e3) {
+Object.entries(m.feed || {}).forEach(([c, list]) => { if (!window.feedVids[c]) window.feedVids[c] = { at: 0, list }; });
+if (!(window.shortsPool || []).length && (m.shorts || []).length) { window.shortsPool = m.shorts.filter(window.vidOk); window.shortsAt = 0; }
+}
+} catch (e) {}
+let sig = '';
+setInterval(() => {
+const feed = {}; Object.entries(window.feedVids || {}).forEach(([c, x]) => { if (x && x.list && x.list.length) feed[c] = x.list.slice(0, 10); });
+const s = Object.keys(feed).map(c => c + feed[c].length).join() + '|' + (window.shortsPool || []).length;
+if (s === sig) return; sig = s;
+try { localStorage.setItem('sg_vid_mem', JSON.stringify({ at: Date.now(), feed, shorts: (window.shortsPool || []).slice(0, 40) })); } catch (e) {}
+}, 10000);
+})();
+window._baseRenderFypFeed35 = window._baseRenderFypFeed35 || window.renderFypFeed;
+window.renderFypFeed = function(...a) {
+const box = document.getElementById('fypFeedContainer');
+const real = (el) => el && el.querySelector(':scope > [data-post-id], :scope > [data-news-card], :scope [data-post-id]');
+const before = box && !window.cloudFeedLoaded && real(box) ? [...box.children] : null;
+const r = window._baseRenderFypFeed35(...a);
+if (before && !real(box)) box.replaceChildren(...before);
+return r;
+};
+
+(function ytTouchCss() { const s = document.createElement('style'); s.textContent = `.yt-touch{position:absolute;left:0;right:0;top:0;bottom:52px;z-index:6;touch-action:pan-y;-webkit-tap-highlight-color:transparent;background:transparent}.sg-heart{position:fixed;z-index:420;pointer-events:none;font-size:84px;line-height:1;transform:translate(-50%,-50%) scale(.4) rotate(-12deg);opacity:0;transition:transform .45s cubic-bezier(.2,1.6,.4,1),opacity .45s}.sg-heart.on{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(-12deg)}.sg-heart.off{opacity:0;transform:translate(-50%,-140%) scale(1.15) rotate(-12deg)}.sg-ppflash{position:absolute;left:50%;top:50%;z-index:7;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;pointer-events:none;animation:sgpp .7s forwards}@keyframes sgpp{0%{opacity:1;transform:translate(-50%,-50%) scale(.8)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.3)}}`; document.head.appendChild(s); })();
+window.heartBurst = function(x, y, emo) {
+const h = document.createElement('div'); h.className = 'sg-heart'; h.textContent = emo || '💖'; h.style.left = x + 'px'; h.style.top = y + 'px'; document.body.appendChild(h);
+requestAnimationFrame(() => { h.classList.add('on'); setTimeout(() => { h.classList.remove('on'); h.classList.add('off'); }, 420); setTimeout(() => h.remove(), 900); });
+if (navigator.vibrate) try { navigator.vibrate(18); } catch (e) {}
+};
+window.ggPostOnce = function(id) { const p = window.findPost(id); if (p && (p.ggsBy || []).includes(window.uidNow())) return; window.toggleGGPost(id); };
+window.ggWatchOnce = function(vid, title) {
+if (window.needSignIn('GG videos')) return;
+let on = false; try { on = !!localStorage.getItem('sg_sgg_' + vid); } catch (e) {} if (on) return;
+try { setDoc(doc(window.db, 'watch', vid), { title: String(title || '').slice(0, 150), ggs: increment(1), ggsBy: arrayUnion(window.uidNow()) }, { merge: true }).catch(() => {}); localStorage.setItem('sg_sgg_' + vid, '1'); } catch (e) {}
+window.addXP && window.addXP(1, 'react');
+};
+window.ytGGFor = function(stage) {
+const vid = stage.getAttribute('data-yt-auto') || stage.getAttribute('data-clip-yt');
+const slide = stage.closest('#sgClipsScroll [data-clip]');
+if (slide) { window.clipDoubleGG(+slide.getAttribute('data-clip')); return; }
+const card = stage.closest('[data-post-id]');
+if (card) return window.ggPostOnce(card.getAttribute('data-post-id'));
+const v = [...(window.feedVidReg || []), ...(window.shortsPool || [])].find(x => x && x.vid === vid);
+window.ggWatchOnce(vid, v && v.title);
+};
+window.clipDoubleGG = function(i) {
+const c = (window.clipsList || [])[i]; if (!c) return;
+if (c.kind === 'short') { let on = false; try { on = !!localStorage.getItem('sg_sgg_' + c.id); } catch (e) {} if (!on) { const b = document.querySelector(`#sgClipsScroll [data-clip="${i}"] button[onclick*="shortGG"]`); window.shortGG(c.id, c.v && c.v.title, b); } return; }
+const p = c.p || window.findPost(c.id); if (p && (p.ggsBy || []).includes(window.uidNow())) return;
+const b = document.querySelector(`#sgClipsScroll [data-clip="${i}"] button[onclick*="clipGG"]`); window.clipGG(c.id, b);
+};
+window.ytPlayPause = function(stage) {
+const f = stage.querySelector('iframe'); if (!f) return;
+const playing = f._ytState === 1 || f._ytState === 3 || f._ytState === undefined;
+try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: playing ? 'pauseVideo' : 'playVideo', args: [] }), '*'); } catch (e) {}
+f._ytState = playing ? 2 : 1; f._userPaused = playing;
+const fl = document.createElement('div'); fl.className = 'sg-ppflash'; fl.innerHTML = `<i class="fa-solid ${playing ? 'fa-pause' : 'fa-play'}"></i>`; stage.appendChild(fl); setTimeout(() => fl.remove(), 720);
+};
+window.ytAddTouch = function(f) {
+const stage = f.parentElement; if (!stage || !stage.matches('[data-yt-auto], [data-clip-yt]') || stage.querySelector(':scope > .yt-touch')) return;
+const t = document.createElement('div'); t.className = 'yt-touch';
+let down = null, last = 0, timer = null;
+t.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: Date.now() }; });
+t.addEventListener('pointerup', (e) => {
+if (!down || Math.abs(e.clientX - down.x) > 12 || Math.abs(e.clientY - down.y) > 12 || Date.now() - down.t > 400) { down = null; return; }
+down = null; const now = Date.now();
+if (now - last < 320) { clearTimeout(timer); last = 0; window.heartBurst(e.clientX, e.clientY); window.ytGGFor(stage); return; }
+last = now; clearTimeout(timer); timer = setTimeout(() => window.ytPlayPause(stage), 300);
+});
+t.addEventListener('click', (e) => e.stopPropagation());
+stage.appendChild(t);
+};
+new MutationObserver((muts) => {
+muts.forEach(m => {
+m.addedNodes.forEach(n => { if (n.nodeType !== 1) return; const fs = n.tagName === 'IFRAME' ? [n] : n.querySelectorAll ? n.querySelectorAll('iframe') : []; fs.forEach(f => { if (/youtube/.test(f.src || '')) { window.ytListen(f); window.ytAddTouch(f); } }); });
+m.removedNodes.forEach(n => { if (n.nodeType === 1 && n.tagName === 'IFRAME' && m.target && m.target.querySelector) m.target.querySelector(':scope > .yt-touch')?.remove(); });
+});
+}).observe(document.body, { childList: true, subtree: true });
+window.ytMount = (function(b) { return function(stage) { return b(stage); }; })(window.ytMount);
+
+window.onPostCardTap = (function(b) {
+return function(e, id) {
+if (!e || !e.target || e.target.closest('button, a, input, textarea, [data-noexpand], .yt-touch, iframe')) return b(e, id);
+const now = Date.now(), L = window._cardTap, ev = { target: e.target };
+if (L && L.id === id && now - L.t < 320) { clearTimeout(L.timer); window._cardTap = null; window.heartBurst(e.clientX, e.clientY); window.ggPostOnce(id); return; }
+if (L) clearTimeout(L.timer);
+window._cardTap = { id, t: now, timer: setTimeout(() => { window._cardTap = null; b(ev, id); }, 300) };
+};
+})(window.onPostCardTap);
+(function dblTapZones() {
+let last = null;
+document.addEventListener('pointerup', (e) => {
+const t = e.target; if (!t || !t.closest || t.closest('button, a, input, textarea, .yt-touch, iframe')) return;
+const clip = t.closest('#sgClipsScroll [data-clip]'), live = t.closest('#liveStage');
+const zone = clip ? 'c' + clip.getAttribute('data-clip') : live ? 'live' : null; if (!zone) { last = null; return; }
+const now = Date.now();
+if (last && last.zone === zone && now - last.t < 320 && Math.abs(e.clientX - last.x) < 40 && Math.abs(e.clientY - last.y) < 40) {
+last = null; window.heartBurst(e.clientX, e.clientY);
+if (clip) window.clipDoubleGG(+clip.getAttribute('data-clip')); else window.sendHype && window.sendHype('💖');
+return;
+}
+last = { zone, t: now, x: e.clientX, y: e.clientY };
+}, true);
+})();
+
+window._dayCache = {};
+window.fetchMatchesRange = async function(from, to) {
+const days = []; for (let t = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()); t <= to.getTime(); t += 86400000) days.push(window.ymd(new Date(t)));
+const leagues = window.liveLeagues.filter(l => l.id !== 'all');
+const jobs = []; leagues.forEach(lg => days.forEach(d => jobs.push({ lg, d })));
+const mapEv = (lg, e) => {
+const comp = (e.competitions || [])[0] || {}, teams = comp.competitors || [];
+const home = teams.find(t => t.homeAway === 'home') || teams[0] || {}, away = teams.find(t => t.homeAway === 'away') || teams[1] || {};
+const st = (e.status && e.status.type) || {}, tm = (x) => ({ id: (x.team && x.team.id) || '', abbr: (x.team && x.team.abbreviation) || '', name: (x.team && (x.team.shortDisplayName || x.team.displayName)) || '', logo: (x.team && x.team.logo) || '', score: x.score });
+return { id: e.id, league: lg.id, leagueShort: lg.short, date: e.date, state: st.state, detail: st.shortDetail || '', clock: (e.status && e.status.displayClock) || '', home: tm(home), away: tm(away), details: comp.details || [] };
+};
+const out = []; let i = 0;
+const worker = async () => {
+while (i < jobs.length) {
+const { lg, d } = jobs[i++], key = lg.id + d, c = window._dayCache[key];
+if (c && Date.now() - c.at < (c.live ? 60000 : 10 * 60000)) { out.push(...c.list); continue; }
+try {
+const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.id}/scoreboard?dates=${d}`); if (!r.ok) continue;
+const j = await r.json(), list = (j.events || []).map(e => mapEv(lg, e));
+window._dayCache[key] = { at: Date.now(), list, live: list.some(m => m.state === 'in') }; out.push(...list);
+} catch (e) {}
+}
+};
+await Promise.all(Array.from({ length: window.slowNet() ? 3 : 6 }, worker));
+const seen = new Set();
+return out.filter(m => !seen.has(m.id) && seen.add(m.id)).sort((a, b) => new Date(a.date) - new Date(b.date));
+};
+
+window.loadMatchEvents = async function(m) {
+const d0 = new Date(m.date), days = [0, -1, 1].map(k => window.ymd(new Date(d0.getTime() + k * 86400000)));
+for (const d of days) {
+try {
+const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${m.league}/scoreboard?dates=${d}`); if (!r.ok) continue;
+const j = await r.json(), e = (j.events || []).find(x => x.id === m.id); if (!e) continue;
+const comp = (e.competitions || [])[0] || {}, teams = comp.competitors || [], home = teams.find(t => t.homeAway === 'home') || {};
+return { homeId: home.team && home.team.id, details: comp.details || [] };
+} catch (er) {}
+}
+return null;
+};
+window.renderMatchEvents = async function(matchId) {
+const m = window.findMatch(matchId), box = document.getElementById('loungeEvents'); if (!m || !box) return;
+if (m.state === 'pre') { box.innerHTML = `<p class="text-[10px] text-gray-500 text-center py-1">⚽ Goals and 🟨🟥 cards show here when the match starts</p>`; return; }
+const ev = await window.loadMatchEvents(m); if (!ev || !window.lounge || window.lounge.id !== matchId) return;
+const rows = ev.details.filter(x => x.scoringPlay || x.yellowCard || x.redCard).map(x => {
+const who = ((x.athletesInvolved || [])[0] || {}).displayName || '', isHome = x.team && x.team.id === ev.homeId;
+const icon = x.scoringPlay ? '⚽' : x.redCard ? (x.yellowCard ? '🟨🟥' : '🟥') : '🟨';
+const tag = x.ownGoal ? ' <span class="text-red-300">(OG)</span>' : x.penaltyKick ? ' <span class="text-gray-400">(pen)</span>' : '';
+return `<div class="flex items-center gap-2 text-[11px] ${isHome ? '' : 'flex-row-reverse text-right'}"><span class="w-10 shrink-0 text-gray-400 font-black ${isHome ? '' : 'text-right'}">${escapeHTML((x.clock && x.clock.displayValue) || '')}</span><span>${icon}</span><span class="font-bold ${x.scoringPlay ? 'text-white' : 'text-gray-300'} truncate">${escapeHTML(who)}${tag}</span></div>`;
+});
+box.innerHTML = rows.length ? `<div class="flex justify-between text-[9px] font-black text-gray-500 uppercase px-1"><span>${escapeHTML(m.home.abbr)}</span><span>${escapeHTML(m.away.abbr)}</span></div>${rows.join('')}` : `<p class="text-[10px] text-gray-500 text-center py-1">No goals or cards yet</p>`;
+};
+window.openLounge = (function(b) {
+return function(matchId) {
+const r = b(matchId); if (!window.lounge) return r;
+const sc = document.getElementById('loungeScore');
+if (sc && !document.getElementById('loungeEvents')) sc.insertAdjacentHTML('afterend', `<div id="loungeEvents" class="shrink-0 mx-3 mb-2 px-3 py-2 rounded-2xl bg-gg-900/80 border border-white/10 space-y-1 max-h-36 overflow-y-auto"><p class="text-[10px] text-gray-500 text-center">Loading goals & cards…</p></div>`);
+window.renderMatchEvents(matchId);
+const L = window.lounge; L.evT = setInterval(() => { const m = window.findMatch(matchId); if (window.lounge !== L) return clearInterval(L.evT); if (m && m.state === 'in') window.renderMatchEvents(matchId); }, 30000);
+return r;
+};
+})(window.openLounge);
+window.closeLounge = (function(b) { return function(...a) { if (window.lounge) clearInterval(window.lounge.evT); document.getElementById('loungeEvents')?.remove(); return b.apply(this, a); }; })(window.closeLounge);
+
+window.RTDB_URL = 'https://sinlessgg-default-rtdb.europe-west1.firebasedatabase.app';
+window.rtdbInit = function() {
+if (window._rtdbP) return window._rtdbP;
+window._rtdbP = (async () => {
+const [A, D] = await Promise.all([import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'), import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js')]);
+if (!D.getDatabase || !A.getApp) throw new Error('no rtdb');
+const db = D.getDatabase(A.getApp(), window.RTDB_URL);
+window.rtdbApi = D; window.rtdb = db; return db;
+})().catch(e => { console.warn('realtime db unavailable', e && e.message); setTimeout(() => { window._rtdbP = null; }, 60000); return null; });
+return window._rtdbP;
+};
+window.rtdbOn = (on) => { try { const D = window.rtdbApi; if (D && window.rtdb) (on ? D.goOnline : D.goOffline)(window.rtdb); } catch (e) {} };
+window.rtdbProbe = async function(code) {
+const db = await window.rtdbInit(); if (!db) return false; const D = window.rtdbApi; window.rtdbOn(true);
+try { await Promise.race([D.set(D.ref(db, `games/${code}/presence/${window.uidNow()}`), true), new Promise((_, rj) => setTimeout(() => rj(new Error('timeout')), 5000))]); return true; } catch (e) { return false; }
+};
+window.olCode = (function(b) { return function() { const c = b(); window._olProbeCode = c; window._olProbe = window.isSignedIn() ? window.rtdbProbe(c) : Promise.resolve(false); return c; }; })(window.olCode);
+window.olStart = (function(b) {
+return async function(...a) {
+const r = window.olRoom; if (!r || r.hostUid !== window.uidNow() || r.status !== 'waiting') return b.apply(this, a);
+let fast = false; try { fast = r.id === window._olProbeCode && await Promise.race([window._olProbe, new Promise(res => setTimeout(() => res(false), 5000))]); } catch (e) {}
+if (!fast) return b.apply(this, a);
+clearTimeout(window._olAutoT);
+if (window.olRoom !== r || r.status !== 'waiting') return;
+try { await updateDoc(doc(window.db, 'gameRooms', r.id), { status: 'playing', net: 'rtdb', startedMs: Date.now(), lastAt: Date.now() }); } catch (e) {}
+};
+})(window.olStart);
+window.olBegin = (function(b) {
+return function(r) {
+const res = b(r); const g = window.game;
+if (g && g.online && r.net === 'rtdb') window.olRtListen(r.id, g);
+return res;
+};
+})(window.olBegin);
+window.olRtListen = async function(code, g) {
+const db = await window.rtdbInit(); if (!db || window.game !== g) return;
+const D = window.rtdbApi; window.rtdbOn(true);
+g.net = 'rtdb'; g.olRt = g.olRt || []; g.olMaxN = -1;
+D.set(D.ref(db, `games/${code}/presence/${window.uidNow()}`), true).catch(() => {});
+const mref = D.ref(db, `games/${code}/moves`);
+const add = D.onChildAdded(mref, (s) => {
+const v = s.val() || {}, k = s.key || '';
+if (k[0] === 'r') { if (v.by !== window.uidNow() && Date.now() - (v.at || 0) < 15000) window.showGameReact(v.e, v.tag); return; }
+if (typeof v.n !== 'number' || g.olRt.some(x => x.n === v.n)) return;
+g.olRt.push(v); g.olRt.sort((a, b2) => a.n - b2.n); g.olMaxN = Math.max(g.olMaxN, v.n);
+g.olQueue = g.olRt.filter(x => x.n >= (g.olApplied || 0));
+});
+const rem = D.onChildRemoved(mref, (s) => { const v = s.val() || {}; g.olRt = g.olRt.filter(x => !(x.n === v.n && x.by === v.by)); g.olQueue = g.olRt.filter(x => x.n >= (g.olApplied || 0)); });
+g.olRtOff = () => { try { add(); rem(); } catch (e) {} };
+};
+window.olOnUpdate = (function(b) {
+return function(r) {
+const g = window.game;
+if (g && g.online && r.react && r.react.at && r.react.at !== g._lastReactAt) { g._lastReactAt = r.react.at; if (r.react.by !== window.uidNow() && Date.now() - r.react.at < 15000) window.showGameReact(r.react.e, r.react.tag); }
+if (g && g.online && g.net === 'rtdb' && r.game === 'ludo') { g.olLeft = r.left || []; return; }
+return b(r);
+};
+})(window.olOnUpdate);
+window.olLudoAct = (function(b) {
+return async function(a) {
+const g = window.game, r = window.olRoom;
+if (!g || !r || g.net !== 'rtdb' || !window.rtdb) return b(a);
+const D = window.rtdbApi, n = (g.olMaxN ?? -1) + 1;
+g.olWaiting = true; setTimeout(() => { if (window.game === g) g.olWaiting = false; }, 4000);
+try { await D.set(D.ref(window.rtdb, `games/${r.id}/moves/m${String(n).padStart(5, '0')}`), { ...a, n, turn: g.turn, by: window.uidNow() }); }
+catch (e) { g.olWaiting = false; }
+};
+})(window.olLudoAct);
+window.olStop = (function(b) {
+return function(...a) {
+const g = window.game, r = window.olRoom;
+if (g && g.olRtOff) { g.olRtOff(); g.olRtOff = null; }
+if (r && r.net === 'rtdb' && window.rtdb && (r.hostUid === window.uidNow()) && (r.status === 'done' || g && g.state === 'over')) { try { window.rtdbApi.remove(window.rtdbApi.ref(window.rtdb, `games/${r.id}`)).catch(() => {}); } catch (e) {} }
+setTimeout(() => { if (!window.olRoom) window.rtdbOn(false); }, 3000);
+return b.apply(this, a);
+};
+})(window.olStop);
+window.ludoGameOver = (function(b) {
+return async function(...a) {
+const r = window.olRoom, res = await b.apply(this, a);
+if (r && r.net === 'rtdb' && window.rtdb && r.hostUid === window.uidNow()) setTimeout(() => { try { window.rtdbApi.remove(window.rtdbApi.ref(window.rtdb, `games/${r.id}`)).catch(() => {}); } catch (e) {} }, 8000);
+return res;
+};
+})(window.ludoGameOver);
+
+window.GAME_REACTS = ['😂', '🤭', '🤯', '😍', '😡', '🥶', '😒', '🫣', '😳', '🫡', '😈', '🤢'];
+window.showGameReact = function(e, tag) {
+if (!window.GAME_REACTS.includes(e)) return;
+const wrap = document.getElementById('gameCanvas')?.parentElement; if (!wrap) return;
+const el = document.createElement('div');
+el.style.cssText = `position:absolute;left:${12 + Math.random() * 45}%;bottom:90px;z-index:30;pointer-events:none;text-align:center;transition:transform 2.6s ease-out,opacity 2.6s ease-in;`;
+el.innerHTML = `<div style="font-size:64px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5))">${e}</div>${tag ? `<div style="font:900 11px system-ui;color:#fff;background:rgba(0,0,0,.6);border-radius:999px;padding:2px 8px;margin-top:2px">${escapeHTML(window.dnText ? window.dnText(tag) : tag)}</div>` : ''}`;
+wrap.appendChild(el);
+requestAnimationFrame(() => { el.style.transform = `translateY(-${220 + Math.random() * 120}px) scale(1.15)`; el.style.opacity = '0'; });
+setTimeout(() => el.remove(), 2700);
+if (navigator.vibrate) try { navigator.vibrate(15); } catch (er) {}
+};
+window.sendGameReact = function(e) {
+const g = window.game; if (!g) return;
+const now = Date.now(); if (g._reactAt && now - g._reactAt < 1200) return; g._reactAt = now;
+window.showGameReact(e, window.isSignedIn() ? window.me() : 'You');
+const r = window.olRoom;
+if (g.online && r) {
+if (g.net === 'rtdb' && window.rtdb) { const D = window.rtdbApi; D.set(D.ref(window.rtdb, `games/${r.id}/moves/r${now}${window.uidNow().slice(0, 5)}`), { t: 're', e, by: window.uidNow(), tag: window.me(), at: now }).catch(() => {}); }
+else updateDoc(doc(window.db, 'gameRooms', r.id), { react: { e, by: window.uidNow(), tag: window.me(), at: now } }).catch(() => {});
+} else if (g.id === 'ludo' && Math.random() < 0.6) {
+setTimeout(() => window.game === g && window.showGameReact(window.GAME_REACTS[Math.floor(Math.random() * window.GAME_REACTS.length)], '🤖 AI'), 900 + Math.random() * 900);
+}
+document.getElementById('gameReactBar')?.classList.add('hidden');
+};
+window.toggleGameReacts = function() {
+const wrap = document.getElementById('gameCanvas')?.parentElement; if (!wrap) return;
+let bar = document.getElementById('gameReactBar');
+if (!bar) {
+bar = document.createElement('div'); bar.id = 'gameReactBar';
+bar.className = 'hidden absolute left-2 right-2 bottom-3 mx-auto max-w-sm rounded-2xl bg-black/80 border border-white/15 p-2 grid grid-cols-6 gap-1';
+bar.style.zIndex = 31;
+bar.innerHTML = window.GAME_REACTS.map(e => `<button onclick="event.stopPropagation(); window.sendGameReact('${e}')" class="text-3xl py-1 rounded-xl active:scale-90 transition">${e}</button>`).join('');
+bar.onpointerdown = (ev) => ev.stopPropagation();
+wrap.appendChild(bar);
+}
+bar.classList.toggle('hidden');
+};
+window.syncReactBtn = function() {
+const g = window.game, top = document.getElementById('gameScoreTop'); if (!top) return;
+let b = document.getElementById('gameReactBtn');
+const show = !!g && (g.online || g.id === 'ludo');
+if (!b) { b = document.createElement('button'); b.id = 'gameReactBtn'; b.className = 'w-9 h-9 rounded-xl bg-gg-800 text-xl ml-2'; b.textContent = '😂'; b.onclick = () => window.toggleGameReacts(); top.parentElement.appendChild(b); }
+b.style.display = show ? '' : 'none';
+if (!show) document.getElementById('gameReactBar')?.classList.add('hidden');
+};
+setInterval(window.syncReactBtn, 1000);
+
+window.GAMES.tower = { name: 'Tower Blast', emoji: '💥', desc: 'Drag to aim the cannon, let go to fire. Blast every block off the platform before your balls run out. Endless levels!', color: 'from-orange-400 to-pink-500' };
+window.OL_MAX.tower = 2;
+window.towerRand = (seed) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+window.towerLevel = function(g) {
+const L = g.level, rnd = window.towerRand(L * 7919 + 13);
+const C = Math.min(8, 5 + Math.floor(L / 3)), maxR = Math.min(9, 4 + Math.floor(L / 2));
+const shapes = ['wall', 'pyramid', 'towers', 'castle', 'steps', 'twin'];
+const shape = L === 1 ? 'wall' : shapes[Math.floor(rnd() * shapes.length)];
+const hOf = (c) => {
+const mid = (C - 1) / 2;
+switch (shape) {
+case 'pyramid': return Math.max(1, maxR - Math.round(Math.abs(c - mid) * (maxR / (mid + 1))));
+case 'towers': return c % 2 === 0 ? maxR : Math.max(1, Math.floor(maxR / 2));
+case 'castle': return c === 0 || c === C - 1 ? maxR : maxR - 2 + (c % 2);
+case 'steps': return Math.max(1, Math.round((c + 1) * maxR / C));
+case 'twin': return Math.abs(c - mid) > C / 4 ? maxR : Math.max(1, maxR - 3);
+default: return Math.min(maxR, L === 1 ? 3 : maxR - 1);
+}
+};
+const pal = ['#22d3ee', '#e11d8f', '#f59e0b', '#10b981', '#8b5cf6'];
+g.C = C; g.cells = [];
+for (let c = 0; c < C; c++) for (let r = 0; r < hOf(c); r++) {
+const x = rnd(); let type = 'box', hp = 1;
+if (L >= 2 && x < Math.min(0.3, 0.06 * L)) { type = 'stone'; hp = 2; }
+else if (L >= 3 && x > 0.95) { type = 'tnt'; }
+else if (x > 0.9) { type = 'gold'; }
+g.cells.push({ c, r, type, hp, max: hp, col: pal[(r + L) % pal.length], yOff: 0, vy: 0, flash: 0 });
+}
+const hpSum = g.cells.reduce((s, b) => s + b.hp, 0);
+g.balls = Math.ceil(hpSum * (L <= 3 ? 0.75 : 0.6)) + 3 + (g.carry || 0); g.carry = 0;
+g.shots = []; g.bits = []; g.shake = 0; g.cleared = false; g.aim = null;
+};
+window.towerInit = function(g) {
+g.level = 1; window.towerLevel(g);
+g.geo = () => { const pw = Math.min(g.W * 0.86, 430), s = pw / g.C, py = g.H * 0.6; return { pw, s, py, px: (g.W - pw) / 2, cx: g.W / 2, cy: g.H - 46 }; };
+g.reset = () => { g.level = 1; g.carry = 0; window.towerLevel(g); window.setGameScore(0); };
+g.cellAt = (x, y) => { const { s, py, px } = g.geo(); return g.cells.find(b => x >= px + b.c * s && x < px + (b.c + 1) * s && y >= py - (b.r + 1) * s + b.yOff && y < py - b.r * s + b.yOff); };
+g.tap = (x, y) => { if (g.cleared) return; g.aim = { x, y }; g.aiming = true; };
+g.fire = () => {
+const a = g.aim; g.aiming = false; if (!a || g.balls <= 0 || g.cleared) return;
+if (g.coolT > 0) return; g.coolT = 0.28;
+g.balls--; const { cx, cy } = g.geo();
+g.shots.push({ x0: cx, y0: cy - 30, x1: a.x, y1: a.y, t: 0 });
+if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
+};
+g.kill = (b, push) => {
+const { s, py, px } = g.geo(), x = px + b.c * s, y = py - (b.r + 1) * s + b.yOff;
+g.cells = g.cells.filter(o => o !== b);
+const pts = b.type === 'gold' ? 50 : b.type === 'stone' ? 20 : 10;
+window.setGameScore(g.score + pts); window.fxText(g, '+' + pts, x + s / 2, y, b.type === 'gold' ? '#facc15' : '#fff', 18, 0.7);
+for (let k = 0; k < 6; k++) g.bits.push({ x: x + s / 2, y: y + s / 2, vx: (Math.random() - 0.5) * 420 + (push || 0) * 220, vy: -150 - Math.random() * 380, rot: 0, vr: (Math.random() - 0.5) * 14, sz: s * (0.25 + Math.random() * 0.25), col: b.type === 'stone' ? '#94a3b8' : b.type === 'gold' ? '#facc15' : b.type === 'tnt' ? '#ef4444' : b.col, life: 1.6 });
+if (b.type === 'tnt') {
+g.shake = 0.35; window.fxText(g, '💥', x + s / 2, y + s / 2, '#fff', 54, 0.6);
+g.cells.filter(o => Math.abs(o.c - b.c) <= 1 && Math.abs(o.r - b.r) <= 1).forEach(o => setTimeout(() => { if (g.cells.includes(o)) g.kill(o, Math.sign(o.c - b.c)); }, 90));
+}
+};
+g.hit = (b, dmg, push) => { b.hp -= dmg; b.flash = 0.15; if (b.hp <= 0) g.kill(b, push); };
+g.impact = (x, y) => {
+const b = g.cellAt(x, y);
+if (!b) { window.fxText(g, 'Miss', x, y, '#94a3b8', 16, 0.5); return; }
+const { s, px } = g.geo(), push = Math.sign((x - g.W / 2) || 1);
+g.hit(b, 1, push); g.shake = Math.max(g.shake, 0.12);
+if (Math.random() < 0.45) { const nb = g.cells.find(o => o.r === b.r && o.c === b.c + push) || g.cells.find(o => o.c === b.c && o.r === b.r + 1); if (nb) g.hit(nb, 1, push); }
+if (b.hp > 0 && (b.c === 0 || b.c === g.C - 1) && Math.random() < 0.5) g.kill(b, b.c === 0 ? -1 : 1);
+};
+g.settle = () => {
+const { s } = g.geo();
+for (let c = 0; c < g.C; c++) {
+const col = g.cells.filter(b => b.c === c).sort((a, b) => a.r - b.r);
+col.forEach((b, i) => { if (b.r !== i) { b.yOff -= (b.r - i) * s; b.r = i; } });
+}
+};
+g.update = (dt) => {
+g.coolT = Math.max(0, (g.coolT || 0) - dt); g.shake = Math.max(0, g.shake - dt);
+g.shots.forEach(sh => { sh.t += dt / 0.42; if (sh.t >= 1 && !sh.done) { sh.done = true; g.impact(sh.x1, sh.y1); } });
+g.shots = g.shots.filter(sh => !sh.done);
+g.settle();
+g.cells.forEach(b => { b.flash = Math.max(0, b.flash - dt); if (b.yOff < 0) { b.vy += 2200 * dt; b.yOff = Math.min(0, b.yOff + b.vy * dt); if (b.yOff === 0) b.vy = 0; } });
+g.bits.forEach(p => { p.vy += 1400 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt; p.life -= dt; });
+g.bits = g.bits.filter(p => p.life > 0 && p.y < g.H + 60);
+const busy = g.shots.length || g.cells.some(b => b.yOff < 0);
+if (!g.cells.length && !g.cleared && !g.shots.length) {
+g.cleared = true; const bonus = 100 + g.balls * 25;
+window.setGameScore(g.score + bonus); window.fxText(g, `LEVEL ${g.level} CLEARED! +${bonus}`, g.W / 2, g.H * 0.35, '#facc15', 22, 1.6);
+if (navigator.vibrate) try { navigator.vibrate([30, 40, 30]); } catch (e) {}
+window.addXP && window.isSignedIn() && window.addXP(2, 'game');
+setTimeout(() => { if (window.game === g && g.state === 'play') { g.carry = Math.floor(g.balls / 2); g.level++; window.towerLevel(g); } }, 1500);
+} else if (g.balls <= 0 && !busy && g.cells.length && !g.cleared) { if (!g.outAt) g.outAt = Date.now(); if (Date.now() - g.outAt > 700) window.gameOver('balls'); }
+else g.outAt = 0;
+};
+g.draw = () => {
+const ctx = g.ctx, W = g.W, H = g.H; if (!W) return;
+const { s, py, px, pw, cx, cy } = g.geo();
+ctx.save();
+if (g.shake > 0) ctx.translate((Math.random() - 0.5) * 10 * g.shake / 0.35, (Math.random() - 0.5) * 8 * g.shake / 0.35);
+const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#0b1d3a'); sky.addColorStop(0.55, '#3b1456'); sky.addColorStop(1, '#130a24');
+ctx.fillStyle = sky; ctx.fillRect(-20, -20, W + 40, H + 40);
+ctx.fillStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 26; i++) { const x = (i * 97) % W, y = (i * 53) % (H * 0.4); ctx.fillRect(x, y, 2, 2); }
+[[W * 0.12, H * 0.08], [W * 0.88, H * 0.08]].forEach(([x, y]) => { const gl = ctx.createRadialGradient(x, y, 2, x, y, 90); gl.addColorStop(0, 'rgba(255,255,220,.9)'); gl.addColorStop(1, 'rgba(255,255,220,0)'); ctx.fillStyle = gl; ctx.fillRect(x - 90, y - 90, 180, 180); });
+const gr = ctx.createLinearGradient(0, py + 40, 0, H); gr.addColorStop(0, '#0f5132'); gr.addColorStop(1, '#0a2e1f'); ctx.fillStyle = gr; ctx.fillRect(-20, py + 40, W + 40, H);
+ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(W / 2, py + 120, W * 0.35, 30, 0, 0, Math.PI * 2); ctx.stroke();
+ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.moveTo(W / 2 - 16, py + 12); ctx.lineTo(W / 2 + 16, py + 12); ctx.lineTo(W / 2 + 34, py + 70); ctx.lineTo(W / 2 - 34, py + 70); ctx.closePath(); ctx.fill();
+ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(W / 2, py + 72, 70, 12, 0, 0, Math.PI * 2); ctx.fill();
+const pg = ctx.createLinearGradient(0, py, 0, py + 14); pg.addColorStop(0, '#f0abfc'); pg.addColorStop(1, '#a21caf');
+ctx.fillStyle = pg; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(px - 10, py, pw + 20, 14, 7); else ctx.rect(px - 10, py, pw + 20, 14); ctx.fill();
+const d = s * 0.16;
+[...g.cells].sort((a, b) => a.r - b.r || a.c - b.c).forEach(b => {
+const x = px + b.c * s, y = py - (b.r + 1) * s + b.yOff;
+const base = b.type === 'stone' ? '#64748b' : b.type === 'gold' ? '#facc15' : b.type === 'tnt' ? '#dc2626' : b.col;
+ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.moveTo(x + s, y); ctx.lineTo(x + s + d, y - d); ctx.lineTo(x + s + d, y + s - d); ctx.lineTo(x + s, y + s); ctx.closePath(); ctx.fill();
+ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + d, y - d); ctx.lineTo(x + s + d, y - d); ctx.lineTo(x + s, y); ctx.closePath(); ctx.fill();
+ctx.fillStyle = b.flash > 0 ? '#ffffff' : base; ctx.fillRect(x + 1, y + 1, s - 2, s - 2);
+ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x + 1, y + 1, s - 2, (s - 2) * 0.3);
+ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.5; ctx.strokeRect(x + 1.5, y + 1.5, s - 3, s - 3);
+ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `900 ${Math.round(s * 0.42)}px system-ui`;
+if (b.type === 'gold') { ctx.fillStyle = '#92400e'; ctx.fillText('★', x + s / 2, y + s / 2 + 1); }
+else if (b.type === 'tnt') { ctx.fillStyle = '#fff'; ctx.font = `900 ${Math.round(s * 0.26)}px system-ui`; ctx.fillText('BOOM', x + s / 2, y + s / 2 + 1); }
+else if (b.type === 'stone' && b.hp < b.max) { ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + s * 0.2, y + s * 0.3); ctx.lineTo(x + s * 0.5, y + s * 0.55); ctx.lineTo(x + s * 0.4, y + s * 0.8); ctx.moveTo(x + s * 0.5, y + s * 0.55); ctx.lineTo(x + s * 0.8, y + s * 0.45); ctx.stroke(); }
+else { ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = `900 ${Math.round(s * 0.3)}px system-ui`; ctx.fillText('GG', x + s / 2, y + s / 2 + 1); }
+});
+g.bits.forEach(p => { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.globalAlpha = Math.min(1, p.life); ctx.fillStyle = p.col; ctx.fillRect(-p.sz / 2, -p.sz / 2, p.sz, p.sz); ctx.restore(); });
+const ang = g.aim ? Math.atan2(g.aim.y - (cy - 20), g.aim.x - cx) : -Math.PI / 2;
+if (g.aiming && g.aim) {
+ctx.setLineDash([6, 8]); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy - 30);
+ctx.quadraticCurveTo((cx + g.aim.x) / 2, Math.min(cy, g.aim.y) - H * 0.12, g.aim.x, g.aim.y); ctx.stroke(); ctx.setLineDash([]);
+ctx.strokeStyle = '#facc15'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(g.aim.x, g.aim.y, 14, 0, Math.PI * 2); ctx.moveTo(g.aim.x - 20, g.aim.y); ctx.lineTo(g.aim.x + 20, g.aim.y); ctx.moveTo(g.aim.x, g.aim.y - 20); ctx.lineTo(g.aim.x, g.aim.y + 20); ctx.stroke();
+}
+g.shots.forEach(sh => {
+const t = Math.min(1, sh.t), x = sh.x0 + (sh.x1 - sh.x0) * t, y = sh.y0 + (sh.y1 - sh.y0) * t - Math.sin(Math.PI * t) * H * 0.12, r = 16 - 8 * t;
+const bg = ctx.createRadialGradient(x - r / 3, y - r / 3, 1, x, y, r); bg.addColorStop(0, '#fff'); bg.addColorStop(1, '#e11d8f');
+ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+});
+ctx.save(); ctx.translate(cx, cy - 20); ctx.rotate(ang + Math.PI / 2);
+const cg = ctx.createLinearGradient(-16, 0, 16, 0); cg.addColorStop(0, '#0e7490'); cg.addColorStop(0.5, '#22d3ee'); cg.addColorStop(1, '#0e7490');
+ctx.fillStyle = cg; ctx.fillRect(-15, -62, 30, 62); ctx.fillStyle = '#e11d8f'; ctx.fillRect(-18, -66, 36, 10); ctx.restore();
+ctx.fillStyle = '#4c1d95'; ctx.beginPath(); ctx.arc(cx, cy, 34, Math.PI, 0); ctx.fill(); ctx.fillStyle = '#a21caf'; ctx.fillRect(cx - 50, cy, 100, 46);
+ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = '900 15px system-ui'; ctx.fillStyle = '#fff';
+ctx.fillText(`🔴 × ${g.balls}`, 12, 10); ctx.textAlign = 'right'; ctx.fillText(`LEVEL ${g.level}`, W - 12, 10);
+if (g.state === 'play' && g.balls <= 3 && g.balls > 0 && g.cells.length) { ctx.textAlign = 'center'; ctx.fillStyle = '#fca5a5'; ctx.font = '900 13px system-ui'; ctx.fillText(`Only ${g.balls} ball${g.balls > 1 ? 's' : ''} left!`, W / 2, 34); }
+ctx.restore();
+};
+const cv = document.getElementById('gameCanvas');
+if (!cv._towerWired) {
+cv._towerWired = true;
+const pos = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+cv.addEventListener('pointermove', (e) => { const G = window.game; if (G && G.id === 'tower' && G.aiming) G.aim = pos(e); });
+cv.addEventListener('pointerup', (e) => { const G = window.game; if (G && G.id === 'tower' && G.aiming && G.state === 'play') { G.aim = pos(e); G.fire(); } });
+}
+};
+window._baseOpenGame35 = window._baseOpenGame35 || window.openGame;
+window.openGame = function(id) {
+if (id !== 'tower') return window._baseOpenGame35(id);
+const saved = window.keepyInit, savedInfo = window.GAMES.keepy;
+window.keepyInit = window.towerInit; window.GAMES.keepy = window.GAMES.tower;
+try { window._baseOpenGame21('keepy'); } finally { window.keepyInit = saved; if (savedInfo) window.GAMES.keepy = savedInfo; else delete window.GAMES.keepy; }
+window.game.id = 'tower';
+document.getElementById('gameTitle').innerText = '💥 Tower Blast';
+window.showGameOverlay('ready');
+};
+
+(function portraitCss() {
+const s = document.createElement('style');
+s.textContent = `#liveRoomModal.sg-portrait>div:first-child{position:absolute;inset:0;max-width:none;height:100%}
+#liveRoomModal.sg-portrait #liveStage{aspect-ratio:auto;height:100%}
+#liveRoomModal.sg-portrait #liveVideo{object-fit:cover!important}
+#liveRoomModal.sg-portrait.sg-wide #liveVideo{object-fit:contain!important}
+#liveRoomModal.sg-portrait>div:nth-child(2){position:absolute;left:0;right:0;bottom:0;max-width:none;height:52%;z-index:5;background:linear-gradient(to bottom,transparent,rgba(0,0,0,.55) 30%,rgba(0,0,0,.8));pointer-events:none}
+#liveRoomModal.sg-portrait>div:nth-child(2)>*{pointer-events:auto}
+#liveRoomModal.sg-portrait>div:nth-child(2)>div:first-child{border:0}
+#liveRoomModal.sg-portrait #liveChatBox{-webkit-mask-image:linear-gradient(to bottom,transparent,#000 35%);mask-image:linear-gradient(to bottom,transparent,#000 35%);max-width:78%}
+#liveRoomModal.sg-portrait #liveChatInput{background:rgba(0,0,0,.45)}`;
+document.head.appendChild(s);
+})();
+window.renderLiveStage = (function(b) {
+return function(...a) {
+const r = b.apply(this, a), lr = window.liveRoom, m = document.getElementById('liveRoomModal');
+const portrait = !!(lr && lr.mode === 'direct' && lr.data && lr.data.source === 'camera');
+m.classList.toggle('sg-portrait', portrait);
+const v = document.getElementById('liveVideo');
+if (v && portrait) v.addEventListener('loadedmetadata', () => m.classList.toggle('sg-wide', v.videoWidth > v.videoHeight && innerWidth < innerHeight ? false : v.videoWidth > v.videoHeight), { once: true });
+return r;
+};
+})(window.renderLiveStage);
+window.leaveLiveRoom = (function(b) { return async function(...a) { const r = await b.apply(this, a); document.getElementById('liveRoomModal').classList.remove('sg-portrait', 'sg-wide'); return r; }; })(window.leaveLiveRoom);
+
+window.LIVE_247 = [
+{ id: 'UCNye-wNBqNL5ZzHSJj3l8Bg', name: '📺 24/7 · Al Jazeera English', cat: 'news' },
+{ id: 'UCknLrEdhRCp1aegoMqRaCZg', name: '📺 24/7 · DW News', cat: 'news' },
+{ id: 'UCQfwfsi5VrQ8yKZ-UWmAEFg', name: '📺 24/7 · France 24 English', cat: 'news' },
+{ id: 'UC1_E8NeF5QHY2dtdLRBCCLA', name: '📺 24/7 · Africanews', cat: 'news' },
+{ id: 'UCLA_DiR1FfKNvjuUpBHmylQ', name: '🚀 NASA Live', cat: 'wow' },
+{ id: 'UCSJ4gkVC6NrvII8umztf0Ow', name: '🎧 Lofi Girl · 24/7 music', cat: 'music' }
+];
+window.LIVE_YT = (function(b) { return function() { const l = b(); return [...l, ...window.LIVE_247.filter(c => !l.some(x => x.id === c.id))]; }; })(window.LIVE_YT);
+
+window.KIDS_CHANNELS = [
+{ id: 'UCwYh0qBAF8HyKt0KUMp1rNg', name: 'Ubongo Kids', cat: 'learn' }, { id: 'UC0TLvo891eEEM6HGC5ON7ug', name: 'Akili and Me', cat: 'learn' },
+{ id: 'UCoookXUzPciGrEZEXmh4Jjg', name: 'Sesame Street', cat: 'learn' }, { id: 'UCrNnk0wFBnCS1awGjq_ijGQ', name: 'PBS KIDS', cat: 'cartoons' },
+{ id: 'UCAOtE1V7Ots4DjM8JLlrYgg', name: 'Peppa Pig', cat: 'cartoons' }, { id: 'UCLsooMJoIpl_7ux2jvdPB-Q', name: 'Super Simple Songs', cat: 'songs' },
+{ id: 'UCcdwLMPsaU2ezNSJU1nFoBQ', name: 'Pinkfong', cat: 'songs' }, { id: 'UCbCmjCuTUZos6Inko4u57UQ', name: 'CoComelon', cat: 'songs' }
+];
+window.KIDS_TABS = [['all', '⭐ All'], ['learn', '📚 Learn'], ['songs', '🎵 Songs'], ['cartoons', '📺 Cartoons'], ['live', '🔴 Live']];
+window.kidsTab = 'all'; window.kidsList = []; window.kidsCur = 0; window.kidsSound = false;
+(function kidsCss() { const s = document.createElement('style'); s.textContent = `body.sg-kids ins.adsbygoogle,body.sg-kids [data-gad],body.sg-kids #sgMiniPlayer{display:none!important}#sgKidsScroll::-webkit-scrollbar{display:none}`; document.head.appendChild(s); })();
+window.openKids = function() {
+window.kidsMode = true; try { localStorage.setItem('sg_kids_mode', '1'); } catch (e) {}
+document.body.classList.add('sg-kids');
+window.pauseFeedVideos && window.pauseFeedVideos(); document.querySelectorAll('[data-yt-auto]').forEach(st => window.ytUnmount(st));
+document.querySelectorAll('audio, video').forEach(m => { try { m.pause(); } catch (e) {} });
+let el = document.getElementById('sgKids');
+if (!el) { el = document.createElement('div'); el.id = 'sgKids'; el.className = 'fixed inset-0 flex flex-col'; el.style.cssText = 'z-index:345;background:linear-gradient(180deg,#38bdf8,#818cf8 60%,#f472b6)'; document.body.appendChild(el); }
+el.innerHTML = `<div class="shrink-0 flex items-center justify-between px-3 pt-3 pb-2"><p class="text-xl font-black text-white drop-shadow">🧸 Sinless Kids</p>
+<button onclick="window.askKidsExit()" class="px-3 py-2 rounded-2xl bg-white/25 text-white text-xs font-black">🔒 Grown-ups</button></div>
+<div id="sgKidsTabs" class="shrink-0 flex gap-2 overflow-x-auto px-3 pb-2" style="scrollbar-width:none"></div>
+<div id="sgKidsScroll" class="flex-1 overflow-y-auto snap-y snap-mandatory" style="scrollbar-width:none"></div>`;
+el.classList.remove('hidden');
+window.kidsSetTab(window.kidsTab);
+};
+window.kidsSetTab = function(t) {
+window.kidsTab = t;
+document.getElementById('sgKidsTabs').innerHTML = window.KIDS_TABS.map(([k, l]) => `<button onclick="window.kidsSetTab('${k}')" class="shrink-0 px-4 py-2.5 rounded-full text-sm font-black ${k === t ? 'bg-white text-indigo-600' : 'bg-white/25 text-white'}">${l}</button>`).join('');
+const box = document.getElementById('sgKidsScroll');
+if (t === 'live') {
+box.className = 'flex-1 overflow-y-auto px-3 pb-6 space-y-3';
+box.innerHTML = `<p class="text-xs text-white/90 font-bold px-1">These channels go live sometimes. If one isn't live right now, try another 😊</p>` + window.KIDS_CHANNELS.filter(c => c.cat !== 'learn' || c.name === 'Sesame Street').map(c => `<button onclick="window.kidsPlayLive('${c.id}')" class="w-full flex items-center gap-3 p-4 rounded-3xl bg-white/90 text-left"><span class="w-12 h-12 rounded-2xl bg-red-500 text-white flex items-center justify-center text-xl">▶</span><span class="text-base font-black text-indigo-700">${escapeHTML(c.name)} <span class="text-red-500 text-xs">● LIVE</span></span></button>`).join('') + `<div id="sgKidsLive"></div>`;
+return;
+}
+box.className = 'flex-1 overflow-y-auto snap-y snap-mandatory';
+box.innerHTML = `<div class="h-full flex items-center justify-center text-white text-lg font-black">Loading cartoons… 🎈</div>`;
+window.loadKidsVideos(t).then(list => {
+if (window.kidsTab !== t) return;
+window.kidsList = list; window.kidsCur = 0;
+if (!list.length) { box.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-white text-center p-6"><p class="text-5xl">📶</p><p class="text-lg font-black mt-2">No internet right now</p><button onclick="window.kidsSetTab('${t}')" class="mt-3 px-5 py-3 rounded-2xl bg-white text-indigo-600 font-black">Try again</button></div>`; return; }
+box.innerHTML = list.map((v, i) => window.kidsSlide(v, i)).join('');
+box.scrollTop = 0;
+if (!box._kObs) { box._kObs = true; box.addEventListener('scroll', () => { clearTimeout(box._kT); box._kT = setTimeout(window.kidsOnScroll, 120); }, { passive: true }); }
+window.kidsActivate(0);
+});
+};
+window.kidsSlide = (v, i) => `<section data-kid="${i}" class="snap-start w-full flex flex-col items-center justify-center px-3 gap-3" style="height:calc(100dvh - 112px)">
+<div data-kid-yt="${escapeHTML(v.vid)}" class="relative w-full max-w-2xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-white/70"><img src="https://i.ytimg.com/vi/${escapeHTML(v.vid)}/hqdefault.jpg" alt="" class="absolute inset-0 w-full h-full object-cover"></div>
+<div class="w-full max-w-2xl text-center"><p class="text-base font-black text-white drop-shadow leading-snug line-clamp-2">${escapeHTML(v.title || '')}</p><p class="text-xs font-bold text-white/85">${escapeHTML((v.ch && v.ch.name) || '')}</p></div>
+${i === 0 ? `<p class="text-xs font-black text-white/90 animate-bounce">⬆️ Swipe up for more</p>` : ''}</section>`;
+window.loadKidsVideos = async function(t) {
+const chans = window.KIDS_CHANNELS.filter(c => t === 'all' || c.cat === t);
+const lists = await Promise.all(chans.map(c => window.loadChannelVideos(c).then(l => l.map(v => ({ ...v, kcat: c.cat }))).catch(() => [])));
+const out = [], mx = Math.max(0, ...lists.map(l => l.length));
+for (let i = 0; i < mx; i++) lists.forEach(l => { if (l[i]) out.push(l[i]); });
+const seen = new Set(); return window.seededShuffle(out.filter(v => window.vidOk(v) && !seen.has(v.vid) && seen.add(v.vid)), Math.floor(Date.now() / 3600e3));
+};
+window.kidsOnScroll = function() {
+const box = document.getElementById('sgKidsScroll'); if (!box || window.kidsTab === 'live') return;
+const h = box.clientHeight || 1, i = Math.round(box.scrollTop / h);
+if (i !== window.kidsCur) window.kidsActivate(i);
+if (i >= window.kidsList.length - 2 && window.kidsList.length) { const more = window.seededShuffle(window.kidsList.slice(0, 40), Date.now() % 1e6), start = window.kidsList.length; window.kidsList.push(...more); box.insertAdjacentHTML('beforeend', more.map((v, k) => window.kidsSlide(v, start + k)).join('')); }
+};
+window.kidsActivate = function(i) {
+window.kidsCur = i;
+document.querySelectorAll('#sgKidsScroll [data-kid-yt]').forEach(st => {
+const k = +st.closest('[data-kid]').getAttribute('data-kid'), f = st.querySelector('iframe');
+if (k === i && !f) {
+const id = st.getAttribute('data-kid-yt'), fr = document.createElement('iframe');
+fr.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=${window.kidsSound ? 0 : 1}&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&iv_load_policy=3&fs=0&disablekb=1`;
+fr.className = 'absolute inset-0 w-full h-full border-0'; fr.allow = 'autoplay; encrypted-media'; st.appendChild(fr);
+if (!window.kidsSound && !st.querySelector('.kid-sound')) st.insertAdjacentHTML('beforeend', `<button class="kid-sound absolute top-2 right-2 z-10 px-3 py-2 rounded-2xl bg-yellow-300 text-indigo-800 text-sm font-black shadow-lg" onclick="event.stopPropagation(); window.kidsUnmute(this)">🔊 Sound</button>`);
+fr.addEventListener('load', () => { if (window.kidsSound) setTimeout(() => { try { fr.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*'); } catch (e) {} }, 600); });
+} else if (k !== i && f) { f.remove(); st.querySelector('.kid-sound')?.remove(); }
+});
+};
+window.kidsUnmute = function(btn) {
+window.kidsSound = true; btn.remove();
+document.querySelectorAll('#sgKids iframe').forEach(f => { try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*'); f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*'); } catch (e) {} });
+};
+window.kidsPlayLive = function(id) {
+const box = document.getElementById('sgKidsLive'); if (!box) return;
+box.innerHTML = `<div data-kid-yt="live" class="relative w-full aspect-video bg-black rounded-3xl overflow-hidden border-4 border-white/70"><iframe src="https://www.youtube-nocookie.com/embed/live_stream?channel=${encodeURIComponent(id)}&autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&fs=0" class="absolute inset-0 w-full h-full border-0" allow="autoplay; encrypted-media"></iframe></div>`;
+box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+window.askKidsExit = function() {
+const a = 6 + Math.floor(Math.random() * 4), b = 6 + Math.floor(Math.random() * 4);
+const el = document.getElementById('sgKids'); el.querySelector('#sgKidsGate')?.remove();
+el.insertAdjacentHTML('beforeend', `<div id="sgKidsGate" class="absolute inset-0 bg-black/70 flex items-center justify-center p-6" style="z-index:5"><div class="w-full max-w-xs rounded-3xl bg-white p-5 space-y-3 text-center">
+<p class="text-lg font-black text-indigo-700">🔒 For grown-ups</p><p class="text-sm font-bold text-gray-700">What is ${a} × ${b}?</p>
+<input id="sgKidsAns" type="tel" inputmode="numeric" maxlength="3" class="w-full text-center text-2xl font-black border-2 border-indigo-300 rounded-2xl py-2 text-gray-900" autocomplete="off">
+<div class="flex gap-2"><button onclick="document.getElementById('sgKidsGate').remove()" class="flex-1 py-3 rounded-2xl bg-gray-200 text-gray-700 font-black">Back</button>
+<button onclick="window.checkKidsExit(${a * b})" class="flex-1 py-3 rounded-2xl bg-indigo-600 text-white font-black">Leave Kids</button></div></div></div>`);
+setTimeout(() => document.getElementById('sgKidsAns')?.focus(), 100);
+};
+window.checkKidsExit = function(ans) {
+const v = parseInt((document.getElementById('sgKidsAns') || {}).value);
+if (v !== ans) { const i = document.getElementById('sgKidsAns'); if (i) { i.value = ''; i.classList.add('border-red-500'); } return; }
+window.kidsMode = false; try { localStorage.removeItem('sg_kids_mode'); } catch (e) {}
+document.body.classList.remove('sg-kids');
+const el = document.getElementById('sgKids'); if (el) { el.innerHTML = ''; el.classList.add('hidden'); }
+};
+window.gadPlace = (function(b) { return function(...a) { if (window.kidsMode) return; return b.apply(this, a); }; })(window.gadPlace);
+window.ytAddTouch = (function(b) {
+return function(f) {
+const st = f.parentElement;
+if (st && st.hasAttribute('data-kid-yt') && !st.querySelector(':scope > .yt-touch')) { st.setAttribute('data-clip-yt', st.getAttribute('data-kid-yt')); const r = b(f); st.removeAttribute('data-clip-yt'); return r; }
+return b(f);
+};
+})(window.ytAddTouch);
+window.ytGGFor = (function(b) { return function(stage) { if (stage.closest('#sgKids')) return; return b(stage); }; })(window.ytGGFor);
+(function kidsEntry() {
+const add = () => {
+const ul = document.querySelector('.drawer-menu'); if (!ul || ul.querySelector('[data-kids]')) return;
+const li = document.createElement('li'); li.className = 'drawer-menu-item'; li.setAttribute('data-kids', '1');
+li.setAttribute('onclick', 'toggleDrawer(false); window.openKids();'); li.innerHTML = `<span>🧸 Kids (cartoons for children)</span>`;
+ul.insertBefore(li, ul.firstChild);
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add();
+if (!window.WATCH_CATS.some(c => c.id === 'kids')) window.WATCH_CATS.push({ id: 'kids', label: '🧸 Kids' });
+})();
+window.renderWatch = (function(b) {
+return async function(...a) {
+if (window.watchCat !== 'kids') return b.apply(this, a);
+await b.apply(this, a).catch(() => {});
+const body = document.getElementById('watchBody'); if (!body) return;
+body.innerHTML = `<div class="rounded-3xl p-5 text-center space-y-2" style="background:linear-gradient(160deg,#38bdf8,#818cf8,#f472b6)"><p class="text-5xl">🧸</p><p class="text-xl font-black text-white">Sinless Kids</p>
+<p class="text-xs text-white/90 font-bold">Cartoons, songs & learning from official kids' channels only. No ads, no chat, no comments. A grown-up answers a sum to leave.</p>
+<button onclick="window.openKids()" class="w-full py-3.5 rounded-2xl bg-white text-indigo-600 font-black">▶ Open Kids mode</button></div>`;
+};
+})(window.renderWatch);
+setTimeout(() => { let on = null; try { on = localStorage.getItem('sg_kids_mode'); } catch (e) {} if (on) window.openKids(); }, 300);
+window.openLovePicker = (function(b) { return function(...a) { if (window.kidsMode) return; if (window.coveringOverlay && window.coveringOverlay()) { setTimeout(() => { let d = null; try { d = localStorage.getItem('sg_love_done'); } catch (e) {} if (!d) window.openLovePicker(); }, 20000); return; } return b.apply(this, a); }; })(window.openLovePicker);
