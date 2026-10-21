@@ -3,7 +3,7 @@
 // - Opens instantly from the saved copy, and downloads the newest version in the background.
 // - Each update has a new CACHE name, so the newest files are fetched as soon as an update is uploaded.
 // - If there's no internet, it opens the last saved copy of the app instead of a blank page.
-const CACHE = 'sinless-gg-v33';
+const CACHE = 'sinless-gg-v34';
 const APP_FILES = ['./', './index.html', './tailwind.css', './styles.css', './app.js', './firebase-config.js', './manifest.json', './icon-192.png', './icon-512.png', './logo-96.png', './icon-180.png'];
 
 self.addEventListener('install', (event) => {

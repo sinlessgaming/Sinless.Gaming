@@ -12895,7 +12895,6 @@ window._baseSwitchView28b = window._baseSwitchView28b || window.switchView;
 window.switchView = function(v) {
 const was = !document.getElementById('view-fyp')?.classList.contains('hidden');
 const r = window._baseSwitchView28b(v);
-if (v === 'fyp' && (!was || window.isFeedNearTop()) && Date.now() - window.feedMix.at > 60000) { window.newFeedMix(); window.renderFypFeed(); }
 return r;
 };
 window._baseMixFeedDom28c = window._baseMixFeedDom28c || window.mixFeedDom;
@@ -14323,3 +14322,117 @@ box.innerHTML = `<div class="glass-panel rounded-2xl p-3 border border-amber-500
 ${rows.map((r, i) => `<button onclick="window.openSquadDetailsModal('${r.s.id}')" class="w-full flex items-center justify-between px-2 py-1.5 rounded-lg ${i < 3 ? 'bg-amber-500/10' : ''} text-left"><span class="text-xs font-bold text-white truncate">${['🥇', '🥈', '🥉'][i] || '#' + (i + 1)} ${escapeHTML(r.s.name)} <span class="text-[9px] text-gray-500">${(r.s.members || []).length} members</span></span><span class="text-xs font-black text-amber-300">${window.formatCount(r.pts)}</span></button>`).join('')}</div>`;
 };
 window.switchView = (function(b) { return function(v) { const r = b(v); if (v === 'clans') setTimeout(window.renderSquadRanking, 500); return r; }; })(window.switchView);
+window.feedMix.include = window.feedMix.include || new Set();
+window.feedMix.exclude = window.feedMix.exclude || new Set();
+window.newFeedMix = (function(b) { return function() { const r = b(); window.feedMix.include = new Set(); window.feedMix.exclude = new Set(); return r; }; })(window.newFeedMix);
+window.isFreshMine = (p) => p && window.isMyPost(p) && Date.now() - window.postTimeValue(p) < 10 * 60000;
+window.feedDecide = function(id) {
+const mix = window.feedMix;
+if (mix.include.has(id)) return true;
+if (mix.exclude.has(id)) return false;
+const p = window.findPost(id);
+const seenBefore = (window.viewedPosts || new Set()).has(id) && !mix.include.has(id);
+const ok = !!p && (window.isFreshMine(p) || !seenBefore);
+(ok ? mix.include : mix.exclude).add(id);
+return ok;
+};
+window.mixFeedDom = function() {
+const box = document.getElementById('fypFeedContainer');
+if (!box || window.feedMode === 'following' || (window.activeCategoryFilter || 'ALL') === 'LIVE STREAM') return;
+box.querySelectorAll(':scope > [data-seen-div], :scope > [data-caught], :scope > p').forEach(el => { if (/seen|caught up|Meanwhile|all caught/i.test(el.textContent)) el.remove(); });
+const kids = [...box.children];
+const pidOf = (el) => el.getAttribute('data-post-id') || (el.querySelector('[data-post-id]') || { getAttribute: () => '' }).getAttribute('data-post-id');
+const isPost = (el) => !el.hasAttribute('data-news-card') && (el.hasAttribute('data-post-id') || !!el.querySelector('[data-post-id]'));
+const posts = [], xs = [];
+kids.forEach(el => { if (isPost(el)) { if (window.feedDecide(pidOf(el))) posts.push(el); else el.remove(); } else if (el.hasAttribute('data-news-card')) xs.push(el); });
+const freshMine = posts.filter(el => window.isFreshMine(window.findPost(pidOf(el))));
+const rest = posts.filter(el => !freshMine.includes(el));
+xs.forEach(el => { if (!el.getAttribute('data-xkey')) el.setAttribute('data-xkey', window.extraKey(el)); });
+const seed = window.feedMix.seed;
+const newX = window.seededShuffle(xs.filter(el => !window.feedMix.seenX.has(el.getAttribute('data-xkey'))), seed);
+const oldX = window.seededShuffle(xs.filter(el => window.feedMix.seenX.has(el.getAttribute('data-xkey'))), seed + 7);
+const X = [...newX, ...oldX];
+const every = rest.length < 6 ? 2 : rest.length < 20 ? 3 : 5;
+const out = [...freshMine]; let xi = 0;
+if (!rest.length && !freshMine.length) { out.push(...X); xi = X.length; }
+rest.forEach((el, i) => { out.push(el); if ((i + 1) % every === 0 && xi < X.length) out.push(X[xi++]); });
+while (xi < X.length) out.push(X[xi++]);
+const others = kids.map((el, i) => ({ el, i })).filter(o => o.el.isConnected && !posts.includes(o.el) && !xs.includes(o.el));
+const seq = [...out]; others.forEach(o => seq.splice(Math.min(o.i, seq.length), 0, o.el));
+const cur = [...box.children];
+if (seq.length === cur.length && seq.every((el, i) => el === cur[i])) return;
+const mv = typeof box.moveBefore === 'function';
+seq.forEach(el => { try { mv ? box.moveBefore(el, null) : box.appendChild(el); } catch (e) { box.appendChild(el); } });
+if (window._extraObs) xs.forEach(el => { if (!el._obs) { el._obs = 1; window._extraObs.observe(el); } });
+const strip = box.querySelector(':scope > [data-tourn-strip]');
+if (strip && box.firstElementChild === strip) { const ref = box.children[3] || box.lastElementChild; if (ref && ref !== strip) ref.after(strip); }
+};
+window.loadOlderPosts = (function(b) {
+return async function() {
+const before = new Set((window.fypposts || []).map(p => p.docId || p.id));
+const got = await b();
+const add = (window.fypposts || []).filter(p => !before.has(p.docId || p.id)).sort((x, y) => window.postTimeValue(y) - window.postTimeValue(x)).map(p => p.docId || p.id);
+if (add.length && window.feedOrder) window.feedOrder = [...window.feedOrder, ...add.filter(id => !window.feedOrder.includes(id))];
+return got;
+};
+})(window.loadOlderPosts);
+window._baseRebuildFeedOrder33 = window._baseRebuildFeedOrder33 || window.rebuildFeedOrder;
+window.rebuildFeedOrder = function(...a) {
+if (window._feedFromMemory && window.cloudFeedLoaded === true && window.feedOrder && !window._memMerged && !window._userRefresh) {
+window._memMerged = true;
+const known = new Set(window.feedOrder), fresh = (window.fypposts || []).filter(p => !known.has(p.docId || p.id)).sort((x, y) => window.postTimeValue(y) - window.postTimeValue(x)).map(p => p.docId || p.id);
+window.feedOrder = [...fresh, ...window.feedOrder];
+window.pendingNewIds && window.pendingNewIds.clear(); window.updateNewPostsPill && window.updateNewPostsPill();
+return;
+}
+window._userRefresh = false;
+return window._baseRebuildFeedOrder33(...a);
+};
+['refreshFeed', 'showNewPosts'].forEach(fn => { const b = window[fn]; if (!b || b._ur) return; window[fn] = function(...a) { window._userRefresh = true; return b.apply(this, a); }; window[fn]._ur = true; });
+['editPostModal', 'deletePostModal', 'actionSheet'].forEach(id => { const el = document.getElementById(id); if (el) el.style.zIndex = id === 'actionSheet' ? 336 : 335; });
+window.openEditPostModal = function(postId) {
+const post = window.findPost(postId); if (!post) return;
+window.editingPostId = postId;
+document.getElementById('editPostCaptionInput').value = post.caption || '';
+const sel = document.getElementById('editPostCategorySelect'); if (sel) sel.value = post.game || 'FOOTBALL';
+document.getElementById('editPostModal').classList.remove('hidden');
+};
+window.submitEditPost = async function() {
+const postId = window.editingPostId; if (!postId) return;
+const caption = document.getElementById('editPostCaptionInput').value.trim(), game = document.getElementById('editPostCategorySelect').value;
+[window.findPost(postId), (window.postFetchCache || {})[postId], ...(window.profilePostsList || []).filter(p => (p.docId || p.id) === postId)].filter(Boolean).forEach(p => { p.caption = caption; p.game = game; });
+window.closeEditPostModal();
+window._forceFeed = true; window.renderFypFeed && window.renderFypFeed();
+document.querySelectorAll(`#sgClipsScroll [data-clip]`).forEach(s => { const c = window.clipsList[+s.getAttribute('data-clip')]; if (c && c.id === postId) { const cap = s.querySelector('.line-clamp-3, .line-clamp-4'); if (cap) cap.textContent = caption; } });
+try { if (window.db && !String(postId).startsWith('local_')) await updateDoc(doc(window.db, 'posts', postId), { caption, game }); showToast('✅ Post updated'); } catch (e) { showToast('⚠️ Couldn’t save the change. Try again.'); }
+};
+window._baseConfirmDeletePost33 = window._baseConfirmDeletePost33 || window.confirmDeletePost;
+window.confirmDeletePost = async function() {
+const id = window.activeDeletePostId;
+const r = await window._baseConfirmDeletePost33();
+if (id) {
+if (window.postFetchCache) delete window.postFetchCache[id];
+window.profilePostsList = (window.profilePostsList || []).filter(p => (p.docId || p.id) !== id);
+if (!String(id).startsWith('local_')) { try { await deleteDoc(doc(window.db, 'posts', id)); } catch (e) {} }
+const c = document.getElementById('sgClips'); if (c && !c.classList.contains('hidden') && c.innerHTML) window.closeClips();
+if (window.activeProfileUser && !document.getElementById('userProfileModal')?.classList.contains('hidden')) window.loadProfilePosts(window.activeProfileUser);
+}
+return r;
+};
+window.openMyPostMenu = function(id) {
+const p = window.findPost(id); if (!p) return;
+window.openActionSheet('Your post', [
+{ icon: 'fa-pen', label: 'Edit caption', run: () => window.openEditPostModal(id) },
+{ icon: 'fa-share-nodes', label: 'Share', run: () => window.sharePost && window.sharePost(id) },
+{ icon: 'fa-users', label: 'See who GG’d', run: () => window.openWhoGG(id) },
+{ icon: 'fa-trash', label: 'Delete post', danger: true, run: () => window.deletePost(id) }
+]);
+};
+window.clipSlideHtml = (function(b) {
+return function(c, i) {
+let h = b(c, i);
+const p = c && c.p;
+if (p && (c.kind === 'post' || c.kind === 'pimg') && window.isMyPost(p)) h = h.replace(/(<section data-clip="\d+"[^>]*>)/, `$1<button onclick="event.stopPropagation(); window.openMyPostMenu('${c.id}')" class="absolute top-3 right-16 z-10 w-10 h-10 rounded-full bg-black/55 text-white text-lg" title="Edit or delete">⋯</button>`);
+return h;
+};
+})(window.clipSlideHtml);
