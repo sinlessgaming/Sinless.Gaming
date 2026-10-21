@@ -911,8 +911,11 @@ window.submitCommentReply = async function() {
         user: (window.myUsername || '@Guest').replace('@', ''),
         uid: window.currentUser ? window.currentUser.uid : 'guest_user',
         text: text,
+        ...(window.commentReplyTo ? { replyTo: window.commentReplyTo } : {}),
         createdAt: typeof serverTimestamp === 'function' ? serverTimestamp() : new Date().toISOString()
     };
+    const _rt = window.commentReplyTo; window.commentReplyTo = null; window.renderCommentReplyBar && window.renderCommentReplyBar();
+    if (_rt && _rt.uid && _rt.uid !== (window.currentUser && window.currentUser.uid)) setTimeout(() => window.notify && window.notify(_rt.uid, 'reply', { postId, text: 'replied to your comment' }), 500);
 
     input.value = '';
 
@@ -11344,6 +11347,7 @@ window.LUDO_COLORS = [
     { name: 'Blue', c: '#3b82f6', start: 39, lane: [[13,7],[12,7],[11,7],[10,7],[9,7]], yard: [[10.5,1.5],[10.5,3.5],[12.5,1.5],[12.5,3.5]], base: [9, 0] }
 ];
 window.LUDO_SAFE = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
+window.ludoMulti = (g) => g.mode === 'local4' || /^h[2-4]a/.test(g.mode || '');
 window.ludoLogo = new Image(); window.ludoLogo.src = 'icon-192.png';
 window.ludoInit = function(g) {
     g.mode = g.mode || null;
@@ -11357,8 +11361,10 @@ window.ludoInit = function(g) {
         g.layout();
         const m = g.mode || 'ai1';
         const on = m === 'online' && g.olPlayers;
-        const seats = on ? (g.olPlayers.length === 2 ? [0, 2] : g.olPlayers.length === 3 ? [0, 1, 2] : [0, 1, 2, 3]) : m === 'ai1' ? [0, 2] : m === 'ai2' ? [0, 1, 2] : [0, 1, 2, 3];
-        g.players = seats.map((ci, k) => ({ ci, human: m === 'local4' || on ? true : k === 0, tokens: [-1, -1, -1, -1], done: 0, uid: on ? g.olPlayers[k].uid : null, tag: on ? g.olPlayers[k].tag : null }));
+        const mix = /^h(\d)a(\d)$/.exec(m || '');                    // h = people on this phone, a = AI
+        const nSeats = on ? g.olPlayers.length : mix ? (+mix[1] + +mix[2]) : m === 'ai1' ? 2 : m === 'ai2' ? 3 : 4;
+        const seats = nSeats === 2 ? [0, 2] : nSeats === 3 ? [0, 1, 2] : [0, 1, 2, 3];
+        g.players = seats.map((ci, k) => ({ ci, human: on ? true : m === 'local4' ? true : mix ? k < +mix[1] : k === 0, tokens: [-1, -1, -1, -1], done: 0, uid: on ? g.olPlayers[k].uid : null, tag: on ? g.olPlayers[k].tag : null, ai: on ? !!g.olPlayers[k].ai : false }));
         g.olApplied = 0; g.olQueue = []; g.olWaiting = false; g.olTurnAt = Date.now();
         g.turn = 0; g.dice = null; g.rolling = 0; g.phase = 'roll'; g.sixes = 0; g.movable = []; g.anim = null; g.winner = null; g.aiT = 0.6; g.msg = '';
         window.setGameScore(0);
@@ -11366,7 +11372,7 @@ window.ludoInit = function(g) {
     };
     g.cur = () => g.players[g.turn];
     g.myTurn = () => g.mode === 'online' && g.cur().uid === window.uidNow();
-    g.updateTop = () => { const p = g.cur(); g.olTurnAt = Date.now(); document.getElementById('gameScoreTop').innerHTML = `<span style="color:${window.LUDO_COLORS[p.ci].c}">● ${g.mode === 'online' ? (p.uid === window.uidNow() ? 'You' : '@' + escapeHTML(window.hnd(p.tag || ''))) : p.human ? (g.mode === 'local4' ? window.LUDO_COLORS[p.ci].name : 'You') : window.LUDO_COLORS[p.ci].name + ' AI'}</span>`; };
+    g.updateTop = () => { const p = g.cur(); g.olTurnAt = Date.now(); document.getElementById('gameScoreTop').innerHTML = `<span style="color:${window.LUDO_COLORS[p.ci].c}">● ${g.mode === 'online' ? (p.uid === window.uidNow() ? 'You' : '@' + escapeHTML(window.hnd(p.tag || ''))) : p.human ? (window.ludoMulti(g) ? window.LUDO_COLORS[p.ci].name : 'You') : window.LUDO_COLORS[p.ci].name + ' AI'}</span>`; };
     g.absPos = (pl, prog) => (window.LUDO_COLORS[pl.ci].start + prog) % 52;
     g.cellOf = (pl, ti) => {
         const prog = pl.tokens[ti], col = window.LUDO_COLORS[pl.ci];
@@ -11422,7 +11428,7 @@ window.ludoInit = function(g) {
     };
     g.win = function(pl) {
         g.winner = pl; g.phase = 'over';
-        const youWon = g.mode === 'online' ? pl.uid === window.uidNow() : pl.human && g.mode !== 'local4';
+        const youWon = g.mode === 'online' ? pl.uid === window.uidNow() : pl.human && !window.ludoMulti(g);
         window.setGameScore(youWon ? 1 : 0);
         setTimeout(() => window.ludoGameOver(youWon, pl), 500);
     };
@@ -11517,7 +11523,7 @@ window.ludoInit = function(g) {
         const face = g.rolling > 0 ? 1 + Math.floor(Math.random() * 6) : g.dice;
         ctx.fillStyle = '#fff'; ctx.font = `900 30px system-ui`; ctx.fillText(face ? ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][face] : '🎲', W / 2, dy + dsz / 2 + 2);
         ctx.font = '800 13px system-ui'; ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        const who = g.mode === 'online' ? (g.myTurn() ? 'Your turn' : `@${window.hnd(p.tag || '')} is playing…`) : p.human ? (g.mode === 'local4' ? `${col.name}'s turn` : 'Your turn') : `${col.name} AI is playing…`;
+        const who = g.mode === 'online' ? (g.myTurn() ? 'Your turn' : p.ai ? `${col.name} AI is playing…` : `@${window.hnd(p.tag || '')} is playing…`) : p.human ? (window.ludoMulti(g) ? `${col.name}'s turn` : 'Your turn') : `${col.name} AI is playing…`;
         const hint = (!p.human || (g.mode === 'online' && !g.myTurn())) ? '' : g.phase === 'roll' ? ' · tap the dice' : g.phase === 'move' ? ' · tap a glowing token' : '';
         ctx.fillText(who + hint, W / 2, dy + dsz + 18);
         if (g.msg) { ctx.fillStyle = '#fde047'; ctx.font = '800 12px system-ui'; ctx.fillText(g.msg, W / 2, dy + dsz + 36); }
@@ -11529,9 +11535,9 @@ window.ludoGameOver = async function(youWon, pl) {
     const col = window.LUDO_COLORS[pl.ci];
     const ov = document.getElementById('gameOverlay');
     ov.innerHTML = `<div class="text-center bg-black/80 backdrop-blur-sm rounded-3xl px-7 py-6 border border-white/10 w-full max-w-[300px]">
-        <p class="text-5xl">${youWon ? '🏆' : g.mode === 'local4' ? '🎉' : '😤'}</p>
+        <p class="text-5xl">${youWon ? '🏆' : (window.ludoMulti(g) && pl.human) ? '🎉' : '😤'}</p>
         <p class="text-xl font-black text-white mt-1">${youWon ? 'You win!' : `${col.name} wins!`}</p>
-        <p id="gameRankLine" class="text-[11px] text-gray-300 mt-1">${youWon ? (window.isSignedIn() ? '…' : 'Sign in to count your wins') : g.mode === 'local4' ? 'GG to everyone 🤝' : 'Run it back!'}</p>
+        <p id="gameRankLine" class="text-[11px] text-gray-300 mt-1">${youWon ? (window.isSignedIn() ? '…' : 'Sign in to count your wins') : window.ludoMulti(g) ? 'GG to everyone 🤝' : 'Run it back!'}</p>
         <button onclick="window.showGameOverlay('ready')" class="mt-4 w-full py-3.5 rounded-2xl bg-gradient-to-r from-yellow-400 to-red-500 text-slate-950 font-black text-base uppercase">↻ Play again</button>
         <button onclick="window.closeGame()" class="mt-2 w-full py-2.5 rounded-xl bg-gg-900 border border-white/10 text-gray-300 text-xs font-black">Exit</button></div>`;
     window.addXP && window.addXP(youWon ? 10 : 2, 'game');
@@ -13227,7 +13233,7 @@ window.requestMiddleman = async function(id) {
 // v25: REAL-LOOKING VIEWS — your first look at a post counts straight away;
 // after that a view only counts for every 30 seconds you actually keep watching.
 // ======================================================================
-window.VIEW_RULES.repeatEveryMs = 30000;
+window.VIEW_RULES.repeatEveryMs = 12000;
 window.VIEW_RULES.maxPerStay = 3;
 window.viewedPosts = (() => { try { return new Set(JSON.parse(localStorage.getItem('sg_viewed_posts') || '[]')); } catch (e) { return new Set(); } })();
 window.markViewed = function(id) {
@@ -14957,10 +14963,10 @@ window.olLudoTick = function(g) {
         else if (a.t === 'move' && g.phase === 'move') { q.shift(); g.olApplied++; g.olWaiting = false; if (g.movable.includes(a.ti)) g.move(a.ti); }
     }
     // a player who left or stopped playing: the first player still here plays their turn after a short wait
-    const keeper = g.players.map(p => p.uid).find(u => !(g.olLeft || []).includes(u));
+    const keeper = g.players.filter(p => !p.ai).map(p => p.uid).find(u => !(g.olLeft || []).includes(u));
     const key = g.turn + ':' + g.phase;
     if (g.olKey !== key) { g.olKey = key; g.olKeyAt = Date.now(); }
-    const p = g.cur(), gone = (g.olLeft || []).includes(p.uid), wait = gone ? 1500 : 25000;
+    const p = g.cur(), gone = (g.olLeft || []).includes(p.uid) || p.ai, wait = p.ai ? 900 : gone ? 1500 : 25000;
     if ((keeper === window.uidNow() || Date.now() - g.olKeyAt > 45000) && p.uid !== window.uidNow() && !g.olWaiting && !q.length && Date.now() - g.olKeyAt > wait && (g.phase === 'roll' || (g.phase === 'move' && !g.autoMove))) {
         g.olKeyAt = Date.now();
         if (g.phase === 'roll') window.olLudoAct({ t: 'roll', v: 1 + Math.floor(Math.random() * 6) }); else window.olLudoAct({ t: 'move', ti: g.aiPick() });
@@ -15209,3 +15215,357 @@ window.saveAdsenseCfg = async function() {
     try { await setDoc(doc(window.db, 'config', 'adsense'), { slot, on, at: Date.now() }); window.adsenseCfg = { slot, on }; window._gadNodes = {}; showToast(on ? '✅ Google ads switched on' : 'Google ads switched off'); document.querySelector('[data-gadmin]')?.remove(); window.renderAdminAds(); }
     catch (e) { showToast('⚠️ Couldn’t save. Did you publish the new Firebase rules?'); }
 };
+
+// ======================================================================
+// v31: LUDO ANY MIX · SQUAD REPLIES, REACTIONS · COMMENT REPLIES · SEEN POSTS HIDDEN · WEB RESULTS IN SEARCH
+//      FOLLOW MATCHES (5s live scores + alerts) · XP FOR EVERYTHING · INSTALL REMINDER · FIXES
+// ======================================================================
+
+// ---------- 🎲 Ludo: any mix of people on this phone + AI, and AI to fill online games ----------
+window._baseShowGameOverlay31 = window._baseShowGameOverlay31 || window.showGameOverlay;
+window.showGameOverlay = function(kind, d = {}) {
+    const r = window._baseShowGameOverlay31(kind, d);
+    const g = window.game;
+    if (kind === 'ready' && g && g.id === 'ludo' && !g.online) {
+        const box = document.getElementById('gameOverlay').firstElementChild;
+        if (box && !box.querySelector('[data-ludomix]')) {
+            const b = (m, l) => `<button onclick="window.startLudo('${m}')" class="py-2 rounded-xl bg-gg-900 border border-yellow-400/30 text-[10px] font-black text-white">${l}</button>`;
+            const dv = document.createElement('div'); dv.setAttribute('data-ludomix', '1'); dv.onclick = (e) => e.stopPropagation();
+            dv.innerHTML = `<p class="text-[10px] font-black text-yellow-300 uppercase tracking-wider pt-1">👥 Friends on this phone + 🤖 AI</p>
+                <div class="grid grid-cols-3 gap-1.5">${b('h2a0', '👥 2 players')}${b('h2a1', '👥 2 + 🤖 1')}${b('h2a2', '👥 2 + 🤖 2')}${b('h3a0', '👥 3 players')}${b('h3a1', '👥 3 + 🤖 1')}${b('local4', '👥 4 players')}</div>`;
+            const ol = box.querySelector('[data-olmenu]'); ol ? ol.before(dv) : box.appendChild(dv);
+            const old4 = [...box.querySelectorAll('button')].find(x => /4 Players/.test(x.textContent) && /Pass/.test(x.textContent)); if (old4) old4.remove();
+        }
+    }
+    return r;
+};
+// online: host can fill empty seats with AI
+window._baseOlShowWait31 = window._baseOlShowWait31 || window.olShowWait;
+window.olShowWait = function(o) {
+    const r = window._baseOlShowWait31(o);
+    const rm = o.room || {};
+    if (rm.game === 'ludo' && rm.hostUid === window.uidNow() && (rm.uids || []).length < 4) {
+        const ov = document.getElementById('gameOverlay').firstElementChild, n = (rm.uids || []).length;
+        if (ov && !ov.querySelector('[data-aifill]')) {
+            const cancel = [...ov.querySelectorAll('button')].pop();
+            const d = document.createElement('div'); d.setAttribute('data-aifill', '1'); d.className = 'grid grid-cols-' + (4 - n) + ' gap-1.5';
+            d.innerHTML = Array.from({ length: 4 - n }, (_, k) => k + 1).map(a => `<button onclick="window.olStart(${a})" class="py-2 rounded-xl bg-gg-900 border border-yellow-400/40 text-[10px] font-black text-yellow-200">▶ ${n} + 🤖${a}</button>`).join('');
+            cancel.before(d);
+        }
+    }
+    return r;
+};
+window._baseOlStart31 = window._baseOlStart31 || window.olStart;
+window.olStart = async function(ai) {
+    const r = window.olRoom;
+    if (ai && r && r.game === 'ludo' && r.hostUid === window.uidNow() && r.status === 'waiting') {
+        try { await updateDoc(doc(window.db, 'gameRooms', r.id), { ai: Math.min(4 - (r.uids || []).length, ai), status: 'playing', startedMs: Date.now(), lastAt: Date.now() }); } catch (e) {}
+        return;
+    }
+    return window._baseOlStart31();
+};
+window._baseOlBegin31 = window._baseOlBegin31 || window.olBegin;
+window.olBegin = function(r) {
+    if (r.game === 'ludo' && r.ai) r = { ...r, players: [...(r.players || []), ...Array.from({ length: r.ai }, (_, k) => ({ uid: 'ai_' + (k + 1), tag: 'AI', ai: true }))] };
+    return window._baseOlBegin31(r);
+};
+
+// ---------- 💬 Squads: swipe to reply, quoted replies, Discord-style reactions ----------
+window.SQ_REACTS = [['f', '🔥'], ['h', '❤️'], ['l', '😂'], ['g', '👍'], ['w', '😮'], ['s', '😢'], ['c', '👏']];
+window.squadReplyTo = null;
+window.setSquadReply = function(id) {
+    const m = window.findSquadMsg(id); if (!m) return;
+    window.squadReplyTo = { id, from: m.sender, fromUid: m.senderUid || '', text: (m.text || (m.isAudio ? '🎤 Voice note' : m.isImage ? '📷 Photo' : '')).slice(0, 120) };
+    window.renderSquadReplyBar();
+    document.getElementById('squadSubRoomInput')?.focus();
+};
+window.renderSquadReplyBar = function() {
+    const inp = document.getElementById('squadInputContainer'); if (!inp) return;
+    let bar = document.getElementById('squadReplyBar');
+    if (!window.squadReplyTo) { bar && bar.remove(); return; }
+    if (!bar) { bar = document.createElement('div'); bar.id = 'squadReplyBar'; bar.className = 'shrink-0 flex items-center gap-2 px-3 py-2 bg-gg-900 border-t border-magenta/30'; inp.before(bar); }
+    const r = window.squadReplyTo;
+    bar.innerHTML = `<div class="flex-1 min-w-0 border-l-4 border-magenta pl-2"><p class="text-[10px] font-black text-magenta">Replying to ${escapeHTML(window.dnText(r.from))}</p><p class="text-[11px] text-gray-300 truncate">${escapeHTML(r.text)}</p></div><button onclick="window.squadReplyTo=null; window.renderSquadReplyBar()" class="w-7 h-7 rounded-full bg-gg-800 text-gray-300">✕</button>`;
+};
+window._baseSendSquadMessage31 = window._baseSendSquadMessage31 || window.sendSquadMessage;
+window.sendSquadMessage = async function(payload) {
+    const rt = window.squadReplyTo;
+    if (rt) { payload = { ...payload, replyTo: rt }; window.squadReplyTo = null; window.renderSquadReplyBar(); }
+    const r = await window._baseSendSquadMessage31(payload);
+    window.addXP && window.addXP(1, 'chat');
+    if (rt && rt.fromUid && rt.fromUid !== window.uidNow()) window.notify(rt.fromUid, 'group', { text: `replied to you in ${(window.activeSquadDetails || {}).name || 'a squad'}` });
+    return r;
+};
+window.toggleSquadReact = async function(id, k) {
+    const sq = window.activeSquadDetails, m = window.findSquadMsg(id); if (!sq || !m || window.needSignIn('react')) return;
+    const uid = window.uidNow(), on = ((m.reactions || {})[k] || []).includes(uid);
+    m.reactions = { ...(m.reactions || {}), [k]: on ? (m.reactions[k] || []).filter(u => u !== uid) : [...((m.reactions || {})[k] || []), uid] };
+    window.renderSquadChannel();
+    try { await updateDoc(doc(window.db, 'squads', sq.id, 'messages', id), { [`reactions.${k}`]: on ? arrayRemove(uid) : arrayUnion(uid) }); if (!on) window.addXP && window.addXP(1, 'react'); }
+    catch (e) { showToast('⚠️ Couldn’t react. Did you publish the new Firebase rules?'); }
+};
+window._baseOpenSquadMessageActions31 = window._baseOpenSquadMessageActions31 || window.openSquadMessageActions;
+window.openSquadMessageActions = function(id) {
+    const r = window._baseOpenSquadMessageActions31(id);
+    const box = document.getElementById('actionSheetItems'); const m = window.findSquadMsg(id);
+    if (box && m && !String(id).startsWith('tmp') && !box.querySelector('[data-reacts]')) {
+        const uid = window.uidNow();
+        box.insertAdjacentHTML('afterbegin', `<div data-reacts class="flex justify-between gap-1 px-2 pb-2">${window.SQ_REACTS.map(([k, e]) => `<button onclick="document.getElementById('actionSheet').classList.add('hidden'); window.toggleSquadReact('${id}','${k}')" class="w-10 h-10 rounded-full text-xl ${((m.reactions || {})[k] || []).includes(uid) ? 'bg-magenta/30 ring-2 ring-magenta' : 'bg-gg-800'}">${e}</button>`).join('')}</div>
+            <button onclick="document.getElementById('actionSheet').classList.add('hidden'); window.setSquadReply('${id}')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-gg-800 text-sm font-bold text-gray-200"><i class="fa-solid fa-reply w-5"></i><span>Reply</span></button>`);
+    }
+    return r;
+};
+// draw quotes + reaction chips on squad messages, and bind swipe-to-reply
+window._baseRenderSquadChannel31 = window._baseRenderSquadChannel31 || window.renderSquadChannel;
+window.renderSquadChannel = function(...a) {
+    const r = window._baseRenderSquadChannel31(...a);
+    try { window.decorateSquadMsgs(); } catch (e) { console.warn(e); }
+    return r;
+};
+window.decorateSquadMsgs = function() {
+    const box = document.getElementById('squadRoomMsgsBox'); if (!box) return;
+    const uid = window.uidNow();
+    box.querySelectorAll('[onclick^="window.openSquadMessageActions("]').forEach(row => {
+        const id = (row.getAttribute('onclick').match(/'([^']+)'/) || [])[1]; const m = id && window.findSquadMsg(id); if (!m || row._dec) return; row._dec = 1;
+        row.setAttribute('data-mid', id);
+        const bubble = row.querySelector('.rounded-2xl') || row; const mine = row.classList.contains('justify-end');
+        if (m.replyTo && !bubble.querySelector('[data-q]')) bubble.insertAdjacentHTML('afterbegin', `<button data-q onclick="event.stopPropagation(); window.jumpToSquadMsg('${escapeHTML(m.replyTo.id || '')}')" class="block w-full text-left mb-1 px-2 py-1 rounded-lg border-l-4 ${mine ? 'bg-slate-950/15 border-slate-950/40' : 'bg-white/5 border-magenta'}"><p class="text-[10px] font-black ${mine ? 'text-slate-900' : 'text-magenta'}">${escapeHTML(m.replyTo.fromUid === uid ? 'You' : window.dnText(m.replyTo.from || ''))}</p><p class="text-[11px] ${mine ? 'text-slate-800' : 'text-gray-300'} truncate">${escapeHTML(m.replyTo.text || '')}</p></button>`);
+        const rx = window.SQ_REACTS.filter(([k]) => ((m.reactions || {})[k] || []).length);
+        if (rx.length) row.insertAdjacentHTML('afterend', `<div data-rx class="flex flex-wrap gap-1 mt-1 ${mine ? 'justify-end' : 'pl-10'}" onclick="event.stopPropagation()">${rx.map(([k, e]) => { const n = m.reactions[k].length, me = m.reactions[k].includes(uid); return `<button onclick="window.toggleSquadReact('${id}','${k}')" class="px-2 py-0.5 rounded-full text-xs font-bold border ${me ? 'bg-magenta/25 border-magenta text-white' : 'bg-gg-900 border-white/10 text-gray-300'}">${e} ${n}</button>`; }).join('')}</div>`);
+        // swipe right to reply
+        let x0 = null, y0 = 0, dx = 0;
+        row.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; bubble.style.transition = 'none'; }, { passive: true });
+        row.addEventListener('touchmove', (e) => { if (x0 === null) return; const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0; if (Math.abs(my) > Math.abs(mx) && Math.abs(dx) < 8) { x0 = null; return; } dx = Math.max(0, Math.min(80, mx)); bubble.style.transform = `translateX(${dx}px)`; }, { passive: true });
+        row.addEventListener('touchend', () => { bubble.style.transition = 'transform .2s'; bubble.style.transform = ''; if (dx > 55) { if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) {} window.setSquadReply(id); } x0 = null; dx = 0; });
+    });
+};
+window.jumpToSquadMsg = function(id) { const el = document.querySelector(`#squadRoomMsgsBox [data-mid="${CSS.escape(id)}"]`); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.background = 'rgba(255,0,127,.15)'; setTimeout(() => el.style.background = '', 1200); } };
+
+// ---------- 💬 Replies to comments on posts ----------
+window.commentReplyTo = null;
+window.setCommentReply = function(cid, user, uid, text) {
+    window.commentReplyTo = { id: cid, user, uid: uid || '', text: String(text || '').slice(0, 120) };
+    window.renderCommentReplyBar();
+    const i = document.getElementById('postDetailReplyInput'); if (i) { i.focus(); if (!i.value.startsWith('@')) i.value = '@' + window.hnd(user) + ' ' + i.value; }
+};
+window.renderCommentReplyBar = function() {
+    const inp = document.getElementById('postDetailReplyInput'); if (!inp) return;
+    const row = inp.parentElement; let bar = document.getElementById('commentReplyBar');
+    if (!window.commentReplyTo) { bar && bar.remove(); return; }
+    if (!bar) { bar = document.createElement('div'); bar.id = 'commentReplyBar'; bar.className = 'flex items-center gap-2 px-3 py-1.5 bg-gg-900 border-l-4 border-magenta rounded-lg mb-1'; row.before(bar); }
+    const r = window.commentReplyTo;
+    bar.innerHTML = `<div class="flex-1 min-w-0"><p class="text-[10px] font-black text-magenta">Replying to ${escapeHTML(window.dnText(r.user))}</p><p class="text-[11px] text-gray-300 truncate">${escapeHTML(r.text)}</p></div><button onclick="window.commentReplyTo=null; window.renderCommentReplyBar()" class="text-gray-400 text-sm px-1">✕</button>`;
+};
+window.loadDetailComments = function(postId) {
+    const list = document.getElementById('postDetailCommentsList');
+    if (window.detailCommentsUnsub) { window.detailCommentsUnsub(); window.detailCommentsUnsub = null; }
+    window.commentReplyTo = null; window.renderCommentReplyBar();
+    if (!window.db || String(postId).startsWith('local_')) { list.innerHTML = `<p class="text-xs text-gray-500 py-3">Replies work on posts saved to the cloud.</p>`; return; }
+    const q = query(collection(window.db, 'posts', postId, 'comments'), orderBy('createdAt', 'asc'), limit(200));
+    window.detailCommentsUnsub = onSnapshot(q, (snap) => {
+        if (snap.empty) { list.innerHTML = `<p class="text-xs text-gray-500 py-3">No replies yet. Start the conversation 👇</p>`; return; }
+        const all = []; snap.forEach(d => all.push({ id: d.id, ...d.data() }));
+        const vis = all.filter(c => !window.isBlocked(c.user));
+        const top = vis.filter(c => !c.replyTo || !vis.some(x => x.id === c.replyTo.id));
+        const kids = (id) => vis.filter(c => c.replyTo && c.replyTo.id === id);
+        const one = (c, depth) => `<div class="flex space-x-2.5 ${depth ? 'ml-9 mt-2' : ''}">
+                ${window.avatarHtml(c.user, depth ? 'w-6 h-6' : 'w-8 h-8', 'rounded-xl', 'text-[9px]')}
+                <div class="flex-1 min-w-0"><div class="bg-gg-900/80 rounded-2xl rounded-tl-sm px-3 py-2 border border-cyan-500/10">
+                    <div class="flex items-center justify-between"><span class="text-[11px]">${window.nameLink(c.user, 'font-bold text-white')}</span><span class="text-[9px] text-gray-500">${window.timeAgo(window.postTimeValue(c))}</span></div>
+                    ${c.replyTo && depth === 0 ? `<p class="text-[10px] text-magenta font-bold">↩ ${escapeHTML(window.dnText(c.replyTo.user || ''))}: <span class="text-gray-400 font-normal">${escapeHTML((c.replyTo.text || '').slice(0, 60))}</span></p>` : ''}
+                    <p class="text-xs text-gray-200 mt-0.5 whitespace-pre-wrap break-words">${formatMentions(c.text)}</p></div>
+                    <button onclick='window.setCommentReply(${JSON.stringify(c.id)}, ${JSON.stringify(c.user || "")}, ${JSON.stringify(c.uid || "")}, ${JSON.stringify((c.text || "").slice(0, 120)).replace(/'/g, "&#39;")})' class="text-[10px] font-black text-gray-400 hover:text-magenta ml-2 mt-0.5">↩ Reply</button>
+                    ${depth < 2 ? kids(c.id).map(k => one(k, depth + 1)).join('') : ''}
+                </div></div>`;
+        list.innerHTML = top.map(c => `<div>${one(c, 0)}</div>`).join('');
+    }, () => { list.innerHTML = `<p class="text-xs text-gray-500 py-3">Couldn't load replies.</p>`; });
+};
+
+// ---------- 👀 Seen posts don't come back in the feed (still on the creator's profile and in search) ----------
+window.mixFeedDom = (function(base) {
+    return function() {
+        const box = document.getElementById('fypFeedContainer');
+        if (!box || window.feedMode === 'following' || (window.activeCategoryFilter || 'ALL') === 'LIVE STREAM') return base();
+        const mix = window.feedMix || { seenPosts: new Set() };
+        const pid = (el) => el.getAttribute('data-post-id') || (el.querySelector('[data-post-id]') || { getAttribute: () => '' }).getAttribute('data-post-id');
+        const mine = (el) => { const p = window.findPost && window.findPost(pid(el)); return p && window.isMyPost(p) && Date.now() - window.postTimeValue(p) < 10 * 60000; };
+        [...box.children].forEach(el => { const isPost = !el.hasAttribute('data-news-card') && (el.hasAttribute('data-post-id') || el.querySelector('[data-post-id]')); if (isPost && mix.seenPosts.has(pid(el)) && !(mix.late || new Set()).has(pid(el)) && !mine(el)) el.remove(); });
+        base();
+        // older posts loaded by scrolling go after the fresh ones
+        if (mix.late && mix.late.size) { const tail = [...box.children].filter(el => mix.late.has(pid(el))); const sent = document.getElementById('sgFeedSentinel'); tail.forEach(el => box.appendChild(el)); }
+        // news/videos you've already seen go to the very end
+        const seenX = [...box.querySelectorAll(':scope > [data-news-card]')].filter(el => mix.seenX.has(el.getAttribute('data-xkey')));
+        if (seenX.length && seenX.length < box.children.length) { let d = box.querySelector(':scope > [data-seen-div]'); if (!d) { d = document.createElement('p'); d.setAttribute('data-seen-div', '1'); d.className = 'text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-3'; d.textContent = '✅ You’re all caught up · seen before'; } box.appendChild(d); seenX.forEach(el => box.appendChild(el)); }
+        if (!box.querySelector('[data-post-id]') && (window.fypposts || []).length && !box.querySelector('[data-caught]')) box.insertAdjacentHTML('afterbegin', `<div data-caught class="glass-panel rounded-2xl p-3 text-center border border-emerald-400/30"><p class="text-xs font-black text-white">✅ You've seen all new posts</p><p class="text-[10px] text-gray-400">Here's what's happening in sport, games & entertainment. Pull down later for new posts.</p></div>`);
+    };
+})(window.mixFeedDom);
+window.loadOlderPosts = (function(base) {
+    return async function() {
+        const before = new Set((window.fypposts || []).map(p => p.docId || p.id));
+        const got = await base();
+        const mix = window.feedMix; if (mix) { mix.late = mix.late || new Set(); (window.fypposts || []).forEach(p => { const id = p.docId || p.id; if (!before.has(id)) { mix.late.add(id); mix.seenPosts.delete(id); } }); }
+        return got;
+    };
+})(window.loadOlderPosts);
+window.newFeedMix = (function(base) { return function() { const r = base(); window.feedMix.late = new Set(); return r; }; })(window.newFeedMix);
+// first open: the loading cards always sit at the very top, and "Loading more" only appears once the feed is there
+window._baseRenderFypFeed31 = window._baseRenderFypFeed31 || window.renderFypFeed;
+window.renderFypFeed = function(...a) {
+    const r = window._baseRenderFypFeed31(...a);
+    const box = document.getElementById('fypFeedContainer'), s = document.getElementById('sgFeedSentinel');
+    if (s) s.style.display = window.cloudFeedLoaded ? '' : 'none';
+    if (box && !window.cloudFeedLoaded && !box.children.length) box.innerHTML = `<div class="glass-panel rounded-2xl p-4 flex items-center gap-3 border border-cyan-500/30"><span class="w-6 h-6 rounded-full border-4 border-cyan-400 border-t-transparent animate-spin"></span><div><p class="text-xs font-black text-white">Loading the latest on Sinless GG…</p><p class="text-[10px] text-gray-400">Clips, news, highlights and more</p></div></div>`;
+    return r;
+};
+setTimeout(() => { const s = document.getElementById('sgFeedSentinel'); if (s && !window.cloudFeedLoaded) s.style.display = 'none'; }, 50);
+
+// ---------- 🔎 Search: if it's not on Sinless GG, show it from the web (Wikipedia, news, official videos) ----------
+window._baseRunSearch31 = window._baseRunSearch31 || window.runSearch;
+window.runSearch = function(...a) {
+    const r = window._baseRunSearch31(...a);
+    const q = ((document.getElementById('sgSearchInput') || {}).value || '').trim();
+    clearTimeout(window._webSearchT);
+    if (q.length >= 3) window._webSearchT = setTimeout(() => window.webSearch(q), 500);
+    return r;
+};
+window.webSearch = async function(q) {
+    const out = document.getElementById('sgSearchResults'); if (!out) return;
+    out.querySelector('[data-web]')?.remove();
+    const ql = q.toLowerCase(), words = ql.split(/\s+/).filter(w => w.length > 2);
+    const hit = (t) => words.length && words.every(w => (t || '').toLowerCase().includes(w));
+    const news = Object.values(window.newsByCat || {}).flat().filter(n => hit(n.title)).slice(0, 5);
+    const vids = Object.values(window.feedVids || {}).flatMap(x => (x && x.list) || []).filter(v => hit(v.title)).slice(0, 4);
+    const box = document.createElement('div'); box.setAttribute('data-web', '1'); box.className = 'space-y-2 pt-3';
+    box.innerHTML = `<p class="text-[10px] font-black text-cyan-300 uppercase tracking-wider">🌍 From the web</p><div data-wiki class="text-[11px] text-gray-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Searching…</div>
+        ${news.length ? `<p class="text-[10px] font-black text-gray-400 uppercase pt-1">📰 News</p>` + news.map(n => `<button onclick="window.closeSearch && window.closeSearch(); window.openNews(${window.newsRegister(n)})" class="w-full text-left p-2 rounded-xl bg-gg-900 border border-white/5"><p class="text-xs font-bold text-white line-clamp-2">${escapeHTML(n.title)}</p><p class="text-[10px] text-gray-500">${escapeHTML(n.source)} · ${window.timeAgo(n.date)}</p></button>`).join('') : ''}
+        ${vids.length ? `<p class="text-[10px] font-black text-gray-400 uppercase pt-1">📺 Videos</p>` + vids.map(v => { window.feedVidReg = window.feedVidReg || []; window.feedVidReg.push(v); const i = window.feedVidReg.length - 1; return `<button onclick="window.closeSearch && window.closeSearch(); window.playFeedVideo(${i})" class="w-full flex gap-2 items-center text-left p-2 rounded-xl bg-gg-900 border border-white/5"><img src="https://i.ytimg.com/vi/${escapeHTML(v.vid)}/mqdefault.jpg" class="w-24 h-14 rounded-lg object-cover" alt=""><div class="min-w-0"><p class="text-xs font-bold text-white line-clamp-2">${escapeHTML(v.title)}</p><p class="text-[10px] text-gray-500">${escapeHTML((v.ch && v.ch.name) || '')}</p></div></button>`; }).join('') : ''}
+        <div class="grid grid-cols-2 gap-2 pt-1"><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(q)}" target="_blank" rel="noopener" class="py-2.5 rounded-xl bg-red-600/20 border border-red-500/40 text-red-200 text-[11px] font-black text-center">▶ YouTube</a><a href="https://www.google.com/search?q=${encodeURIComponent(q)}" target="_blank" rel="noopener" class="py-2.5 rounded-xl bg-gg-900 border border-white/15 text-gray-200 text-[11px] font-black text-center">🔎 Google</a></div>`;
+    out.appendChild(box);
+    try {
+        const r = await window.fetchTimeout(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=4&format=json&origin=*`, 8000);
+        const j = await r.json(); const res = ((j.query || {}).search || []);
+        const w = box.querySelector('[data-wiki]'); if (!w) return;
+        w.outerHTML = res.length ? `<p class="text-[10px] font-black text-gray-400 uppercase">📖 Wikipedia</p>` + res.map(x => `<button onclick='window.openWiki(${JSON.stringify(x.title).replace(/'/g, "&#39;")})' class="w-full text-left p-2 rounded-xl bg-gg-900 border border-white/5"><p class="text-xs font-bold text-white">${escapeHTML(x.title)}</p><p class="text-[10px] text-gray-400 line-clamp-2">${escapeHTML(window.newsText(x.snippet || ''))}</p></button>`).join('') : '';
+    } catch (e) { const w = box.querySelector('[data-wiki]'); if (w) w.remove(); }
+};
+window.openWiki = async function(title) {
+    window.closeSearch && window.closeSearch();
+    window.openPanel(`📖 ${escapeHTML(title)}`, `<p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i></p>`);
+    try {
+        const r = await window.fetchTimeout(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, '_'))}`, 8000); const j = await r.json();
+        const url = (j.content_urls && j.content_urls.mobile && j.content_urls.mobile.page) || `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`;
+        document.getElementById('sgPanelBody').innerHTML = `${j.thumbnail ? `<img src="${escapeHTML(j.thumbnail.source)}" alt="" class="w-full max-h-72 object-contain rounded-2xl bg-gg-900">` : ''}
+            <h2 class="text-lg font-black text-white">${escapeHTML(j.title || title)}</h2>${j.description ? `<p class="text-[11px] text-gray-400">${escapeHTML(j.description)}</p>` : ''}
+            <p class="text-sm text-gray-200 leading-relaxed">${escapeHTML(j.extract || '')}</p>
+            <a href="${escapeHTML(url)}" target="_blank" rel="noopener" class="block w-full py-3 rounded-xl bg-cyan-400 text-slate-950 text-xs font-black uppercase text-center">Read more on Wikipedia ↗</a>
+            <p class="text-[9px] text-gray-500 text-center">Text from Wikipedia (CC BY-SA)</p>`;
+        window.addXP && window.addXP(1, 'news');
+    } catch (e) { document.getElementById('sgPanelBody').innerHTML = `<p class="text-xs text-gray-400 text-center py-8">Couldn't load this page.</p>`; }
+};
+
+// ---------- ⚽ Follow matches: live scores every 5 seconds + alerts ----------
+window.followedMatches = new Set((() => { try { return JSON.parse(localStorage.getItem('sg_follow_matches') || '[]'); } catch (e) { return []; } })());
+window.toggleFollowMatch = function(id, e) {
+    if (e) { e.stopPropagation(); e.preventDefault(); }
+    if (window.followedMatches.has(id)) { window.followedMatches.delete(id); showToast('Stopped following this match'); }
+    else { window.followedMatches.add(id); showToast('⭐ Following! You’ll get goals, kick-off and full time.'); if ('Notification' in window && Notification.permission === 'default') setTimeout(() => window.setupPushNotifications && window.setupPushNotifications(), 600); }
+    try { localStorage.setItem('sg_follow_matches', JSON.stringify([...window.followedMatches].slice(-60))); } catch (e) {}
+    window.renderLiveMatches();
+};
+window._baseRenderLiveMatches31 = window._baseRenderLiveMatches31 || window.renderLiveMatches;
+window.renderLiveMatches = function(...a) {
+    const r = window._baseRenderLiveMatches31(...a);
+    document.querySelectorAll('#liveMatchesStrip [onclick^="window.openLounge("]').forEach(card => {
+        const id = (card.getAttribute('onclick').match(/'([^']+)'/) || [])[1]; if (!id || card.querySelector('[data-fm]')) return;
+        const on = window.followedMatches.has(id); card.classList.add('relative');
+        card.insertAdjacentHTML('beforeend', `<button data-fm onclick="window.toggleFollowMatch('${id}', event)" class="absolute -top-1.5 -right-1.5 w-7 h-7 rounded-full text-sm ${on ? 'bg-amber-400 text-slate-950' : 'bg-gg-800 text-gray-400 border border-white/10'}" title="Follow match">${on ? '★' : '☆'}</button>`);
+    });
+    return r;
+};
+window._matchPrev = {};
+window._baseLoadLiveMatches31 = window._baseLoadLiveMatches31 || window.loadLiveMatches;
+window.loadLiveMatches = async function(...a) {
+    const r = await window._baseLoadLiveMatches31(...a);
+    (window.liveMatchesCache || []).forEach(m => {
+        const key = `${m.state}|${m.home.score}|${m.away.score}`, prev = window._matchPrev[m.id];
+        window._matchPrev[m.id] = key;
+        if (!prev || prev === key || !window.followedMatches.has(m.id)) return;
+        const [ps, ph, pa] = prev.split('|');
+        const line = `${m.home.abbr} ${m.home.score ?? 0}–${m.away.score ?? 0} ${m.away.abbr}`;
+        const msg = ps === 'pre' && m.state === 'in' ? `⚽ Kick-off! ${m.home.abbr} vs ${m.away.abbr}` : m.state === 'post' && ps !== 'post' ? `🏁 Full time: ${line}` : (ph !== String(m.home.score) || pa !== String(m.away.score)) ? `⚽ GOAL! ${line}` : null;
+        if (!msg) return;
+        showToast(msg);
+        if (navigator.vibrate) try { navigator.vibrate([80, 40, 80]); } catch (e) {}
+        if (document.visibilityState === 'hidden' && 'Notification' in window && Notification.permission === 'granted' && navigator.serviceWorker) navigator.serviceWorker.ready.then(reg => reg.showNotification('Sinless GG', { body: msg, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'match-' + m.id, renotify: true })).catch(() => {});
+    });
+    return r;
+};
+// refresh every 5s while a match is live (or one you follow is about to start)
+setInterval(() => {
+    const ms = window.liveMatchesCache || [];
+    const live = ms.some(m => m.state === 'in'), soon = ms.some(m => window.followedMatches.has(m.id) && m.state === 'pre' && new Date(m.date) - Date.now() < 10 * 60000);
+    const followingLive = ms.some(m => window.followedMatches.has(m.id) && m.state === 'in');
+    const onPage = ['view-news', 'view-trending', 'view-fyp'].some(id => !document.getElementById(id)?.classList.contains('hidden'));
+    if (window._liveBusy) return;
+    if ((live && (onPage || followingLive)) || soon) { window._liveBusy = true; window.loadLiveMatches().finally(() => { window._liveBusy = false; }); }
+}, 5000);
+
+// ---------- ⭐ XP for everything you do (all counts on the Top rank) ----------
+Object.assign(window.XP_RULES, { game: [5, 15], chat: [1, 40], react: [1, 30], news: [1, 30], watch: [2, 30], clip: [1, 50], match: [20, 6] });
+window._baseGameOver31 = window._baseGameOver31 || window.gameOver;
+window.gameOver = async function(reason) { const g = window.game, was = g && g.state === 'play' && !g.online; const r = await window._baseGameOver31(reason); if (was) window.addXP(5, 'game'); return r; };
+['sendChatMessage', 'sendDmMessage'].forEach(fn => { const b = window[fn]; if (!b || b._xp) return; window[fn] = async function(...a) { const r = await b.apply(this, a); window.addXP && window.isSignedIn() && window.addXP(1, 'chat'); return r; }; window[fn]._xp = true; });
+window.openNews = (function(b) { return function(...a) { const r = b.apply(this, a); window.addXP && window.isSignedIn() && window.addXP(1, 'news'); return r; }; })(window.openNews);
+window.playFeedVideo = (function(b) { return function(...a) { const r = b.apply(this, a); window.addXP && window.isSignedIn() && window.addXP(2, 'watch'); return r; }; })(window.playFeedVideo);
+window.playClassic = (function(b) { return function(...a) { const r = b.apply(this, a); window.addXP && window.isSignedIn() && window.addXP(2, 'watch'); return r; }; })(window.playClassic);
+window.clipActivate = (function(b) { return function(i) { const fresh = window.clipCur !== i; const r = b.apply(this, arguments); if (fresh && i > 0 && window.isSignedIn()) window.addXP(1, 'clip'); return r; }; })(window.clipActivate);
+window.approveMatchNow = (function(b) { return function(t, m) { const r = b.apply(this, arguments); if ([m.p1, m.p2].some(p => (p || '').toLowerCase() === window.meLower())) window.addXP(m.winner && m.winner.toLowerCase && m.winner.toLowerCase() === window.meLower() ? 30 : 20, 'match'); return r; }; })(window.approveMatchNow);
+
+// ---------- 📲 Install reminder for everyone who hasn't installed ----------
+(function installNudge() {
+    if (window.isStandalone && window.isStandalone()) return;
+    setTimeout(() => {
+        try { if (sessionStorage.getItem('sg_inst_nudge')) return; sessionStorage.setItem('sg_inst_nudge', '1'); } catch (e) {}
+        if ((window.isStandalone && window.isStandalone()) || document.querySelector('#sgJoinSheet:not(.hidden)') || !document.getElementById('gameModal')?.classList.contains('hidden')) return;
+        let el = document.getElementById('sgInstallNudge');
+        if (!el) { el = document.createElement('div'); el.id = 'sgInstallNudge'; el.className = 'fixed left-3 right-3 bottom-4 mx-auto max-w-md rounded-2xl p-3 flex items-center gap-3 shadow-2xl border border-cyan-400/40 fade-in'; el.style.cssText += 'z-index:285;background:linear-gradient(135deg,#070f1e,#1a0a1f)'; document.body.appendChild(el); }
+        el.innerHTML = `<img src="icon-192.png" class="w-11 h-11 rounded-xl" alt=""><div class="flex-1 min-w-0"><p class="text-sm font-black text-white">Install Sinless GG</p><p class="text-[10px] text-gray-300">Opens faster, full screen, with match alerts. Free.</p></div>
+            <button onclick="document.getElementById('sgInstallNudge').remove(); window.installApp()" class="px-3 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-[11px] font-black">Install</button><button onclick="document.getElementById('sgInstallNudge').remove()" class="text-gray-400 px-1">✕</button>`;
+    }, 25000);
+})();
+
+// ---------- 🛠 Fixes ----------
+// a chat that's never been used: show "say hi" instead of "Couldn't load this chat"
+window.openDmThread = (function(b) {
+    return async function(tag) {
+        const r = await b.apply(this, arguments);
+        const dm = window.activeDm; if (!dm || !dm.threadId || dm.group) return r;
+        setTimeout(() => { const box = document.getElementById('dmMessagesContainer'); if (box && /Couldn.t load this chat/.test(box.textContent)) { window._dmNeedsListen = tag; box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Say hi to ${escapeHTML(window.dnText(dm.partnerTag))} 👋<br><span class="text-[10px] text-gray-500">Your first message starts the chat.</span></p>`; } }, 1500);
+        return r;
+    };
+})(window.openDmThread);
+window.sendDmMessage = (function(b) { return async function(...a) { const r = await b.apply(this, a); if (window._dmNeedsListen) { const t = window._dmNeedsListen; window._dmNeedsListen = null; setTimeout(() => window.openDmThread(t), 400); } return r; }; })(window.sendDmMessage);
+// a season can't be finished before any game is played; unplayed games are flagged first
+window.finishSeason = (function(b) {
+    return async function(id) {
+        const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+        const real = (p) => p && !/^Club_\d+$/.test(p) && p !== 'Open Spot' && p !== 'TBD';
+        const ms = (t.matches || []).filter(m => real(m.p1) && real(m.p2));
+        const played = ms.filter(m => m.status === 'approved' && m.winner);
+        if (!played.length) { showToast('No games played yet. A champion is crowned only after real results.'); return; }
+        const left = ms.length - played.length;
+        if (left > 0 && !(await window.sgConfirm(`${left} match${left > 1 ? 'es are' : ' is'} still not played. Finish the season anyway and crown the current leader?`, { title: '🏁 Finish early?', okText: 'Finish anyway', danger: true }))) return;
+        window._skipFinishConfirm = left > 0;
+        return b.call(this, id);
+    };
+})(window.finishSeason);
+// deleting a tournament also removes any trophy it gave
+window.confirmDeleteTournament = (function(b) {
+    return async function(...a) {
+        const id = window.activeDeleteTournamentId;
+        const r = await b.apply(this, a);
+        if (id && window.db) { try { const s = await getDocs(query(collection(window.db, 'titles'), where('tournId', '==', id), limit(20))); const jobs = []; s.forEach(d => jobs.push(deleteDoc(doc(window.db, 'titles', d.id)).catch(() => {}))); await Promise.all(jobs); if (jobs.length) { window._titles = null; window.loadTitles && window.loadTitles(); } } catch (e) {} }
+        return r;
+    };
+})(window.confirmDeleteTournament);
+window.closeSearch = window.closeSearch || function() { window.closePanel(); };
