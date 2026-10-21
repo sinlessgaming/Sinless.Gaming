@@ -1,7 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
 import { 
-    getFirestore, 
+    getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, 
     collection, 
     addDoc, 
     doc,
@@ -40,10 +39,10 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-let analytics = null;
-try { analytics = getAnalytics(app); } catch(e) {}
-
-const db = getFirestore(app);
+// Keep a copy of what you've seen on the phone, so the app shows it instantly next time (even on 2G)
+let db;
+try { db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
+catch (e) { db = getFirestore(app); }
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
