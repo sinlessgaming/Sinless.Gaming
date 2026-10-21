@@ -1,15 +1,17 @@
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { 
-getFirestore, collection, addDoc, doc, deleteDoc, updateDoc, 
-arrayUnion, arrayRemove, increment, query, orderBy, limit, 
-onSnapshot as _fsOnSnapshot, serverTimestamp, where, getDocs as _fsGetDocs, getDoc as _fsGetDoc, setDoc, getCountFromServer 
+import {
+getFirestore, collection, addDoc, doc, deleteDoc, updateDoc,
+arrayUnion, arrayRemove, increment, query, orderBy, limit,
+onSnapshot as _fsOnSnapshot, serverTimestamp, where, getDocs as _fsGetDocs, getDoc as _fsGetDoc, setDoc, getCountFromServer
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { 
-getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged 
+import {
+getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { 
-getMessaging, getToken, onMessage 
+import {
+getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
+
 const SG_SKIP_KEYS = new Set(['sdp', 'candidate', 'offer', 'answer']);
 const SG_URL_KEY = /(url|pfp|cover|img|image|thumb|thumbnail|photo|avatar|link|href|src|website|media|poster|audio|video|embed)$/i;
 const sgSafeUrl = (v) => {
@@ -66,10 +68,13 @@ if (!raw || !/[<>"'`]/.test(raw) || !/^[\[{]/.test(raw)) continue;
 try { const v = JSON.parse(raw); localStorage.setItem(k, JSON.stringify(window.sgClean(v))); } catch (e) {}
 }
 } catch (e) {}
+
 window.SG_DEFAULT_PFP = 'icon-192.png';
 window.cleanPfp = (u) => (u && !/googleusercontent\.com|ggpht\.com|gravatar\.com/.test(u)) ? u : '';
+
 window.myGGCoins = 0;
 try { localStorage.removeItem('sinless_gg_coins'); } catch (e) {}
+
 window.updateCoinDisplay = function() {
 const coinBadge = document.getElementById('headerCoinBalanceText');
 const drawerBadge = document.getElementById('drawerCoinBadge');
@@ -80,6 +85,7 @@ if (drawerBadge) {
 drawerBadge.innerText = window.myGGCoins;
 }
 };
+
 window.toggleDrawer = function(open) {
 const sideDrawer = document.getElementById('sideDrawer');
 const drawerOverlay = document.getElementById('drawerOverlay');
@@ -91,6 +97,7 @@ if (sideDrawer) sideDrawer.classList.remove('active');
 if (drawerOverlay) drawerOverlay.classList.remove('active');
 }
 };
+
 window.showToast = function(msg) {
 const toast = document.getElementById('toastBanner');
 if(toast) {
@@ -99,6 +106,7 @@ toast.classList.remove('opacity-0', 'pointer-events-none');
 setTimeout(() => { toast.classList.add('opacity-0', 'pointer-events-none'); }, 3000);
 }
 };
+
 window.sgDialog = function({ title = '', message = '', note = '', input = false, inputType = 'text', defaultValue = '', placeholder = '', okText = 'OK', cancelText = 'Cancel', danger = false }) {
 return new Promise((resolve) => {
 const modal = document.getElementById('sgDialogModal');
@@ -108,24 +116,29 @@ const noteEl = document.getElementById('sgDialogNote');
 const inputEl = document.getElementById('sgDialogInput');
 const okBtn = document.getElementById('sgDialogOk');
 const cancelBtn = document.getElementById('sgDialogCancel');
+
 if (!modal) {
 resolve(input ? window.prompt(message, defaultValue) : window.confirm(message));
 return;
 }
+
 titleEl.innerText = title;
 titleEl.classList.toggle('hidden', !title);
 msgEl.innerText = message;
 noteEl.innerText = note;
 noteEl.classList.toggle('hidden', !note);
+
 inputEl.classList.toggle('hidden', !input);
 inputEl.type = inputType;
 inputEl.value = defaultValue;
 inputEl.placeholder = placeholder;
+
 okBtn.innerText = okText;
 cancelBtn.innerText = cancelText;
 okBtn.className = danger
 ? 'flex-1 py-2.5 bg-red-600 text-white font-black rounded-xl text-xs uppercase shadow'
 : 'flex-1 py-2.5 bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 font-black rounded-xl text-xs uppercase shadow';
+
 const finish = (result) => {
 modal.classList.add('hidden');
 okBtn.onclick = null;
@@ -133,19 +146,24 @@ cancelBtn.onclick = null;
 inputEl.onkeydown = null;
 resolve(result);
 };
+
 okBtn.onclick = () => finish(input ? inputEl.value : true);
 cancelBtn.onclick = () => finish(input ? null : false);
 inputEl.onkeydown = (e) => { if (e.key === 'Enter') finish(inputEl.value); };
+
 modal.classList.remove('hidden');
 if (input) setTimeout(() => { inputEl.focus(); inputEl.select(); }, 50);
 });
 };
+
 window.sgPrompt = function(message, opts = {}) {
 return window.sgDialog({ ...opts, message, input: true });
 };
+
 window.sgConfirm = function(message, opts = {}) {
 return window.sgDialog({ ...opts, message, input: false });
 };
+
 window.timeAgo = function(value) {
 if (!value) return 'Just now';
 let date;
@@ -153,6 +171,7 @@ if (typeof value.toDate === 'function') date = value.toDate();            // Fir
 else if (typeof value.seconds === 'number') date = new Date(value.seconds * 1000);
 else date = new Date(value);                                               // ISO string or number
 if (isNaN(date.getTime())) return '';
+
 const secs = Math.floor((Date.now() - date.getTime()) / 1000);
 if (secs < 60) return 'Just now';
 const mins = Math.floor(secs / 60);
@@ -161,11 +180,13 @@ const hours = Math.floor(mins / 60);
 if (hours < 24) return `${hours}h ago`;
 const days = Math.floor(hours / 24);
 if (days < 7) return `${days}d ago`;
+
 const sameYear = date.getFullYear() === new Date().getFullYear();
 return date.toLocaleDateString(undefined, sameYear
 ? { day: 'numeric', month: 'short' }
 : { day: 'numeric', month: 'short', year: 'numeric' });
 };
+
 window.postTimeValue = function(p) {
 const v = p && p.createdAt;
 if (!v) return Date.now();
@@ -174,28 +195,36 @@ if (typeof v.seconds === 'number') return v.seconds * 1000;
 const t = new Date(v).getTime();
 return isNaN(t) ? 0 : t;
 };
+
 setInterval(() => {
 document.querySelectorAll('[data-time]').forEach(el => {
 const t = parseInt(el.getAttribute('data-time'));
 if (t) el.innerText = window.timeAgo(t);
 });
 }, 60000);
+
 window.tipCreator = async function(postId, creatorUsername) {
 const tipAmount = await window.sgPrompt(`How many GG Coins do you want to tip @${window.hnd(creatorUsername)}?`, { title: '🪙 Tip Creator', defaultValue: '10', inputType: 'number', note: `Your balance: ${window.myGGCoins} GG Coins`, okText: 'Send Tip' });
 const amount = parseInt(tipAmount);
+
 if (isNaN(amount) || amount <= 0) return;
+
 if (window.myGGCoins < amount) {
 showToast("⚠️ Insufficient GG Coins! Top up your wallet first.");
 return;
 }
+
 window.myGGCoins -= amount;
 window.updateCoinDisplay();
+
 const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
 if (post) {
 post.tipsTotal = (post.tipsTotal || 0) + amount;
 if (window.renderFypFeed) window.renderFypFeed();
 }
+
 showToast(`🪙 Successfully tipped ${amount} GG Coins to @${window.hnd(creatorUsername)}!`);
+
 const targetId = post ? (post.docId || post.id) : postId;
 if (window.db && targetId && !String(targetId).startsWith('local_')) {
 try {
@@ -204,6 +233,7 @@ await updateDoc(postRef, { tipsTotal: increment(amount) });
 } catch (e) { console.error("Cloud tip update error:", e); }
 }
 };
+
 window.setupPushNotifications = async function() {
 if (!window.messaging) {
 showToast("Push notifications not supported on this device.");
@@ -228,11 +258,13 @@ showToast("⚠️ Notification permission denied.");
 console.error("FCM Token Error:", err);
 }
 };
+
 if (window.messaging) {
 onMessage(window.messaging, (payload) => {
 showToast(`💬 ${payload.notification?.title || 'New Alert'}: ${payload.notification?.body || ''}`);
 });
 }
+
 window.loginWithGoogle = async function() {
 try {
 const result = await signInWithPopup(window.auth, window.googleProvider);
@@ -244,6 +276,7 @@ console.error("Auth error:", error);
 showToast("Sign-in failed. Please try again.");
 }
 };
+
 window.logoutUser = async function() {
 try {
 await signOut(window.auth);
@@ -253,17 +286,21 @@ window.closeAccountModal();
 console.error("Sign-out error:", error);
 }
 };
+
 if (window.auth) {
 onAuthStateChanged(window.auth, (user) => {
 const authModalBtn = document.getElementById('googleAuthBtn');
 const authModalStatus = document.getElementById('accountModalStatusText');
+
 if (user) {
 const displayName = user.displayName || user.email.split('@')[0];
 window.myUsername = `@${displayName.replace(/\s+/g, '')}`;
 window.myDisplayName = displayName;
 window.currentUser = user;
+
 const headerTag = document.getElementById('headerUserTag');
 if (headerTag) headerTag.innerText = window.myUsername;
+
 if (authModalStatus) authModalStatus.innerText = `Logged in as ${displayName}`;
 if (authModalBtn) {
 authModalBtn.innerHTML = `<i class="fa-solid fa-right-from-bracket text-red-500 text-sm"></i><span>Sign Out</span>`;
@@ -273,8 +310,10 @@ authModalBtn.onclick = window.logoutUser;
 window.myUsername = '@Guest';
 window.myDisplayName = 'Guest';
 window.currentUser = null;
+
 const headerTag = document.getElementById('headerUserTag');
 if (headerTag) headerTag.innerText = '@Guest';
+
 if (authModalStatus) authModalStatus.innerText = 'Connect with your Google account to post under your real Gamertag.';
 if (authModalBtn) {
 authModalBtn.innerHTML = `<i class="fa-brands fa-google text-red-500 text-sm"></i><span>Continue with Google Cloud</span>`;
@@ -285,6 +324,7 @@ if(window.renderClansList) window.renderClansList();
 if (window.afterAuthChange) window.afterAuthChange(user);
 });
 }
+
 function openPostDB() {
 return new Promise((resolve, reject) => {
 let request = indexedDB.open("SinlessPostDB", 2);
@@ -301,6 +341,7 @@ request.onsuccess = (e) => resolve(e.target.result);
 request.onerror = (e) => reject(e);
 });
 }
+
 async function savePostToIndexedDB(post) {
 try {
 let db = await openPostDB();
@@ -309,6 +350,7 @@ let store = tx.objectStore("local_posts");
 store.put(post);
 } catch(e) { console.error("IndexedDB save failed:", e); }
 }
+
 async function removePostFromIndexedDB(id) {
 try {
 let db = await openPostDB();
@@ -317,6 +359,7 @@ let store = tx.objectStore("local_posts");
 store.delete(id);
 } catch(e) { console.error("IndexedDB delete failed:", e); }
 }
+
 async function saveStoryToIndexedDB(story) {
 try {
 let db = await openPostDB();
@@ -325,6 +368,7 @@ let store = tx.objectStore("local_stories");
 store.put(story);
 } catch(e) { console.error("IndexedDB story save failed:", e); }
 }
+
 window.loadLocalPostsFromDB = async function() {
 try {
 let db = await openPostDB();
@@ -337,6 +381,7 @@ request.onerror = () => resolve([]);
 });
 } catch(e) { return []; }
 };
+
 window.loadLocalStoriesFromDB = async function() {
 try {
 let db = await openPostDB();
@@ -349,15 +394,18 @@ request.onerror = () => resolve([]);
 });
 } catch(e) { return []; }
 };
+
 window.CLOUDINARY_CLOUD_NAME = 'gppuryi3';
 window.CLOUDINARY_UPLOAD_PRESET = 'Sinless GG';
 window.CLOUDINARY_FOLDER = 'sinlessgg';
+
 window.uploadToCloudinary = function(fileOrDataUrl, onProgress) {
 return new Promise((resolve, reject) => {
 const fd = new FormData();
 fd.append('file', fileOrDataUrl);
 fd.append('upload_preset', window.CLOUDINARY_UPLOAD_PRESET);
 fd.append('folder', window.CLOUDINARY_FOLDER);
+
 const xhr = new XMLHttpRequest();
 xhr.open('POST', `https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CLOUD_NAME}/auto/upload`);
 xhr.upload.onprogress = (e) => { if (e.lengthComputable && onProgress) onProgress(Math.round(e.loaded / e.total * 100)); };
@@ -376,6 +424,7 @@ xhr.onerror = () => reject(new Error('No internet connection'));
 xhr.send(fd);
 });
 };
+
 window.prepareAndUpload = async function(file, onProgress, maxW = 2048, maxH = 2048) {
 const isVideo = file.type.includes('video');
 if (isVideo && file.size > 100 * 1024 * 1024) throw new Error('Video is over 100 MB. Please trim it.');
@@ -383,6 +432,7 @@ if (isVideo || file.type === 'image/gif') return window.uploadToCloudinary(file,
 const shrunk = await window.compressImageSharp(file, maxW, maxH);
 return window.uploadToCloudinary(shrunk, onProgress);
 };
+
 window.compressImageSharp = function(file, maxW = 2048, maxH = 2048) {
 return new Promise((resolve) => {
 const img = new Image();
@@ -406,6 +456,7 @@ img.onerror = () => { URL.revokeObjectURL(objUrl); resolve(file); };
 img.src = objUrl;
 });
 };
+
 window.cldSized = function(url, width, kind = 'image') {
 if (!url || !url.includes('res.cloudinary.com') || !url.includes('/upload/')) return url;
 const [base, rest] = url.split('/upload/');
@@ -416,20 +467,24 @@ const t = kind === 'video'
 : `f_auto,q_auto:good,c_limit,w_${width}`;
 return `${base}/upload/${t}/${parts.join('/')}`;
 };
+
 window.cldPoster = function(url, width = 720) {
 if (!url || !url.includes('res.cloudinary.com') || !url.includes('/video/upload/')) return '';
 const sized = window.cldSized(url, width, 'image').replace('/video/upload/f_auto,', '/video/upload/so_0,f_auto,');
 return sized.replace(/\.[a-z0-9]+$/i, '.jpg');
 };
+
 window.formatCount = function(n) {
 n = Number(n) || 0;
 if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
 if (n >= 1e3) return (n / 1e3).toFixed(n >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'K';
 return String(n);
 };
+
 window.VIEW_RULES = { firstAfterMs: 1000, repeatEveryMs: 4500, maxPerStay: 4, revisitAfterMs: 20000, saveEveryMs: 15000 };
 window.viewState = {};          // per post: { lastStayEnd, timer, interval, countThisStay }
 window.pendingViewSaves = {};   // per post: views not yet saved to the cloud
+
 window.addPostViews = function(postId, n = 1) {
 if (!postId || n <= 0) return;
 const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
@@ -442,6 +497,7 @@ if (targetId && !String(targetId).startsWith('local_')) {
 window.pendingViewSaves[targetId] = (window.pendingViewSaves[targetId] || 0) + n;
 }
 };
+
 window.flushViewSaves = function() {
 if (!window.db) return;
 const batch = window.pendingViewSaves;
@@ -453,6 +509,7 @@ if (n > 0) updateDoc(doc(window.db, "posts", id), { viewsCount: increment(n) }).
 setInterval(() => window.flushViewSaves(), window.VIEW_RULES.saveEveryMs);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') window.flushViewSaves(); });
 window.addEventListener('pagehide', () => window.flushViewSaves());
+
 window.startViewStay = function(id) {
 const R = window.VIEW_RULES;
 const st = window.viewState[id] || (window.viewState[id] = {});
@@ -468,6 +525,7 @@ window.addPostViews(id, 1); st.countThisStay++;
 }, R.repeatEveryMs);
 }, R.firstAfterMs);
 };
+
 window.endViewStay = function(id) {
 const st = window.viewState[id];
 if (!st) return;
@@ -475,7 +533,9 @@ if (st.timer) { clearTimeout(st.timer); st.timer = null; }
 if (st.interval) { clearInterval(st.interval); st.interval = null; }
 if (st.countThisStay > 0) st.lastStayEnd = Date.now();
 };
+
 window.countPostView = function(postId) { window.startViewStay(postId); };
+
 window.observePostViews = function() {
 if (!('IntersectionObserver' in window)) return;
 if (!window.postViewObserver) {
@@ -490,20 +550,24 @@ if (entry.isIntersecting) window.startViewStay(id); else window.endViewStay(id);
 window.postViewObserver.disconnect();
 document.querySelectorAll('[data-post-id]').forEach(el => window.postViewObserver.observe(el));
 };
+
 window.submitUniversalPost = async function() {
 const publishBtn = document.getElementById('publishPostBtn');
 let text = document.getElementById('postTextContent').value.trim();
 let cat = document.getElementById('postCategorySelect').value;
 let audioTrack = window.selectedAudioTrack || null;
 const picked = window.uploadedMediaBlobs || [];
+
 if(!text && picked.length === 0) {
 showToast("⚠️ Write a caption or select media to post!");
 return;
 }
+
 if (publishBtn) {
 publishBtn.disabled = true;
 publishBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Publishing...`;
 }
+
 let mediaList = [];
 try {
 for (let i = 0; i < picked.length; i++) {
@@ -524,8 +588,10 @@ publishBtn.innerHTML = `🚀 Publish Post with Media`;
 return;
 }
 if (publishBtn) publishBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Publishing...`;
+
 const meClean = (window.myUsername || '@Guest').replace('@','');
 const isVerifiedUser = meClean.toLowerCase() === 'sinlessgaming';
+
 let postPayload = {
 id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
 user: meClean,
@@ -546,6 +612,7 @@ viewsCount: 1,
 commentsCount: 0,
 createdAt: new Date().toISOString()
 };
+
 try {
 if(window.db && typeof addDoc === 'function' && typeof collection === 'function') {
 const docRef = await addDoc(collection(window.db, "posts"), {
@@ -570,6 +637,7 @@ publishBtn.innerHTML = `🚀 Publish Post with Media`;
 }
 }
 };
+
 async function publishLocallyFallback(payload) {
 if(!window.fypposts) window.fypposts = [];
 payload.isLocalFallback = true;
@@ -580,6 +648,7 @@ if(window.renderLadder) window.renderLadder();
 resetPostForm();
 showToast("Published to Feed!");
 }
+
 function resetPostForm() {
 document.getElementById('postTextContent').value = '';
 window.uploadedMediaBlobs = [];
@@ -591,21 +660,26 @@ document.getElementById('selectedSoundLabel').innerText = '🎵 Choose Backgroun
 if(window.stopAudioPreview) window.stopAudioPreview();
 window.closeCreatePostModal();
 }
+
 window.activeDeletePostId = null;
 window.deletePost = function(postId) {
 window.activeDeletePostId = postId;
 document.getElementById('deletePostModal').classList.remove('hidden');
 };
+
 window.closeDeletePostModal = function() {
 document.getElementById('deletePostModal').classList.add('hidden');
 window.activeDeletePostId = null;
 };
+
 window.confirmDeletePost = async function() {
 const postId = window.activeDeletePostId;
 if (!postId) return;
+
 window.fypposts = (window.fypposts || []).filter(p => p.id !== postId && p.docId !== postId);
 if(window.renderFypFeed) window.renderFypFeed();
 window.closeDeletePostModal();
+
 try {
 await removePostFromIndexedDB(postId);
 if (window.db && !String(postId).startsWith('local_')) {
@@ -617,31 +691,39 @@ console.error("Delete post error:", e);
 showToast("Post removed.");
 }
 };
+
 window.editingPostId = null;
 window.openEditPostModal = function(postId) {
 const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
 if (!post) return;
+
 window.editingPostId = postId;
 document.getElementById('editPostCaptionInput').value = post.caption || '';
 document.getElementById('editPostCategorySelect').value = post.game || 'FOOTBALL';
 document.getElementById('editPostModal').classList.remove('hidden');
 };
+
 window.closeEditPostModal = function() {
 document.getElementById('editPostModal').classList.add('hidden');
 window.editingPostId = null;
 };
+
 window.submitEditPost = async function() {
 const postId = window.editingPostId;
 if (!postId) return;
+
 const newCaption = document.getElementById('editPostCaptionInput').value.trim();
 const newGame = document.getElementById('editPostCategorySelect').value;
+
 const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
 if (post) {
 post.caption = newCaption;
 post.game = newGame;
 }
+
 if(window.renderFypFeed) window.renderFypFeed();
 window.closeEditPostModal();
+
 if (window.db && !String(postId).startsWith('local_')) {
 try {
 await updateDoc(doc(window.db, "posts", postId), {
@@ -652,12 +734,14 @@ game: newGame
 }
 showToast("Post updated!");
 };
+
 window.shareContent = function(title, text, url) {
 const shareData = {
 title: title || 'Sinless GG Gaming',
 text: text || 'Check this out on Sinless GG!',
 url: url || window.location.href
 };
+
 if (navigator.share) {
 navigator.share(shareData).catch((err) => console.log('Share canceled:', err));
 } else {
@@ -665,15 +749,18 @@ navigator.clipboard.writeText(`${shareData.text} - ${shareData.url}`);
 showToast("📋 Link copied to clipboard!");
 }
 };
+
 window.toggleGGPost = async function(postId) {
 const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId || String(p.id) === String(postId));
 if (!post) {
 showToast("⚠️ Unable to interact with this post.");
 return;
 }
+
 const uid = window.currentUser ? window.currentUser.uid : 'guest_user';
 if (!post.ggsBy) post.ggsBy = [];
 const hasGGed = post.ggsBy.includes(uid);
+
 if (hasGGed) {
 post.ggsCount = Math.max(0, (post.ggsCount || 1) - 1);
 post.ggsBy = post.ggsBy.filter(id => id !== uid);
@@ -682,12 +769,14 @@ post.ggsCount = (post.ggsCount || 0) + 1;
 post.ggsBy.push(uid);
 if(window.boostCategoryInterest) window.boostCategoryInterest(post.game);
 }
+
 if(window.renderFypFeed) window.renderFypFeed();
 if(window.renderLadder) window.renderLadder();
 if(window.activeZoomPostId === postId && typeof window.renderZoomInteractions === 'function') {
 window.renderZoomInteractions(postId);
 }
 if (window.refreshPostDetailStats) window.refreshPostDetailStats(postId);
+
 const targetId = post.docId || post.id;
 if (window.db && targetId && !post.isLocalFallback && !String(targetId).startsWith('local_')) {
 try {
@@ -699,15 +788,20 @@ ggsBy: hasGGed ? arrayRemove(uid) : arrayUnion(uid)
 } catch (error) { console.error("Error updating GGs:", error); }
 }
 };
+
 window.activeCommentPostId = null;
 window.unsubscribeCommentsListener = null;
+
 window.openCommentsModal = function(postId) {
 window.activeCommentPostId = postId;
 document.getElementById('commentsModal').classList.remove('hidden');
+
 const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
 document.getElementById('commentsPostUser').innerText = post ? `@${window.hnd(post.user)}` : '';
+
 loadCommentsForPost(postId);
 };
+
 window.closeCommentsModal = function() {
 document.getElementById('commentsModal').classList.add('hidden');
 window.activeCommentPostId = null;
@@ -716,21 +810,26 @@ window.unsubscribeCommentsListener();
 window.unsubscribeCommentsListener = null;
 }
 };
+
 function loadCommentsForPost(postId) {
 const container = document.getElementById('commentsListContainer');
 container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading replies...</p>`;
+
 if (window.unsubscribeCommentsListener) {
 window.unsubscribeCommentsListener();
 }
+
 if (window.db && postId && !String(postId).startsWith('local_')) {
 const commentsRef = collection(window.db, "posts", postId, "comments");
 const q = query(commentsRef, orderBy("createdAt", "asc"), limit(50));
+
 window.unsubscribeCommentsListener = onSnapshot(q, (snapshot) => {
 container.innerHTML = '';
 if (snapshot.empty) {
 container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No replies yet. Be the first to reply!</p>`;
 return;
 }
+
 snapshot.forEach(docSnap => {
 const c = docSnap.data();
 container.innerHTML += `
@@ -751,18 +850,23 @@ container.scrollTop = container.scrollHeight;
 container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">Local mode replies active.</p>`;
 }
 }
+
 function formatMentions(text) {
 if (!text) return '';
 return escapeHTML(String(text)).replace(/@(\w+)/g, '<span class="text-cyan-400 font-bold cursor-pointer hover:underline" onclick="openUserProfileModal(\'$1\', event)">@$1</span>');
 }
+
 window.submitCommentReply = async function() {
 const input = document.getElementById('commentInputText');
 const text = input.value.trim();
 const postId = window.activeCommentPostId;
+
 if (!text || !postId) return;
 if (!window.currentUser) { showToast("🔐 Sign in with Google (side menu → Account) to reply."); return; }
+
 const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
 if(post && window.boostCategoryInterest) window.boostCategoryInterest(post.game);
+
 const payload = {
 user: (window.myUsername || '@Guest').replace('@', ''),
 uid: window.currentUser ? window.currentUser.uid : 'guest_user',
@@ -772,11 +876,14 @@ createdAt: typeof serverTimestamp === 'function' ? serverTimestamp() : new Date(
 };
 const _rt = window.commentReplyTo; window.commentReplyTo = null; window.renderCommentReplyBar && window.renderCommentReplyBar();
 if (_rt && _rt.uid && _rt.uid !== (window.currentUser && window.currentUser.uid)) setTimeout(() => window.notify && window.notify(_rt.uid, 'reply', { postId, text: 'replied to your comment' }), 500);
+
 input.value = '';
+
 try {
 if (window.db && !String(postId).startsWith('local_')) {
 const commentsRef = collection(window.db, "posts", postId, "comments");
 await addDoc(commentsRef, payload);
+
 const postRef = doc(window.db, "posts", postId);
 await updateDoc(postRef, { commentsCount: increment(1) });
 }
@@ -786,18 +893,23 @@ console.error("Error posting reply:", error);
 showToast("Failed to post reply.");
 }
 };
+
 window.userFollowsState = window.userFollowsState || {};
 window.userProfiles = JSON.parse(localStorage.getItem('sinless_user_profiles') || '{}');
+
 window.getProfileBadges = function(username) {
 const clean = (username || '').replace('@','').toLowerCase();
 const userPosts = (window.fypposts || []).filter(p => p.user && p.user.toLowerCase() === clean);
 let totalGGs = 0;
 userPosts.forEach(p => totalGGs += (p.ggsCount || 0));
+
 let badges = [];
 if (userPosts.length >= 5) badges.push('<span class="text-[8px] bg-magenta/20 text-magenta border border-magenta/40 px-1.5 py-0.5 rounded font-black" title="Published over 5 clips">🔥 Top Creator</span>');
 if (totalGGs >= 20) badges.push('<span class="text-[8px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 px-1.5 py-0.5 rounded font-black" title="Community Favorite">⚡ Viral Streak</span>');
+
 return badges.join(' ');
 };
+
 function calculateGlobalRanks() {
 let statsMap = {};
 (window.fypposts || []).forEach(p => {
@@ -806,60 +918,76 @@ if (!statsMap[u]) statsMap[u] = { gamertag: p.user, totalGGs: 0, postsCount: 0 }
 statsMap[u].totalGGs += (p.ggsCount || 0);
 statsMap[u].postsCount += 1;
 });
+
 let sortedCreators = Object.values(statsMap).sort((a, b) => b.totalGGs - a.totalGGs);
 let rankMap = {};
 sortedCreators.forEach((creator, index) => {
 rankMap[creator.gamertag.toLowerCase()] = index + 1;
 });
+
 return { rankMap, sortedCreators };
 }
+
 window.activeProfileUser = null;
+
 window.openMyProfile = function(e = null) {
 const me = (window.myUsername || '@Guest').replace('@', '');
 window.openUserProfileModal(me, e);
 };
+
 window.openUserProfileModal = function(username, e = null) {
 if (e) {
 e.preventDefault();
 e.stopPropagation();
 }
+
 const cleanUser = username.replace('@', '');
 window.activeProfileUser = cleanUser;
+
 const profileData = window.userProfiles[cleanUser.toLowerCase()] || {
 displayName: cleanUser === 'SinlessGaming' ? 'Sinless Gaming' : cleanUser,
-bio: cleanUser === 'SinlessGaming' 
-? 'Official Esports Hub | EA Sports FC, Football, Wrestling & Gaming Leagues' 
+bio: cleanUser === 'SinlessGaming'
+? 'Official Esports Hub | EA Sports FC, Football, Wrestling & Gaming Leagues'
 : 'Competitive gamer & creator on Sinless GG!',
 website: 'https://sinlessgg.com',
 pfp: null, cover: null
 };
+
 const userPosts = (window.fypposts || []).filter(p => p.user && p.user.toLowerCase() === cleanUser.toLowerCase());
+
 let totalGGs = 0;
 userPosts.forEach(p => totalGGs += (p.ggsCount || 0));
+
 const { rankMap } = calculateGlobalRanks();
 const userRank = rankMap[cleanUser.toLowerCase()] || '--';
+
 document.getElementById('profileDisplayName').innerText = profileData.displayName;
 document.getElementById('profileGamertag').innerText = `@${window.hnd(cleanUser)}`;
 document.getElementById('profileBioText').innerText = profileData.bio || '';
+
 const badgeContainer = document.getElementById('profileDynamicBadgesBox');
 if (badgeContainer) {
 badgeContainer.innerHTML = window.getProfileBadges(cleanUser);
 }
+
 const linkElem = document.getElementById('profileLinkUrl');
 linkElem.innerText = (profileData.website || 'sinlessgg.com').replace(/^https?:\/\//, '');
 linkElem.href = profileData.website && profileData.website.startsWith('http') ? profileData.website : `https://${profileData.website || 'sinlessgg.com'}`;
+
 const pfpContainer = document.getElementById('profileAvatarBox');
 if (window.cleanPfp(profileData.pfp)) {
 pfpContainer.innerHTML = `<img src="${window.cleanPfp(profileData.pfp)}" onerror="this.src=window.SG_DEFAULT_PFP" class="w-full h-full object-cover">`;
 } else {
 pfpContainer.innerHTML = `<img src="${window.SG_DEFAULT_PFP}" class="w-full h-full object-cover" alt="">`;
 }
+
 const bannerContainer = document.getElementById('profileBannerHeader');
 if (profileData.cover) {
 bannerContainer.style.backgroundImage = `url('${profileData.cover}')`;
 } else {
 bannerContainer.style.backgroundImage = `linear-gradient(135deg, #070f1e 0%, #00f3ff 50%, #ff007f 100%)`;
 }
+
 document.getElementById('profilePostCount').innerText = userPosts.length;
 document.getElementById('profileGGsCount').innerText = totalGGs;
 document.getElementById('profileRankBadge').innerText = `#${userRank}`;
@@ -875,13 +1003,17 @@ walletRow.classList.toggle('hidden', !mine);
 const bal = document.getElementById('profileWalletBalance');
 if (bal) bal.innerText = `${window.formatCount(window.myGGCoins)} Tips`;
 }
+
 let baseFollowers = Math.max(12, userPosts.length * 14 + totalGGs * 8);
 let isFollowing = !!window.userFollowsState[cleanUser.toLowerCase()];
 if (isFollowing) baseFollowers += 1;
+
 document.getElementById('profileFollowersCount').innerText = baseFollowers;
+
 const isMyOwnProfile = window.currentUser && (window.myUsername.replace('@','').toLowerCase() === cleanUser.toLowerCase());
 const followBtn = document.getElementById('profileFollowBtn');
 const editBtn = document.getElementById('profileEditBtn');
+
 if (isMyOwnProfile) {
 if (followBtn) followBtn.classList.add('hidden');
 if (editBtn) editBtn.classList.remove('hidden');
@@ -889,14 +1021,16 @@ if (editBtn) editBtn.classList.remove('hidden');
 if (editBtn) editBtn.classList.add('hidden');
 if (followBtn) {
 followBtn.classList.remove('hidden');
-followBtn.innerHTML = isFollowing 
-? `<i class="fa-solid fa-user-check mr-1"></i> Following` 
+followBtn.innerHTML = isFollowing
+? `<i class="fa-solid fa-user-check mr-1"></i> Following`
 : `<i class="fa-solid fa-user-plus mr-1"></i> Follow`;
 followBtn.onclick = () => window.toggleFollowUser(cleanUser);
 }
 }
+
 const postsContainer = document.getElementById('profileUserPostsList');
 postsContainer.innerHTML = '';
+
 if (userPosts.length === 0) {
 postsContainer.innerHTML = `<div class="col-span-3 text-xs text-gray-400 text-center py-10">No clips or posts published yet.</div>`;
 } else {
@@ -905,6 +1039,7 @@ let mediaThumbnail = '';
 let firstMediaUrl = (p.mediaList && p.mediaList.length > 0) ? p.mediaList[0].url : null;
 let firstMediaType = (p.mediaList && p.mediaList.length > 0) ? p.mediaList[0].type : 'image';
 const pId = p.id || p.docId;
+
 if (p.mediaList && p.mediaList.length > 0) {
 const m = p.mediaList[0];
 if (m.type === 'video') {
@@ -941,10 +1076,13 @@ ${mediaThumbnail}
 }
 });
 }
+
 document.getElementById('userProfileModal').classList.remove('hidden');
 };
+
 window.tempProfilePfp = null;
 window.tempProfileCover = null;
+
 window.openEditProfileModal = function() {
 const cleanUser = window.activeProfileUser || (window.myUsername || '@Guest').replace('@','');
 const data = window.userProfiles[cleanUser.toLowerCase()] || {
@@ -952,16 +1090,20 @@ displayName: cleanUser,
 bio: '',
 website: ''
 };
+
 document.getElementById('editDisplayNameInput').value = data.displayName || '';
 document.getElementById('editBioInput').value = data.bio || '';
 document.getElementById('editWebsiteInput').value = data.website || '';
 window.tempProfilePfp = data.pfp || null;
 window.tempProfileCover = data.cover || null;
+
 document.getElementById('editProfileModal').classList.remove('hidden');
 };
+
 window.closeEditProfileModal = function() {
 document.getElementById('editProfileModal').classList.add('hidden');
 };
+
 function compressImage(file, maxWidth, maxHeight, quality) {
 return new Promise((resolve) => {
 const reader = new FileReader();
@@ -973,6 +1115,7 @@ img.onload = () => {
 const canvas = document.createElement('canvas');
 let width = img.width;
 let height = img.height;
+
 if (width > maxWidth) {
 height = Math.round((height * maxWidth) / width);
 width = maxWidth;
@@ -981,6 +1124,7 @@ if (height > maxHeight) {
 width = Math.round((width * maxHeight) / height);
 height = maxHeight;
 }
+
 canvas.width = width;
 canvas.height = height;
 const ctx = canvas.getContext('2d');
@@ -990,6 +1134,7 @@ resolve(canvas.toDataURL('image/jpeg', quality));
 };
 });
 }
+
 window.handlePfpUpload = async function(input) {
 if (input.files && input.files[0]) {
 showToast("Uploading profile picture...");
@@ -1002,6 +1147,7 @@ window.tempProfilePfp = await compressImage(input.files[0], 300, 300, 0.8);
 showToast("Profile Picture Ready! Tap Save.");
 }
 };
+
 window.handleCoverUpload = async function(input) {
 if (input.files && input.files[0]) {
 showToast("Uploading cover photo...");
@@ -1014,9 +1160,11 @@ window.tempProfileCover = await compressImage(input.files[0], 900, 450, 0.8);
 showToast("Cover Photo Ready! Tap Save.");
 }
 };
+
 window.saveUserProfileChanges = function() {
 const cleanUser = window.activeProfileUser || (window.myUsername || '@Guest').replace('@','');
 const key = cleanUser.toLowerCase();
+
 const updated = {
 displayName: document.getElementById('editDisplayNameInput').value.trim() || cleanUser,
 bio: document.getElementById('editBioInput').value.trim(),
@@ -1024,24 +1172,31 @@ website: document.getElementById('editWebsiteInput').value.trim(),
 pfp: window.tempProfilePfp,
 cover: window.tempProfileCover
 };
+
 window.userProfiles[key] = updated;
 localStorage.setItem('sinless_user_profiles', JSON.stringify(window.userProfiles));
+
 showToast("Profile Saved!");
 window.closeEditProfileModal();
 window.openUserProfileModal(cleanUser);
 };
+
 window.deleteAccountData = async function() {
 if (!(await window.sgConfirm('This deletes your profile data on this device and signs you out. This cannot be undone.', { title: 'Delete Account?', okText: 'Delete', danger: true }))) return;
+
 const cleanUser = (window.myUsername || '@Guest').replace('@','').toLowerCase();
 delete window.userProfiles[cleanUser];
 localStorage.setItem('sinless_user_profiles', JSON.stringify(window.userProfiles));
+
 if (window.currentUser) {
 try { await signOut(window.auth); } catch(e) {}
 }
+
 showToast("Account data reset.");
 window.closeAccountModal();
 location.reload();
 };
+
 window.toggleFollowUser = function(cleanUser) {
 let key = cleanUser.toLowerCase();
 window.userFollowsState[key] = !window.userFollowsState[key];
@@ -1052,6 +1207,7 @@ showToast(`Unfollowed @${window.hnd(cleanUser)}.`);
 }
 window.openUserProfileModal(cleanUser);
 };
+
 window.closeUserProfileModal = function(e = null) {
 if (e) {
 e.preventDefault();
@@ -1059,6 +1215,7 @@ e.stopPropagation();
 }
 document.getElementById('userProfileModal').classList.add('hidden');
 };
+
 window.defaultPublicCategorySquads = [
 { id: 'cat_squad_fcmobile', name: 'FC MOBILE OFFICIAL HUB', tag: 'FCM', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'FC MOBILE', isOfficial: true, isPublic: true, inviteCode: 'SQ-FCM01', members: [], subRooms: ['Rules/Announcements', 'chat', 'tactics', 'highlights', 'transfers', 'Matchmaking'], bio: 'Official public hub for FC Mobile players, leagues & transfers.', rooms: { 'Rules/Announcements': [{ sender: 'SinlessGaming', text: 'Welcome to the FC Mobile Public Squad!' }], 'chat': [], 'tactics': [], 'highlights': [], 'transfers': [], 'Matchmaking': [] } },
 { id: 'cat_squad_football', name: 'FOOTBALL NEWS HUB', tag: 'FTB', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'FOOTBALL', isOfficial: true, isPublic: true, inviteCode: 'SQ-FTB01', members: [], subRooms: ['Rules/Announcements', 'chat', 'tactics', 'Matchmaking'], bio: 'Public community for tactic discussions, news updates and fantasy lineups.', rooms: { 'Rules/Announcements': [], 'chat': [], 'tactics': [], 'Matchmaking': [] } },
@@ -1073,6 +1230,7 @@ window.defaultPublicCategorySquads = [
 { id: 'cat_squad_general', name: 'GENERAL LOUNGE', tag: 'GEN', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'GENERAL', isOfficial: true, isPublic: true, inviteCode: 'SQ-GEN01', members: [], subRooms: ['Rules/Announcements', 'chat'], bio: 'Hang out, share what you love, meet the community.', rooms: { 'Rules/Announcements': [], 'chat': [] } },
 { id: 'cat_squad_books', name: 'BOOKS & READERS HUB', tag: 'BKS', leader: 'SinlessGaming', owner: 'SinlessGaming', admins: ['SinlessGaming'], game: 'BOOKS', isOfficial: true, isPublic: true, inviteCode: 'SQ-BKS01', members: [], subRooms: ['Rules/Announcements', 'chat'], bio: 'For readers: what you are reading, book clubs, reviews, novels, comics & webtoons.', rooms: { 'Rules/Announcements': [], 'chat': [] } }
 ];
+
 let savedClans = JSON.parse(localStorage.getItem('sinless_clans_data') || 'null');
 if (!savedClans) {
 window.clansData = [...window.defaultPublicCategorySquads];
@@ -1082,9 +1240,11 @@ window.defaultPublicCategorySquads.forEach(s => mergedMap[s.id] = s);
 savedClans.forEach(s => { if(s.id) mergedMap[s.id] = s; });
 window.clansData = Object.values(mergedMap);
 }
+
 window.activeSquadDetails = null;
 window.activeSquadSubRoom = 'chat';
 window.squadsFilterTab = 'my_squads';
+
 window.listenToFirestoreSquads = function() {
 if(!window.db || typeof query !== 'function') return;
 const q = query(collection(window.db, "squads"), limit(50));
@@ -1094,51 +1254,62 @@ let cloudSquads = [];
 snapshot.forEach((docSnap) => {
 cloudSquads.push({ id: docSnap.id, docId: docSnap.id, ...docSnap.data() });
 });
+
 let mergedMap = {};
 window.defaultPublicCategorySquads.forEach(s => mergedMap[s.id] = s);
 (window.clansData || []).forEach(s => { if(s.id) mergedMap[s.id] = s; });
 cloudSquads.forEach(s => { if(s.id) mergedMap[s.id] = s; });
+
 window.clansData = Object.values(mergedMap);
 localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
 if(window.renderClansList) window.renderClansList();
 }
 }, (error) => { console.warn("Squads listener error:", error); });
 };
+
 window.setSquadFilterTab = function(tab) {
 window.squadsFilterTab = tab;
 document.getElementById('squadTabBtn_My').className = `px-3 py-1.5 rounded-xl text-[10px] font-extrabold ${tab === 'my_squads' ? 'bg-cyan-400 text-slate-950 shadow' : 'bg-gg-900 text-gray-400 border border-cyan-500/20'}`;
 document.getElementById('squadTabBtn_Public').className = `px-3 py-1.5 rounded-xl text-[10px] font-extrabold ${tab === 'public_hubs' ? 'bg-cyan-400 text-slate-950 shadow' : 'bg-gg-900 text-gray-400 border border-cyan-500/20'}`;
 window.renderClansList();
 };
+
 window.renderClansList = function() {
 let box = document.getElementById('clansListContainer');
 if(!box) return;
 box.innerHTML = '';
+
 const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
 const searchQ = (document.getElementById('squadSearchInput')?.value || '').trim().toLowerCase();
+
 let displaySquads = (window.clansData || []).filter(c => {
 const members = c.members || [];
 const isMember = members.some(m => m.toLowerCase() === me);
+
 if (searchQ) {
-return c.name.toLowerCase().includes(searchQ) || 
-c.tag.toLowerCase().includes(searchQ) || 
+return c.name.toLowerCase().includes(searchQ) ||
+c.tag.toLowerCase().includes(searchQ) ||
 (c.inviteCode && c.inviteCode.toLowerCase() === searchQ);
 }
+
 if (window.squadsFilterTab === 'my_squads') {
 return isMember;
 } else {
 return c.isOfficial || c.isPublic;
 }
 });
+
 if(displaySquads.length === 0) {
 box.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">
 ${window.squadsFilterTab === 'my_squads' ? 'You have not joined any squads yet. Browse Public Hubs or search with an Invite Code!' : 'No public squads found.'}
 </div>`;
 return;
 }
+
 displaySquads.forEach(c => {
 const members = c.members || [];
 const isMember = members.some(m => m.toLowerCase() === me);
+
 box.innerHTML += `
 <div class="glass-panel p-3.5 rounded-2xl flex justify-between items-center text-xs shadow-lg border border-cyan-500/20 hover:border-cyan-400/50 transition cursor-pointer" onclick="window.openSquadDetailsModal('${c.id}')">
 <div class="space-y-1">
@@ -1157,13 +1328,17 @@ ${isMember ? 'Leave' : 'Join'}
 `;
 });
 };
+
 window.toggleSquadMembership = async function(squadId) {
 const squad = window.clansData.find(c => c.id === squadId);
 if (!squad) return;
+
 const me = (window.myUsername || '@Guest').replace('@', '');
 if (!squad.members) squad.members = [];
+
 const memberIndex = squad.members.findIndex(m => m.toLowerCase() === me.toLowerCase());
 const isMember = memberIndex !== -1;
+
 if (isMember) {
 if (!squad.isOfficial && (squad.owner || squad.leader).toLowerCase() === me.toLowerCase() && squad.members.length > 1) {
 showToast("⚠️ Squad Owner cannot leave with active members! Transfer ownership first.");
@@ -1175,8 +1350,10 @@ showToast(`Left squad ${squad.name}`);
 squad.members.push(me);
 showToast(`Joined squad ${squad.name}!`);
 }
+
 localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
 window.renderClansList();
+
 if (window.db && squad.docId) {
 try {
 const squadRef = doc(window.db, "squads", squad.docId);
@@ -1186,12 +1363,15 @@ members: isMember ? arrayRemove(me) : arrayUnion(me)
 } catch (e) { console.error("Error updating squad members on cloud:", e); }
 }
 };
+
 window.openCreateClanModal = function() {
 document.getElementById('createSquadModal').classList.remove('hidden');
 };
+
 window.closeCreateClanModal = function() {
 document.getElementById('createSquadModal').classList.add('hidden');
 };
+
 window.submitNewSquad = async function() {
 const name = document.getElementById('squadNameInput').value.trim();
 const tag = document.getElementById('squadTagInput').value.trim().toUpperCase();
@@ -1200,10 +1380,12 @@ const isPublic = document.getElementById('squadPrivacySelect').value === 'public
 const bio = document.getElementById('squadBioInput').value.trim();
 const owner = (window.myUsername || '@Guest').replace('@', '');
 const inviteCode = 'SQ-' + Math.random().toString(36).substr(2, 5).toUpperCase();
+
 if (!name || !tag) {
 showToast("⚠️ Please enter a squad name and tag!");
 return;
 }
+
 const squadId = 'squad_' + Date.now();
 const newSquad = {
 id: squadId,
@@ -1227,10 +1409,12 @@ rooms: {
 },
 createdAt: new Date().toISOString()
 };
+
 if (!window.clansData.some(c => c.id === squadId)) {
 window.clansData.unshift(newSquad);
 }
 localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
+
 if (window.db && typeof addDoc === 'function') {
 try {
 const docRef = await addDoc(collection(window.db, "squads"), {
@@ -1240,6 +1424,7 @@ createdAt: serverTimestamp()
 newSquad.docId = docRef.id;
 } catch(e) { console.error("Cloud squad creation error:", e); }
 }
+
 showToast(`🔥 Squad [${tag}] ${name} Created! Invite Code: ${inviteCode}`);
 document.getElementById('squadNameInput').value = '';
 document.getElementById('squadTagInput').value = '';
@@ -1247,52 +1432,69 @@ document.getElementById('squadBioInput').value = '';
 window.closeCreateClanModal();
 window.renderClansList();
 };
+
 window.openSquadDetailsModal = function(squadId) {
 const squad = window.clansData.find(c => c.id === squadId);
 if (!squad) return;
+
 window.activeSquadDetails = squad;
 if (!squad.subRooms) squad.subRooms = ['Rules/Announcements', 'chat', 'Matchmaking'];
 if (!squad.admins) squad.admins = [squad.owner || squad.leader];
+
 const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
 const isOwner = (squad.owner || squad.leader).toLowerCase() === me;
 const isAdmin = isOwner || squad.admins.some(a => a.toLowerCase() === me);
+
 document.getElementById('squadDetailTitle').innerText = `${squad.name} [${squad.tag}]`;
 document.getElementById('squadDetailLeader').innerText = window.dnText(squad.owner || squad.leader);
+
 const addBtn = document.getElementById('addCustomSubRoomBtn');
 if (addBtn) addBtn.className = isAdmin ? 'px-2 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-[9px] font-black rounded-xl hover:bg-cyan-500/30' : 'hidden';
+
 const hostTournBtn = document.getElementById('hostSquadTournamentBtn');
 if (hostTournBtn) hostTournBtn.className = isAdmin ? 'px-2 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[9px] font-black rounded-xl hover:bg-amber-500/30' : 'hidden';
+
 const disbandBtn = document.getElementById('disbandSquadBtn');
 if (disbandBtn) disbandBtn.className = (isOwner && !squad.isOfficial) ? 'px-2 py-1 bg-red-600/20 text-red-400 border border-red-500/40 text-[9px] font-black rounded-xl hover:bg-red-600/30' : 'hidden';
+
 renderSquadSubRoomsNav();
 window.switchSquadSubRoom(squad.subRooms.includes('chat') ? 'chat' : (squad.subRooms[0] || 'chat'));
+
 document.getElementById('squadDetailsModal').classList.remove('hidden');
 };
+
 window.closeSquadDetailsModal = function() {
 document.getElementById('squadDetailsModal').classList.add('hidden');
 window.activeSquadDetails = null;
 };
+
 window.openCreateSquadSquadTournamentModal = function() {
 const squad = window.activeSquadDetails;
 if (!squad) return;
+
 document.getElementById('tournTitleInput').value = `${squad.name} Championship`;
 document.getElementById('tournGameSelect').value = squad.game || 'FC MOBILE';
 window.activeSquadForTournament = squad.id;
 window.openCreateTournamentModal();
 };
+
 function renderSquadSubRoomsNav() {
 const squad = window.activeSquadDetails;
 if (!squad) return;
+
 const nav = document.getElementById('squadSubRoomsNav');
 if (!nav) return;
 nav.innerHTML = '';
+
 const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
 const isOwner = (squad.owner || squad.leader).toLowerCase() === me;
 const isAdmin = isOwner || squad.admins.some(a => a.toLowerCase() === me);
+
 squad.subRooms.forEach(room => {
 const isActive = window.activeSquadSubRoom === room;
 const isLocked = room === 'Rules/Announcements';
 const isMatchmaking = room === 'Matchmaking';
+
 nav.innerHTML += `
 <div class="flex items-center space-x-1 shrink-0">
 <button onclick="window.switchSquadSubRoom('${room}')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition ${isActive ? 'bg-cyan-400 text-slate-950 shadow-md' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'}">
@@ -1302,55 +1504,70 @@ ${(isAdmin && !isLocked && room !== 'chat' && !isMatchmaking) ? `<button onclick
 </div>
 `;
 });
+
 nav.innerHTML += `
 <button onclick="window.switchSquadSubRoom('Roster')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
 👥 Roster & Roles
 </button>
 `;
 }
+
 window.promptCreateSubRoom = async function() {
 const squad = window.activeSquadDetails;
 if (!squad) return;
+
 const name = await window.sgPrompt('Name your new channel (e.g. tactics, highlights, transfers)', { title: '# New Channel', placeholder: 'channel-name', okText: 'Create' });
 if (!name) return;
+
 const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-');
 if (squad.subRooms.includes(cleanName)) {
 showToast("⚠️ Sub-room already exists!");
 return;
 }
+
 squad.subRooms.push(cleanName);
 if (!squad.rooms) squad.rooms = {};
 squad.rooms[cleanName] = [];
+
 localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
 renderSquadSubRoomsNav();
 window.switchSquadSubRoom(cleanName);
 showToast(`Sub-channel #${cleanName} created!`);
 };
+
 window.deleteSubRoom = async function(room) {
 const squad = window.activeSquadDetails;
 if (!squad || !(await window.sgConfirm(`All messages in #${room} will be removed.`, { title: 'Delete Channel?', okText: 'Delete', danger: true }))) return;
+
 squad.subRooms = squad.subRooms.filter(r => r !== room);
 if (squad.rooms) delete squad.rooms[room];
+
 localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
 renderSquadSubRoomsNav();
 window.switchSquadSubRoom('chat');
 showToast(`Sub-channel #${room} deleted.`);
 };
+
 window.switchSquadSubRoom = function(room) {
 window.activeSquadSubRoom = room;
 renderSquadSubRoomsNav();
+
 const squad = window.activeSquadDetails;
 if (!squad) return;
+
 const msgsBox = document.getElementById('squadRoomMsgsBox');
 const inputContainer = document.getElementById('squadInputContainer');
 const lockedBar = document.getElementById('squadLockedBar');
 if (lockedBar) { lockedBar.classList.add('hidden'); lockedBar.innerHTML = ''; }
 msgsBox.innerHTML = '';
+
 const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
 const members = squad.members || [];
 const isMember = members.some(m => m.toLowerCase() === me);
+
 const isOwner = (squad.owner || squad.leader).toLowerCase() === me;
 const isAdmin = isOwner || (squad.admins && squad.admins.some(a => a.toLowerCase() === me));
+
 if (room === 'Matchmaking') {
 if (inputContainer) inputContainer.style.display = 'none';
 let mmHtml = `
@@ -1366,6 +1583,7 @@ let mmHtml = `
 </div>
 <div class="space-y-2" id="squadMatchmakingQueueList">
 `;
+
 if (!squad.matchmakingQueue || squad.matchmakingQueue.length === 0) {
 mmHtml += `<p class="text-xs text-gray-400 text-center py-6">No active challenge queues. Click above to queue your squad!</p>`;
 } else {
@@ -1385,11 +1603,13 @@ mmHtml += `</div></div>`;
 msgsBox.innerHTML = mmHtml;
 return;
 }
+
 if (room === 'Roster') {
 let rosterHtml = `<div class="space-y-2 max-w-lg mx-auto w-full pt-2">`;
 members.forEach(m => {
 const memberIsOwner = m.toLowerCase() === (squad.owner || squad.leader).toLowerCase();
 const memberIsAdmin = squad.admins && squad.admins.some(a => a.toLowerCase() === m.toLowerCase());
+
 rosterHtml += `
 <div class="flex items-center justify-between p-3 bg-gg-900 rounded-2xl border border-cyan-500/15 text-xs shadow-md">
 <div class="flex items-center space-x-2">
@@ -1414,6 +1634,7 @@ msgsBox.innerHTML = rosterHtml;
 if (inputContainer) inputContainer.style.display = 'none';
 return;
 }
+
 if (!isMember) {
 if (inputContainer) inputContainer.style.display = 'none';
 if (lockedBar) {
@@ -1430,7 +1651,9 @@ msgsBox.innerHTML = `
 `;
 return;
 }
+
 if (inputContainer) inputContainer.style.display = 'flex';
+
 let msgs = (squad.rooms && squad.rooms[room]) ? squad.rooms[room] : [];
 if (msgs.length === 0) {
 msgsBox.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">No messages in #${room} yet. Be the first to start the discussion!</p>`;
@@ -1460,6 +1683,7 @@ msgsBox.innerHTML += `
 }
 });
 }
+
 if (room === 'Rules/Announcements' && !isAdmin) {
 if (inputContainer) inputContainer.style.display = 'none';
 if (lockedBar) {
@@ -1467,13 +1691,16 @@ lockedBar.innerHTML = `🔒 Only the owner and admins can post in #${room}. <but
 lockedBar.classList.remove('hidden');
 }
 }
+
 msgsBox.scrollTop = msgsBox.scrollHeight;
 };
+
 window.bookSquadMatchmakingFixture = function() {
 const squad = window.activeSquadDetails;
 if (!squad) return;
 const me = (window.myUsername || '@Guest').replace('@', '');
 if (!squad.matchmakingQueue) squad.matchmakingQueue = [];
+
 const newChallenge = {
 id: 'match_' + Date.now(),
 challenger: me,
@@ -1485,13 +1712,17 @@ localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
 window.switchSquadSubRoom('Matchmaking');
 showToast("⚔️ Queued for match successfully!");
 };
+
 window.acceptSquadChallenge = function(matchId) {
 showToast("🎮 Match fixture booked! Entering lobby...");
 };
+
 window.toggleSquadAdmin = function(member) {
 const squad = window.activeSquadDetails;
 if (!squad) return;
+
 if (!squad.admins) squad.admins = [squad.owner || squad.leader];
+
 const index = squad.admins.findIndex(a => a.toLowerCase() === member.toLowerCase());
 if (index !== -1) {
 squad.admins.splice(index, 1);
@@ -1500,37 +1731,48 @@ showToast(`Demoted @${window.hnd(member)} from Admin.`);
 squad.admins.push(member);
 showToast(`Promoted @${window.hnd(member)} to Squad Admin!`);
 }
+
 localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
 window.switchSquadSubRoom('Roster');
 };
+
 window.transferOwnership = async function(newOwner) {
 const squad = window.activeSquadDetails;
 if (!squad || !(await window.sgConfirm(`@${window.hnd(newOwner)} will become the owner of ${squad.name}. You will no longer be the owner.`, { title: 'Transfer Ownership?', okText: 'Transfer', danger: true }))) return;
+
 squad.owner = newOwner;
 squad.leader = newOwner;
 if (!squad.admins.includes(newOwner)) squad.admins.push(newOwner);
+
 localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
 window.openSquadDetailsModal(squad.id);
 showToast(`👑 Ownership transferred to @${window.hnd(newOwner)}!`);
 };
+
 window.sendSquadRoomMessage = function() {
 const input = document.getElementById('squadSubRoomInput');
 if (!input) return;
 const text = input.value.trim();
 const squad = window.activeSquadDetails;
 const room = window.activeSquadSubRoom;
+
 if (!text || !squad || !room) return;
+
 const me = (window.myUsername || '@Guest').replace('@', '');
 if (!squad.rooms) squad.rooms = {};
 if (!squad.rooms[room]) squad.rooms[room] = [];
+
 if (!squad.members) squad.members = [];
 if (!squad.members.some(m => m.toLowerCase() === me.toLowerCase())) {
 squad.members.push(me);
 }
+
 squad.rooms[room].push({ sender: me, text: text, time: 'Now', timestamp: Date.now() });
 localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
+
 input.value = '';
 window.switchSquadSubRoom(room);
+
 if (window.db && squad.docId) {
 try {
 const squadRef = doc(window.db, "squads", squad.docId);
@@ -1538,22 +1780,29 @@ updateDoc(squadRef, { rooms: squad.rooms, members: squad.members });
 } catch(e){}
 }
 };
+
 window.deleteActiveSquad = async function() {
 const squad = window.activeSquadDetails;
 if (!squad || !(await window.sgConfirm(`${squad.name} and all its channels will be deleted. This cannot be undone.`, { title: 'Disband Squad?', okText: 'Disband', danger: true }))) return;
+
 window.clansData = window.clansData.filter(c => c.id !== squad.id);
 localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
+
 if (window.db && squad.docId) {
 try { await deleteDoc(doc(window.db, "squads", squad.docId)); } catch(e){}
 }
+
 showToast("Squad disbanded.");
 window.closeSquadDetailsModal();
 window.renderClansList();
 };
+
 function pruneExpiredEphemeralData() {
 const now = Date.now();
 const EXPIRATION_MS = 86400000;
+
 window.profileStories = (window.profileStories || []).filter(s => (now - s.timestamp) < EXPIRATION_MS);
+
 (window.clansData || []).forEach(squad => {
 if (squad.rooms) {
 Object.keys(squad.rooms).forEach(room => {
@@ -1568,6 +1817,7 @@ return true;
 });
 localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
 }
+
 function getRemainingTimeBadge(timestamp) {
 const now = Date.now();
 const msLeft = 86400000 - (now - timestamp);
@@ -1576,25 +1826,30 @@ const hours = Math.floor(msLeft / 3600000);
 const mins = Math.floor((msLeft % 3600000) / 60000);
 return `⏳ ${hours}h ${mins}m remaining`;
 }
+
 window.sendInChatImage = async function(context) {
 const input = context === 'squad' ? document.getElementById('squadChatImageInput') : document.getElementById('dmChatImageInput');
 if (input && input.files && input.files[0]) {
 const compressedDataUrl = await compressImage(input.files[0], 1200, 1200, 0.85);
 const me = (window.myUsername || '@Guest').replace('@', '');
+
 const imgPayload = {
 sender: me,
 isImage: true,
 imageUrl: compressedDataUrl,
 timestamp: Date.now()
 };
+
 if (context === 'squad') {
 const squad = window.activeSquadDetails;
 const room = window.activeSquadSubRoom;
 if (!squad.rooms[room]) squad.rooms[room] = [];
+
 if (!squad.members) squad.members = [];
 if (!squad.members.some(m => m.toLowerCase() === me.toLowerCase())) {
 squad.members.push(me);
 }
+
 squad.rooms[room].push(imgPayload);
 localStorage.setItem('sinless_clans_data', JSON.stringify(window.clansData));
 window.switchSquadSubRoom(room);
@@ -1608,14 +1863,17 @@ localStorage.setItem('sinless_dm_messages', JSON.stringify(window.dmMessagesList
 if(window.renderDmThread) window.renderDmThread();
 }
 }
+
 input.value = '';
 showToast("📷 24h Ephemeral Image Sent!");
 }
 };
+
 window.STORY_LIFETIME_MS = 24 * 3600000;
 window.profileStories = [];
 window.cloudStories = [];
 window.localOnlyStories = [];
+
 window.storyExpiresAt = function(s) {
 if (s.expiresAt) {
 if (typeof s.expiresAt.toDate === 'function') return s.expiresAt.toDate().getTime();
@@ -1624,6 +1882,7 @@ return new Date(s.expiresAt).getTime();
 }
 return (s.timestamp || 0) + window.STORY_LIFETIME_MS;
 };
+
 window.mergeStories = function() {
 const now = Date.now();
 window.profileStories = [...window.cloudStories, ...window.localOnlyStories]
@@ -1631,6 +1890,7 @@ window.profileStories = [...window.cloudStories, ...window.localOnlyStories]
 .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 window.renderStoriesBar();
 };
+
 window.initStories = async function() {
 try {
 const local = await window.loadLocalStoriesFromDB();
@@ -1642,6 +1902,7 @@ else await window.deleteLocalStory(st.id);
 }
 } catch (e) {}
 window.mergeStories();
+
 if (window.db) {
 try {
 const q = query(collection(window.db, 'stories'), where('expiresAt', '>', new Date()), orderBy('expiresAt', 'asc'), limit(150));
@@ -1656,6 +1917,7 @@ window.mergeStories();
 } catch (e) { console.warn('Stories setup failed', e); }
 }
 };
+
 window.cleanupExpiredStories = async function() {
 if (!window.db || !window.currentUser) return;
 try {
@@ -1663,12 +1925,14 @@ const snap = await getDocs(query(collection(window.db, 'stories'), where('expire
 snap.forEach(d => deleteDoc(doc(window.db, 'stories', d.id)).catch(() => {}));
 } catch (e) {}
 };
+
 window.deleteLocalStory = async function(id) {
 try {
 const db = await openPostDB();
 db.transaction('local_stories', 'readwrite').objectStore('local_stories').delete(id);
 } catch (e) {}
 };
+
 setInterval(() => {
 const before = window.profileStories.length;
 window.mergeStories();
@@ -1678,15 +1942,18 @@ if (viewer && !viewer.classList.contains('hidden') && !window.profileStories.som
 window.cleanupExpiredStories();
 }
 }, 60000);
+
 window.triggerStoryUpload = function() {
 if (!window.currentUser) { showToast("🔐 Sign in with Google (side menu → Account) to post stories."); return; }
 document.getElementById('storyFileInput').click();
 };
+
 window.uploadProfileStory = async function(input) {
 if (!(input.files && input.files[0])) return;
 const file = input.files[0];
 if (!window.currentUser) { showToast("🔐 Sign in to post stories."); input.value = ''; return; }
 const caption = (await window.sgPrompt('Add a caption (optional)', { title: '✨ New Story', placeholder: 'Say something...', okText: 'Post Story', cancelText: 'Skip' })) || '';
+
 showToast("Uploading story...");
 try {
 const up = await window.prepareAndUpload(file, null, 1080, 1920);
@@ -1706,6 +1973,7 @@ showToast(`⚠️ Story failed: ${err.message || 'try again'}`);
 }
 input.value = '';
 };
+
 window.renderStoriesBar = function() {
 const container = document.getElementById('activeStoriesContainer');
 if (!container) return;
@@ -1718,6 +1986,7 @@ if (b.toLowerCase() === me) return 1;
 return Math.max(...groups[b].map(x => x.timestamp || 0)) - Math.max(...groups[a].map(x => x.timestamp || 0));
 });
 const seen = (() => { try { return JSON.parse(localStorage.getItem('sinless_seen_stories') || '{}'); } catch (e) { return {}; } })();
+
 container.innerHTML = users.map(u => {
 const list = groups[u].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 const latest = list[list.length - 1];
@@ -1736,7 +2005,9 @@ ${thumb ? `<img src="${thumb}" class="w-full h-full rounded-full object-cover bo
 </div>`;
 }).join('');
 };
+
 window.storyViewer = { list: [], index: 0, timer: null };
+
 window.openStoryViewer = function(user) {
 const list = window.profileStories.filter(s => s.user === user).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 if (!list.length) return;
@@ -1747,6 +2018,7 @@ window.pauseFeedVideos && window.pauseFeedVideos();
 document.getElementById('storyViewerModal').classList.remove('hidden');
 window.showStory();
 };
+
 window.showStory = function() {
 const sv = window.storyViewer;
 clearTimeout(sv.timer);
@@ -1757,10 +2029,12 @@ const seen = JSON.parse(localStorage.getItem('sinless_seen_stories') || '{}');
 seen[st.id] = Date.now();
 localStorage.setItem('sinless_seen_stories', JSON.stringify(seen));
 } catch (e) {}
+
 const me = (window.myUsername || '').replace('@', '').toLowerCase();
 const mine = (window.currentUser && st.uid === window.currentUser.uid) || (st.user || '').toLowerCase() === me;
 const left = Math.max(0, window.storyExpiresAt(st) - Date.now());
 const hrs = Math.floor(left / 3600000), mins = Math.floor((left % 3600000) / 60000);
+
 document.getElementById('storyProgress').innerHTML = sv.list.map((_, i) =>
 `<div class="flex-1 h-0.5 rounded bg-white/30 overflow-hidden"><div id="storyBar${i}" class="h-full bg-white" style="width:${i < sv.index ? 100 : 0}%"></div></div>`).join('');
 document.getElementById('storyHeader').innerHTML = `
@@ -1772,6 +2046,7 @@ ${window.avatarHtml(st.user, 'w-8 h-8', 'rounded-full', 'text-[10px]').replace(/
 ${mine ? `<button onclick="window.deleteMyStory('${st.id}')" class="w-8 h-8 rounded-full bg-black/50 text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>` : ''}
 <button onclick="window.closeStoryViewer()" class="w-8 h-8 rounded-full bg-black/50 text-white text-sm">✕</button>
 </div>`;
+
 const stage = document.getElementById('storyStage');
 const bar = () => document.getElementById('storyBar' + sv.index);
 if (st.type === 'video') {
@@ -1787,8 +2062,10 @@ sv.timer = setTimeout(window.nextStory, 5000);
 }
 document.getElementById('storyCaption').innerHTML = st.caption ? `<p class="text-sm text-white text-center font-semibold bg-black/40 rounded-xl px-3 py-2">${formatMentions(st.caption)}</p>` : '';
 };
+
 window.nextStory = function() { window.storyViewer.index++; window.showStory(); };
 window.prevStory = function() { window.storyViewer.index = Math.max(0, window.storyViewer.index - 1); window.showStory(); };
+
 window.closeStoryViewer = function() {
 clearTimeout(window.storyViewer.timer);
 const v = document.getElementById('storyVideo'); if (v) v.pause();
@@ -1797,6 +2074,7 @@ document.getElementById('storyViewerModal').classList.add('hidden');
 window.renderStoriesBar();
 window.pickFeedVideoToPlay && setTimeout(window.pickFeedVideoToPlay, 100);
 };
+
 window.deleteMyStory = async function(id) {
 clearTimeout(window.storyViewer.timer);
 const ok = await window.sgConfirm('This story will be removed for everyone.', { title: 'Delete Story?', okText: 'Delete', danger: true });
@@ -1810,6 +2088,8 @@ window.mergeStories();
 showToast('Story deleted.');
 window.showStory();
 };
+
+
 window.tournamentsList = JSON.parse(localStorage.getItem('sinless_tournaments_list') || 'null') || [
 {
 id: 'tourn_1',
@@ -1830,36 +2110,45 @@ matches: [
 ]
 }
 ];
+
 window.activeTournament = window.tournamentsList[0];
 window.activeMatchForReporting = null;
+
 window.openUniversalCreateModal = function() { document.getElementById('universalCreateModal').classList.remove('hidden'); };
 window.closeUniversalCreateModal = function() { document.getElementById('universalCreateModal').classList.add('hidden'); };
 window.openCreateTournamentModal = function() { window.closeUniversalCreateModal(); document.getElementById('createTournamentModal').classList.remove('hidden'); };
 window.closeCreateTournamentModal = function() { document.getElementById('createTournamentModal').classList.add('hidden'); };
+
 window.activeDeleteTournamentId = null;
 window.deleteTournament = function(tournId) {
 window.activeDeleteTournamentId = tournId;
 const modal = document.getElementById('deleteTournamentModal');
 if (modal) modal.classList.remove('hidden');
 };
+
 window.closeDeleteTournamentModal = function() {
 const modal = document.getElementById('deleteTournamentModal');
 if (modal) modal.classList.add('hidden');
 window.activeDeleteTournamentId = null;
 };
+
 window.confirmDeleteTournament = function() {
 const tournId = window.activeDeleteTournamentId;
 if (!tournId) return;
+
 window.tournamentsList = window.tournamentsList.filter(t => t.id !== tournId);
 localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
+
 if (window.activeTournament && window.activeTournament.id === tournId) {
 window.activeTournament = window.tournamentsList[0] || null;
 }
+
 showToast("Tournament deleted successfully!");
 window.closeDeleteTournamentModal();
 if (window.renderTournamentsTab) window.renderTournamentsTab();
 if (window.renderTournamentsTabDedicated) window.renderTournamentsTabDedicated();
 };
+
 function getKnockoutStageName(maxPlayers, round) {
 let playersInRound = maxPlayers / Math.pow(2, round - 1);
 if (playersInRound === 2) return "Final";
@@ -1872,6 +2161,7 @@ if (playersInRound === 128) return "Round of 128";
 if (playersInRound > 128) return `Round of ${playersInRound}`;
 return `Round ${round}`;
 }
+
 window.submitNewTournament = function() {
 const title = document.getElementById('tournTitleInput').value.trim();
 const game = document.getElementById('tournGameSelect').value;
@@ -1880,10 +2170,12 @@ const leagueH2HOption = document.getElementById('tournLeagueH2HSelect')?.value |
 const maxPlayers = parseInt(document.getElementById('tournSizeSelect').value);
 const prizePool = document.getElementById('tournPrizeInput').value.trim() || 'Bragging Rights';
 const hostUser = (window.myUsername || '@Guest').replace('@', '');
+
 if (!title) {
 showToast("⚠️ Enter tournament title!");
 return;
 }
+
 const newTourn = {
 id: 'tourn_' + Date.now(),
 title: title,
@@ -1898,6 +2190,7 @@ players: [hostUser],
 eliminated: [],
 matches: []
 };
+
 let numInitialMatches = 0;
 if (format === 'KNOCKOUT') numInitialMatches = maxPlayers / 2;
 else if (format === 'WORLD_CUP') numInitialMatches = 8;
@@ -1908,6 +2201,7 @@ for (let i = 1; i < maxPlayers; i++) {
 tempPlayers.push(`Club_${i}`);
 }
 newTourn.players = tempPlayers;
+
 for (let i = 0; i < tempPlayers.length; i++) {
 for (let j = i + 1; j < tempPlayers.length; j++) {
 newTourn.matches.push({
@@ -1941,12 +2235,14 @@ status: 'approved'
 }
 }
 }
+
 if (format !== 'LEAGUE') {
 for (let i = 0; i < numInitialMatches; i++) {
 let initialStage = 'Round 1';
 if (format === 'KNOCKOUT') initialStage = getKnockoutStageName(maxPlayers, 1);
 else if (format === 'WORLD_CUP') initialStage = `Group ${String.fromCharCode(65 + (i % 4))}`;
 else if (format === 'CHAMPIONS_LEAGUE') initialStage = 'Swiss Phase';
+
 newTourn.matches.push({
 id: `m_${Date.now()}_${i}`,
 round: 1,
@@ -1962,18 +2258,22 @@ status: 'approved'
 });
 }
 }
+
 window.tournamentsList.unshift(newTourn);
 localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
 window.activeTournament = newTourn;
 window.activeSquadForTournament = null;
+
 showToast("Tournament Launched Successfully!");
 window.closeCreateTournamentModal();
 if(window.switchView) window.switchView('tournaments');
 window.renderTournamentsTabDedicated();
 };
+
 window.joinActiveTournament = function(tournId) {
 const tourn = window.tournamentsList.find(t => t.id === tournId);
 const me = (window.myUsername || '@Guest').replace('@', '');
+
 if (!tourn) return;
 if (tourn.players.includes(me)) {
 showToast("Already registered in this tournament!");
@@ -1983,53 +2283,65 @@ if (tourn.players.length >= tourn.maxPlayers) {
 showToast("Tournament is full!");
 return;
 }
+
 tourn.players.push(me);
+
 for (let m of tourn.matches) {
 if (m.p1 === 'Open Spot' || !m.p1) { m.p1 = me; break; }
 if (m.p2 === 'Open Spot' || !m.p2) { m.p2 = me; break; }
 }
+
 localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
 showToast(`Registered for ${tourn.title}!`);
 window.renderTournamentsTab();
 window.renderTournamentsTabDedicated();
 };
+
 window.leaveTournament = async function(tournId) {
 const tourn = window.tournamentsList.find(t => t.id === tournId);
 const me = (window.myUsername || '@Guest').replace('@', '');
 if (!tourn) return;
+
 const isMe = (name) => (name || '').toLowerCase() === me.toLowerCase();
 if (!tourn.players.some(isMe)) {
 showToast("You're not registered in this tournament.");
 return;
 }
+
 const isNum = v => v !== null && v !== undefined && v !== '' && !isNaN(v);
 const alreadyPlayed = tourn.matches.some(m => (isMe(m.p1) || isMe(m.p2)) && isNum(m.s1) && isNum(m.s2));
 if (alreadyPlayed) {
 showToast("⚠️ You've already played a match, so you can't leave now. Ask the host.");
 return;
 }
+
 const ok = await window.sgConfirm(`You'll be removed from ${tourn.title} and your spot will open up for someone else.`, { title: 'Leave Tournament?', okText: 'Leave', danger: true });
 if (!ok) return;
+
 tourn.players = tourn.players.filter(p => !isMe(p));
 tourn.matches.forEach(m => {
 if (isMe(m.p1)) m.p1 = 'Open Spot';
 if (isMe(m.p2)) m.p2 = 'Open Spot';
 });
+
 localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
 showToast(`You left ${tourn.title}.`);
 window.renderTournamentsTab();
 window.renderTournamentsTabDedicated();
 };
+
 window.activeManualAddContext = null;
 window.manualAddPlayer = function(tournId, matchId, slot) {
 window.activeManualAddContext = { tournId, matchId, slot };
 document.getElementById('manualPlayerInput').value = '';
 document.getElementById('manualAddPlayerModal').classList.remove('hidden');
 };
+
 window.closeManualAddPlayerModal = function() {
 document.getElementById('manualAddPlayerModal').classList.add('hidden');
 window.activeManualAddContext = null;
 };
+
 window.confirmManualAddPlayer = function() {
 const ctx = window.activeManualAddContext;
 if (!ctx) return;
@@ -2038,10 +2350,12 @@ if (!newPlayer) {
 showToast("⚠️ Enter a valid gamertag!");
 return;
 }
+
 const tourn = window.tournamentsList.find(t => t.id === ctx.tournId);
 if (!tourn) return;
 const match = tourn.matches.find(m => m.id === ctx.matchId);
 if (!match) return;
+
 const cleanPlayer = newPlayer.replace('@', '');
 match[ctx.slot] = cleanPlayer;
 if (!tourn.players.includes(cleanPlayer)) {
@@ -2053,10 +2367,12 @@ window.renderTournamentsTabDedicated();
 showToast(`Added @${window.hnd(cleanPlayer)} to match!`);
 window.closeManualAddPlayerModal();
 };
+
 window.openMatchReportModal = function(matchId) {
 if (!window.activeTournament) return;
 const match = window.activeTournament.matches.find(m => m.id === matchId);
 if (!match) return;
+
 window.activeMatchForReporting = match;
 document.getElementById('reportMatchP1Label').innerText = window.dnText(match.p1);
 document.getElementById('reportMatchP2Label').innerText = window.dnText(match.p2);
@@ -2064,6 +2380,7 @@ document.getElementById('reportP1ScoreInput').value = match.s1 !== null ? match.
 document.getElementById('reportP2ScoreInput').value = match.s2 !== null ? match.s2 : '';
 document.getElementById('reportMatchStreamInput').value = match.streamUrl || '';
 document.getElementById('matchMvpInput').value = match.mvp || '';
+
 const iframe = document.getElementById('matchLiveStreamFrame');
 if (match.streamUrl) {
 let streamEmbed = match.streamUrl.replace('watch?v=', 'embed/');
@@ -2073,9 +2390,11 @@ iframe.classList.remove('hidden');
 iframe.src = '';
 iframe.classList.add('hidden');
 }
+
 const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
 const isHost = window.activeTournament.host.toLowerCase() === me;
 const approvalBox = document.getElementById('matchApprovalBox');
+
 if (approvalBox) {
 if (match.status === 'disputed' && isHost) {
 approvalBox.classList.remove('hidden');
@@ -2083,31 +2402,39 @@ approvalBox.classList.remove('hidden');
 approvalBox.classList.add('hidden');
 }
 }
+
 document.getElementById('matchReportModal').classList.remove('hidden');
 };
+
 window.closeMatchReportModal = function() {
 document.getElementById('matchReportModal').classList.add('hidden');
 window.activeMatchForReporting = null;
 };
+
 window.submitMatchScoreReport = function() {
 const match = window.activeMatchForReporting;
 if (!match) return;
+
 const s1 = parseInt(document.getElementById('reportP1ScoreInput').value);
 const s2 = parseInt(document.getElementById('reportP2ScoreInput').value);
 const streamUrl = document.getElementById('reportMatchStreamInput').value.trim();
 const mvp = document.getElementById('matchMvpInput').value.trim();
+
 if (isNaN(s1) || isNaN(s2)) {
 showToast("⚠️ Enter valid scores for both players!");
 return;
 }
+
 const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
 const isHost = window.activeTournament.host.toLowerCase() === me;
+
 match.s1 = s1;
 match.s2 = s2;
 match.streamUrl = streamUrl;
 match.mvp = mvp;
 match.winner = s1 > s2 ? match.p1 : (s2 > s1 ? match.p2 : 'DRAW');
 match.status = isHost ? 'approved' : 'disputed';
+
 if (match.status === 'approved') {
 let loser = s1 < s2 ? match.p1 : (s2 < s1 ? match.p2 : null);
 if (loser && (window.activeTournament.format === 'KNOCKOUT' || match.stage.toLowerCase().includes('knockout') || match.stage.toLowerCase().includes('round'))) {
@@ -2116,15 +2443,18 @@ if(!window.activeTournament.eliminated.includes(loser)) window.activeTournament.
 }
 advanceWinnerInBracket(window.activeTournament, match);
 }
+
 localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
 showToast(isHost ? `Match Score Updated & Approved! Winner: @${window.hnd(match.winner)}` : `Score submitted! Pending Host Approval.`);
 window.closeMatchReportModal();
 window.renderTournamentsTab();
 window.renderTournamentsTabDedicated();
 };
+
 window.hostApproveMatch = function() {
 const match = window.activeMatchForReporting;
 if (!match) return;
+
 match.status = 'approved';
 let loser = match.s1 < match.s2 ? match.p1 : (match.s2 < match.s1 ? match.p2 : null);
 if (loser && (window.activeTournament.format === 'KNOCKOUT' || match.stage.toLowerCase().includes('knockout') || match.stage.toLowerCase().includes('round'))) {
@@ -2132,12 +2462,14 @@ if(!window.activeTournament.eliminated) window.activeTournament.eliminated = [];
 if(!window.activeTournament.eliminated.includes(loser)) window.activeTournament.eliminated.push(loser);
 }
 advanceWinnerInBracket(window.activeTournament, match);
+
 localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList));
 showToast("Match Approved and Bracket Updated!");
 window.closeMatchReportModal();
 window.renderTournamentsTab();
 window.renderTournamentsTabDedicated();
 };
+
 window.addLeagueMatch = function(tournId) {
 const tourn = window.tournamentsList.find(t => t.id === tournId);
 if (!tourn) return;
@@ -2159,11 +2491,14 @@ window.renderTournamentsTab();
 window.renderTournamentsTabDedicated();
 showToast("Added new league fixture slot.");
 };
+
 function advanceWinnerInBracket(tourn, completedMatch) {
 if (tourn.format === 'LEAGUE') return;
 if (!completedMatch.winner || completedMatch.winner === 'DRAW') return;
+
 const nextRound = completedMatch.round + 1;
 let nextMatch = tourn.matches.find(m => m.round === nextRound && (m.p1 === 'TBD' || m.p2 === 'TBD' || !m.p1 || !m.p2));
+
 let nextStageName = `Round ${nextRound}`;
 if (tourn.format === 'KNOCKOUT' || completedMatch.stage.includes('Knockout') || completedMatch.stage.includes('Round of') || completedMatch.stage.includes('Quarter') || completedMatch.stage.includes('Semi')) {
 nextStageName = getKnockoutStageName(tourn.maxPlayers, nextRound);
@@ -2172,15 +2507,16 @@ nextStageName = "Round of 16";
 } else if (tourn.format === 'WORLD_CUP' && nextRound === 3) {
 nextStageName = "Quarter-Final";
 }
+
 if (!nextMatch) {
-nextMatch = { 
-id: `m_${Date.now()}_next`, 
-round: nextRound, 
-p1: completedMatch.winner, 
-p2: 'TBD', 
-s1: null, 
-s2: null, 
-winner: null, 
+nextMatch = {
+id: `m_${Date.now()}_next`,
+round: nextRound,
+p1: completedMatch.winner,
+p2: 'TBD',
+s1: null,
+s2: null,
+winner: null,
 stage: nextStageName,
 streamUrl: '',
 mvp: null,
@@ -2192,16 +2528,19 @@ if (nextMatch.p1 === 'TBD' || !nextMatch.p1) nextMatch.p1 = completedMatch.winne
 else if (nextMatch.p2 === 'TBD' || !nextMatch.p2) nextMatch.p2 = completedMatch.winner;
 }
 }
+
 window.renderTournamentsTab = function() {
 const container = document.getElementById('tournamentsTabContainer');
 if (!container) return;
 container.innerHTML = generateTournamentsHTML();
 };
+
 window.renderTournamentsTabDedicated = function() {
 const container = document.getElementById('tournamentsDedicatedContainer');
 if (!container) return;
 container.innerHTML = generateTournamentsHTML();
 };
+
 window.switchActiveTournament = function(tournId) {
 const found = window.tournamentsList.find(t => t.id === tournId);
 if (found) {
@@ -2210,21 +2549,26 @@ window.renderTournamentsTab();
 window.renderTournamentsTabDedicated();
 }
 };
+
 function generateTournamentsHTML() {
 if (!window.tournamentsList || window.tournamentsList.length === 0) {
 return `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No active tournaments. Create one now!</div>`;
 }
+
 let selectorHtml = `<div class="flex items-center space-x-2 overflow-x-auto scrollbar-none pb-2">`;
 window.tournamentsList.forEach(t => {
 const isActive = window.activeTournament && window.activeTournament.id === t.id;
 selectorHtml += `<button onclick="window.switchActiveTournament('${t.id}')" class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold ${isActive ? 'bg-cyan-400 text-slate-950 shadow-md' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'} whitespace-nowrap">${t.title}</button>`;
 });
 selectorHtml += `</div>`;
+
 const current = window.activeTournament || window.tournamentsList[0];
 const me = (window.myUsername || '@Guest').replace('@', '');
 const isJoined = current.players.includes(me);
 const isHost = current.host.toLowerCase() === me.toLowerCase();
+
 let formatBadge = current.format === 'WORLD_CUP' ? '🌍 World Cup Style' : (current.format === 'CHAMPIONS_LEAGUE' ? '🏆 Champions League Swiss' : (current.format === 'LEAGUE' ? `📊 Full League Table (${current.leagueH2H || '1x'} H2H)` : '⚡ Single Elimination'));
+
 let bodyHtml = `
 <div class="glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/30">
 <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
@@ -2246,6 +2590,7 @@ ${!isJoined
 </div>
 </div>
 `;
+
 if (current.format === 'LEAGUE') {
 let standings = {};
 current.players.forEach(p => {
@@ -2253,14 +2598,17 @@ if (p && p !== 'Open Spot' && p !== 'TBD') {
 standings[p] = { p: p, played: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
 }
 });
+
 current.matches.forEach(m => {
 if (m.winner !== null && m.p1 !== 'Open Spot' && m.p2 !== 'Open Spot' && m.status === 'approved') {
 if (!standings[m.p1]) standings[m.p1] = { p: m.p1, played: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
 if (!standings[m.p2]) standings[m.p2] = { p: m.p2, played: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
+
 standings[m.p1].played++;
 standings[m.p2].played++;
 standings[m.p1].gf += m.s1; standings[m.p1].ga += m.s2;
 standings[m.p2].gf += m.s2; standings[m.p2].ga += m.s1;
+
 if (m.s1 > m.s2) {
 standings[m.p1].w++; standings[m.p1].pts += 3;
 standings[m.p2].l++;
@@ -2273,8 +2621,10 @@ standings[m.p2].d++; standings[m.p2].pts += 1;
 }
 }
 });
+
 Object.values(standings).forEach(s => s.gd = s.gf - s.ga);
 let tableArr = Object.values(standings).sort((a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+
 bodyHtml += `
 <div class="bg-gg-950 rounded-xl border border-cyan-500/20 overflow-x-auto mb-3 shadow-inner">
 <table class="w-full text-xs text-left">
@@ -2307,17 +2657,21 @@ bodyHtml += `
 `;
 });
 bodyHtml += `</tbody></table></div>`;
+
 bodyHtml += `<div class="space-y-2 pt-2"><h4 class="text-[10px] font-black text-white uppercase">League Fixtures & Results</h4><div class="space-y-2 max-h-[350px] overflow-y-auto pr-1">`;
 current.matches.forEach(m => {
 bodyHtml += renderBracketMatchCardHex(m, current.id, isHost, 'league');
 });
 bodyHtml += `</div></div>`;
+
 if (isHost) {
 bodyHtml += `<button onclick="window.addLeagueMatch('${current.id}')" class="w-full py-2 bg-gg-900 border border-cyan-500/30 text-cyan-400 rounded-xl text-xs font-bold mt-2 hover:bg-cyan-500/20 transition">+ Add League Fixture</button>`;
 }
+
 bodyHtml += `</div></div>`;
 return selectorHtml + bodyHtml;
 }
+
 bodyHtml += `
 <div class="space-y-3 pt-1">
 <div class="bg-gradient-to-r from-gg-900 via-gg-800 to-gg-900 p-2.5 rounded-xl border border-cyan-500/30 text-center shadow-lg relative">
@@ -2335,12 +2689,14 @@ bodyHtml += `
 </div>
 </div>
 `;
+
 if (!current.matches || current.matches.length === 0) {
 bodyHtml += `<p class="text-xs text-gray-400 text-center py-4">Waiting for players to join to generate bracket...</p>`;
 } else {
 let redConferenceMatches = [];
 let blueConferenceMatches = [];
 let finalMatches = [];
+
 current.matches.forEach((m, idx) => {
 if (m.stage && (m.stage.toLowerCase().includes('final') || m.stage.toLowerCase().includes('semi') || m.stage.toLowerCase().includes('quarter') && idx % 2 !== 0 && idx % 2 === 0)) {
 if (m.stage.toLowerCase() === 'final' || m.stage.toLowerCase().includes('championship')) {
@@ -2356,6 +2712,7 @@ redConferenceMatches.push(m);
 blueConferenceMatches.push(m);
 }
 });
+
 if (finalMatches.length === 0) {
 finalMatches.push({
 id: 'final_match_placeholder',
@@ -2371,6 +2728,7 @@ mvp: null,
 status: 'pending'
 });
 }
+
 bodyHtml += `
 <div class="grid grid-cols-1 md:grid-cols-11 gap-2 items-center">
 <div class="md:col-span-5 bg-red-950/20 border border-red-500/30 rounded-2xl p-3 space-y-2.5">
@@ -2384,6 +2742,7 @@ redConferenceMatches.forEach(m => {
 bodyHtml += renderBracketMatchCardHex(m, current.id, isHost, 'red');
 });
 bodyHtml += `</div></div>`;
+
 bodyHtml += `
 <div class="md:col-span-1 flex flex-col items-center justify-center my-2 md:my-0 space-y-2">
 <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/40 animate-pulse" title="Final Game">
@@ -2392,6 +2751,7 @@ bodyHtml += `
 <span class="text-[8px] font-black uppercase text-amber-400 tracking-widest text-center">VS</span>
 </div>
 `;
+
 bodyHtml += `
 <div class="md:col-span-5 bg-blue-950/20 border border-blue-500/30 rounded-2xl p-3 space-y-2.5">
 <div class="flex items-center justify-between border-b border-blue-500/20 pb-1.5">
@@ -2404,7 +2764,9 @@ blueConferenceMatches.forEach(m => {
 bodyHtml += renderBracketMatchCardHex(m, current.id, isHost, 'blue');
 });
 bodyHtml += `</div></div>`;
+
 bodyHtml += `</div>`;
+
 bodyHtml += `
 <div class="bg-gradient-to-r from-amber-950/50 via-amber-900/40 to-amber-950/50 border border-amber-500/50 rounded-2xl p-3.5 space-y-2 mt-3 shadow-2xl">
 <div class="flex items-center justify-between border-b border-amber-500/30 pb-1.5">
@@ -2418,20 +2780,25 @@ bodyHtml += renderBracketMatchCardHex(m, current.id, isHost, 'gold');
 });
 bodyHtml += `</div></div>`;
 }
+
 bodyHtml += `</div></div>`;
 return selectorHtml + bodyHtml;
 }
+
 function renderBracketMatchCardHex(m, tournId, isHost, theme = 'red') {
 const isCompleted = m.winner !== null && m.status === 'approved';
 const isDisputed = m.status === 'disputed';
 const hasStream = !!m.streamUrl;
+
 let borderStyle = 'border-cyan-500/20 hover:border-cyan-400';
 if (theme === 'red') borderStyle = 'border-red-500/30 hover:border-red-400 bg-red-950/10';
 if (theme === 'blue') borderStyle = 'border-blue-500/30 hover:border-blue-400 bg-blue-950/10';
 if (theme === 'gold') borderStyle = 'border-amber-500/50 hover:border-amber-400 bg-amber-950/20';
 if (theme === 'league') borderStyle = 'border-cyan-500/20 hover:border-cyan-400 bg-gg-950';
+
 let p1Html = `<span class="font-extrabold ${m.winner === m.p1 ? 'text-cyan-400 font-black' : 'text-gray-100'}">${(!m.p1 || m.p1 === 'Open Spot' || m.p1 === 'TBD') ? (m.p1 || 'Open Spot') : window.dn(m.p1)}</span>`;
 let p2Html = `<span class="font-extrabold ${m.winner === m.p2 ? 'text-cyan-400 font-black' : 'text-gray-100'}">${(!m.p2 || m.p2 === 'Open Spot' || m.p2 === 'TBD') ? (m.p2 || 'Open Spot') : window.dn(m.p2)}</span>`;
+
 return `
 <div class="glass-panel p-2.5 rounded-xl border ${borderStyle} transition shadow-md cursor-pointer space-y-1.5" onclick="window.openMatchReportModal('${m.id}')">
 <div class="flex items-center justify-between text-[9px]">
@@ -2441,6 +2808,7 @@ ${hasStream ? '<span class="text-[8px] bg-red-600 text-white font-extrabold px-1
 ${isDisputed ? window.pendingLabel(m) : (isCompleted ? '<span class="text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black px-1.5 py-0.5 rounded">✓ Final</span>' : '<span class="text-[8px] text-gray-400">Report Score</span>')}
 </div>
 </div>
+
 <div class="grid grid-cols-2 gap-2 text-xs bg-gg-950/80 p-2 rounded-lg border border-cyan-500/10">
 <div class="flex items-center justify-between pr-1 border-r border-cyan-500/10">
 ${p1Html}
@@ -2451,6 +2819,7 @@ ${p2Html}
 <span class="font-black text-amber-400 ml-1">${m.s2 !== null ? m.s2 : '-'}</span>
 </div>
 </div>
+
 ${isHost && (m.p1 === 'Open Spot' || m.p2 === 'Open Spot') ? `
 <div class="flex space-x-1 pt-0.5">
 ${m.p1 === 'Open Spot' ? `<button onclick="event.stopPropagation(); window.manualAddPlayer('${tournId}', '${m.id}', 'p1')" class="flex-1 py-1 bg-cyan-500/20 text-cyan-300 rounded text-[8px] font-bold">+ Add P1</button>` : ''}
@@ -2460,17 +2829,21 @@ ${m.p2 === 'Open Spot' ? `<button onclick="event.stopPropagation(); window.manua
 </div>
 `;
 }
+
 window.fypposts = [];
 window.activeCategoryFilter = 'ALL';
 window.uploadedMediaBlobs = [];
 window.selectedAudioTrack = null;
+
 window.categoryInterests = JSON.parse(localStorage.getItem('sinless_category_interests') || '{}');
+
 window.boostCategoryInterest = function(category) {
 if (!category) return;
 const cat = category.toUpperCase();
 window.categoryInterests[cat] = (window.categoryInterests[cat] || 0) + 1;
 localStorage.setItem('sinless_category_interests', JSON.stringify(window.categoryInterests));
 };
+
 window.filterByCategory = function(cat, btnElem) {
 window.activeCategoryFilter = cat;
 document.querySelectorAll('.cat-btn').forEach(b => {
@@ -2481,20 +2854,24 @@ btnElem.className = "cat-btn px-3 py-1.5 rounded-xl text-[10px] font-extrabold b
 }
 window.renderFypFeed();
 };
+
 window.feedOrder = null;              // list of post ids in the order shown
 window.pendingNewIds = new Set();     // new posts waiting behind the "New posts" pill
 window.FEED_FRESH_MS = 6 * 3600000;   // posts newer than 6h always go on top (newest first)
 window.FEED_SHUFFLE_BELOW = 60;       // fewer posts than this = shuffle the rest on every refresh
+
 window.isMyPost = function(p) {
 const me = (window.myUsername || '').replace('@', '').toLowerCase();
 return (window.currentUser && p.uid === window.currentUser.uid) || (p.user || '').toLowerCase() === me;
 };
+
 window.feedScore = function(p) {
 const ageDays = (Date.now() - window.postTimeValue(p)) / 86400000;
 return (window.categoryInterests[(p.game || '').toUpperCase()] || 0)
 + 2 * (p.ggsCount || 0) + 3 * (p.commentsCount || 0) + 0.05 * (p.viewsCount || 0)
 + 10 / (1 + ageDays);
 };
+
 window.rebuildFeedOrder = function() {
 const all = window.fypposts || [];
 const now = Date.now();
@@ -2509,10 +2886,12 @@ window.feedOrder = [...fresh, ...rest].map(p => p.docId || p.id);
 window.pendingNewIds.clear();
 window.updateNewPostsPill();
 };
+
 window.isFeedNearTop = function() {
 const view = document.getElementById('view-fyp');
 return view && !view.classList.contains('hidden') && (window.scrollY || document.documentElement.scrollTop) < 150;
 };
+
 window.getOrderedFeed = function() {
 const all = window.fypposts || [];
 if (!window.feedOrder) window.rebuildFeedOrder();
@@ -2532,6 +2911,7 @@ if (toTop.length) window.feedOrder = [...toTop, ...window.feedOrder];
 window.updateNewPostsPill();
 return window.feedOrder.filter(id => byId[id] && !window.pendingNewIds.has(id)).map(id => byId[id]);
 };
+
 window.updateNewPostsPill = function() {
 const pill = document.getElementById('newPostsPill');
 if (!pill) return;
@@ -2541,21 +2921,26 @@ const users = [...window.pendingNewIds].map(id => (window.fypposts || []).find(p
 pill.innerHTML = `<i class="fa-solid fa-arrow-up mr-1.5"></i>${users.map(u => `<span class="inline-flex w-5 h-5 -ml-1 first:ml-0 rounded-full overflow-hidden border border-gg-950">${window.avatarHtml(u, 'w-5 h-5', 'rounded-full', 'text-[8px]').replace(/onclick="[^"]*"/, '')}</span>`).join('')}<span class="ml-1.5">${n} new post${n === 1 ? '' : 's'}</span>`;
 pill.classList.remove('hidden');
 };
+
 window.showNewPosts = function() {
 window.rebuildFeedOrder();
 window.renderFypFeed();
 window.scrollTo({ top: 0, behavior: 'smooth' });
 };
+
 window.refreshFeed = function(silent) {
 window.rebuildFeedOrder();
 window.renderFypFeed();
 if (!silent) showToast("✨ Feed refreshed");
 };
+
 window.feedMuted = true;
+
 window.renderFeedCard = function(p, me) {
 const pId = p.docId || p.id;
 const isOwner = p.user && p.user.toLowerCase() === me;
 const hasGGed = p.ggsBy && p.ggsBy.includes(window.currentUser ? window.currentUser.uid : 'guest_user');
+
 let mediaHtml = '';
 if (p.mediaList && p.mediaList.length > 0) {
 if (p.mediaList.length === 1) {
@@ -2587,14 +2972,17 @@ return m.type === 'video'
 </div>`;
 }
 }
+
 const audioTrackHtml = p.audioTrack ? `
 <div class="flex items-center space-x-2 p-2 bg-gg-900/90 rounded-xl border border-cyan-500/20 text-[10px] text-cyan-300">
 <i class="fa-solid fa-music animate-spin text-magenta"></i>
 <span class="font-bold truncate">${p.audioTrack.title || 'Background Sound'}</span>
 </div>` : '';
+
 const badges = window.getFeedBadges ? window.getFeedBadges(p.user) : '';
 const caption = p.caption || '';
 const longCaption = caption.length > 280;
+
 return `
 <div class="post-card-item glass-panel p-4 rounded-2xl space-y-3 shadow-xl border border-cyan-500/20 hover:border-cyan-500/40 transition cursor-pointer" data-post-id="${pId}" onclick="window.onPostCardTap(event, '${pId}')">
 <div class="flex items-center justify-between">
@@ -2616,10 +3004,13 @@ ${isOwner ? `
 ` : `<button onclick="window.openPostActions('${pId}')" class="text-gray-400 hover:text-white text-sm px-2" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button>`}
 </div>
 </div>
+
 ${caption ? `<p class="text-xs text-gray-200 leading-relaxed font-medium whitespace-pre-wrap break-words">${formatMentions(longCaption ? caption.slice(0, 280) + '…' : caption)}${longCaption ? ' <span class="text-cyan-400 font-bold">Show more</span>' : ''}</p>` : ''}
+
 ${mediaHtml}
 ${window.renderPollHtml ? window.renderPollHtml(p) : ''}
 ${audioTrackHtml}
+
 <div class="flex items-center justify-between pt-2 border-t border-cyan-500/15 text-xs text-gray-300 font-bold">
 <button onclick="window.toggleGGPost('${pId}')" class="flex items-center space-x-1.5 ${hasGGed ? 'text-magenta' : 'hover:text-magenta'} transition">
 <i class="fa-solid fa-thumbs-up"></i>
@@ -2645,16 +3036,21 @@ ${audioTrackHtml}
 </div>
 `;
 };
+
 window.onPostCardTap = function(e, pId) {
 if (e.target.closest('button, a, input, textarea, [data-noexpand]')) return;
 window.openPostDetail(pId);
 };
+
 window.renderFypFeed = function() {
 const feedContainer = document.getElementById('fypFeedContainer');
 if (!feedContainer) return;
+
 const playing = [...feedContainer.querySelectorAll('video[data-feed-video]')].find(v => !v.paused);
 const resume = playing ? { id: playing.getAttribute('data-feed-video'), t: playing.currentTime } : null;
+
 let posts = window.getOrderedFeed();
+
 if (window.activeCategoryFilter && window.activeCategoryFilter !== 'ALL') {
 if (window.activeCategoryFilter === 'LIVE STREAM') {
 posts = posts.filter(p => p.isLive || p.game === 'LIVE STREAM');
@@ -2662,6 +3058,7 @@ posts = posts.filter(p => p.isLive || p.game === 'LIVE STREAM');
 posts = posts.filter(p => (p.game || '').toUpperCase() === window.activeCategoryFilter);
 }
 }
+
 if (posts.length === 0) {
 feedContainer.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center space-y-2">
 <i class="fa-solid fa-gamepad text-3xl text-cyan-400 opacity-60"></i>
@@ -2670,8 +3067,10 @@ feedContainer.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center s
 </div>`;
 return;
 }
+
 const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
 feedContainer.innerHTML = posts.map(p => window.renderFeedCard(p, me)).join('');
+
 if (resume) {
 const v = feedContainer.querySelector(`video[data-feed-video="${resume.id}"]`);
 if (v) { v.preload = 'auto'; v.currentTime = resume.t; }
@@ -2679,6 +3078,7 @@ if (v) { v.preload = 'auto'; v.currentTime = resume.t; }
 if (window.observePostViews) window.observePostViews();
 if (window.setupFeedAutoplay) window.setupFeedAutoplay();
 };
+
 window.setupFeedAutoplay = function() {
 if (!('IntersectionObserver' in window)) return;
 if (!window.feedVideoObserver) {
@@ -2695,6 +3095,7 @@ v.muted = window.feedMuted;
 window.feedVideoObserver.observe(v);
 });
 };
+
 window.pickFeedVideoToPlay = function() {
 const feedVisible = !document.getElementById('view-fyp').classList.contains('hidden');
 const overlayOpen = ['postDetailModal', 'mediaZoomModal', 'storyViewerModal', 'userProfileModal'].some(id => {
@@ -2709,15 +3110,19 @@ if (v === best) { if (v.paused) { v.preload = 'auto'; v.muted = window.feedMuted
 else if (!v.paused) v.pause();
 });
 };
+
 window.pauseFeedVideos = function() {
 document.querySelectorAll('video[data-feed-video]').forEach(v => { if (!v.paused) v.pause(); });
 };
+
 window.toggleFeedMute = function() {
 window.feedMuted = !window.feedMuted;
 document.querySelectorAll('video[data-feed-video]').forEach(v => { v.muted = window.feedMuted; });
 document.querySelectorAll('.feed-mute-btn i').forEach(i => { i.className = `fa-solid ${window.feedMuted ? 'fa-volume-xmark' : 'fa-volume-high'}`; });
 };
+
 window.addEventListener('scroll', () => { if (window.feedVideoRatios) window.pickFeedVideoToPlay(); }, { passive: true });
+
 (function setupPullToRefresh() {
 let startY = null, pulling = false;
 const ind = () => document.getElementById('pullRefreshIndicator');
@@ -2747,6 +3152,7 @@ if (el) { el.style.height = '0px'; el.style.opacity = 0; el.querySelector('i').c
 } else if (el) { el.style.height = '0px'; el.style.opacity = 0; }
 });
 })();
+
 (function setupAutoRefresh() {
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
@@ -2757,9 +3163,12 @@ else { (window.fypposts || []).forEach(p => { if (!window.feedOrder.includes(p.d
 }
 });
 })();
+
 window.activeDetailPostId = null;
 window.detailCommentsUnsub = null;
+
 window.findPost = function(id) { return (window.fypposts || []).find(p => p.id === id || p.docId === id); };
+
 window.openPostDetail = function(postId, focusReply = false) {
 const post = window.findPost(postId);
 if (!post) return;
@@ -2776,6 +3185,7 @@ document.getElementById('postDetailComments').scrollIntoView({ behavior: 'smooth
 document.getElementById('postDetailReplyInput').focus();
 }, 250);
 };
+
 window.closePostDetail = function() {
 const modal = document.getElementById('postDetailModal');
 modal.querySelectorAll('video').forEach(v => v.pause());
@@ -2787,12 +3197,14 @@ if (window.detailCommentsUnsub) { window.detailCommentsUnsub(); window.detailCom
 try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 if (window.pickFeedVideoToPlay) setTimeout(window.pickFeedVideoToPlay, 100);
 };
+
 window.renderPostDetail = function(p) {
 const pId = p.docId || p.id;
 const me = (window.myUsername || '').replace('@', '').toLowerCase();
 const isOwner = (p.user || '').toLowerCase() === me;
 const badges = window.getFeedBadges ? window.getFeedBadges(p.user) : '';
 const when = new Date(window.postTimeValue(p));
+
 const media = (p.mediaList || []).map(m => m.type === 'video'
 ? `<div class="relative bg-black rounded-2xl overflow-hidden border border-cyan-500/20">
 <video src="${window.cldSized(m.url, 1280, 'video')}" poster="${window.cldPoster(m.url, 1080)}" class="w-full max-h-[75vh] object-contain bg-black" controls autoplay playsinline controlsList="nodownload"></video>
@@ -2800,7 +3212,9 @@ const media = (p.mediaList || []).map(m => m.type === 'video'
 </div>`
 : `<img src="${window.cldSized(m.url, 1600)}" class="w-full rounded-2xl border border-cyan-500/20 bg-black cursor-zoom-in" onclick="window.openMediaZoomModal('image', '${m.url}', '${pId}')">`
 ).join('');
+
 const big = !(p.mediaList && p.mediaList.length) && (p.caption || '').length < 140;
+
 document.getElementById('postDetailBody').innerHTML = `
 <div class="max-w-xl mx-auto p-4 space-y-4">
 <div class="flex items-center justify-between">
@@ -2816,22 +3230,27 @@ ${isOwner ? `<div class="flex items-center space-x-1">
 <button onclick="window.closePostDetail(); window.deletePost('${pId}')" class="w-9 h-9 rounded-xl bg-gg-900 text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>
 </div>` : `<button onclick="window.openPostActions('${pId}')" class="w-9 h-9 rounded-xl bg-gg-900 text-gray-300 text-sm"><i class="fa-solid fa-ellipsis"></i></button>`}
 </div>
+
 ${p.caption ? `<p class="${big ? 'text-xl font-extrabold leading-snug' : 'text-[15px] leading-relaxed'} text-white whitespace-pre-wrap break-words">${formatMentions(p.caption)}</p>` : ''}
 ${media ? `<div class="space-y-2">${media}</div>` : ''}
 ${window.renderPollHtml ? window.renderPollHtml(p) : ''}
 ${p.audioTrack ? `<div class="flex items-center space-x-2 p-2.5 bg-gg-900 rounded-xl border border-cyan-500/20 text-xs text-cyan-300"><i class="fa-solid fa-music text-magenta"></i><span class="font-bold truncate">${p.audioTrack.title || 'Sound'}</span></div>` : ''}
+
 <p class="text-[11px] text-gray-400 font-semibold">${when.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} · ${when.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+
 <div class="flex items-center space-x-4 py-2.5 border-y border-cyan-500/15 text-xs">
 <span><b id="pdViews" class="text-white">${window.formatCount(p.viewsCount || 0)}</b> <span class="text-gray-400">Views</span></span>
 <span><b id="pdGGs" class="text-white">${window.formatCount(p.ggsCount || 0)}</b> <span class="text-gray-400">GGs</span></span>
 <span><b id="pdReplies" class="text-white">${window.formatCount(p.commentsCount || 0)}</b> <span class="text-gray-400">Replies</span></span>
 </div>
+
 <div class="grid grid-cols-4 gap-2 text-xs font-bold">
 <button id="pdGGBtn" onclick="window.toggleGGPost('${pId}')" class="py-2.5 rounded-xl bg-gg-900 border border-cyan-500/20 flex flex-col items-center gap-1"><i class="fa-solid fa-thumbs-up text-base"></i><span>GGs</span></button>
 <button onclick="document.getElementById('postDetailReplyInput').focus()" class="py-2.5 rounded-xl bg-gg-900 border border-cyan-500/20 text-gray-300 flex flex-col items-center gap-1"><i class="fa-solid fa-comment text-base"></i><span>Reply</span></button>
 <button onclick="window.openRepostMenu('${pId}')" class="py-2.5 rounded-xl bg-gg-900 border border-emerald-500/30 text-emerald-400 flex flex-col items-center gap-1"><i class="fa-solid fa-retweet text-base"></i><span>Repost</span></button>
 <button onclick="window.tipCreator('${pId}', '${p.user}')" class="py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex flex-col items-center gap-1"><i class="fa-solid fa-coins text-base"></i><span>Tip</span></button>
 </div>
+
 <div id="postDetailComments" class="space-y-2.5 pb-24">
 <h4 class="text-[11px] font-black text-white uppercase tracking-wider">Replies</h4>
 <div id="postDetailCommentsList" class="space-y-2.5"><p class="text-xs text-gray-500 py-3">Loading replies…</p></div>
@@ -2839,6 +3258,7 @@ ${p.audioTrack ? `<div class="flex items-center space-x-2 p-2.5 bg-gg-900 rounde
 </div>`;
 window.refreshPostDetailStats(pId);
 };
+
 window.refreshPostDetailStats = function(postId) {
 if (window.activeDetailPostId !== postId) return;
 const p = window.findPost(postId);
@@ -2851,6 +3271,7 @@ const on = p.ggsBy && p.ggsBy.includes(window.currentUser ? window.currentUser.u
 btn.className = `py-2.5 rounded-xl border flex flex-col items-center gap-1 ${on ? 'bg-magenta text-white border-magenta' : 'bg-gg-900 text-gray-300 border-cyan-500/20'}`;
 }
 };
+
 window.loadDetailComments = function(postId) {
 const list = document.getElementById('postDetailCommentsList');
 if (window.detailCommentsUnsub) { window.detailCommentsUnsub(); window.detailCommentsUnsub = null; }
@@ -2875,6 +3296,7 @@ ${window.avatarHtml(c.user, 'w-8 h-8', 'rounded-xl', 'text-[10px]')}
 });
 }, () => { list.innerHTML = `<p class="text-xs text-gray-500 py-3">Couldn't load replies.</p>`; });
 };
+
 window.sendDetailReply = async function() {
 const input = document.getElementById('postDetailReplyInput');
 const text = input.value.trim();
@@ -2885,12 +3307,14 @@ hidden.value = text;
 input.value = '';
 await window.submitCommentReply();
 };
+
 window.floatVideo = function(postId, rawUrl, btn) {
 const wrap = btn ? btn.closest('.relative') : null;
 const near = wrap ? wrap.querySelector('video') : null;
 const t = near ? near.currentTime : 0;
 if (near) near.pause();
 if (window.activeDetailPostId) window.closePostDetail();
+
 const box = document.getElementById('floatingPlayer');
 const v = document.getElementById('floatingVideo');
 const p = window.findPost(postId);
@@ -2903,17 +3327,20 @@ box.classList.remove('hidden');
 v.play().catch(() => {});
 window.pickFeedVideoToPlay && window.pickFeedVideoToPlay();
 };
+
 window.closeFloatingVideo = function() {
 const box = document.getElementById('floatingPlayer');
 const v = document.getElementById('floatingVideo');
 v.pause(); v.removeAttribute('src'); v.load();
 box.classList.add('hidden');
 };
+
 window.expandFloatingVideo = function() {
 const id = document.getElementById('floatingPlayer').dataset.postId;
 window.closeFloatingVideo();
 if (id) window.openPostDetail(id);
 };
+
 (function setupFloatingDrag() {
 let dragging = false, ox = 0, oy = 0;
 document.addEventListener('pointerdown', (e) => {
@@ -2935,15 +3362,18 @@ box.style.left = x + 'px'; box.style.top = y + 'px';
 });
 document.addEventListener('pointerup', () => { dragging = false; });
 })();
+
 window.postLink = function(postId) {
 return `${location.origin}${location.pathname}#post=${postId}`;
 };
+
 window.sharePost = function(postId) {
 const p = window.findPost(postId);
 const link = window.postLink(postId);
 const snippet = p && p.caption ? (p.caption.length > 100 ? p.caption.slice(0, 100) + '…' : p.caption) : '';
 const text = p ? `${snippet ? `"${snippet}" — ` : ''}@${window.hnd(p.user)} on Sinless GG 🎮` : 'Check this out on Sinless GG 🎮';
 window.activeShare = { link, text };
+
 const enc = encodeURIComponent;
 const apps = [
 { name: 'WhatsApp', icon: 'fa-brands fa-whatsapp', color: 'bg-[#25D366]', url: `https://wa.me/?text=${enc(text + ' ' + link)}` },
@@ -2965,12 +3395,15 @@ document.getElementById('shareApps').innerHTML = apps.map(a => `
 document.getElementById('shareLinkText').innerText = link;
 document.getElementById('shareSheet').classList.remove('hidden');
 };
+
 window.closeShareSheet = function() { document.getElementById('shareSheet').classList.add('hidden'); };
+
 window.shareWithMoreApps = function() {
 const s = window.activeShare || {};
 window.closeShareSheet();
 navigator.share({ title: 'Sinless GG', text: s.text, url: s.link }).catch(() => {});
 };
+
 window.copyShareLink = async function() {
 const s = window.activeShare || {};
 try { await navigator.clipboard.writeText(s.link); }
@@ -2981,11 +3414,13 @@ try { document.execCommand('copy'); } catch (err) {} t.remove();
 showToast("🔗 Link copied!");
 window.closeShareSheet();
 };
+
 window.shareContent = function(title, text, url) {
 window.activeShare = { link: url || location.href, text: text || 'Check this out on Sinless GG 🎮' };
 if (navigator.share) navigator.share({ title: title || 'Sinless GG', text: window.activeShare.text, url: window.activeShare.link }).catch(() => {});
 else window.copyShareLink();
 };
+
 window.openPostFromLink = async function() {
 const m = location.hash.match(/^#post=([A-Za-z0-9_\-]+)/);
 if (!m || window.activeDetailPostId === m[1] || window.linkPostOpened === m[1]) return;
@@ -3001,20 +3436,26 @@ if (p) { window.linkPostOpened = id; window.openPostDetail(id); }
 else if (window.cloudFeedLoaded) { window.linkPostOpened = id; showToast("That post isn't available anymore."); }
 };
 window.addEventListener('hashchange', () => { window.linkPostOpened = null; window.openPostFromLink(); });
+
 window.listenToCloudPosts = function() {
 if (!window.db || typeof query !== 'function') return;
+
 try {
 const postsRef = collection(window.db, "posts");
 const q = query(postsRef, orderBy("createdAt", "desc"), limit(20));
+
 onSnapshot(q, async (snapshot) => {
 let cloudPosts = [];
 snapshot.forEach(docSnap => {
 cloudPosts.push({ id: docSnap.id, docId: docSnap.id, ...docSnap.data() });
 });
+
 const localPosts = await window.loadLocalPostsFromDB();
 let mergedMap = {};
+
 cloudPosts.forEach(p => { if (p.id) mergedMap[p.id] = p; });
 localPosts.forEach(p => { if (p.id && !mergedMap[p.id]) mergedMap[p.id] = p; });
+
 window.fypposts = Object.values(mergedMap);
 if (!window.cloudFeedLoaded) { window.cloudFeedLoaded = true; window.rebuildFeedOrder(); }
 window.renderFypFeed();
@@ -3029,33 +3470,40 @@ console.warn("Cloud posts listener error:", error);
 console.error("Firestore feed setup failed:", e);
 }
 };
+
 window.handleMediaUploadSelect = function(input) {
 if (!input.files) return;
 const files = Array.from(input.files).slice(0, 10);
 window.uploadedMediaBlobs = [];
 const previewBox = document.getElementById('mediaPreviewThumbnails');
 if (previewBox) previewBox.innerHTML = '';
+
 files.forEach(file => {
 const isVideo = file.type.includes('video');
 const url = URL.createObjectURL(file);
 window.uploadedMediaBlobs.push({ type: isVideo ? 'video' : 'image', url: url, file: file });
+
 if (previewBox) {
 previewBox.innerHTML += isVideo
 ? `<div class="aspect-square rounded-lg bg-black overflow-hidden relative border border-cyan-500/20"><video src="${url}" class="w-full h-full object-cover"></video><span class="absolute top-1 right-1 text-[8px] bg-red-600 text-white font-bold px-1 rounded">VID</span></div>`
 : `<div class="aspect-square rounded-lg bg-black overflow-hidden relative border border-cyan-500/20"><img src="${url}" class="w-full h-full object-cover"></div>`;
 }
 });
+
 const indicator = document.getElementById('mediaCountIndicator');
 if (indicator) indicator.innerText = `${window.uploadedMediaBlobs.length} / 10 selected`;
 };
+
 window.audioTracksPreset = [
 { id: 'track_1', title: 'Sinless GG Tournament Theme', artist: 'Sinless Productions', url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73421.mp3' },
 { id: 'track_2', title: 'Cyberpunk Esports Hype', artist: 'Gaming Audio', url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3' },
 { id: 'track_3', title: 'Champions League Anthem Remix', artist: 'FIFA Beat', url: 'https://cdn.pixabay.com/download/audio/2021/08/09/audio_884b2c15a5.mp3' }
 ];
+
 window.openAudioSelector = function() {
 const list = document.getElementById('audioTracksList');
 if (!list) return;
+
 list.innerHTML = window.audioTracksPreset.map(t => `
 <div class="p-2.5 bg-gg-900 rounded-xl border border-amber-500/20 flex items-center justify-between cursor-pointer hover:border-amber-400 transition" onclick="window.selectAudioTrack('${t.id}')">
 <div>
@@ -3065,25 +3513,32 @@ list.innerHTML = window.audioTracksPreset.map(t => `
 <button class="px-3 py-1 bg-amber-400 text-slate-950 font-black rounded-lg text-[10px] uppercase shadow">Select</button>
 </div>
 `).join('');
+
 document.getElementById('audioSelectorModal').classList.remove('hidden');
 };
+
 window.closeAudioSelector = function() {
 document.getElementById('audioSelectorModal').classList.add('hidden');
 };
+
 window.selectAudioTrack = function(trackId) {
 const track = window.audioTracksPreset.find(t => t.id === trackId);
 if (!track) return;
+
 window.selectedAudioTrack = track;
 const label = document.getElementById('selectedSoundLabel');
 if (label) label.innerText = `🎵 Sound: ${track.title}`;
+
 const player = document.getElementById('previewAudioPlayer');
 if (player) {
 player.src = track.url;
 player.play().catch(() => {});
 }
+
 window.closeAudioSelector();
 showToast(`🎵 Background Track Attached!`);
 };
+
 window.stopAudioPreview = function() {
 const player = document.getElementById('previewAudioPlayer');
 if (player) {
@@ -3091,11 +3546,14 @@ player.pause();
 player.currentTime = 0;
 }
 };
+
 window.activeLiveMediaStream = null;
 window.activeLiveMediaRecorder = null;
+
 window.openLiveBroadcastModal = function() {
 document.getElementById('liveStreamModal').classList.remove('hidden');
 };
+
 window.closeLiveBroadcastModal = function() {
 if (window.activeLiveMediaStream) {
 window.activeLiveMediaStream.getTracks().forEach(track => track.stop());
@@ -3103,10 +3561,12 @@ window.activeLiveMediaStream = null;
 }
 document.getElementById('liveStreamModal').classList.add('hidden');
 };
+
 window.startLiveStream = async function(mode) {
 const video = document.getElementById('liveStreamPreviewVideo');
 const placeholder = document.getElementById('streamPlaceholder');
 const label = document.getElementById('liveStreamStatusLabel');
+
 if (mode === 'camera') {
 try {
 const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -3122,9 +3582,11 @@ showToast("⚠️ Unable to access camera device.");
 }
 }
 };
+
 window.flipCamera = async function() {
 if (!window.activeLiveMediaStream) return;
 window.activeLiveMediaStream.getTracks().forEach(track => track.stop());
+
 try {
 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
 window.activeLiveMediaStream = stream;
@@ -3135,6 +3597,7 @@ showToast("📷 Switched Camera Facing");
 showToast("Unable to flip camera.");
 }
 };
+
 window.togglePauseStream = function() {
 if (!window.activeLiveMediaStream) return;
 const videoTrack = window.activeLiveMediaStream.getVideoTracks()[0];
@@ -3143,6 +3606,7 @@ videoTrack.enabled = !videoTrack.enabled;
 showToast(videoTrack.enabled ? "▶️ Video Resumed" : "⏸️ Video Paused");
 }
 };
+
 window.toggleAudioMute = function() {
 if (!window.activeLiveMediaStream) return;
 const audioTrack = window.activeLiveMediaStream.getAudioTracks()[0];
@@ -3151,21 +3615,27 @@ audioTrack.enabled = !audioTrack.enabled;
 showToast(audioTrack.enabled ? "🎙️ Audio Unmuted" : "🔇 Audio Muted");
 }
 };
+
 window.embedExternalStreamLink = function() {
 const url = document.getElementById('streamUrlInput').value.trim();
 if (!url) return;
+
 let embedUrl = url.replace('watch?v=', 'embed/').replace('twitch.tv/', 'player.twitch.tv/?channel=');
 const iframe = document.getElementById('liveStreamEmbedIframe');
 const video = document.getElementById('liveStreamPreviewVideo');
 const placeholder = document.getElementById('streamPlaceholder');
+
 iframe.src = embedUrl;
 iframe.classList.remove('hidden');
 video.classList.add('hidden');
 if (placeholder) placeholder.classList.add('hidden');
+
 showToast("📡 External Live Stream Embedded!");
 };
+
 window.activeDmUser = null;
 window.dmMessagesList = JSON.parse(localStorage.getItem('sinless_dm_messages') || '{}');
+
 window.openDmModal = function(username = 'SinlessGaming', e = null) {
 if (e) {
 e.preventDefault();
@@ -3173,26 +3643,34 @@ e.stopPropagation();
 }
 const cleanUser = username.replace('@', '');
 window.activeDmUser = cleanUser;
+
 const headerUser = document.getElementById('dmHeaderUser');
 if (headerUser) headerUser.innerText = `@${window.hnd(cleanUser)}`;
+
 window.renderDmThread();
 document.getElementById('dmModal').classList.remove('hidden');
 };
+
 window.closeDmModal = function() {
 document.getElementById('dmModal').classList.add('hidden');
 window.activeDmUser = null;
 };
+
 window.renderDmThread = function() {
 const container = document.getElementById('dmMessagesContainer');
 if (!container || !window.activeDmUser) return;
+
 const me = (window.myUsername || '@Guest').replace('@', '').toLowerCase();
 const partner = window.activeDmUser.toLowerCase();
 const threadKey = [me, partner].sort().join('_');
+
 const msgs = window.dmMessagesList[threadKey] || [];
+
 if (msgs.length === 0) {
 container.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Start a private chat with @${window.hnd(window.activeDmUser)}!</p>`;
 return;
 }
+
 container.innerHTML = msgs.map(m => {
 const isMine = m.sender.toLowerCase() === me;
 if (m.isImage) {
@@ -3213,38 +3691,49 @@ return `
 </div>
 `;
 }).join('');
+
 container.scrollTop = container.scrollHeight;
 };
+
 window.sendDirectMessage = function() {
 const input = document.getElementById('dmInputText');
 if (!input) return;
 const text = input.value.trim();
 if (!text || !window.activeDmUser) return;
+
 const me = (window.myUsername || '@Guest').replace('@', '');
 const partner = window.activeDmUser;
 const threadKey = [me.toLowerCase(), partner.toLowerCase()].sort().join('_');
+
 if (!window.dmMessagesList[threadKey]) window.dmMessagesList[threadKey] = [];
+
 window.dmMessagesList[threadKey].push({
 sender: me,
 text: text,
 timestamp: Date.now()
 });
+
 localStorage.setItem('sinless_dm_messages', JSON.stringify(window.dmMessagesList));
 input.value = '';
 window.renderDmThread();
 };
+
 window.toggleDirectVoiceCall = function() {
 showToast(`📞 Direct Voice Call Connected with @${window.hnd(window.activeDmUser || 'Gamer')}!`);
 };
+
 window.openMarketModal = function() { document.getElementById('marketModal').classList.remove('hidden'); };
 window.closeMarketModal = function() { document.getElementById('marketModal').classList.add('hidden'); };
+
 window.submitMarketListingToCloud = async function() {
 const title = document.getElementById('marketTitleInput').value.trim();
 const price = document.getElementById('marketPriceInput').value.trim();
+
 if (!title || !price) {
 showToast("⚠️ Enter title and price!");
 return;
 }
+
 const listing = {
 id: 'local_mkt_' + Date.now(),
 title: title,
@@ -3253,6 +3742,7 @@ user: (window.myUsername || '@Guest').replace('@', ''),
 uid: window.currentUser ? window.currentUser.uid : 'guest',
 createdAt: new Date().toISOString()
 };
+
 let savedToCloud = false;
 if (window.db && typeof addDoc === 'function') {
 try {
@@ -3262,25 +3752,31 @@ savedToCloud = true;
 console.error("Market cloud save failed:", e);
 }
 }
+
 if (!savedToCloud) {
 window.marketListings = [listing, ...(window.marketListings || [])];
 localStorage.setItem('sinless_market_listings', JSON.stringify(window.marketListings.filter(m => String(m.id).startsWith('local_'))));
 window.renderMarketList();
 }
+
 showToast(savedToCloud ? "🛍️ Listed on Cloud Market!" : "🛍️ Listing saved on this device!");
 document.getElementById('marketTitleInput').value = '';
 document.getElementById('marketPriceInput').value = '';
 window.closeMarketModal();
 };
+
 window.marketListings = JSON.parse(localStorage.getItem('sinless_market_listings') || '[]');
+
 window.renderMarketList = function() {
 const container = document.getElementById('marketListContainer');
 if (!container) return;
+
 const listings = window.marketListings || [];
 if (listings.length === 0) {
 container.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No listings yet. Tap "+ List Item" to sell something!</div>`;
 return;
 }
+
 container.innerHTML = '';
 listings.forEach(m => {
 container.innerHTML += `
@@ -3297,6 +3793,7 @@ container.innerHTML += `
 `;
 });
 };
+
 window.listenToFirestoreMarket = function() {
 if (!window.db || typeof query !== 'function') return;
 try {
@@ -3312,10 +3809,12 @@ window.renderMarketList();
 console.error("Market listener setup failed:", e);
 }
 };
+
 function escapeHTML(str) {
 if (str === null || str === undefined) return '';
 return String(str).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
 }
+
 window.liveLeagues = [
 { id: 'all', name: 'All' },
 { id: 'eng.1', name: 'Premier League', short: 'EPL' },
@@ -3328,6 +3827,7 @@ window.liveLeagues = [
 window.activeLiveLeague = 'all';
 window.liveMatchesCache = [];
 window.liveMatchesError = false;
+
 window.loadLiveMatches = async function() {
 const leagues = window.liveLeagues.filter(l => l.id !== 'all');
 const results = await Promise.all(leagues.map(async (lg) => {
@@ -3358,33 +3858,40 @@ away: { abbr: (away.team && away.team.abbreviation) || '', logo: (away.team && a
 return null; // network/CORS problem
 }
 }));
+
 window.liveMatchesError = results.every(r => r === null);
 const order = { in: 0, pre: 1, post: 2 };
 window.liveMatchesCache = results.flat().filter(Boolean).sort((a, b) =>
 (order[a.state] ?? 3) - (order[b.state] ?? 3) ||
 (a.state === 'post' ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date))
 );
+
 const upd = document.getElementById('liveMatchesUpdated');
 if (upd) upd.innerText = 'Updated ' + new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 window.renderLiveMatches();
 if (window.renderCommunityPulse) window.renderCommunityPulse();
 };
+
 window.setLiveLeague = function(id) {
 window.activeLiveLeague = id;
 window.renderLiveMatches();
 };
+
 window.renderLiveMatches = function() {
 const chips = document.getElementById('liveLeagueChips');
 const strip = document.getElementById('liveMatchesStrip');
 if (!chips || !strip) return;
+
 const liveCount = window.liveMatchesCache.filter(m => m.state === 'in').length;
 chips.innerHTML = window.liveLeagues.map(l => {
 const active = window.activeLiveLeague === l.id;
 const label = l.id === 'all' ? (liveCount ? `🔴 Live (${liveCount})` : 'All') : l.short;
 return `<button onclick="window.setLiveLeague('${l.id}')" class="shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold whitespace-nowrap ${active ? 'bg-white text-slate-950' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'}">${label}</button>`;
 }).join('');
+
 let list = window.liveMatchesCache;
 if (window.activeLiveLeague !== 'all') list = list.filter(m => m.league === window.activeLiveLeague);
+
 if (window.liveMatchesError) {
 strip.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-xs text-gray-400 w-full text-center">Couldn't load matches right now. <button onclick="window.loadLiveMatches()" class="text-cyan-400 font-bold underline ml-1">Try again</button></div>`;
 return;
@@ -3393,6 +3900,7 @@ if (list.length === 0) {
 strip.innerHTML = `<div class="glass-panel p-4 rounded-2xl text-xs text-gray-400 w-full text-center">${window.liveMatchesCache.length ? 'No matches in this league right now.' : 'Loading matches…'}</div>`;
 return;
 }
+
 const teamRow = (t, showScore, winning) => `
 <div class="flex items-center justify-between">
 <div class="flex items-center space-x-2 min-w-0">
@@ -3401,6 +3909,7 @@ ${t.logo ? `<img src="${t.logo}" class="w-5 h-5 object-contain" loading="lazy" a
 </div>
 <span class="text-sm font-black ${winning ? 'text-white' : 'text-gray-400'}">${showScore ? escapeHTML(t.score ?? '') : ''}</span>
 </div>`;
+
 strip.innerHTML = list.slice(0, 20).map(m => {
 const kickoff = new Date(m.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 const kickDay = new Date(m.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
@@ -3409,6 +3918,7 @@ let badge, right;
 if (m.state === 'in') { badge = `<span class="flex items-center text-[10px] font-black text-red-400"><span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1.5"></span>LIVE</span>`; right = escapeHTML(m.clock || m.detail); }
 else if (m.state === 'post') { badge = `<span class="text-[10px] font-black text-gray-400">FT</span>`; right = isToday ? 'Today' : kickDay; }
 else { badge = `<span class="text-[10px] font-black text-cyan-400">${isToday ? 'TODAY' : 'UPCOMING'}</span>`; right = isToday ? kickoff : `${kickDay} ${kickoff}`; }
+
 const showScore = m.state !== 'pre';
 const h = parseInt(m.home.score), a = parseInt(m.away.score);
 const open = `onclick="window.openLounge('${m.id}')"`;
@@ -3424,24 +3934,30 @@ ${teamRow(m.away, showScore, showScore && a > h)}
 </div>`;
 }).join('');
 };
+
 setInterval(() => {
 const view = document.getElementById('view-trending');
 if (view && !view.classList.contains('hidden')) window.loadLiveMatches();
 }, 60000);
+
 window.renderCommunityPulse = function() {
 const box = document.getElementById('communityPulseBox');
 if (!box) return;
+
 const all = window.fypposts || [];
 const DAY = 86400000;
 let recent = all.filter(p => Date.now() - window.postTimeValue(p) < 7 * DAY);
 if (recent.length < 3) recent = all;   // not much this week? use everything
+
 if (recent.length === 0) {
 box.innerHTML = `<h3 class="text-xs font-black text-white uppercase tracking-wider">✨ What people are talking about</h3><p class="text-xs text-gray-400">It's quiet right now. Be the first to post!</p>`;
 return;
 }
+
 const games = {};
 recent.forEach(p => { const g = p.game || 'OTHER GAMES'; games[g] = (games[g] || 0) + 1; });
 const [topGame, topGameCount] = Object.entries(games).sort((a, b) => b[1] - a[1])[0];
+
 const tags = {}, mentions = {};
 recent.forEach(p => {
 ((p.caption || '').match(/#[A-Za-z0-9_]{2,}/g) || []).forEach(t => { const k = t.toLowerCase(); tags[k] = (tags[k] || 0) + 1; });
@@ -3449,12 +3965,16 @@ recent.forEach(p => {
 });
 const topTags = Object.entries(tags).sort((a, b) => b[1] - a[1]).slice(0, 3);
 const topMention = Object.entries(mentions).sort((a, b) => b[1] - a[1])[0];
+
 const score = p => (p.ggsCount || 0) + 2 * (p.commentsCount || 0) + (p.tipsTotal || 0) / 10;
 const topPost = [...recent].sort((a, b) => score(b) - score(a))[0];
+
 const creators = {};
 recent.forEach(p => { if (p.user) creators[p.user] = (creators[p.user] || 0) + 1; });
 const [topCreator, topCreatorCount] = Object.entries(creators).sort((a, b) => b[1] - a[1])[0] || [];
+
 const liveNow = (window.liveMatchesCache || []).filter(m => m.state === 'in');
+
 const lines = [];
 lines.push(`🔥 <b class="text-white">${escapeHTML(topGame)}</b> is the hottest game with ${topGameCount} post${topGameCount === 1 ? '' : 's'}.`);
 if (topPost && topPost.caption) {
@@ -3466,17 +3986,21 @@ if (topCreator && topCreatorCount > 1) lines.push(`⭐ ${window.nameLink(topCrea
 if (topTags.length) lines.push(`#️⃣ Trending tags: ${topTags.map(([t, n]) => `<span class="text-cyan-400 font-bold">${escapeHTML(t)}</span> (${n})`).join(', ')}`);
 if (topMention && topMention[1] > 1) lines.push(`👀 Everyone's tagging <span class="text-cyan-400 font-bold">${escapeHTML(topMention[0])}</span>.`);
 if (liveNow.length) lines.push(`⚽ ${liveNow.length} real match${liveNow.length === 1 ? ' is' : 'es are'} live right now — e.g. ${escapeHTML(liveNow[0].home.abbr)} ${escapeHTML(liveNow[0].home.score)}-${escapeHTML(liveNow[0].away.score)} ${escapeHTML(liveNow[0].away.abbr)}.`);
+
 box.innerHTML = `
 <h3 class="text-xs font-black text-white uppercase tracking-wider">✨ What people are talking about</h3>
 <div class="space-y-2">${lines.map(l => `<p class="text-xs text-gray-300 leading-relaxed">${l}</p>`).join('')}</div>`;
 };
+
 window.renderTrendingTopics = function() {
 if (window.renderCommunityPulse) window.renderCommunityPulse();
 const container = document.getElementById('dynamicTrendingTopicsList');
 if (!container) return;
 window.renderTrendingTopicsList(container);
 };
+
 window.TREND_STOPWORDS = new Set(('a an the and or but if then so of to in on at for from by with without about as is are was were be been being am do does did have has had i me my mine you your yours he him his she her it its we us our they them their this that these those there here what which who whom whose when where why how all any both each few more most other some such no nor not only own same than too very can will just dont should now im ive youre thats its lets get got go going gonna wanna really one two also like yes yeah ok okay lol omg pls please hey hi hello guys bro man today tomorrow yesterday time day week still even much many make made see seen know need want new good great nice best well back out up down over into off again ever every way thing things post posts game games play played playing').split(' '));
+
 window.computeTrends = function() {
 const posts = window.fypposts || [];
 const now = Date.now();
@@ -3489,10 +4013,12 @@ t.score += weight * engagement / (1 + ageH / 24);
 t.posts.add(post.docId || post.id);
 const g = post.game || 'GAMING'; t.games[g] = (t.games[g] || 0) + 1;
 };
+
 posts.forEach(p => {
 const text = (p.caption || '').replace(/https?:\/\/\S+/g, ' ');
 const seen = new Set();
 const once = (key, ...rest) => { if (!seen.has(key)) { seen.add(key); add(key, ...rest); } };
+
 (text.match(/#[A-Za-z0-9_]{2,}/g) || []).forEach(h => once('#' + h.slice(1).toLowerCase(), h, 3, p, 'tag'));
 (text.match(/@[A-Za-z0-9_]{2,}/g) || []).forEach(m => once('@' + m.slice(1).toLowerCase(), m, 2, p, 'person'));
 (text.match(/\b[A-Z][a-zA-Z0-9']+(?:\s+[A-Z][a-zA-Z0-9']+){0,2}\b/g) || []).forEach(ph => {
@@ -3508,9 +4034,11 @@ keep.forEach(w => once('p:' + w, w, 1, p, 'word'));
 for (let k = 0; k < keep.length - 1; k++) once('p:' + keep[k] + ' ' + keep[k + 1], keep[k] + ' ' + keep[k + 1], 1.5, p, 'pair');
 if (p.game) once('g:' + p.game.toLowerCase(), p.game, 0.8, p, 'game');
 });
+
 let list = Object.values(terms)
 .filter(t => t.posts.size >= (['word', 'pair', 'name1'].includes(t.kind) ? 2 : 1))
 .sort((a, b) => b.score - a.score);
+
 const picked = [];
 for (const t of list) {
 const norm = (str) => str.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
@@ -3522,6 +4050,7 @@ return xlTight === lowTight || xl.includes(low) || (low.includes(xl) && t.posts.
 picked.push(t);
 if (picked.length >= 10) break;
 }
+
 const live = (window.liveMatchesCache || []).filter(m => m.state === 'in');
 for (const m of live) {
 if (picked.length >= 10) break;
@@ -3529,6 +4058,7 @@ picked.push({ label: `${m.home.abbr} vs ${m.away.abbr}`, score: 0, posts: new Se
 }
 return picked;
 };
+
 window.renderTrendingTopicsList = function(container) {
 const trends = window.computeTrends();
 if (!trends.length) {
@@ -3554,6 +4084,7 @@ return `
 </div>`;
 }).join('');
 };
+
 window.searchTrend = function(term, kind) {
 if (kind === 'live') { window.setLiveLeague && window.setLiveLeague('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
 const input = document.getElementById('globalSearchInput');
@@ -3561,20 +4092,24 @@ if (input) input.value = term;
 window.handleGlobalSearch(term);
 window.scrollTo({ top: 0, behavior: 'smooth' });
 };
+
 window.handleGlobalSearch = function(text) {
 const q = (text || '').trim().toLowerCase();
 const container = document.getElementById('dynamicTrendingTopicsList');
 if (!container) return;
 if (!q) { window.renderTrendingTopics(); return; }
+
 const matches = (window.fypposts || []).filter(p =>
 (p.user && p.user.toLowerCase().includes(q)) ||
 (p.caption && p.caption.toLowerCase().includes(q)) ||
 (p.game && p.game.toLowerCase().includes(q))
 );
+
 if (matches.length === 0) {
 container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No results for "${escapeHTML(q)}".</p>`;
 return;
 }
+
 container.innerHTML = '';
 matches.forEach(p => {
 container.innerHTML += `
@@ -3588,31 +4123,39 @@ container.innerHTML += `
 `;
 });
 };
+
 window.toggleTournamentFormatOptions = function(val) {
 const box = document.getElementById('leagueH2HOptionBox');
 if (box) box.classList.toggle('hidden', val !== 'LEAGUE');
 };
+
 window.closeStickyMediaViewer = function() {
 const viewer = document.getElementById('stickyMediaViewer');
 if (viewer) viewer.classList.add('hidden');
 const content = document.getElementById('stickyMediaContent');
 if (content) content.innerHTML = '';
 };
+
 window.openAccountModal = function() { document.getElementById('accountModal').classList.remove('hidden'); };
 window.closeAccountModal = function() { document.getElementById('accountModal').classList.add('hidden'); };
+
 window.openCreatePostModal = function() { document.getElementById('createPostModal').classList.remove('hidden'); };
 window.closeCreatePostModal = function() { document.getElementById('createPostModal').classList.add('hidden'); };
+
 window.activeZoomPostId = null;
+
 window.openMediaZoomModal = function(type, mediaUrl, postId = null, caption = '') {
 window.activeZoomPostId = postId;
 if (postId) window.countPostView(postId);
 const stage = document.getElementById('mediaZoomStage');
 const title = document.getElementById('mediaZoomTitle');
 if (!stage) return;
+
 if (title) {
 const zp = postId ? (window.fypposts || []).find(p => p.id === postId || p.docId === postId) : null;
 title.innerText = zp ? `${window.dnText(zp.user, zp.displayName)} · ${window.timeAgo(window.postTimeValue(zp))}` : '';
 }
+
 if (type === 'video') {
 stage.innerHTML = `<video src="${window.cldSized(mediaUrl, 1920, 'video')}" poster="${window.cldPoster(mediaUrl, 1080)}" class="max-w-full max-h-full object-contain rounded-2xl" controls autoplay playsinline controlsList="nodownload"></video>`;
 } else if (type === 'image') {
@@ -3628,9 +4171,11 @@ ${tp && tp.game ? `<span class="text-[10px] font-black text-cyan-400 uppercase t
 <p class="${size} font-extrabold text-white text-center leading-snug break-words whitespace-pre-wrap w-full">${formatMentions(text)}</p>
 </div>`;
 }
+
 window.renderZoomInteractions(postId);
 document.getElementById('mediaZoomModal').classList.remove('hidden');
 };
+
 window.enablePinchZoom = function(img) {
 if (!img) return;
 let scale = 1, x = 0, y = 0;
@@ -3645,6 +4190,7 @@ const maxX = (img.clientWidth * (scale - 1)) / 2, maxY = (img.clientHeight * (sc
 x = Math.max(-maxX, Math.min(maxX, x)); y = Math.max(-maxY, Math.min(maxY, y));
 };
 const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+
 img.addEventListener('pointerdown', (e) => {
 img.setPointerCapture(e.pointerId);
 pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -3680,24 +4226,30 @@ if (pts.size === 1) { const p = [...pts.values()][0]; lastX = p.x; lastY = p.y; 
 img.addEventListener('pointerup', end);
 img.addEventListener('pointercancel', end);
 };
+
 window.closeMediaZoomModal = function() {
 if (window.activeZoomPostId) window.endViewStay(window.activeZoomPostId);
 document.getElementById('mediaZoomModal').classList.add('hidden');
 window.activeZoomPostId = null;
 };
+
 window.renderZoomInteractions = function(postId) {
 const bar = document.getElementById('mediaZoomInteractionsBar');
 if (!bar) return;
+
 if (!postId) {
 bar.innerHTML = '';
 return;
 }
+
 const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId);
 if (!post) {
 bar.innerHTML = '';
 return;
 }
+
 const hasGGed = post.ggsBy && post.ggsBy.includes(window.currentUser ? window.currentUser.uid : 'guest_user');
+
 bar.innerHTML = `
 <div class="flex items-center space-x-2 text-xs text-white">
 ${window.nameLink(post.user, 'font-bold text-cyan-400')}
@@ -3719,17 +4271,21 @@ ${window.nameLink(post.user, 'font-bold text-cyan-400')}
 </div>
 `;
 };
+
 window.switchView = function(viewId) {
 document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
 const target = document.getElementById(`view-${viewId}`);
 if (target) target.classList.remove('hidden');
+
 document.querySelectorAll('[id^="nav-"]').forEach(b => {
 b.className = "flex-1 py-2 px-2.5 text-[10px] rounded-xl text-gray-400 font-bold transition hover:text-white whitespace-nowrap";
 });
+
 const activeNav = document.getElementById(`nav-${viewId}`);
 if (activeNav) {
 activeNav.className = "flex-1 py-2 px-2.5 text-[10px] rounded-xl bg-magenta text-white font-extrabold transition shadow-lg whitespace-nowrap";
 }
+
 if (viewId === 'tournaments') {
 window.renderTournamentsTabDedicated();
 } else if (viewId === 'clans') {
@@ -3742,10 +4298,13 @@ window.renderTopAccounts();
 } else if (viewId === 'trending') {
 window.renderTrendingTopics();
 }
+
 if (viewId === 'fyp') setTimeout(() => window.pickFeedVideoToPlay && window.pickFeedVideoToPlay(), 100);
 else if (window.pauseFeedVideos) window.pauseFeedVideos();
 };
+
 window.rankCache = {};
+
 window.fetchRankingPosts = async function(kind) {
 const cached = window.rankCache[kind];
 if (cached && Date.now() - cached.at < 10 * 60000) return cached.posts;
@@ -3767,6 +4326,7 @@ if (kind === 'week') posts = posts.filter(p => Date.now() - window.postTimeValue
 window.rankCache[kind] = { at: Date.now(), posts };
 return posts;
 };
+
 window.buildCreatorStats = function(posts) {
 const map = {};
 posts.forEach(p => {
@@ -3777,6 +4337,7 @@ c.posts++; c.ggs += p.ggsCount || 0; c.replies += p.commentsCount || 0; c.views 
 });
 return Object.values(map);
 };
+
 window.creatorRow = function(c, i, line, score) {
 const medal = ['🥇', '🥈', '🥉'][i];
 const top = i < 3;
@@ -3793,6 +4354,7 @@ ${window.avatarHtml(c.gamertag, 'w-9 h-9', 'rounded-xl', 'text-[10px]').replace(
 <span class="font-black text-cyan-400 text-xs shrink-0 ml-2">${score}</span>
 </div>`;
 };
+
 window.renderLadder = async function() {
 const container = document.getElementById('ladderBody');
 if (!container) return;
@@ -3809,6 +4371,7 @@ container.innerHTML = list.map((c, i) => window.creatorRow(c, i,
 const count = document.getElementById('ladderCount');
 if (count) count.innerText = `${list.length} creator${list.length === 1 ? '' : 's'}`;
 };
+
 window.renderTopAccounts = async function() {
 const container = document.getElementById('topAccountsList');
 if (!container) return;
@@ -3820,13 +4383,16 @@ container.innerHTML = list.map((c, i) => window.creatorRow(c, i,
 `${c.posts} post${c.posts === 1 ? '' : 's'} · ${window.formatCount(c.views)} views all-time`,
 `${window.formatCount(c.ggs)} GGs`)).join('');
 };
+
 window.sendChatMessage = function() {
 const input = document.getElementById('chatInputMsg');
 if (!input) return;
 const text = input.value.trim();
 if (!text) return;
+
 const me = (window.myUsername || '@Guest').replace('@', '');
 const box = document.getElementById('chatMessagesBox');
+
 if (box) {
 box.innerHTML += `
 <div class="bg-gg-900 p-2.5 rounded-xl border border-cyan-500/15 space-y-0.5">
@@ -3839,11 +4405,14 @@ box.innerHTML += `
 `;
 box.scrollTop = box.scrollHeight;
 }
+
 input.value = '';
 };
+
 window.toggleVoiceLobbyConnection = function() {
 const label = document.getElementById('voiceStatusLabel');
 const btn = document.getElementById('voiceLobbyToggleBtn');
+
 if (label && label.innerText.includes('Disconnected')) {
 label.innerText = 'Voice Connected (Live)';
 label.className = 'text-[9px] text-emerald-400 font-extrabold animate-pulse';
@@ -3856,14 +4425,19 @@ if (btn) btn.innerHTML = `<i class="fa-solid fa-microphone"></i><span>Join Voice
 showToast("Voice Channel Disconnected.");
 }
 };
+
 window.initApp = async function() {
 window.updateCoinDisplay();
 pruneExpiredEphemeralData();
+
 await window.initStories();
 setTimeout(() => window.cleanupExpiredStories(), 8000);
+
 if (window.listenToCloudPosts) window.listenToCloudPosts();
 if (window.listenToFirestoreSquads) window.listenToFirestoreSquads();
+
 if (window.listenToFirestoreMarket) window.listenToFirestoreMarket();
+
 if (window.renderFypFeed) window.renderFypFeed();
 if (window.renderClansList) window.renderClansList();
 if (window.renderTournamentsTab) window.renderTournamentsTab();
@@ -3872,6 +4446,8 @@ if (window.renderMarketList) window.renderMarketList();
 if (window.renderTrendingTopics) window.renderTrendingTopics();
 if (window.loadLiveMatches) window.loadLiveMatches();
 };
+
+
 window.me = function() { return (window.myUsername || '').replace('@', ''); };
 window.meLower = function() { return window.me().toLowerCase(); };
 window.isSignedIn = function() { return !!(window.currentUser && window.db); };
@@ -3897,7 +4473,9 @@ return v;
 };
 return clean(obj);
 };
+
 window.profileCache = {};
+
 window.getProfile = async function(tag, force = false) {
 const key = (tag || '').replace('@', '').toLowerCase();
 if (!key) return null;
@@ -3914,6 +4492,7 @@ window.profileCache[key] = { at: Date.now(), data };
 if (data) window.userProfiles[key] = { ...(window.userProfiles[key] || {}), ...data };
 return data;
 };
+
 window.ensureMyProfile = async function() {
 if (!window.isSignedIn()) return;
 const key = window.meLower();
@@ -3938,6 +4517,7 @@ showToast(`⚠️ The gamertag @${window.hnd(window.me())} belongs to another ac
 window.profileCache[key] = null;
 } catch (e) { console.warn('Profile setup failed', e); }
 };
+
 window.saveUserProfileChanges = async function() {
 const key = window.meLower();
 const updated = {
@@ -3961,7 +4541,9 @@ showToast("Profile saved on this phone. Sign in to share it.");
 window.closeEditProfileModal();
 window.openUserProfileModal(window.me());
 };
+
 window.myFollowing = { uids: new Set(), users: new Set() };
+
 window.loadMyFollowing = async function() {
 window.myFollowing = { uids: new Set(), users: new Set() };
 if (!window.isSignedIn()) return;
@@ -3971,7 +4553,9 @@ snap.forEach(d => { const f = d.data(); window.myFollowing.uids.add(f.toUid); wi
 } catch (e) {}
 if (window.feedMode === 'following') window.renderFypFeed();
 };
+
 window.amFollowing = function(tag) { return window.myFollowing.users.has((tag || '').toLowerCase()); };
+
 window.countFollows = async function(field, uid) {
 if (!window.db || !uid) return 0;
 try {
@@ -3981,6 +4565,7 @@ return res.data().count;
 try { const s = await getDocs(query(collection(window.db, 'follows'), where(field, '==', uid), limit(1000))); return s.size; } catch (err) { return 0; }
 }
 };
+
 window.toggleFollowUser = async function(tag) {
 if (window.needSignIn('follow gamers')) return;
 const prof = await window.getProfile(tag);
@@ -4003,19 +4588,23 @@ window.notify(prof.uid, 'follow', { text: 'started following you' });
 } catch (e) { showToast("⚠️ Couldn't update follow. Check your connection."); }
 window.openUserProfileModal(tag);
 };
+
 window._baseOpenUserProfileModal = window._baseOpenUserProfileModal || window.openUserProfileModal;
 window.openUserProfileModal = function(username, e = null) {
 window._baseOpenUserProfileModal(username, e);
 const tag = (username || '').replace('@', '');
 window.enhanceProfileView(tag);
 };
+
 window.enhanceProfileView = async function(tag) {
 const isMine = window.isSignedIn() && tag.toLowerCase() === window.meLower();
 const editBtn = document.getElementById('profileEditBtn');
 if (editBtn) editBtn.classList.toggle('hidden', !isMine);
+
 ['profileFollowersCount', 'profileFollowingCount'].forEach(id => { const el = document.getElementById(id); if (el) el.innerText = '…'; });
 const prof = await window.getProfile(tag);
 if (window.activeProfileUser !== tag) return; // user opened someone else meanwhile
+
 if (prof) {
 if (prof.displayName) document.getElementById('profileDisplayName').innerText = prof.displayName;
 if (prof.bio) document.getElementById('profileBioText').innerText = prof.bio;
@@ -4029,6 +4618,7 @@ link.innerText = prof.website.replace(/^https?:\/\//, '');
 link.href = prof.website.startsWith('http') ? prof.website : `https://${prof.website}`;
 }
 }
+
 const followersEl = document.getElementById('profileFollowersCount');
 const followingEl = document.getElementById('profileFollowingCount');
 if (prof && prof.uid) {
@@ -4040,6 +4630,7 @@ if (followingEl) followingEl.innerText = window.formatCount(following);
 if (followersEl) followersEl.innerText = '0';
 if (followingEl) followingEl.innerText = '0';
 }
+
 const followBtn = document.getElementById('profileFollowBtn');
 const moreBtn = document.getElementById('profileMoreBtn');
 if (followBtn) {
@@ -4057,6 +4648,7 @@ moreBtn.classList.toggle('hidden', isMine);
 moreBtn.onclick = () => window.openUserActions(tag);
 }
 };
+
 window.feedMode = 'foryou';
 window.setFeedMode = function(mode) {
 window.feedMode = mode;
@@ -4067,6 +4659,7 @@ if (b) b.className = `flex-1 py-2 text-xs font-black transition border-b-2 ${m =
 if (mode === 'following' && window.needSignIn('see posts from people you follow')) { window.setFeedMode('foryou'); return; }
 window.renderFypFeed();
 };
+
 window._baseGetOrderedFeed = window._baseGetOrderedFeed || window.getOrderedFeed;
 window.getOrderedFeed = function() {
 let list = window._baseGetOrderedFeed();
@@ -4076,6 +4669,7 @@ list = list.filter(p => window.myFollowing.uids.has(p.uid) || window.myFollowing
 }
 return list;
 };
+
 window._baseRenderFypFeed = window._baseRenderFypFeed || window.renderFypFeed;
 window.renderFypFeed = function() {
 window._baseRenderFypFeed();
@@ -4088,8 +4682,10 @@ box.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center space-y-2">
 </div>`;
 }
 };
+
 window.notifList = [];
 window.notifUnsub = null;
+
 window.notify = async function(toUid, type, extra = {}) {
 if (!window.isSignedIn() || !toUid || toUid === window.currentUser.uid) return;
 try {
@@ -4099,6 +4695,7 @@ postId: extra.postId || null, text: (extra.text || '').slice(0, 140), read: fals
 }));
 } catch (e) {}
 };
+
 window.notifyMentions = async function(text, postId, what) {
 const tags = [...new Set(((text || '').match(/@[A-Za-z0-9_]{2,}/g) || []).map(t => t.slice(1).toLowerCase()))].slice(0, 10);
 for (const t of tags) {
@@ -4106,6 +4703,7 @@ const prof = await window.getProfile(t);
 if (prof && prof.uid) window.notify(prof.uid, 'mention', { postId, text: `mentioned you in a ${what}` });
 }
 };
+
 window.listenToNotifications = function() {
 if (window.notifUnsub) { window.notifUnsub(); window.notifUnsub = null; }
 window.notifList = [];
@@ -4127,12 +4725,14 @@ window.notifPrimed = true;
 if (!document.getElementById('notifModal').classList.contains('hidden')) window.renderNotifications();
 }, (e) => console.warn('Notifications listener:', e));
 };
+
 window.notifText = function(n) {
 return ({ gg: 'GG\'d your post', reply: 'replied to your post', mention: n.text || 'mentioned you', follow: 'started following you', dm: 'sent you a message', tournament: n.text || 'joined your tournament', squad: n.text || 'joined your squad' })[n.type] || n.text || '';
 };
 window.notifIcon = function(type) {
 return ({ gg: 'fa-thumbs-up text-cyan-400', reply: 'fa-comment text-emerald-400', mention: 'fa-at text-magenta', follow: 'fa-user-plus text-amber-400', dm: 'fa-envelope text-blue-400', tournament: 'fa-trophy text-amber-400', squad: 'fa-shield-halved text-emerald-400' })[type] || 'fa-bell text-gray-400';
 };
+
 window.updateNotifBadge = function() {
 const notifUnread = window.notifList.filter(n => !n.read && !['dm', 'group'].includes(n.type)).length;
 const dmUnread = window.notifList.filter(n => !n.read && ['dm', 'group'].includes(n.type)).length;
@@ -4141,6 +4741,7 @@ set('notifBadge', notifUnread);
 set('dmBadge', dmUnread);
 set('drawerNotifBadge', notifUnread);
 };
+
 window.openNotifications = function() {
 if (window.needSignIn('get notifications')) return;
 document.getElementById('notifModal').classList.remove('hidden');
@@ -4154,6 +4755,7 @@ window.updateNotifBadge();
 }, 1500);
 };
 window.closeNotifications = function() { document.getElementById('notifModal').classList.add('hidden'); };
+
 window.renderNotifications = function() {
 const box = document.getElementById('notifList');
 const list = window.notifList.filter(n => !['dm', 'group'].includes(n.type) && !window.isBlocked(n.fromUser));
@@ -4171,6 +4773,7 @@ box.innerHTML = list.map(n => `
 ${n.read ? '' : '<span class="w-2 h-2 rounded-full bg-cyan-400 mt-1.5"></span>'}
 </div>`).join('');
 };
+
 window.openNotification = function(id) {
 const n = window.notifList.find(x => x.id === id);
 if (!n) return;
@@ -4179,6 +4782,7 @@ if (n.postId && window.findPost(n.postId)) window.openPostDetail(n.postId, n.typ
 else if (n.postId) { location.hash = '#post=' + n.postId; }
 else window.openUserProfileModal(n.fromUser);
 };
+
 window._baseToggleGGPost = window._baseToggleGGPost || window.toggleGGPost;
 window.toggleGGPost = async function(postId) {
 const p = window.findPost(postId);
@@ -4187,6 +4791,7 @@ const wasOn = p && p.ggsBy && p.ggsBy.includes(uid);
 await window._baseToggleGGPost(postId);
 if (p && !wasOn && p.uid) window.notify(p.uid, 'gg', { postId });
 };
+
 window._baseSubmitCommentReply = window._baseSubmitCommentReply || window.submitCommentReply;
 window.submitCommentReply = async function() {
 const text = (document.getElementById('commentInputText').value || '').trim();
@@ -4198,18 +4803,22 @@ if (p.uid) window.notify(p.uid, 'reply', { postId, text: 'replied to your post' 
 window.notifyMentions(text, postId, 'reply');
 }
 };
+
 window.blockedUsers = new Set((() => { try { return JSON.parse(localStorage.getItem('sinless_blocked') || '[]'); } catch (e) { return []; } })());
 window.REPORT_HIDE_AT = 3;
+
 window.isBlocked = function(tag) { return window.blockedUsers.has((tag || '').toLowerCase()); };
 window.isHiddenByReports = function(p) {
 return (p.reportsCount || 0) >= window.REPORT_HIDE_AT && !window.isMyPost(p) && window.meLower() !== 'sinlessgaming';
 };
+
 window.saveBlocked = async function() {
 localStorage.setItem('sinless_blocked', JSON.stringify([...window.blockedUsers]));
 if (window.isSignedIn()) {
 try { await setDoc(doc(window.db, 'users', window.currentUser.uid), { blocked: [...window.blockedUsers] }, { merge: true }); } catch (e) {}
 }
 };
+
 window.loadBlocked = async function() {
 if (!window.isSignedIn()) return;
 try {
@@ -4221,6 +4830,7 @@ window.renderFypFeed();
 }
 } catch (e) {}
 };
+
 window.blockUser = async function(tag) {
 const ok = await window.sgConfirm(`You won't see posts, replies, stories or messages from @${window.hnd(tag)}. You can unblock them later in Account Settings.`, { title: `Block @${window.hnd(tag)}?`, okText: 'Block', danger: true });
 if (!ok) return;
@@ -4232,12 +4842,14 @@ window.closePostDetail && window.activeDetailPostId && window.closePostDetail();
 window.renderFypFeed(); window.mergeStories && window.mergeStories();
 showToast(`🚫 @${window.hnd(tag)} blocked.`);
 };
+
 window.unblockUser = async function(tag) {
 window.blockedUsers.delete(tag.toLowerCase());
 await window.saveBlocked();
 window.renderBlockedList(); window.renderFypFeed(); window.mergeStories && window.mergeStories();
 showToast(`@${window.hnd(tag)} unblocked.`);
 };
+
 window.renderBlockedList = function() {
 const box = document.getElementById('blockedUsersList');
 if (!box) return;
@@ -4248,12 +4860,14 @@ box.innerHTML = list.length ? list.map(t => `
 <button onclick="window.unblockUser('${escapeHTML(t)}')" class="text-cyan-400 font-bold">Unblock</button>
 </div>`).join('') : `<p class="text-[10px] text-gray-500">You haven't blocked anyone.</p>`;
 };
+
 window.reportPost = function(postId) {
 if (window.needSignIn('report posts')) return;
 window.reportTarget = postId;
 document.getElementById('reportSheet').classList.remove('hidden');
 };
 window.closeReportSheet = function() { document.getElementById('reportSheet').classList.add('hidden'); };
+
 window.submitReport = async function(reason) {
 const postId = window.reportTarget;
 window.closeReportSheet();
@@ -4270,6 +4884,7 @@ if (p) p.reportsCount = (p.reportsCount || 0) + 1;
 showToast("🛡️ Thanks — report sent. We'll review it.");
 } catch (e) { showToast("⚠️ Couldn't send report. Try again."); }
 };
+
 window.openPostActions = function(postId) {
 const p = window.findPost(postId);
 if (!p) return;
@@ -4301,9 +4916,11 @@ document.getElementById('actionSheet').classList.add('hidden');
 const it = window.actionSheetItems[i];
 if (it) it.run();
 };
+
 window.tournamentsList = (window.tournamentsList || []).filter(t => t.id !== 'tourn_1'); // remove old sample
 if (!window.tournamentsList.find(t => t.id === (window.activeTournament && window.activeTournament.id))) window.activeTournament = window.tournamentsList[0] || null;
 window.cloudTournamentIds = new Set();
+
 window.saveTournament = async function(t, isNew = false) {
 try { localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList)); } catch (e) {}
 if (!t) return;
@@ -4322,6 +4939,7 @@ console.warn('Tournament sync failed', e);
 showToast("⚠️ Couldn't sync tournament. Only the host can change some things.");
 }
 };
+
 window.listenToTournaments = function() {
 if (!window.db) return;
 onSnapshot(query(collection(window.db, 'tournaments'), orderBy('createdAt', 'desc'), limit(60)), (snap) => {
@@ -4341,12 +4959,14 @@ window.renderTournamentsTabDedicated && window.renderTournamentsTabDedicated();
 window.uploadMyLocalTournaments();
 }, (e) => console.warn('Tournaments listener:', e));
 };
+
 window.uploadMyLocalTournaments = function() {
 if (!window.isSignedIn() || window.uploadedLocalTourns) return;
 window.uploadedLocalTourns = true;
 (window.tournamentsList || []).filter(t => !window.cloudTournamentIds.has(t.id) && (t.host || '').toLowerCase() === window.meLower())
 .forEach(t => window.saveTournament(t, true));
 };
+
 window.confirmDeleteTournament = async function() {
 const id = window.activeDeleteTournamentId;
 if (!id) return;
@@ -4361,6 +4981,7 @@ window.closeDeleteTournamentModal();
 window.renderTournamentsTab && window.renderTournamentsTab();
 window.renderTournamentsTabDedicated && window.renderTournamentsTabDedicated();
 };
+
 (function wrapTournamentActions() {
 const wrap = (name, pick, needAuth) => {
 const base = window[name];
@@ -4384,6 +5005,7 @@ wrap('hostApproveMatch', active, null);
 wrap('addLeagueMatch', byArg, null);
 const baseManual = window.manualAddPlayer;
 window.manualAddPlayer = function(tournId, matchId, slot) { window._lastManualCtx = { tournId }; return baseManual(tournId, matchId, slot); };
+
 const baseJoin = window.joinActiveTournament;
 window.joinActiveTournament = async function(id) {
 await baseJoin(id);
@@ -4391,9 +5013,11 @@ const t = window.tournamentsList.find(x => x.id === id);
 if (t && t.hostUid && (t.players || []).some(p => p.toLowerCase() === window.meLower())) window.notify(t.hostUid, 'tournament', { text: `joined your tournament ${t.title}` });
 };
 })();
+
 window.squadMsgUnsub = null;
 window.cloudSquadIds = new Set();
 window.squadsLoadedOnce = false;
+
 window.listenToFirestoreSquads = function() {
 if (!window.db) return;
 onSnapshot(query(collection(window.db, 'squads'), limit(200)), (snap) => {
@@ -4420,6 +5044,7 @@ if (fresh) { fresh.rooms = window.activeSquadDetails.rooms; window.activeSquadDe
 window.renderClansList && window.renderClansList();
 }, (e) => console.warn('Squads listener:', e));
 };
+
 window.ensureOfficialHubs = function() {
 if (!window.isSignedIn() || !window.squadsLoadedOnce || window.hubsEnsured) return;
 window.hubsEnsured = true;
@@ -4429,10 +5054,12 @@ const { rooms, ...info } = h;
 setDoc(doc(window.db, 'squads', h.id), window.cleanForCloud({ ...info, members: [], memberUids: [], ownerUid: window.meLower() === 'sinlessgaming' ? window.currentUser.uid : null, createdAt: serverTimestamp() })).catch(() => {});
 });
 };
+
 window.isSquadMember = function(squad) {
 return (squad.members || []).some(m => (m || '').toLowerCase() === window.meLower()) ||
 (window.currentUser && (squad.memberUids || []).includes(window.currentUser.uid));
 };
+
 window.toggleSquadMembership = async function(squadId) {
 if (window.needSignIn('join squads')) return;
 const squad = window.clansData.find(c => c.id === squadId);
@@ -4460,6 +5087,7 @@ showToast(isMember ? `Left ${squad.name}` : `✅ Joined ${squad.name}!`);
 if (!isMember && squad.ownerUid) window.notify(squad.ownerUid, 'squad', { text: `joined your squad ${squad.name}` });
 } catch (e) { showToast("⚠️ Couldn't update squad. Try again in a moment."); }
 };
+
 window.submitNewSquad = async function() {
 if (window.needSignIn('create squads')) return;
 const name = document.getElementById('squadNameInput').value.trim();
@@ -4487,6 +5115,7 @@ showToast(`🔥 Squad [${tag}] ${name} created! Invite code: ${squad.inviteCode}
 window.closeCreateClanModal();
 } catch (e) { showToast("⚠️ Couldn't create squad. Try again."); }
 };
+
 window._baseOpenSquadDetailsModal = window._baseOpenSquadDetailsModal || window.openSquadDetailsModal;
 window.openSquadDetailsModal = function(squadId) {
 const squad = window.clansData.find(c => c.id === squadId);
@@ -4495,6 +5124,7 @@ squad.rooms = squad.rooms || {};
 window._baseOpenSquadDetailsModal(squadId);
 window.listenToSquadMessages(squad);
 };
+
 window.listenToSquadMessages = function(squad) {
 if (window.squadMsgUnsub) { window.squadMsgUnsub(); window.squadMsgUnsub = null; }
 if (!window.db || !window.cloudSquadIds.has(squad.id)) return;
@@ -4519,11 +5149,13 @@ const box = document.getElementById('squadRoomMsgsBox');
 if (box && e && e.code === 'permission-denied') box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">🔒 This is a private squad. Join it to read the chat.</p>`;
 });
 };
+
 window._baseCloseSquadDetailsModal = window._baseCloseSquadDetailsModal || window.closeSquadDetailsModal;
 window.closeSquadDetailsModal = function() {
 if (window.squadMsgUnsub) { window.squadMsgUnsub(); window.squadMsgUnsub = null; }
 window._baseCloseSquadDetailsModal();
 };
+
 window.sendSquadMessage = async function(payload) {
 const squad = window.activeSquadDetails;
 const room = window.activeSquadSubRoom;
@@ -4545,6 +5177,7 @@ await addDoc(collection(window.db, 'squads', squad.id, 'messages'), window.clean
 if (payload.text) window.notifyMentions(payload.text, null, `${squad.name} chat`);
 } catch (e) { showToast("⚠️ Message not sent. Check your connection."); }
 };
+
 window.sendSquadRoomMessage = function() {
 const input = document.getElementById('squadSubRoomInput');
 const text = (input.value || '').trim();
@@ -4552,6 +5185,7 @@ if (!text) return;
 input.value = '';
 window.sendSquadMessage({ text, isImage: false });
 };
+
 window.sendInChatImage = async function(context) {
 const input = document.getElementById(context === 'squad' ? 'squadChatImageInput' : 'dmChatImageInput');
 const file = input && input.files && input.files[0];
@@ -4564,10 +5198,12 @@ if (context === 'squad') await window.sendSquadMessage({ isImage: true, imageUrl
 else await window.sendDmMessage({ isImage: true, imageUrl: up.url, text: '' });
 } catch (e) { showToast(`⚠️ Photo failed: ${e.message}`); }
 };
+
 window.updateSquadCloud = async function(squad, fields, okMsg) {
 try { await updateDoc(doc(window.db, 'squads', squad.id), window.cleanForCloud(fields)); if (okMsg) showToast(okMsg); }
 catch (e) { showToast("⚠️ Only the squad owner can do that."); }
 };
+
 window.toggleSquadAdmin = function(member) {
 const squad = window.activeSquadDetails;
 if (!squad) return;
@@ -4577,6 +5213,7 @@ squad.admins = isAdmin ? squad.admins.filter(a => a.toLowerCase() !== member.toL
 window.switchSquadSubRoom('Roster');
 window.updateSquadCloud(squad, { admins: squad.admins }, isAdmin ? `Removed @${window.hnd(member)} as admin.` : `🛡️ @${window.hnd(member)} is now an admin!`);
 };
+
 window.transferOwnership = async function(newOwner) {
 const squad = window.activeSquadDetails;
 if (!squad) return;
@@ -4587,6 +5224,7 @@ if (!prof || !prof.uid) { showToast(`@${window.hnd(newOwner)} needs to sign in o
 const admins = [...new Set([...(squad.admins || []), newOwner])];
 await window.updateSquadCloud(squad, { owner: newOwner, leader: newOwner, ownerUid: prof.uid, admins }, `👑 @${window.hnd(newOwner)} now owns ${squad.name}!`);
 };
+
 window.promptCreateSubRoom = async function() {
 const squad = window.activeSquadDetails;
 if (!squad) return;
@@ -4598,6 +5236,7 @@ squad.subRooms = [...(squad.subRooms || []), clean];
 await window.updateSquadCloud(squad, { subRooms: squad.subRooms }, `#${clean} created!`);
 window.switchSquadSubRoom(clean);
 };
+
 window.deleteSubRoom = async function(room) {
 const squad = window.activeSquadDetails;
 if (!squad) return;
@@ -4607,6 +5246,7 @@ squad.subRooms = (squad.subRooms || []).filter(r => r !== room);
 await window.updateSquadCloud(squad, { subRooms: squad.subRooms }, `#${room} deleted.`);
 window.switchSquadSubRoom('chat');
 };
+
 window.bookSquadMatchmakingFixture = async function() {
 const squad = window.activeSquadDetails;
 if (!squad || window.needSignIn('queue for matches')) return;
@@ -4615,6 +5255,7 @@ squad.matchmakingQueue = [entry, ...(squad.matchmakingQueue || [])].slice(0, 30)
 window.switchSquadSubRoom('Matchmaking');
 await window.updateSquadCloud(squad, { matchmakingQueue: squad.matchmakingQueue }, "⚔️ You're in the queue!");
 };
+
 window.acceptSquadChallenge = function(matchId) {
 const squad = window.activeSquadDetails;
 const entry = squad && (squad.matchmakingQueue || []).find(m => m.id === matchId);
@@ -4624,6 +5265,7 @@ window.closeSquadDetailsModal();
 window.openDmModal(entry.challenger);
 setTimeout(() => { const i = document.getElementById('dmInputText'); if (i) i.value = `Hey! I'll take your ${entry.format} challenge from ${squad.name} ⚔️ When are you free?`; }, 400);
 };
+
 window.deleteActiveSquad = async function() {
 const squad = window.activeSquadDetails;
 if (!squad) return;
@@ -4637,11 +5279,14 @@ window.closeSquadDetailsModal();
 window.renderClansList();
 } catch (e) { showToast("⚠️ Only the squad owner can disband it."); }
 };
+
 window.dmThreads = [];
 window.dmInboxUnsub = null;
 window.dmThreadUnsub = null;
 window.activeDm = null;   // { threadId, partnerUid, partnerTag }
+
 window.threadIdFor = function(a, b) { return [a, b].sort().join('_'); };
+
 window.listenToDmInbox = function() {
 if (window.dmInboxUnsub) { window.dmInboxUnsub(); window.dmInboxUnsub = null; }
 window.dmThreads = [];
@@ -4654,6 +5299,7 @@ window.dmThreads.sort((a, b) => window.postTimeValue({ createdAt: b.lastAt }) - 
 if (!window.activeDm && !document.getElementById('dmModal').classList.contains('hidden')) window.renderDmInbox();
 }, (e) => console.warn('DM inbox:', e));
 };
+
 window.openDmModal = async function(username = null, e = null) {
 if (e) { e.preventDefault(); e.stopPropagation(); }
 if (window.needSignIn('send messages')) return;
@@ -4661,12 +5307,14 @@ document.getElementById('dmModal').classList.remove('hidden');
 if (username && typeof username === 'string') await window.openDmThread(username.replace('@', ''));
 else window.showDmInbox();
 };
+
 window.closeDmModal = function() {
 if (window.dmThreadUnsub) { window.dmThreadUnsub(); window.dmThreadUnsub = null; }
 window.activeDm = null;
 window.activeDmUser = null;
 document.getElementById('dmModal').classList.add('hidden');
 };
+
 window.showDmInbox = function() {
 if (window.dmThreadUnsub) { window.dmThreadUnsub(); window.dmThreadUnsub = null; }
 window.activeDm = null; window.activeDmUser = null;
@@ -4676,6 +5324,7 @@ document.getElementById('dmComposer').classList.add('hidden');
 document.getElementById('dmNewChatRow').classList.remove('hidden');
 window.renderDmInbox();
 };
+
 window.renderDmInbox = function() {
 const box = document.getElementById('dmMessagesContainer');
 const uid = window.currentUser && window.currentUser.uid;
@@ -4703,6 +5352,7 @@ ${unread ? '<span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>' : ''}
 </div>`;
 }).join('');
 };
+
 window.startDmFromInput = function() {
 const i = document.getElementById('dmNewChatInput');
 const tag = (i.value || '').trim().replace('@', '');
@@ -4710,6 +5360,7 @@ if (!tag) return;
 i.value = '';
 window.openDmThread(tag);
 };
+
 window.openDmThread = async function(tag) {
 if (tag.toLowerCase() === window.meLower()) { showToast("That's you 😄"); return; }
 if (window.isBlocked(tag)) { showToast(`You blocked @${window.hnd(tag)}. Unblock them in Account Settings to chat.`); return; }
@@ -4727,10 +5378,12 @@ document.getElementById('dmHeaderUser').innerText = window.dnText(window.activeD
 document.getElementById('dmBackBtn').classList.remove('hidden');
 document.getElementById('dmComposer').classList.remove('hidden');
 document.getElementById('dmNewChatRow').classList.add('hidden');
+
 window.notifList.filter(n => n.type === 'dm' && !n.read && n.fromUser.toLowerCase() === window.activeDm.partnerTag.toLowerCase()).forEach(n => {
 n.read = true; updateDoc(doc(window.db, 'notifications', n.id), { read: true }).catch(() => {});
 });
 window.updateNotifBadge();
+
 if (window.dmThreadUnsub) window.dmThreadUnsub();
 const q = query(collection(window.db, 'dms', threadId, 'messages'), orderBy('createdAt', 'desc'), limit(150));
 window.dmThreadUnsub = onSnapshot(q, (snap) => {
@@ -4739,6 +5392,7 @@ snap.forEach(d => msgs.unshift({ id: d.id, ...d.data() }));
 window.renderDmMessages(msgs);
 }, () => { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Couldn't load this chat.</p>`; });
 };
+
 window.renderDmMessages = function(msgs) {
 const box = document.getElementById('dmMessagesContainer');
 if (!msgs.length) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Say hi to @${window.hnd(escapeHTML(window.activeDm.partnerTag))} 👋</p>`; return; }
@@ -4759,6 +5413,7 @@ ${body}
 }).join('');
 box.scrollTop = box.scrollHeight;
 };
+
 window.sendDmMessage = async function(payload) {
 const dm = window.activeDm;
 if (!dm || !window.isSignedIn()) return;
@@ -4774,6 +5429,7 @@ await addDoc(collection(window.db, 'dms', dm.threadId, 'messages'), window.clean
 window.notify(dm.partnerUid, 'dm', { text: payload.isAudio ? 'sent you a voice note' : payload.isImage ? 'sent you a photo' : (payload.text || '').slice(0, 60) });
 } catch (e) { showToast("⚠️ Message not sent. Check your connection."); }
 };
+
 window.sendDirectMessage = function() {
 const input = document.getElementById('dmInputText');
 const text = (input.value || '').trim();
@@ -4781,7 +5437,9 @@ if (!text || !window.activeDm) return;
 input.value = '';
 window.sendDmMessage({ text, isImage: false });
 };
+
 window.selectDmTarget = function(tag) { window.openDmThread((tag || '').replace('@', '')); };
+
 window.afterAuthChange = async function(user) {
 const tag = user ? window.me() : 'Guest';
 const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
@@ -4789,6 +5447,7 @@ set('drawerName', user ? (window.myDisplayName || tag) : 'Guest');
 set('drawerTag', user ? '@' + window.hnd(tag) : 'Not signed in');
 const av = document.getElementById('drawerAvatar');
 if (av) { const myP = user && window.profileFor && window.profileFor(tag); av.innerHTML = `<img src="${myP && myP.pfp ? window.cldSized(myP.pfp, 120) : window.SG_DEFAULT_PFP}" class="w-full h-full object-cover rounded-xl" alt="">`; }
+
 window.listenToNotifications();
 window.listenToDmInbox();
 if (user) {
@@ -4804,6 +5463,7 @@ window.myFollowing = { uids: new Set(), users: new Set() };
 window.renderFypFeed && window.renderFypFeed();
 window.renderClansList && window.renderClansList();
 };
+
 window.deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
 e.preventDefault();
@@ -4816,6 +5476,7 @@ showToast('🎉 Sinless GG installed! Find it on your home screen.');
 const item = document.getElementById('installAppItem');
 if (item) item.classList.add('hidden');
 });
+
 window.installApp = async function() {
 if (window.deferredInstallPrompt) {
 window.deferredInstallPrompt.prompt();
@@ -4825,16 +5486,19 @@ window.deferredInstallPrompt = null;
 window.sgConfirm('In Chrome, tap the ⋮ menu (top right), then "Add to Home screen" or "Install app". On iPhone Safari, tap Share → "Add to Home Screen".', { title: '📲 Install Sinless GG', okText: 'Got it', cancelText: 'Close' });
 }
 };
+
 if ('serviceWorker' in navigator) {
 window.addEventListener('load', () => {
 navigator.serviceWorker.register('./sw.js').catch((e) => console.warn('Service worker not registered:', e));
 });
 }
+
 window.openUserFromLink = function() {
 const m = location.hash.match(/^#user=([A-Za-z0-9_]+)/);
 if (m) window.openUserProfileModal(m[1]);
 };
 window.addEventListener('hashchange', window.openUserFromLink);
+
 window._baseInitApp = window._baseInitApp || window.initApp;
 window.initApp = async function() {
 await window._baseInitApp();
@@ -4844,6 +5508,7 @@ window.renderBlockedList();
 window.openUserFromLink();
 window.updateNotifBadge();
 };
+
 window._baseSubmitUniversalPost = window._baseSubmitUniversalPost || window.submitUniversalPost;
 window.submitUniversalPost = async function() {
 const text = (document.getElementById('postTextContent').value || '').trim();
@@ -4851,6 +5516,8 @@ if (window.needSignIn('post')) return;
 await window._baseSubmitUniversalPost();
 if (text) window.notifyMentions(text, null, 'post');
 };
+
+
 window.allProfilesMap = {};
 window.loadAllProfiles = async function() {
 if (!window.db) return;
@@ -4863,19 +5530,23 @@ window.renderFypFeed && window.renderFypFeed();
 window.renderStoriesBar && window.renderStoriesBar();
 } catch (e) { console.warn('Profiles load failed', e); }
 };
+
 window.profileFor = function(tag) {
 const k = (tag || '').replace('@', '').toLowerCase();
 return window.allProfilesMap[k] || (window.profileCache[k] && window.profileCache[k].data) || null;
 };
+
 window.dnText = function(tag, fallback) {
 const p = window.profileFor(tag);
 return (p && p.displayName) || fallback || (tag || 'Gamer').replace('@', '');
 };
 window.dn = function(tag, fallback) { return escapeHTML(window.dnText(tag, fallback)); };
+
 window.nameLink = function(tag, cls = 'font-bold text-white', fallback) {
 const t = escapeHTML((tag || '').replace('@', ''));
 return `<span class="cursor-pointer hover:underline ${cls}" onclick="event.stopPropagation(); window.openUserProfileModal('${t}', event)">${window.dn(tag, fallback)}</span>`;
 };
+
 window.avatarHtml = function(tag, size = 'w-9 h-9', round = 'rounded-xl', textSize = 'text-xs') {
 const p = window.profileFor(tag);
 const t = escapeHTML((tag || '').replace('@', ''));
@@ -4883,8 +5554,10 @@ const click = `onclick="event.stopPropagation(); window.openUserProfileModal('${
 if (p && p.pfp) return `<img ${click} src="${window.cldSized(p.pfp, 120)}" onerror="this.src=window.SG_DEFAULT_PFP" class="${size} ${round} object-cover shrink-0 cursor-pointer bg-gg-900" loading="lazy" alt="">`;
 return `<img ${click} src="${window.SG_DEFAULT_PFP}" class="${size} ${round} object-cover shrink-0 cursor-pointer bg-gg-900" loading="lazy" alt="">`;
 };
+
 window.mentionTargets = ['postTextContent', 'commentInputText', 'postDetailReplyInput', 'dmInputText', 'squadSubRoomInput', 'editPostCaptionInput', 'chatInputMsg'];
 window.mentionState = null;
+
 window.mentionCandidates = function(q) {
 q = (q || '').toLowerCase();
 const seen = new Set(), out = [];
@@ -4899,6 +5572,7 @@ Object.values(window.allProfilesMap).forEach(p => add(p.gamertag, p.displayName)
 (window.fypposts || []).forEach(p => add(p.user, p.displayName));
 return out.sort((a, b) => (a.tag.toLowerCase().startsWith(q) ? 0 : 1) - (b.tag.toLowerCase().startsWith(q) ? 0 : 1)).slice(0, 6);
 };
+
 window.onMentionInput = function(el) {
 const caret = el.selectionStart || el.value.length;
 const before = el.value.slice(0, caret);
@@ -4921,6 +5595,7 @@ box.style.top = below ? (r.bottom + 6) + 'px' : 'auto';
 box.style.bottom = below ? 'auto' : (window.innerHeight - r.top + 6) + 'px';
 box.classList.remove('hidden');
 };
+
 window.pickMention = function(i) {
 const s = window.mentionState;
 if (!s) return;
@@ -4931,11 +5606,13 @@ const pos = s.start + c.tag.length + 2;
 s.el.focus(); s.el.setSelectionRange(pos, pos);
 window.hideMentionBox();
 };
+
 window.hideMentionBox = function() {
 const box = document.getElementById('mentionBox');
 if (box) box.classList.add('hidden');
 window.mentionState = null;
 };
+
 window.setupMentionInputs = function() {
 window.mentionTargets.forEach(id => {
 const el = document.getElementById(id);
@@ -4950,6 +5627,7 @@ if (e.key === 'Escape') window.hideMentionBox();
 }, true);
 });
 };
+
 window.startTagging = function() {
 const el = document.getElementById('postTextContent');
 const v = el.value;
@@ -4957,6 +5635,7 @@ el.value = v + (v && !/\s$/.test(v) ? ' ' : '') + '@';
 el.focus(); el.setSelectionRange(el.value.length, el.value.length);
 window.onMentionInput(el);
 };
+
 window._baseOpenDmModal2 = window._baseOpenDmModal2 || window.openDmModal;
 window.openDmModal = function(username = null, e = null) {
 const prof = document.getElementById('userProfileModal');
@@ -4971,6 +5650,7 @@ window.hideMentionBox();
 window.pauseFeedVideos && window.pauseFeedVideos();
 return window._baseOpenStoryProfile(username, e);
 };
+
 window.rankSort = { week: 'ggs', all: 'ggs' };
 window.setRankSort = function(kind, by) {
 window.rankSort[kind] = by;
@@ -4980,6 +5660,7 @@ b.className = `px-2.5 py-1 rounded-full text-[10px] font-black ${on ? 'bg-white 
 });
 if (kind === 'week') window.renderLadder(); else window.renderTopAccounts();
 };
+
 window.creatorRowV2 = function(c, i, sub) {
 const medal = ['🥇', '🥈', '🥉'][i];
 const top = i < 3;
@@ -4999,6 +5680,7 @@ ${window.avatarHtml(c.gamertag, 'w-9 h-9', 'rounded-xl', 'text-[10px]')}
 </div>
 </div>`;
 };
+
 window.renderLadder = async function() {
 const container = document.getElementById('ladderBody');
 if (!container) return;
@@ -5014,6 +5696,7 @@ container.innerHTML = list.map((c, i) => window.creatorRowV2(c, i, `${c.posts} p
 const count = document.getElementById('ladderCount');
 if (count) count.innerText = `${list.length} creator${list.length === 1 ? '' : 's'}`;
 };
+
 window.renderTopAccounts = async function() {
 const container = document.getElementById('topAccountsList');
 if (!container) return;
@@ -5027,6 +5710,7 @@ const list = window.buildCreatorStats(posts)
 if (!list.length) { container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">No creators yet.</p>`; return; }
 container.innerHTML = list.map((c, i) => window.creatorRowV2(c, i, `${c.posts} post${c.posts === 1 ? '' : 's'} all-time`)).join('');
 };
+
 window.isStandalone = function() {
 return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 };
@@ -5040,6 +5724,7 @@ if (/Edg\//.test(ua)) return 'desktop-edge';
 if (/Safari/.test(ua) && !/Chrome/.test(ua)) return 'desktop-safari';
 return 'desktop-chrome';
 };
+
 window.installApp = async function() {
 if (window.isStandalone()) { showToast("✅ You're already using the installed app!"); return; }
 if (window.deferredInstallPrompt) {
@@ -5064,10 +5749,12 @@ document.getElementById('installSteps').innerHTML = list.map((s, i) => `
 <div class="flex items-start space-x-3"><span class="w-6 h-6 shrink-0 rounded-full bg-cyan-400 text-slate-950 text-xs font-black flex items-center justify-center">${i + 1}</span><p class="text-sm text-gray-200 leading-snug pt-0.5">${s}</p></div>`).join('');
 document.getElementById('installSheet').classList.remove('hidden');
 };
+
 window.refreshInstallItem = function() {
 const item = document.getElementById('installAppItem');
 if (item) item.classList.toggle('hidden', window.isStandalone());
 };
+
 window._baseInitApp2 = window._baseInitApp2 || window.initApp;
 window.initApp = async function() {
 await window._baseInitApp2();
@@ -5077,8 +5764,11 @@ window.loadAllProfiles();
 };
 window._baseSaveProfile2 = window._baseSaveProfile2 || window.saveUserProfileChanges;
 window.saveUserProfileChanges = async function() { await window._baseSaveProfile2(); window.refreshOneProfile && window.refreshOneProfile(window.me()); };
+
+
 window.RESERVED_TAGS = ['guest', 'admin', 'administrator', 'moderator', 'mod', 'support', 'official', 'sinless', 'sinlessgg', 'sinlessgaming', 'staff', 'system'];
 window.validTag = function(t) { return /^[A-Za-z0-9_]{3,20}$/.test(t || ''); };
+
 window.resolveGamertag = async function(user) {
 try {
 const u = await getDoc(doc(window.db, 'users', user.uid));
@@ -5092,6 +5782,7 @@ if (found) { setDoc(doc(window.db, 'users', user.uid), { gamertag: found }, { me
 } catch (e) {}
 return await window.askForGamertag(user);
 };
+
 window.askForGamertag = function(user) {
 return new Promise((resolve) => {
 const modal = document.getElementById('gamertagModal');
@@ -5141,8 +5832,10 @@ status.innerHTML = `<span class="text-red-400">Someone just took @${window.hnd(e
 };
 });
 };
+
 window.isAppAdmin = false;
 window.isBanned = false;
+
 window.checkAdminAndBan = async function(user) {
 if (!user || !window.db) { window.isAppAdmin = false; window.isBanned = false; return; }
 let adm = window.isAppAdmin, ban = window.isBanned;
@@ -5152,12 +5845,14 @@ window.isAppAdmin = adm; window.isBanned = ban;
 document.getElementById('adminPanelItem') && document.getElementById('adminPanelItem').classList.toggle('hidden', !window.isAppAdmin);
 document.getElementById('bannedBanner') && document.getElementById('bannedBanner').classList.toggle('hidden', !window.isBanned);
 };
+
 window._baseNeedSignIn = window._baseNeedSignIn || window.needSignIn;
 window.needSignIn = function(what) {
 if (window._baseNeedSignIn(what)) return true;
 if (window.isBanned) { showToast("🚫 Your account is suspended."); return true; }
 return false;
 };
+
 window._baseAfterAuthChange = window._baseAfterAuthChange || window.afterAuthChange;
 window.afterAuthChange = async function(user) {
 if (user && window.db) {
@@ -5178,17 +5873,20 @@ document.getElementById('bannedBanner') && document.getElementById('bannedBanner
 await window._baseAfterAuthChange(user);
 window.loadAllProfiles && window.loadAllProfiles();
 };
+
 window.copyMyUid = async function() {
 const uid = window.currentUser && window.currentUser.uid;
 if (!uid) return;
 try { await navigator.clipboard.writeText(uid); showToast('📋 User ID copied'); } catch (e) { showToast(uid); }
 };
+
 window._baseGetProfileBadges = window._baseGetProfileBadges || window.getProfileBadges;
 window.getProfileBadges = function(username) {
 const p = window.profileFor ? window.profileFor(username) : null;
 const v = p && p.verified ? '<span class="text-[9px] text-sky-400" title="Verified"><i class="fa-solid fa-circle-check"></i></span> ' : '';
 return v + window._baseGetProfileBadges(username);
 };
+
 window.adminTab = 'reports';
 window.adminBoxFor = function(tab) {
 const el = document.getElementById('adminBody');
@@ -5208,6 +5906,7 @@ b.className = `flex-1 py-2 text-xs font-black border-b-2 ${b.dataset.admintab ==
 });
 ({ reports: window.renderAdminReports, users: window.renderAdminUsers, stats: window.renderAdminStats, ads: window.renderAdminAds })[tab]();
 };
+
 window.renderAdminReports = async function() {
 const box = window.adminBoxFor('reports');
 box.innerHTML = `<p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Loading reports…</p>`;
@@ -5241,6 +5940,7 @@ ${p && p.uid ? `<button onclick="window.adminBan('${p.uid}', '${escapeHTML(p.use
 }
 box.innerHTML = cards.join('');
 };
+
 window.adminDeleteReportsFor = async function(postId) {
 try {
 const s = await getDocs(query(collection(window.db, 'reports'), where('postId', '==', postId), limit(300)));
@@ -5280,6 +5980,7 @@ showToast(on ? `✔ @${window.hnd(tag)} verified!` : `Removed verification from 
 } catch (e) { showToast("⚠️ Couldn't update. Check rules."); }
 window.renderAdminUsers(); window.renderFypFeed();
 };
+
 window.renderAdminUsers = async function() {
 const box = window.adminBoxFor('users');
 const q = (document.getElementById('adminUserSearch') || {}).value || '';
@@ -5308,6 +6009,7 @@ ${banned[p.uid] ? `<button onclick="window.adminUnban('${p.uid}', '${escapeHTML(
 const inp = document.getElementById('adminUserSearch');
 if (inp && q) { inp.focus(); inp.setSelectionRange(q.length, q.length); }
 };
+
 window.renderAdminStats = async function() {
 const box = window.adminBoxFor('stats');
 box.innerHTML = `<p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Counting…</p>`;
@@ -5327,6 +6029,7 @@ ${tile('Squads', squads)}${tile('Tournaments', tourns, 'text-amber-400')}
 ${tile('Open reports', reports, 'text-red-400')}${tile('Banned', banned)}
 </div>`;
 };
+
 window.lobbyUnsub = null;
 window.listenToLobby = function() {
 if (window.lobbyUnsub || !window.db) return;
@@ -5369,6 +6072,7 @@ window.deleteLobbyMessage = async function(id) {
 try { await deleteDoc(doc(window.db, 'lobbyMessages', id)); } catch (e) { showToast("Couldn't delete."); }
 };
 window.toggleVoiceLobbyConnection = function() { showToast("🎙️ Voice rooms are coming soon."); };
+
 window.alertsEnabled = function() { return 'Notification' in window && Notification.permission === 'granted'; };
 window.setupPushNotifications = async function() {
 if (!('Notification' in window)) { showToast("This browser doesn't support alerts. Try installing the app."); return; }
@@ -5399,11 +6103,14 @@ window.phoneAlert(['dm', 'group'].includes(n.type) ? `💬 ${who}` : 'Sinless GG
 }
 window._seenNotifIds = ids;
 };
+
 window._baseSwitchView13 = window._baseSwitchView13 || window.switchView;
 window.switchView = function(v) {
 window._baseSwitchView13(v);
 if (v === 'chat') window.listenToLobby();
 };
+
+
 window.DEFAULT_CHANNELS = [
 { name: 'rules', category: 'INFO', adminOnly: true },
 { name: 'announcements', category: 'INFO', adminOnly: true },
@@ -5413,12 +6120,14 @@ window.DEFAULT_CHANNELS = [
 { name: 'results', category: 'RESULTS', adminOnly: true },
 { name: 'staff-room', category: 'STAFF', staff: true }
 ];
+
 window.squadChannels = function(sq) {
 if (Array.isArray(sq.channels) && sq.channels.length) return sq.channels;
 return (sq.subRooms || ['Rules/Announcements', 'chat']).filter(r => r !== 'Matchmaking').map(r =>
 r === 'Rules/Announcements' ? { name: r, category: 'INFO', adminOnly: true } : { name: r, category: 'TEXT CHANNELS' });
 };
 window.channelOf = function(sq, name) { return window.squadChannels(sq).find(c => c.name === name) || null; };
+
 window.uidNow = function() { return window.currentUser ? window.currentUser.uid : null; };
 window.isSquadOwner = function(sq) {
 if (!sq || !window.currentUser) return false;
@@ -5440,6 +6149,7 @@ return 'member';
 window.roleBadge = function(role) {
 return role === 'owner' ? '<span class="text-[9px] text-amber-400 ml-1" title="Owner">👑</span>' : role === 'admin' ? '<span class="text-[9px] text-cyan-400 ml-1" title="Admin">🛡️</span>' : '';
 };
+
 window.openSquadDetailsModal = function(squadId) {
 const sq = window.clansData.find(c => c.id === squadId);
 if (!sq) return;
@@ -5453,6 +6163,7 @@ window.renderSquadHeader();
 window.renderSquadChannel();
 window.listenToSquadMessages(sq);
 };
+
 window.closeSquadDetailsModal = function() {
 if (window.squadMsgUnsub) { window.squadMsgUnsub(); window.squadMsgUnsub = null; }
 if (window.squadStaffUnsub) { window.squadStaffUnsub(); window.squadStaffUnsub = null; }
@@ -5460,6 +6171,7 @@ document.getElementById('squadDetailsModal').classList.add('hidden');
 ['squadChannelSheet', 'squadSettingsSheet'].forEach(id => document.getElementById(id).classList.add('hidden'));
 window.activeSquadDetails = null;
 };
+
 window.renderSquadHeader = function() {
 const sq = window.activeSquadDetails;
 if (!sq) return;
@@ -5477,12 +6189,14 @@ document.getElementById('squadSubRoomsNav').innerHTML = `
 <button onclick="window.switchSquadSubRoom('Members')" class="px-3 py-2 rounded-xl text-xs font-bold ${ch === 'Members' ? 'bg-cyan-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'}">👥</button>
 <button onclick="window.switchSquadSubRoom('Matchmaking')" class="px-3 py-2 rounded-xl text-xs font-bold ${ch === 'Matchmaking' ? 'bg-cyan-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-cyan-500/20'}">⚔️</button>`;
 };
+
 window.switchSquadSubRoom = function(room) {
 window.activeSquadSubRoom = room;
 document.getElementById('squadChannelSheet').classList.add('hidden');
 window.renderSquadHeader();
 window.renderSquadChannel();
 };
+
 window.openChannelSheet = function() {
 const sq = window.activeSquadDetails;
 if (!sq) return;
@@ -5503,6 +6217,7 @@ ${admin ? `<button onclick="window.editChannel('${escapeHTML(c.name)}')" class="
 <button onclick="window.editChannel(null)" class="w-full mt-3 py-2.5 rounded-xl border border-dashed border-cyan-500/40 text-cyan-400 text-xs font-black">+ Create channel</button>` : '');
 document.getElementById('squadChannelSheet').classList.remove('hidden');
 };
+
 window.editChannel = function(name) {
 const sq = window.activeSquadDetails;
 const c = name ? window.channelOf(sq, name) : { name: '', category: 'TEXT CHANNELS' };
@@ -5518,6 +6233,7 @@ document.getElementById('channelDeleteBtn').classList.toggle('hidden', !name);
 document.getElementById('channelEditSheet').classList.remove('hidden');
 };
 window.closeChannelEdit = function() { document.getElementById('channelEditSheet').classList.add('hidden'); };
+
 window.saveChannel = async function() {
 const sq = window.activeSquadDetails;
 const inp = document.getElementById('channelNameInput');
@@ -5536,6 +6252,7 @@ await window.saveSquadChannels(sq, chans, original ? `#${keepName} updated.` : `
 window.closeChannelEdit();
 window.switchSquadSubRoom(keepName);
 };
+
 window.deleteChannel = async function() {
 const sq = window.activeSquadDetails;
 const name = document.getElementById('channelNameInput').dataset.original;
@@ -5548,6 +6265,7 @@ await window.saveSquadChannels(sq, chans, `#${name} deleted.`);
 window.closeChannelEdit();
 window.switchSquadSubRoom((chans.find(c => c.name === 'chat') || chans[0]).name);
 };
+
 window.saveSquadChannels = async function(sq, chans, msg) {
 sq.channels = chans;
 sq.subRooms = chans.map(c => c.name);
@@ -5555,6 +6273,7 @@ sq.adminOnlyRooms = chans.filter(c => c.adminOnly).map(c => c.name);
 await window.updateSquadCloud(sq, { channels: chans, subRooms: sq.subRooms, adminOnlyRooms: sq.adminOnlyRooms }, msg);
 window.openChannelSheet && document.getElementById('squadChannelSheet').classList.contains('hidden') || window.openChannelSheet();
 };
+
 window.listenToSquadMessages = function(sq) {
 if (window.squadMsgUnsub) { window.squadMsgUnsub(); window.squadMsgUnsub = null; }
 if (window.squadStaffUnsub) { window.squadStaffUnsub(); window.squadStaffUnsub = null; }
@@ -5587,6 +6306,7 @@ window.squadStaffUnsub = onSnapshot(query(collection(window.db, 'squads', sq.id,
 (snap) => { staffRooms = collect(snap, true); merge(); }, () => {});
 }
 };
+
 window.renderSquadChannel = function() {
 const sq = window.activeSquadDetails;
 if (!sq) return;
@@ -5597,23 +6317,28 @@ const lock = document.getElementById('squadLockedBar');
 const pinnedBar = document.getElementById('squadPinnedBar');
 const showLock = (html) => { input.style.display = 'none'; lock.innerHTML = html; lock.classList.remove('hidden'); };
 lock.classList.add('hidden'); input.style.display = 'flex'; pinnedBar.classList.add('hidden');
+
 if (room === 'Members') { input.style.display = 'none'; window.renderSquadMembers(); return; }
 if (room === 'Matchmaking') { input.style.display = 'none'; window.renderSquadMatchmaking(); return; }
+
 const chan = window.channelOf(sq, room) || { name: room };
 const member = window.isSquadMember(sq);
 const admin = window.isSquadAdmin(sq);
+
 if (chan.staff && !admin) { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">🔒 Staff only.</p>`; input.style.display = 'none'; return; }
 if (!sq.isPublic && !member && !admin) {
 box.innerHTML = `<div class="text-center py-12 space-y-2"><i class="fa-solid fa-lock text-3xl text-cyan-400/70"></i><p class="text-sm font-bold text-white">Private squad</p><p class="text-xs text-gray-400">Join with an invite code to read and chat.</p></div>`;
 showLock(`🔒 Private squad <button onclick="window.toggleSquadMembership('${sq.id}')" class="ml-2 px-3 py-1 bg-emerald-500 text-slate-950 rounded-lg font-black text-[10px] uppercase">Join with code</button>`);
 return;
 }
+
 const pins = (sq.pinned || []).filter(p => p.room === room);
 if (pins.length) {
 pinnedBar.innerHTML = `<button onclick="this.nextElementSibling.classList.toggle('hidden')" class="w-full text-left text-[11px] font-bold text-amber-300"><i class="fa-solid fa-thumbtack mr-1"></i> ${pins.length} pinned message${pins.length === 1 ? '' : 's'}</button>
 <div class="hidden mt-2 space-y-1.5">${pins.map(p => `<div class="text-xs text-gray-200 bg-gg-950 rounded-lg px-2.5 py-1.5"><b class="text-white">${window.dn(p.sender)}:</b> ${escapeHTML(p.text || '📷 Photo')}</div>`).join('')}</div>`;
 pinnedBar.classList.remove('hidden');
 }
+
 const rooms = window.activeSquadRooms || sq.rooms || {};
 const msgs = rooms[room] || [];
 if (!msgs.length) {
@@ -5642,6 +6367,7 @@ ${body}<p class="text-right leading-none mt-0.5">${time}</p>
 }).join('');
 box.scrollTop = box.scrollHeight;
 }
+
 if (window.isSquadBanned(sq)) return showLock('🚫 You were banned from this squad.');
 if (!member && !admin) return showLock(`Join ${escapeHTML(sq.name)} to chat <button onclick="window.toggleSquadMembership('${sq.id}')" class="ml-2 px-3 py-1 bg-emerald-500 text-slate-950 rounded-lg font-black text-[10px] uppercase">Join</button>`);
 const mutedTill = window.mutedUntilMe(sq);
@@ -5649,6 +6375,7 @@ if (mutedTill && !admin) return showLock(`🔇 You're muted until ${new Date(mut
 if (chan.adminOnly && !admin) return showLock(`📢 Only admins can post in #${escapeHTML(room === 'Rules/Announcements' ? 'rules' : room)}. <button onclick="window.switchSquadSubRoom('chat')" class="underline text-cyan-400 ml-1">Go to #chat</button>`);
 document.getElementById('squadSubRoomInput').placeholder = `Message #${room === 'Rules/Announcements' ? 'rules' : room}`;
 };
+
 window.sendSquadMessage = async function(payload) {
 const sq = window.activeSquadDetails;
 const room = window.activeSquadSubRoom;
@@ -5671,6 +6398,7 @@ await addDoc(collection(window.db, 'squads', sq.id, chan.staff ? 'staff' : 'mess
 if (payload.text) window.notifyMentions(payload.text, null, `${sq.name} #${room}`);
 } catch (e) { showToast("⚠️ Message not sent."); }
 };
+
 window.findSquadMsg = function(id) {
 const sq = window.activeSquadDetails;
 for (const list of Object.values(window.activeSquadRooms || (sq && sq.rooms) || {})) { const m = list.find(x => x.id === id); if (m) return m; }
@@ -5697,6 +6425,7 @@ items.push({ icon: 'fa-ban', label: `Ban ${window.dnText(m.sender)}`, danger: tr
 }
 window.openActionSheet(m.text ? `“${m.text.slice(0, 40)}${m.text.length > 40 ? '…' : ''}”` : 'Photo', items);
 };
+
 window.deleteSquadMessage = async function(m) {
 const sq = window.activeSquadDetails;
 try {
@@ -5705,6 +6434,7 @@ if ((sq.pinned || []).some(p => p.id === m.id)) await window.updateSquadCloud(sq
 showToast('Message deleted.');
 } catch (e) { showToast("Couldn't delete that message."); }
 };
+
 window.togglePin = async function(m) {
 const sq = window.activeSquadDetails;
 const pinned = (sq.pinned || []).some(p => p.id === m.id);
@@ -5712,6 +6442,7 @@ sq.pinned = pinned ? sq.pinned.filter(p => p.id !== m.id) : [{ id: m.id, room: m
 await window.updateSquadCloud(sq, { pinned: sq.pinned }, pinned ? 'Unpinned.' : '📌 Pinned!');
 window.renderSquadChannel();
 };
+
 window.openMuteMenu = function(uid, tag) {
 const set = (mins) => () => window.muteMember(uid, tag, mins);
 window.openActionSheet(`Mute ${window.dnText(tag)}`, [
@@ -5785,6 +6516,7 @@ const adminUids = [...new Set([...(sq.adminUids || []), window.uidNow(), uid])];
 const admins = [...new Set([...(sq.admins || []), window.me(), tag])];
 await window.updateSquadCloud(sq, { owner: tag, leader: tag, ownerUid: uid, adminUids, admins }, `👑 ${window.dnText(tag)} now owns ${sq.name}!`);
 };
+
 window.renderSquadMembers = async function() {
 const sq = window.activeSquadDetails;
 const box = document.getElementById('squadRoomMsgsBox');
@@ -5816,6 +6548,7 @@ ${!members.length ? '<p class="text-xs text-gray-400 text-center py-10">No membe
 </div>`;
 for (const r of rows) if (!r.uid) await window.getProfile(r.tag);
 };
+
 window.openMemberActions = async function(tag) {
 const sq = window.activeSquadDetails;
 const prof = window.profileFor(tag) || await window.getProfile(tag);
@@ -5840,6 +6573,7 @@ items.push({ icon: 'fa-ban', label: 'Ban', danger: true, run: () => window.banMe
 }
 window.openActionSheet(window.dnText(tag), items);
 };
+
 window.renderSquadMatchmaking = function() {
 const sq = window.activeSquadDetails;
 const box = document.getElementById('squadRoomMsgsBox');
@@ -5857,6 +6591,7 @@ ${q.length ? q.map(e => `
 </div>`).join('') : `<p class="text-xs text-gray-400 text-center py-6">No challenges yet.</p>`}
 </div>`;
 };
+
 window._baseToggleSquadMembership13 = window._baseToggleSquadMembership13 || window.toggleSquadMembership;
 window.toggleSquadMembership = async function(squadId) {
 if (window.needSignIn('join squads')) return;
@@ -5873,6 +6608,7 @@ if (code.trim().toUpperCase() !== (sq.inviteCode || '').toUpperCase()) { showToa
 await window._baseToggleSquadMembership13(squadId);
 if (window.activeSquadDetails && window.activeSquadDetails.id === squadId) { window.renderSquadHeader(); window.renderSquadChannel(); window.listenToSquadMessages(sq); }
 };
+
 window.submitNewSquad = async function() {
 if (window.needSignIn('create squads')) return;
 const name = document.getElementById('squadNameInput').value.trim();
@@ -5899,6 +6635,7 @@ window.closeCreateClanModal();
 setTimeout(() => window.openSquadDetailsModal(id), 600);
 } catch (e) { showToast("⚠️ Couldn't create squad. Try again."); }
 };
+
 window.openSquadSettings = function() {
 const sq = window.activeSquadDetails;
 if (!sq || !window.isSquadAdmin(sq)) return;
@@ -5938,6 +6675,7 @@ window.activeShare = { link: `${location.origin}${location.pathname}#squad=${sq.
 if (navigator.share) navigator.share({ title: sq.name, text: window.activeShare.text, url: window.activeShare.link }).catch(() => {});
 else window.copyShareLink();
 };
+
 window.openSquadFromLink = function() {
 const m = location.hash.match(/^#squad=([A-Za-z0-9_\-]+)/);
 if (!m) return;
@@ -5945,6 +6683,7 @@ const sq = (window.clansData || []).find(c => c.id === m[1]);
 if (sq) { window.switchView('clans'); window.openSquadDetailsModal(sq.id); }
 };
 window.addEventListener('hashchange', window.openSquadFromLink);
+
 window._baseListenSquads13 = window._baseListenSquads13 || window.listenToFirestoreSquads;
 window.listenToFirestoreSquads = function() {
 window._baseListenSquads13();
@@ -5963,7 +6702,9 @@ if (['Members', 'Matchmaking'].includes(window.activeSquadSubRoom)) window.rende
 }
 }
 };
+
 window.pollDraft = null;
+
 window.togglePollEditor = function() {
 const ed = document.getElementById('pollEditor');
 const on = ed.classList.contains('hidden');
@@ -5988,6 +6729,7 @@ if (box.children.length >= 4) { showToast('Up to 4 options.'); return; }
 const i = box.children.length + 1;
 box.insertAdjacentHTML('beforeend', `<input type="text" maxlength="40" placeholder="Option ${i}" class="poll-opt w-full bg-gg-950 border border-cyan-500/25 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">`);
 };
+
 window.collectPoll = function() {
 const ed = document.getElementById('pollEditor');
 if (!ed || ed.classList.contains('hidden')) return null;
@@ -6012,6 +6754,7 @@ document.getElementById('pollToggleBtn').classList.remove('ring-2');
 document.getElementById('pollOptionInputs').innerHTML = [1, 2].map(i => `<input type="text" maxlength="40" placeholder="Option ${i}" class="poll-opt w-full bg-gg-950 border border-cyan-500/25 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">`).join('');
 ['predTeamA', 'predTeamB'].forEach(id => document.getElementById(id).value = '');
 };
+
 window._baseSubmitUniversalPost13 = window._baseSubmitUniversalPost13 || window.submitUniversalPost;
 window.submitUniversalPost = async function() {
 const poll = window.collectPoll();
@@ -6022,7 +6765,9 @@ await window._baseSubmitUniversalPost13();
 window.pollDraft = null;
 if (poll) window.resetPollEditor();
 };
+
 window.myVotes = (() => { try { return JSON.parse(localStorage.getItem('sinless_votes') || '{}'); } catch (e) { return {}; } })();
+
 window.renderPollHtml = function(p) {
 const poll = p.poll;
 if (!poll || !Array.isArray(poll.options)) return '';
@@ -6039,6 +6784,7 @@ const left = Math.max(0, (poll.endsAt || 0) - Date.now());
 const timeLeft = ended ? 'Final results' : left > 86400000 ? `${Math.ceil(left / 86400000)}d left` : left > 3600000 ? `${Math.ceil(left / 3600000)}h left` : `${Math.ceil(left / 60000)}m left`;
 const correct = poll.correct;
 const isOwner = window.isMyPost(p);
+
 const rows = poll.options.map((o, i) => {
 const n = counts[i] || 0;
 const pct = total ? Math.round(n / total * 100) : 0;
@@ -6053,6 +6799,7 @@ return `
 </div>
 </div>`;
 }).join('');
+
 let footer = `${window.formatCount(total)} vote${total === 1 ? '' : 's'} · ${timeLeft}`;
 if (pred && correct !== null && correct !== undefined) {
 const right = counts[correct] || 0;
@@ -6060,6 +6807,7 @@ footer = `🎯 ${right} of ${total} predicted right` + (mine !== undefined ? (mi
 }
 const settle = pred && isOwner && (correct === null || correct === undefined) ? `
 <div class="pt-1"><p class="text-[10px] text-gray-400 mb-1">Match over? Mark the result:</p><div class="flex gap-1.5">${poll.options.map((o, i) => `<button onclick="window.settlePrediction('${pId}', ${i})" class="flex-1 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 text-[10px] font-black">${escapeHTML(o)}</button>`).join('')}</div></div>` : '';
+
 return `
 <div class="space-y-2 p-3 rounded-2xl bg-gg-900/60 border ${pred ? 'border-amber-500/30' : 'border-magenta/30'}" data-noexpand>
 <p class="text-[10px] font-black uppercase tracking-wider ${pred ? 'text-amber-400' : 'text-magenta'}">${pred ? '⚽ Match prediction' : '📊 Poll'}</p>
@@ -6068,6 +6816,7 @@ ${rows}
 ${settle}
 </div>`;
 };
+
 window.votePoll = async function(postId, i) {
 if (window.needSignIn('vote')) return;
 const p = window.findPost(postId);
@@ -6086,6 +6835,7 @@ try { await updateDoc(doc(window.db, 'posts', postId), { [`pollCounts.${i}`]: in
 catch (e) { showToast("⚠️ Vote didn't save."); }
 }
 };
+
 window.settlePrediction = async function(postId, i) {
 const p = window.findPost(postId);
 if (!p || !p.poll) return;
@@ -6096,6 +6846,8 @@ window.renderFypFeed();
 window.activeDetailPostId === postId && window.renderPostDetail(p);
 try { await updateDoc(doc(window.db, 'posts', postId), { poll: p.poll }); showToast('🎯 Result posted!'); } catch (e) { showToast("⚠️ Couldn't save result."); }
 };
+
+
 window.appAdminUids = window.appAdminUids || [];
 window._baseCheckAdminAndBan14 = window._baseCheckAdminAndBan14 || window.checkAdminAndBan;
 window.checkAdminAndBan = async function(user) {
@@ -6104,6 +6856,7 @@ if (!user || !window.db) return;
 try { const c = await getDoc(doc(window.db, 'config', 'admins')); window.appAdminUids = c.exists() ? (c.data().uids || []) : []; } catch (e) {}
 window.syncOfficialHubInfo && window.syncOfficialHubInfo();
 };
+
 window.syncOfficialHubInfo = function() {
 if (!window.isAppAdmin || !window.squadsLoadedOnce || window.hubInfoSynced) return;
 window.hubInfoSynced = true;
@@ -6112,6 +6865,7 @@ if (!window.cloudSquadIds.has(h.id)) return;
 updateDoc(doc(window.db, 'squads', h.id), { name: h.name, tag: h.tag, bio: h.bio, game: h.game, inviteCode: h.inviteCode }).catch(() => {});
 });
 };
+
 window._baseRoleOf14 = window._baseRoleOf14 || window.roleOf;
 window.roleOf = function(sq, tag, uid) {
 if (sq && sq.isOfficial) {
@@ -6120,11 +6874,13 @@ if ((tag || '').toLowerCase() === 'sinlessgaming') return 'member';
 }
 return window._baseRoleOf14(sq, tag, uid);
 };
+
 window.canHostInSquad = function(sq) {
 if (!sq || !window.currentUser) return false;
 if (window.isSquadAdmin(sq)) return true;
 return !!sq.isOfficial && window.isSquadMember(sq);
 };
+
 window._baseRenderSquadHeader14 = window._baseRenderSquadHeader14 || window.renderSquadHeader;
 window.renderSquadHeader = function() {
 window._baseRenderSquadHeader14();
@@ -6140,6 +6896,7 @@ const on = window.activeSquadSubRoom === 'Tournaments';
 const count = (window.tournamentsList || []).filter(t => t.squadId === sq.id).length;
 nav.insertAdjacentHTML('beforeend', `<button onclick="window.switchSquadSubRoom('Tournaments')" class="relative px-3 py-2 rounded-xl text-xs font-bold ${on ? 'bg-amber-400 text-slate-950' : 'bg-gg-900 text-amber-400 border border-amber-500/30'}">🏆${count ? `<span class="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-magenta text-white text-[9px] font-black flex items-center justify-center">${count}</span>` : ''}</button>`);
 };
+
 window._baseRenderSquadChannel14 = window._baseRenderSquadChannel14 || window.renderSquadChannel;
 window.renderSquadChannel = function() {
 if (window.activeSquadSubRoom === 'Tournaments') {
@@ -6152,6 +6909,7 @@ return;
 }
 window._baseRenderSquadChannel14();
 };
+
 window.renderSquadTournaments = function() {
 const sq = window.activeSquadDetails;
 const box = document.getElementById('squadRoomMsgsBox');
@@ -6191,12 +6949,14 @@ ${joined ? `<span class="flex-1 py-2 rounded-xl bg-cyan-500/10 text-cyan-400 tex
 }).join('') : `<div class="text-center py-10 space-y-2"><div class="text-4xl">🏆</div><p class="text-sm font-bold text-white">No tournaments yet</p><p class="text-xs text-gray-400">Squad tournaments show up here and in the Tournaments tab.</p></div>`}
 </div>`;
 };
+
 window.registerSquadTournament = async function(id) {
 const sq = window.activeSquadDetails;
 if (sq && !window.isSquadMember(sq)) { showToast('Join the squad first, then register.'); return; }
 await window.joinActiveTournament(id);
 window.renderSquadTournaments();
 };
+
 window.openTournamentFromSquad = function(id) {
 const t = (window.tournamentsList || []).find(x => x.id === id);
 if (!t) return;
@@ -6206,11 +6966,13 @@ window.closeSquadDetailsModal();
 window.switchView('tournaments');
 window.scrollTo({ top: 0 });
 };
+
 window.squadTournLabel = function(squadId) {
 const sq = (window.clansData || []).find(c => c.id === squadId);
 if (!sq) return '';
 return ` • <span onclick="window.openSquadDetailsModal('${sq.id}')" class="text-amber-300 font-bold cursor-pointer">🛡️ ${escapeHTML(sq.name)}</span>`;
 };
+
 window.openCreateSquadSquadTournamentModal = function() {
 const sq = window.activeSquadDetails;
 if (!sq) return;
@@ -6224,6 +6986,7 @@ document.getElementById('tournTitleInput').value = `${sq.name.replace(/ HUB$/i, 
 window.activeSquadForTournament = sq.id;
 window.openCreateTournamentModal();
 };
+
 window._baseOpenCreateTournamentModal14 = window._baseOpenCreateTournamentModal14 || window.openCreateTournamentModal;
 window.openCreateTournamentModal = function() {
 const fromSquad = !!(window.activeSquadDetails && window.activeSquadForTournament === window.activeSquadDetails.id &&
@@ -6231,6 +6994,7 @@ const fromSquad = !!(window.activeSquadDetails && window.activeSquadForTournamen
 if (!fromSquad) window.activeSquadForTournament = null;
 window._baseOpenCreateTournamentModal14();
 };
+
 window._baseSubmitNewTournament14 = window._baseSubmitNewTournament14 || window.submitNewTournament;
 window.submitNewTournament = async function() {
 const squadId = window.activeSquadForTournament;
@@ -6243,6 +7007,7 @@ window.renderSquadHeader();
 window.renderSquadChannel();
 }
 };
+
 window._baseRenderTournamentsTabDedicated14 = window._baseRenderTournamentsTabDedicated14 || window.renderTournamentsTabDedicated;
 window.renderTournamentsTabDedicated = function() {
 window._baseRenderTournamentsTabDedicated14();
@@ -6266,6 +7031,7 @@ window.activeSquadSubRoom = 'Tournaments';
 window.renderSquadHeader();
 window.renderSquadChannel();
 };
+
 window.TASTE_KEY = 'sg_taste_v1';
 window.loadTaste = function() {
 let t;
@@ -6295,10 +7061,12 @@ t.hidden = t.hidden.slice(-500);
 try { localStorage.setItem(window.TASTE_KEY, JSON.stringify(t)); } catch (e) {}
 }, 800);
 };
+
 window.postTags = function(p) {
 return [...new Set(((p.caption || p.text || '').match(/#[\p{L}\p{N}_]{2,30}/gu) || []).map(x => x.slice(1).toLowerCase()))].slice(0, 5);
 };
 window.POST_TO_NEWS_CAT = { 'GENERAL': 'wow', 'FOOTBALL': 'football', 'FC MOBILE': 'gaming', 'EA SPORTS FC': 'gaming', 'EFOOTBALL': 'gaming', 'DLS': 'gaming', 'CALL OF DUTY': 'gaming', 'OTHER GAMES': 'gaming', 'LIVE STREAM': 'gaming', 'WRESTLING': 'wrestling', 'MOVIES': 'movies', 'ANIME': 'anime', 'BOOKS': 'books' };
+
 window.tasteAdd = function(p, w) {
 if (!p || !w) return;
 const t = window.taste;
@@ -6312,6 +7080,7 @@ const nc = window.POST_TO_NEWS_CAT[cat];
 if (nc) t.news[nc] = clamp((t.news[nc] || 0) + w * 0.5);
 window.saveTasteSoon();
 };
+
 window.tasteScore = function(p) {
 const t = window.taste;
 const maxOf = (o) => Math.max(1, ...Object.values(o).map(Math.abs));
@@ -6322,6 +7091,7 @@ if (tags.length) s += 0.6 * Math.max(...tags.map(x => norm(t.tags, x)));
 if (window.amFollowing && window.amFollowing(p.user)) s += 0.5;
 return s;
 };
+
 window.feedScore = function(p) {
 const ageDays = (Date.now() - window.postTimeValue(p)) / 86400000;
 const quality = 4 * Math.log1p(p.ggsCount || 0) + 5 * Math.log1p(p.commentsCount || 0) + 1.5 * Math.log1p(p.viewsCount || 0);
@@ -6331,11 +7101,13 @@ const seen = window.taste.seen[p.docId || p.id] || 0;
 if (seen >= 2) s *= 0.5; else if (seen === 1) s *= 0.8;
 return Math.max(0.5, s);
 };
+
 window._baseGetOrderedFeed14 = window._baseGetOrderedFeed14 || window.getOrderedFeed;
 window.getOrderedFeed = function() {
 const hidden = new Set(window.taste.hidden);
 return window._baseGetOrderedFeed14().filter(p => !hidden.has(p.docId || p.id));
 };
+
 window.viewStart14 = {};
 window._baseStartViewStay14 = window._baseStartViewStay14 || window.startViewStay;
 window.startViewStay = function(id) {
@@ -6355,6 +7127,7 @@ else if (p && secs < 1.2) window.tasteAdd(p, -0.1);                    // scroll
 }
 return window._baseEndViewStay14(id);
 };
+
 window._baseToggleGGPost14 = window._baseToggleGGPost14 || window.toggleGGPost;
 window.toggleGGPost = async function(postId) {
 const p = window.findPost(postId);
@@ -6392,6 +7165,7 @@ window.filterByCategory = function(cat, btn) {
 if (cat && !['ALL', 'LIVE STREAM'].includes(cat)) { window.taste.cats[cat] = Math.min(60, (window.taste.cats[cat] || 0) + 0.5); window.saveTasteSoon(); }
 return window._baseFilterByCategory14(cat, btn);
 };
+
 window._baseOpenPostActions14 = window._baseOpenPostActions14 || window.openPostActions;
 window.openPostActions = function(postId) {
 const orig = window.openActionSheet;
@@ -6410,6 +7184,7 @@ window.saveTasteSoon();
 window.renderFypFeed();
 showToast("🙈 Hidden. You'll see less like this.");
 };
+
 window.NEWS_CATS = [
 { id: 'foryou', label: '✨ For You' },
 { id: 'wow', label: '🚀 Wow & Tech', color: 'text-sky-300', post: 'GENERAL' },
@@ -6462,6 +7237,7 @@ window.NEWS_TTL = 10 * 60000;
 window.newsByCat = {};
 window.activeNewsCat = 'foryou';
 window.newsLoadedAt = 0;
+
 window.newsText = function(html) {
 const d = document.createElement('div');
 d.innerHTML = String(html || '').replace(/<(script|style)[\s\S]*?<\/\1>/gi, '');
@@ -6473,6 +7249,7 @@ if (!img && descHtml) { const m = /<img[^>]+src=["']([^"']+)["']/i.exec(descHtml
 if (!img || !/^https?:\/\//.test(img) || /\.(mp3|mp4|m4a)(\?|$)/i.test(img)) return '';
 return img.replace(/([?&])width=\d+/, '$1width=700').replace('/ace/standard/240/', '/ace/standard/624/');
 };
+
 window.fetchFeedItems = async function(source, url) {
 const cacheKey = 'sg_news_' + url;
 try {
@@ -6522,6 +7299,7 @@ return items;
 try { const c = JSON.parse(localStorage.getItem(cacheKey) || 'null'); if (c && c.items) return c.items; } catch (e) {}
 return [];
 };
+
 window.loadNewsCat = async function(cat) {
 const lists = await Promise.all((window.NEWS_SOURCES[cat] || []).map(([name, url]) => window.fetchFeedItems(name, url)));
 const seen = new Set();
@@ -6532,6 +7310,7 @@ if (seen.has(k)) return false; seen.add(k); return true;
 if (out.length) window.newsByCat[cat] = out;
 return out;
 };
+
 window.loadNews = async function(force) {
 if (window.newsLoading) return;
 if (!force && Date.now() - window.newsLoadedAt < window.NEWS_TTL && Object.keys(window.newsByCat).length) { window.renderNews(); return; }
@@ -6553,6 +7332,7 @@ window.renderNews();
 window.renderTrendingHeadlines();
 if (!document.getElementById('view-fyp').classList.contains('hidden')) window.renderFypFeed();
 };
+
 window.newsForYou = function() {
 if (window.newsMix) return window.newsMix;
 const t = window.taste.news;
@@ -6575,6 +7355,7 @@ window.newsMix = out;
 return out;
 };
 window.newsListFor = function(cat) { return cat === 'foryou' ? window.newsForYou() : (window.newsByCat[cat] || []); };
+
 window.newsCatInfo = function(id) { return window.NEWS_CATS.find(c => c.id === id) || {}; };
 window.newsCardHtml = function(n, opts = {}) {
 const info = window.newsCatInfo(n.cat);
@@ -6627,6 +7408,7 @@ const sel = document.getElementById('postCategorySelect');
 const pc = window.newsCatInfo(n.cat).post;
 if (pc && [...sel.options].some(o => o.value === pc)) sel.value = pc;
 };
+
 window.renderNews = function() {
 const chips = document.getElementById('newsCatChips');
 const box = document.getElementById('newsListContainer');
@@ -6650,6 +7432,7 @@ if (id !== 'foryou') { window.taste.news[id] = Math.min(60, (window.taste.news[i
 window.renderNews();
 window.scrollTo({ top: 0, behavior: 'smooth' });
 };
+
 window.renderNewsTicker = function() {
 const el = document.getElementById('newsLiveTicker');
 if (!el) return;
@@ -6666,6 +7449,7 @@ return `<button onclick="window.openLounge('${m.id}')" class="shrink-0 glass-pan
 </button>`;
 }).join('');
 };
+
 window.renderTrendingHeadlines = function() {
 const box = document.getElementById('trendingHeadlinesBox');
 if (!box) return;
@@ -6678,6 +7462,7 @@ ${n.img ? `<img src="${escapeHTML(n.img)}" loading="lazy" class="w-14 h-14 round
 <div class="min-w-0"><p class="text-xs font-bold text-white leading-snug line-clamp-2">${escapeHTML(n.title)}</p><p class="text-[10px] text-gray-500 mt-0.5">${escapeHTML(n.source)} · ${window.timeAgo(n.date)}</p></div>
 </button>`).join('')}`;
 };
+
 window._baseRenderFypFeed14 = window._baseRenderFypFeed14 || window.renderFypFeed;
 window.renderFypFeed = function() {
 window._baseRenderFypFeed14();
@@ -6708,12 +7493,14 @@ box.insertAdjacentHTML('beforeend', `<p class="text-[10px] font-black text-gray-
 while (k < Math.min(extras.length, maxX)) box.appendChild(make());
 }
 };
+
 window._baseSwitchView14 = window._baseSwitchView14 || window.switchView;
 window.switchView = function(v) {
 window._baseSwitchView14(v);
 if (v === 'news') { window.renderNews(); window.loadNews(false); if (!(window.liveMatchesCache || []).length) window.loadLiveMatches(); }
 if (v === 'trending') { window.renderTrendingHeadlines(); window.loadNews(false); }
 };
+
 setInterval(() => { if (document.visibilityState === 'visible') window.loadNews(false); }, 60000);
 setInterval(() => {
 if (document.visibilityState !== 'visible') return;
@@ -6730,8 +7517,10 @@ document.addEventListener('visibilitychange', () => {
 if (document.visibilityState === 'visible') { window.loadNews(false); }
 });
 setTimeout(() => window.loadNews(false), 2500);
+
 window.adsList = [];
 window.AD_CATS = ['GENERAL', 'FOOTBALL', 'FC MOBILE', 'EA SPORTS FC', 'EFOOTBALL', 'DLS', 'WRESTLING', 'CALL OF DUTY', 'OTHER GAMES', 'MOVIES', 'ANIME', 'BOOKS'];
+
 window.listenToAds = function() {
 if (!window.db || window.adsUnsub) return;
 window.adsUnsub = onSnapshot(query(collection(window.db, 'ads'), limit(100)), (snap) => {
@@ -6742,11 +7531,13 @@ window.renderAdSlots();
 if (window.adminTab === 'ads' && !document.getElementById('adminModal').classList.contains('hidden') && !window.adEditing) window.renderAdminAds();
 }, (e) => console.warn('Ads listener:', e));
 };
+
 window.adIsLive = function(a) {
 const now = Date.now();
 return a.active && (!a.startAt || a.startAt <= now) && (!a.endAt || a.endAt > now);
 };
 window.hiddenAds = (() => { try { return JSON.parse(localStorage.getItem('sg_hidden_ads') || '{}'); } catch (e) { return {}; } })();
+
 window.adsFor = function(place, cat) {
 const now = Date.now();
 const list = window.adsList.filter(a => window.adIsLive(a) && (a.places || ['feed']).includes(place) && !(window.hiddenAds[a.id] > now) &&
@@ -6755,6 +7546,7 @@ const t = window.taste ? window.taste.cats : {};
 return list.map(a => ({ a, s: Math.random() + ((a.cats || []).length ? Math.max(0, ...a.cats.map(c => t[c] || 0)) / 20 : 0) }))
 .sort((x, y) => y.s - x.s).map(x => x.a);
 };
+
 window.adRegistry = {};
 window.adCardHtml = function(a, compact) {
 window.adRegistry[a.id] = a;
@@ -6773,6 +7565,7 @@ ${a.text && !compact ? `<p class="text-xs text-gray-300 leading-relaxed">${escap
 ${a.link ? `<div class="px-3.5 pb-3.5"><button onclick="window.clickAd('${a.id}')" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 text-xs font-black uppercase">${escapeHTML(a.cta || 'Learn more')}</button></div>` : ''}
 </div>`;
 };
+
 window.adCounts = {};
 window.adSeenAt = {};
 window.adQueue = function(id, field) {
@@ -6790,6 +7583,7 @@ if (Object.keys(upd).length) updateDoc(doc(window.db, 'ads', id), upd).catch(() 
 };
 setInterval(() => window.flushAdCounts(), 45000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') window.flushAdCounts(); });
+
 window.observeAds = function() {
 if (!('IntersectionObserver' in window)) return;
 if (!window.adObserver) {
@@ -6806,6 +7600,7 @@ window.adQueue(id, 'impressions');
 }
 document.querySelectorAll('[data-ad-id]').forEach(el => { if (!el._adObs) { el._adObs = 1; window.adObserver.observe(el); } });
 };
+
 window.clickAd = function(id) {
 const a = window.adRegistry[id];
 if (!a) return;
@@ -6819,6 +7614,7 @@ try { localStorage.setItem('sg_hidden_ads', JSON.stringify(window.hiddenAds)); }
 document.querySelectorAll(`[data-ad-id="${id}"]`).forEach(el => el.remove());
 showToast('Ad hidden for today.');
 };
+
 window._baseRenderFypFeed15 = window._baseRenderFypFeed15 || window.renderFypFeed;
 window.renderFypFeed = function() {
 window._baseRenderFypFeed15();
@@ -6840,6 +7636,7 @@ k++;
 if (!k && items.length) { const d = document.createElement('div'); d.innerHTML = window.adCardHtml(ads[0]); items[items.length - 1].after(d.firstElementChild); }
 window.observeAds();
 };
+
 window._baseRenderNews15 = window._baseRenderNews15 || window.renderNews;
 window.renderNews = function() {
 window._baseRenderNews15();
@@ -6855,6 +7652,7 @@ const d = document.createElement('div'); d.innerHTML = window.adCardHtml(ads[k %
 });
 window.observeAds();
 };
+
 window.renderSquadsAd = function() {
 const slot = document.getElementById('squadsAdSlot');
 if (!slot) return;
@@ -6866,6 +7664,7 @@ window._baseRenderClansList15 = window._baseRenderClansList15 || window.renderCl
 window.renderClansList = function() { window._baseRenderClansList15(); if (!window._squadAdShown) { window._squadAdShown = 1; window.renderSquadsAd(); } };
 window._baseSwitchView15 = window._baseSwitchView15 || window.switchView;
 window.switchView = function(v) { if (v === 'clans') window._squadAdShown = 0; window._baseSwitchView15(v); };
+
 window.renderAdSlots = function() {
 window._squadAdShown = 0;
 const vis = (id) => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); };
@@ -6873,6 +7672,7 @@ if (vis('view-fyp')) window.renderFypFeed();
 if (vis('view-news')) window.renderNews();
 if (vis('view-clans')) window.renderSquadsAd();
 };
+
 window.renderAdminAds = function() {
 window.adEditing = null;
 const box = document.getElementById('adminBody');
@@ -6905,6 +7705,7 @@ ${a.image ? `<img src="${escapeHTML(a.image)}" class="w-14 h-14 rounded-xl objec
 </div>`;
 }).join('') : '<p class="text-xs text-gray-400 text-center py-8">No ads yet.</p>'}`;
 };
+
 window.editAd = function(id) {
 const a = id ? window.adsList.find(x => x.id === id) : { places: ['feed', 'news'], cats: [], cta: 'Learn more', active: true };
 if (!a) return;
@@ -6938,6 +7739,7 @@ ${window.AD_CATS.map(c => `<label class="flex items-center gap-1 px-2 py-1.5 rou
 <label class="block text-[10px] text-gray-400 font-bold">Run for how many days (from now)<input id="adDays" type="number" min="1" max="365" value="${daysLeft}" class="${field} mt-1"></label>
 <button id="adSaveBtn" onclick="window.saveAd()" class="w-full py-3 rounded-2xl bg-cyan-400 text-slate-950 font-black text-xs uppercase shadow-lg">${id ? 'Save changes' : 'Publish ad'}</button>`;
 };
+
 window.uploadAdImage = async function(input) {
 const file = input.files && input.files[0];
 if (!file) return;
@@ -6950,6 +7752,7 @@ const img = document.getElementById('adImgPreview'); img.src = up.url; img.class
 label.innerText = 'Change picture';
 } catch (e) { label.innerText = 'Choose picture'; showToast('⚠️ Upload failed: ' + e.message); }
 };
+
 window.saveAd = async function() {
 if (!window.isAppAdmin) return;
 const v = (id) => document.getElementById(id).value.trim();
@@ -6985,12 +7788,16 @@ const ok = await window.sgConfirm('Delete this ad for good? Its stats will be lo
 if (!ok) return;
 try { await deleteDoc(doc(window.db, 'ads', id)); showToast('Ad deleted'); } catch (e) { showToast("⚠️ Couldn't delete."); }
 };
+
 setTimeout(() => window.listenToAds(), 1200);
+
 window.LIVE_MAX_DIRECT = 6;
 window.LIVE_ICE = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
 window.livesList = [];
 window.canScreenShare = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 window.liveIsOn = function(l) { return l && l.status === 'live' && (Date.now() - (l.lastBeat || 0)) < 100000; };
+
 window.listenToLives = function() {
 if (!window.db || window.livesUnsub) return;
 window.livesUnsub = onSnapshot(query(collection(window.db, 'lives'), where('status', '==', 'live'), limit(30)), (snap) => {
@@ -7005,6 +7812,7 @@ if (open) { window.liveRoom.data = open; window.renderLiveRoomInfo(); }
 }, (e) => console.warn('Lives listener:', e));
 };
 setInterval(() => window.renderLiveNowStrip && window.renderLiveNowStrip(), 45000);
+
 window.parseStreamLink = function(raw) {
 const url = (raw || '').trim();
 if (!url) return null;
@@ -7032,6 +7840,7 @@ return { source: 'facebook', embedUrl: `https://www.facebook.com/plugins/video.p
 }
 return { error: 'Use a YouTube, Twitch, Kick or Facebook live link.' };
 };
+
 window.openLiveBroadcastModal = function() { window.openGoLive(); };
 window.goLiveMode = 'link';
 window.openGoLive = function() {
@@ -7115,6 +7924,7 @@ const b = document.getElementById('pickScreenBtn'); if (b) b.classList.add('hidd
 s.getVideoTracks()[0].onended = () => { if (window.liveRoom && window.liveRoom.isHost) window.endLive(); };
 } catch (e) { showToast('Screen sharing was cancelled.'); }
 };
+
 window.startGoLive = async function() {
 if (window.needSignIn('go live')) return;
 const title = document.getElementById('goLiveTitle').value.trim() || `${window.dnText(window.me())} is live`;
@@ -7146,12 +7956,14 @@ if (btn) { btn.disabled = false; btn.innerText = 'Try again'; }
 showToast("⚠️ Couldn't go live. Did you add the new Firebase rules?");
 }
 };
+
 window.notifyFollowersLive = async function(liveId, title) {
 try {
 const s = await getDocs(query(collection(window.db, 'follows'), where('toUid', '==', window.uidNow()), limit(200)));
 s.forEach(d => window.notify(d.data().fromUid, 'live', { text: `is live: ${title}`.slice(0, 120), postId: 'live:' + liveId }));
 } catch (e) {}
 };
+
 window.liveRoom = null;
 window.openLiveRoom = async function(id, opts = {}) {
 if (window.liveRoom && window.liveRoom.id !== id) await window.leaveLiveRoom();
@@ -7208,6 +8020,7 @@ if (!text) { el.classList.add('hidden'); return; }
 el.classList.remove('hidden');
 el.innerHTML = `${spinner ? '<i class="fa-solid fa-spinner fa-spin text-2xl text-red-500 mb-2"></i>' : '<i class="fa-solid fa-tower-broadcast text-2xl text-red-500 mb-2"></i>'}<p class="text-xs text-gray-300">${text}</p>`;
 };
+
 window.listenLiveChat = function() {
 const r = window.liveRoom;
 const unsub = onSnapshot(query(collection(window.db, 'lives', r.id, 'chat'), orderBy('createdAt', 'desc'), limit(80)), (snap) => {
@@ -7264,6 +8077,7 @@ const link = `${location.origin}${location.pathname}#live=${r.id}`;
 try { if (navigator.share) { await navigator.share({ title: r.data.title, text: `🔴 ${window.dnText(r.data.host)} is live on Sinless GG`, url: link }); return; } } catch (e) { return; }
 try { await navigator.clipboard.writeText(link); showToast('🔗 Live link copied'); } catch (e) { showToast(link); }
 };
+
 window.startPresence = function() {
 const r = window.liveRoom;
 const beat = () => {
@@ -7279,6 +8093,7 @@ snap.forEach(d => { if ((d.data().at || 0) > cut && d.id !== r.data.hostUid) n++
 document.getElementById('liveViewerCount').innerHTML = `<i class="fa-solid fa-eye mr-1"></i>${n}`;
 }, () => {}));
 };
+
 window.startHosting = function() {
 const r = window.liveRoom;
 if (r.mode !== 'direct') return;
@@ -7336,6 +8151,7 @@ r.micOff = !r.micOff;
 r.stream.getAudioTracks().forEach(t => { t.enabled = !r.micOff; });
 window.renderLiveRoomInfo();
 };
+
 window.joinDirect = async function() {
 const r = window.liveRoom;
 if (!window.isSignedIn()) { window.renderLiveStage('Sign in to watch camera/screen lives (you can still read the chat).'); window.setStageMsg('🔐 Sign in to watch this live video.'); return; }
@@ -7368,12 +8184,14 @@ await setDoc(ref, { answer: { type: pc.localDescription.type, sdp: pc.localDescr
 }, () => {}));
 setTimeout(() => { if (window.liveRoom === r && !answered) window.setStageMsg('Waiting for the host to connect you…', true); }, 6000);
 };
+
 window.liveEndedForViewer = function() {
 if (!window.liveRoom) return;
 window.liveRoom.data = { ...window.liveRoom.data, status: 'ended' };
 const stage = document.getElementById('liveStage');
 stage.innerHTML = `<div class="text-center p-6"><p class="text-3xl mb-2">📴</p><p class="text-sm font-black text-white">This live has ended</p><p class="text-xs text-gray-400 mt-1">Thanks for watching!</p></div>`;
 };
+
 window.leaveLiveRoom = async function() {
 const r = window.liveRoom; if (!r) return;
 window.liveRoom = null;
@@ -7407,6 +8225,7 @@ window.addEventListener('pagehide', () => {
 const r = window.liveRoom;
 if (r && r.isHost) updateDoc(doc(window.db, 'lives', r.id), { status: 'ended', endedAt: Date.now() }).catch(() => {});
 });
+
 window.activeLives = function() { return window.livesList.filter(l => window.liveIsOn(l) && !window.isBlocked(l.host)); };
 window.renderLiveNowStrip = function() {
 const el = document.getElementById('liveNowStrip'); if (!el) return;
@@ -7465,6 +8284,7 @@ return window._baseOpenNotification17(id);
 };
 window._baseNotifIcon17 = window._baseNotifIcon17 || window.notifIcon;
 window.notifIcon = function(type) { return type === 'live' ? 'fa-tower-broadcast text-red-400' : window._baseNotifIcon17(type); };
+
 window.findMatch = function(id) {
 return (window.liveMatchesCache || []).find(m => m.id === id) || (window.predMatches || []).find(m => m.id === id) || null;
 };
@@ -7533,6 +8353,7 @@ window.closeLounge();
 window.switchView('predict');
 window.setPredictTab('matches', id);
 };
+
 window.predMatches = [];
 window.predTab = 'matches';
 window.weekKey = function(ms) {
@@ -7542,6 +8363,7 @@ return mon.toISOString().slice(0, 10);                             // the Monday
 };
 window.weekRange = function(key) { const s = new Date(key + 'T00:00:00Z'); const e = new Date(s.getTime() + 6 * 86400000); return [s, e]; };
 window.ymd = (d) => d.toISOString().slice(0, 10).replace(/-/g, '');
+
 window.fetchMatchesRange = async function(from, to) {
 const key = window.ymd(from) + '-' + window.ymd(to);
 window._rangeCache = window._rangeCache || {};
@@ -7568,6 +8390,7 @@ const list = res.flat().sort((a, b) => new Date(a.date) - new Date(b.date));
 window._rangeCache[key] = { at: Date.now(), list };
 return list;
 };
+
 window.setPredictTab = function(tab, focusId) {
 window.predTab = tab;
 document.querySelectorAll('[data-predtab]').forEach(b => {
@@ -7584,6 +8407,7 @@ window.myPicks = {}; s.forEach(d => { const x = d.data(); window.myPicks[x.match
 } catch (e) {}
 return window.myPicks;
 };
+
 window.renderPredictMatches = async function(focusId) {
 const box = document.getElementById('predictBody');
 box.innerHTML = `<p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading fixtures…</p>`;
@@ -7615,6 +8439,7 @@ ${locked ? `<span class="flex-1 py-2 text-center text-[11px] font-bold text-gray
 }).join('');
 if (focusId) { const el = document.getElementById('pm_' + focusId); if (el) el.scrollIntoView({ block: 'center' }); }
 };
+
 window.savePick = async function(matchId) {
 if (window.needSignIn('make predictions')) return;
 const m = window.findMatch(matchId); if (!m) return;
@@ -7632,6 +8457,7 @@ if (isNew) { window.addXP && window.addXP(3, 'predict'); window.bumpChallenge &&
 window.renderPredictMatches(matchId);
 } catch (e) { showToast("⚠️ Couldn't save. Did you add the new Firebase rules?"); }
 };
+
 window.pickPoints = function(p, m) {
 if (!m || m.state !== 'post') return null;
 const savedAt = window.postTimeValue({ createdAt: p.updatedAt });
@@ -7641,6 +8467,7 @@ if (isNaN(H) || isNaN(A)) return null;
 if (p.h === H && p.a === A) return 3;
 return Math.sign(p.h - p.a) === Math.sign(H - A) ? 1 : 0;
 };
+
 window.renderMyPicks = async function() {
 const box = document.getElementById('predictBody');
 if (!window.isSignedIn()) { box.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center text-xs text-gray-400">Sign in to make predictions.</div>`; return; }
@@ -7670,6 +8497,7 @@ box.innerHTML = `<div class="glass-panel rounded-2xl p-4 border border-emerald-5
 (later.length ? `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">Next week</p>` + later.map(row).join('') : '') +
 (!picks.length ? `<div class="glass-panel p-6 rounded-2xl text-center text-xs text-gray-400">No picks yet. <button onclick="window.setPredictTab('matches')" class="text-emerald-400 font-bold underline">Make some</button></div>` : '');
 };
+
 window.weeklyStandings = async function(wk) {
 const [s, e] = window.weekRange(wk);
 let preds = [];
@@ -7685,6 +8513,7 @@ if (pts) { t.pts += pts; if (pts === 3) t.exact++; }
 });
 return Object.values(table).filter(t => !window.isBlocked(t.user)).sort((a, b) => b.pts - a.pts || b.exact - a.exact || a.picks - b.picks);
 };
+
 window.renderPredictTable = async function() {
 const box = document.getElementById('predictBody');
 box.innerHTML = `<p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Calculating points…</p>`;
@@ -7704,11 +8533,13 @@ ${champ ? `<div class="glass-panel rounded-2xl p-3.5 border border-amber-500/40 
 ${cur.length ? `<div class="divide-y divide-cyan-500/10">${cur.slice(0, 100).map(row).join('')}</div>` : '<p class="text-xs text-gray-400 text-center py-8">No predictions yet this week. Be first!</p>'}
 </div>`;
 };
+
 window._baseSwitchView17 = window._baseSwitchView17 || window.switchView;
 window.switchView = function(v) {
 window._baseSwitchView17(v);
 if (v === 'predict') window.setPredictTab(window.predTab || 'matches');
 };
+
 window.LEVELS = [[0, 'Rookie'], [100, 'Amateur'], [300, 'Semi-Pro'], [700, 'Pro'], [1500, 'Elite'], [3000, 'World Class'], [6000, 'Legend'], [12000, 'GOAT']];
 window.levelOf = function(xp) {
 xp = Math.max(0, xp || 0);
@@ -7719,6 +8550,7 @@ return { lv: i + 1, name: window.LEVELS[i][1], xp, next, pct: next ? Math.round(
 window.XP_RULES = { daily: [5, 1], post: [20, 5], comment: [5, 10], gg: [1, 20], predict: [3, 20], lounge: [1, 20], live: [30, 2], story: [10, 3], poll: [2, 10], share: [2, 10], tournament: [10, 5], follow: [2, 10] };
 window.myStats = { xp: 0, streak: 0, bestStreak: 0, lastDay: '', challenges: null, champWeeks: [], invitesCredited: 0 };
 window.todayStr = function(d = new Date()) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
 window.xpPending = 0;
 window.addXP = function(n, reason) {
 if (!window.isSignedIn() || !n) return;
@@ -7756,6 +8588,7 @@ window.updateLevelBadge = function() {
 const el = document.getElementById('drawerLevelBadge');
 if (el) el.innerText = window.isSignedIn() ? `Lv ${window.levelOf(window.myStats.xp).lv}${window.myStats.streak > 1 ? ' · 🔥' + window.myStats.streak : ''}` : 'Lv 1';
 };
+
 window.loadMyStats = async function() {
 if (!window.isSignedIn()) return;
 const prof = await window.getProfile(window.me(), true) || {};
@@ -7782,6 +8615,7 @@ if (user) setTimeout(() => window.loadMyStats(), 500);
 else { window.myStats = { xp: 0, streak: 0, bestStreak: 0, lastDay: '', challenges: null, champWeeks: [], invitesCredited: 0 }; window.updateLevelBadge(); }
 return r;
 };
+
 window.CHALLENGE_POOL = [
 { id: 'post2', type: 'post', target: 2, label: 'Make 2 posts', icon: '📝' },
 { id: 'gg10', type: 'gg', target: 10, label: 'Give 10 GGs', icon: '👍' },
@@ -7828,6 +8662,7 @@ setTimeout(() => showToast('🏆 All weekly challenges done! +100 XP & Challenge
 }
 window.saveStatsSoon();
 };
+
 (function hookActions17() {
 const wrap = (name, after) => {
 const base = window[name];
@@ -7874,12 +8709,14 @@ before: (c, tag) => { c.had = window.amFollowing(tag); },
 after: (c, tag) => { if (!c.had && window.amFollowing(tag)) window.bumpChallenge('follow'); }
 });
 })();
+
 window._baseGetProfileBadges17 = window._baseGetProfileBadges17 || window.getProfileBadges;
 window.getProfileBadges = function(username) {
 const p = window.profileFor ? window.profileFor(username) : null;
 const lv = p && Number(p.xp) ? window.levelOf(Number(p.xp)).lv : 0;
 return window._baseGetProfileBadges17(username) + (lv >= 2 ? ` <span class="text-[8px] font-black px-1 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Lv${lv}</span>` : '');
 };
+
 window.openPanel = function(title, html) {
 document.getElementById('sgPanelTitle').innerHTML = title;
 document.getElementById('sgPanelBody').innerHTML = html;
@@ -7917,6 +8754,7 @@ return `<div class="glass-panel rounded-2xl p-3 border ${done ? 'border-emerald-
 </div>
 <button onclick="window.openInvite()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 font-black text-xs uppercase"><i class="fa-solid fa-user-plus mr-1"></i> Invite friends · +100 XP each</button>`);
 };
+
 (function captureRef() {
 try {
 const m = location.search.match(/[?&]ref=([A-Za-z0-9_]{3,20})/) || location.hash.match(/ref=([A-Za-z0-9_]{3,20})/);
@@ -8000,9 +8838,11 @@ window.copyText = async function(t) { try { await navigator.clipboard.writeText(
 window.inviteBadge = async function(tag) {
 try { const s = await getDocs(query(collection(window.db, 'invites'), where('byTag', '==', tag.toLowerCase()), limit(20))); return s.size >= 10 ? '🌟 Ambassador' : s.size >= 3 ? '📣 Recruiter' : ''; } catch (e) { return ''; }
 };
+
 window.GAME_ID_FIELDS = [['fcm', 'FC Mobile ID', '📱'], ['eafc', 'EA FC / EA ID', '🎮'], ['efootball', 'eFootball ID', '⚡'], ['dls', 'DLS Team Code', '🏆'],
 ['codm', 'COD Mobile UID', '🎯'], ['freefire', 'Free Fire ID', '🔥'], ['pubg', 'PUBG Mobile ID', '🪖'], ['psn', 'PlayStation (PSN)', '🎮'],
 ['xbox', 'Xbox Gamertag', '🟩'], ['steam', 'Steam', '💨'], ['epic', 'Epic Games', '⚫'], ['nintendo', 'Nintendo Friend Code', '🔴']];
+
 window._baseOpenEditProfileModal17 = window._baseOpenEditProfileModal17 || window.openEditProfileModal;
 window.openEditProfileModal = function() {
 window._baseOpenEditProfileModal17();
@@ -8028,6 +8868,7 @@ window.profileCache[k] = null;
 }
 return window._baseSaveProfile17();
 };
+
 window.SHELF_KINDS = { anime: ['🍥', 'Anime'], movie: ['🎬', 'Movie'], tv: ['📺', 'Series'], book: ['📚', 'Book'] };
 window.SHELF_STATUS = { watching: 'Watching', reading: 'Reading', done: 'Finished', planned: 'Want to' };
 window.shelfSearch = async function(kind, q) {
@@ -8129,6 +8970,7 @@ items.push({ icon: 'fa-plus', label: 'Add to my shelf too', run: () => { window.
 }
 window.openActionSheet(it.title, items);
 };
+
 window._baseEnhanceProfileView17 = window._baseEnhanceProfileView17 || window.enhanceProfileView;
 window.enhanceProfileView = async function(tag) {
 const host = document.getElementById('profilePostCount').closest('.grid');
@@ -8176,6 +9018,7 @@ ${shelf.length ? `<div class="flex gap-1.5 mb-2 overflow-x-auto scrollbar-none">
 </div>` : ''}`;
 window.inviteBadge(tag).then(b => { const el = document.getElementById('profileInviteBadge'); if (el && b && window.activeProfileUser === tag) el.outerHTML = `<span class="px-2.5 py-1 rounded-lg bg-magenta/10 border border-magenta/30 text-[11px] font-black text-magenta">${b}</span>`; });
 };
+
 window.renderPopularShelves = function() {
 let box = document.getElementById('popularShelvesBox');
 const anchor = document.getElementById('communityPulseBox');
@@ -8196,6 +9039,7 @@ box.innerHTML = `<h3 class="text-xs font-black text-white uppercase tracking-wid
 };
 window._baseRenderTrendingTopics17 = window._baseRenderTrendingTopics17 || window.renderTrendingTopics;
 window.renderTrendingTopics = function() { window._baseRenderTrendingTopics17(); window.renderPopularShelves(); };
+
 window.savedPosts = (() => { try { return JSON.parse(localStorage.getItem('sg_saved') || '[]'); } catch (e) { return []; } })();
 window.loadSaved = async function() {
 if (!window.isSignedIn()) return;
@@ -8232,6 +9076,7 @@ const me = window.meLower();
 document.getElementById('sgPanelBody').innerHTML = posts.length ? posts.map(p => window.renderFeedCard(p, me)).join('')
 : `<div class="text-center py-12 space-y-2"><p class="text-3xl">🔖</p><p class="text-sm font-bold text-white">Nothing saved yet</p><p class="text-xs text-gray-400">Tap ••• on any post → Save post.</p></div>`;
 };
+
 window.makeRepost = async function(id, quote) {
 if (window.needSignIn('repost')) return;
 const orig = await window.fetchPostById(id);
@@ -8255,6 +9100,7 @@ if (rootPost && rootPost.uid && rootPost.uid !== window.uidNow()) window.notify(
 window.tasteAdd && window.tasteAdd(rootPost, 4);
 } catch (e) { showToast("⚠️ Couldn't repost."); }
 };
+
 window._baseRenderFeedCard17 = window._baseRenderFeedCard17 || window.renderFeedCard;
 window.renderFeedCard = function(p, me) {
 if (!p || !p.repostOf) return window._baseRenderFeedCard17(p, me);
@@ -8301,6 +9147,7 @@ if (shown.has(key)) return false;
 shown.add(key); return true;
 });
 };
+
 window._baseOpenPostActions17 = window._baseOpenPostActions17 || window.openPostActions;
 window.openPostActions = function(postId) {
 const p = window.findPost(postId) || (window.postFetchCache || {})[postId];
@@ -8320,6 +9167,7 @@ window.openActionSheet = (title, items) => orig(title, [...extra, ...items]);
 try { window._baseOpenPostActions17(postId); } finally { window.openActionSheet = orig; }
 };
 setTimeout(() => window.loadSaved(), 3000);
+
 window.audioSrc = function(url) { return (url || '').replace(/\.(webm|weba|ogg|oga|opus|mp4|m4a|wav)$/i, '.mp3'); };
 window.audioMsgHtml = function(m, mine) {
 const d = Math.round(m.duration || 0);
@@ -8378,6 +9226,7 @@ const payload = { isAudio: true, audioUrl: up.url, duration, text: '' };
 if (v.ctx === 'squad') await window.sendSquadMessage(payload); else await window.sendDmMessage(payload);
 } catch (e) { showToast('⚠️ Voice note failed: ' + e.message); }
 };
+
 window.groupThreads = [];
 window.GROUP_MAX = 30;
 window.listenToGroups = function() {
@@ -8396,6 +9245,7 @@ else { window.activeDm.g = g; document.getElementById('dmHeaderUser').innerText 
 };
 window._baseAfterAuthChange17b = window._baseAfterAuthChange17b || window.afterAuthChange;
 window.afterAuthChange = async function(user) { const r = await window._baseAfterAuthChange17b(user); window.listenToGroups(); if (user) window.loadSaved(); return r; };
+
 window.renderDmInbox = function() {
 const box = document.getElementById('dmMessagesContainer');
 const uid = window.uidNow();
@@ -8431,6 +9281,7 @@ ${window.avatarHtml(tag, 'w-11 h-11', 'rounded-2xl', 'text-xs').replace(/onclick
 </div>${unread ? '<span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>' : ''}</div>`;
 }).join('');
 };
+
 window.openGroupThread = function(gid) {
 const g = window.groupThreads.find(x => x.id === gid);
 if (!g) { showToast('Group not found.'); return; }
@@ -8451,6 +9302,7 @@ const msgs = []; snap.forEach(d => msgs.unshift({ id: d.id, ...d.data() }));
 window.renderDmMessages(msgs);
 }, () => { box.innerHTML = `<p class="text-xs text-gray-400 text-center py-10">Couldn't load this group.</p>`; });
 };
+
 window.renderDmMessages = function(msgs) {
 const box = document.getElementById('dmMessagesContainer');
 const dm = window.activeDm; if (!dm) return;
@@ -8474,6 +9326,7 @@ ${body}
 }).join('');
 box.scrollTop = box.scrollHeight;
 };
+
 window._baseSendDmMessage17 = window._baseSendDmMessage17 || window.sendDmMessage;
 window.sendDmMessage = async function(payload) {
 const dm = window.activeDm;
@@ -8486,6 +9339,7 @@ await updateDoc(doc(window.db, 'groups', dm.groupId), { lastText: last, lastFrom
 (dm.g.memberUids || []).filter(u => u !== window.uidNow()).forEach(u => window.notify(u, 'group', { postId: 'group:' + dm.groupId, text: `in ${dm.g.name}: ${last}`.slice(0, 100) }));
 } catch (e) { showToast('⚠️ Message not sent.'); }
 };
+
 window.dmHeaderTap = function() {
 const dm = window.activeDm; if (!dm) return;
 if (dm.group) { window.openGroupInfo(dm.groupId); return; }
@@ -8493,6 +9347,7 @@ const tag = dm.partnerTag;
 window.closeDmModal();
 window.openUserProfileModal(tag);
 };
+
 window.openNewGroup = function() {
 if (window.needSignIn('create groups')) return;
 window.panelKind = 'newgroup';
@@ -8588,6 +9443,7 @@ return;
 }
 return window._baseOpenNotification17b(id);
 };
+
 window.dataSaver = (() => { try { return localStorage.getItem('sg_datasaver') === '1'; } catch (e) { return false; } })();
 window._baseCldSized17 = window._baseCldSized17 || window.cldSized;
 window.cldSized = function(url, width, kind = 'image') {
@@ -8616,6 +9472,7 @@ window.renderFypFeed && window.renderFypFeed();
 showToast(window.dataSaver ? '📶 Data Saver ON: smaller pictures, videos play only when you tap' : '📶 Data Saver OFF');
 };
 setTimeout(() => window.applyDataSaver(), 300);
+
 window.TZ_CURRENCY = {
 'Africa/Accra': 'GHS', 'Africa/Lagos': 'NGN', 'Africa/Nairobi': 'KES', 'Africa/Johannesburg': 'ZAR', 'Africa/Kampala': 'UGX', 'Africa/Dar_es_Salaam': 'TZS',
 'Africa/Kigali': 'RWF', 'Africa/Cairo': 'EGP', 'Africa/Casablanca': 'MAD', 'Africa/Abidjan': 'XOF', 'Africa/Dakar': 'XOF', 'Africa/Lome': 'XOF', 'Africa/Douala': 'XAF',
@@ -8656,6 +9513,7 @@ const local = window.userCurrency !== 'USD' ? window.localPrice(usd) : null;
 return `${window.fmtMoney(usd, 'USD')}${local ? ` <span class="text-gray-400 font-bold">≈ ${local}</span>` : ''}`;
 };
 setTimeout(() => window.loadFx(), 2000);
+
 window.TIPS_LIVE = false;             // becomes true when payments are ready
 window.TIP_USD = 0.0105;              // price of one Tip when buying
 window.TIP_PACKS = [100, 500, 1000, 2500, 5000, 10000, 50000];
@@ -8673,6 +9531,7 @@ window.TIP_GIFTS = [
 { id: 'goat', name: 'The GOAT', emoji: '🐐', tips: 44999 }
 ];
 window.tipsUsd = (n) => n * window.TIP_USD;
+
 window.openTipSheet = function(target) {
 if (window.needSignIn('send tips')) return;
 if (target.to && target.to.toLowerCase() === window.meLower()) { showToast("You can't tip yourself 😄"); return; }
@@ -8718,6 +9577,7 @@ if (!window.TIPS_LIVE) { showToast('💰 Buying Tips launches soon!'); return; }
 };
 window.tipCreator = function(postId, to) { window.openTipSheet({ postId, to }); };
 window.tipLive = function() { const r = window.liveRoom; if (!r) return; window.openTipSheet({ liveId: r.id, to: r.data.host }); };
+
 window.openWallet = function() {
 if (window.needSignIn('open your wallet')) return;
 window.panelKind = 'wallet';
@@ -8739,6 +9599,7 @@ ${!window.TIPS_LIVE ? `<p class="text-[11px] text-amber-300 text-center font-bol
 <p>1. Get Tips with Mobile Money or card.</p><p>2. Send gifts like ⚽ Goal or 🐐 The GOAT on posts and lives.</p><p>3. Creators turn the Tips they receive into real money.</p>
 </div>`);
 };
+
 window.LANGS = [['en', 'English'], ['fr', 'Français'], ['es', 'Español'], ['pt', 'Português'], ['ar', 'العربية'], ['ha', 'Hausa'], ['yo', 'Yorùbá'], ['ig', 'Igbo'],
 ['ak', 'Twi (Akan)'], ['gaa', 'Ga'], ['ee', 'Ewe'], ['sw', 'Kiswahili'], ['zu', 'isiZulu'], ['am', 'አማርኛ'], ['so', 'Soomaali'], ['de', 'Deutsch'], ['it', 'Italiano'], ['nl', 'Nederlands'],
 ['tr', 'Türkçe'], ['ru', 'Русский'], ['uk', 'Українська'], ['pl', 'Polski'], ['hi', 'हिन्दी'], ['ur', 'اردو'], ['bn', 'বাংলা'], ['id', 'Bahasa Indonesia'], ['ms', 'Bahasa Melayu'],
@@ -8809,6 +9670,8 @@ if ((want && want !== 'en') || window.currentLang() !== 'en') window.loadTransla
 else setTimeout(window.loadTranslator, 4000);       // load quietly so switching is instant
 setTimeout(window.updateLangBadge, 500);
 })();
+
+
 window.repostCount = function(id) {
 const n = (window.fypposts || []).filter(p => p.repostOf === id).length;
 return n || 0;
@@ -8828,6 +9691,7 @@ mine ? { icon: 'fa-retweet', label: 'Undo repost', danger: true, run: () => wind
 { icon: 'fa-share-nodes', label: 'Share to WhatsApp, X, link…', run: () => window.sharePost(target) }
 ]);
 };
+
 window.PROFILE_CACHE_KEY = 'sg_profiles_v1';
 window.PROFILE_REFRESH_MS = 6 * 3600000;
 window.slimProfile = function(p) {
@@ -8881,6 +9745,7 @@ return r;
 };
 window._baseRenderAdminUsers19 = window._baseRenderAdminUsers19 || window.renderAdminUsers;
 window.renderAdminUsers = async function() { await window.loadAllProfiles(true); return window._baseRenderAdminUsers19(); };
+
 (function persistRankCache() {
 try { const c = JSON.parse(localStorage.getItem('sg_rank_cache') || 'null'); if (c) Object.entries(c).forEach(([k, v]) => { if (Date.now() - v.at < 20 * 60000) window.rankCache[k] = v; }); } catch (e) {}
 })();
@@ -8897,6 +9762,7 @@ localStorage.setItem('sg_rank_cache', JSON.stringify(all));
 } catch (e) {}
 return posts;
 };
+
 window._standCache = {};
 window._baseWeeklyStandings19 = window._baseWeeklyStandings19 || window.weeklyStandings;
 window.weeklyStandings = async function(wk) {
@@ -8906,6 +9772,7 @@ const rows = await window._baseWeeklyStandings19(wk);
 window._standCache[wk] = { at: Date.now(), rows };
 return rows;
 };
+
 window._baseEnhanceProfileView19 = window._baseEnhanceProfileView19 || window.enhanceProfileView;
 window.enhanceProfileView = async function(tag) {
 const link = document.getElementById('profileLinkUrl');
@@ -8920,6 +9787,7 @@ link.href = /^https?:\/\//.test(site) ? site : 'https://' + site;
 row.classList.remove('hidden');
 }
 };
+
 (function hideTranslatorChrome() {
 const st = document.createElement('style');
 st.textContent = `
@@ -8940,6 +9808,7 @@ new MutationObserver(fix).observe(document.documentElement, { childList: true, s
 if (document.body) new MutationObserver(fix).observe(document.body, { attributes: true, attributeFilter: ['style'] });
 setInterval(fix, 1500);
 })();
+
 window.GAMES = {
 keepy: { name: 'Keepy-Uppy', emoji: '⚽', desc: 'Tap the ball to keep it up. Don’t let it drop!', color: 'from-emerald-500 to-cyan-500' },
 penalty: { name: 'Penalty King', emoji: '🥅', desc: 'Tap where to shoot. Beat the keeper. One miss and it’s over.', color: 'from-amber-400 to-red-500' }
@@ -8955,6 +9824,7 @@ if (tab === 'arcade') window.renderArcade(); else window.renderFantasy();
 };
 window._baseSwitchView20 = window._baseSwitchView20 || window.switchView;
 window.switchView = function(v) { window._baseSwitchView20(v); if (v === 'play') window.setPlayTab(window.playTab || 'arcade'); };
+
 window.arcadeBoard = 'keepy';
 window.renderArcade = async function() {
 const box = document.getElementById('playBody');
@@ -9009,6 +9879,7 @@ let rank = 0;
 try { const rows = await window.loadGameBoard(game, true); rank = rows.findIndex(r => r.uid === window.uidNow()) + 1; } catch (e) {}
 return { isBest, weekBest, rank };
 };
+
 window.game = null;
 window.openGame = function(id) {
 window.pauseFeedVideos && window.pauseFeedVideos();
@@ -9099,6 +9970,7 @@ window.game = null; window.onresize = null;
 document.getElementById('gameModal').classList.add('hidden');
 if (!document.getElementById('view-play').classList.contains('hidden') && window.playTab === 'arcade') window.renderArcade();
 };
+
 window.drawPitch = function(g) {
 const { ctx, W, H } = g;
 const grd = ctx.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, '#04260f'); grd.addColorStop(1, '#0b4d1f');
@@ -9107,6 +9979,7 @@ ctx.globalAlpha = 0.07; ctx.fillStyle = '#fff';
 for (let i = 0; i < 8; i += 2) ctx.fillRect(0, (H / 8) * i, W, H / 8);
 ctx.globalAlpha = 1;
 };
+
 window.keepyInit = function(g) {
 g.reset = function() {
 const r = Math.max(26, Math.min(g.W, g.H) * 0.075);
@@ -9157,6 +10030,7 @@ ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.font = `900 ${Math.min(W, H) * 0.3
 if (g.state === 'play') ctx.fillText(g.score, W / 2, H * 0.55);
 };
 };
+
 window.penaltyInit = function(g) {
 const layout = () => {
 g.goal = { x: g.W * 0.1, y: g.H * 0.14, w: g.W * 0.8, h: Math.min(g.H * 0.24, g.W * 0.36) };
@@ -9235,6 +10109,7 @@ ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.font = `900 ${Math.min(W, H) * 0.2
 if (g.state === 'play') ctx.fillText(g.score, W / 2, H * 0.58);
 };
 };
+
 window.FPL = 'https://fantasy.premierleague.com/api/';
 window.fetchJsonRelay = async function(url) {
 const tries = [url, 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url), 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), 'https://corsproxy.io/?url=' + encodeURIComponent(url)];
@@ -9270,6 +10145,7 @@ window.BUDGET = 1000;
 window.fmtCost = (c) => '£' + (c / 10).toFixed(1) + 'm';
 window.nextEvent = () => (window.fpl.events.find(e => e.next) || window.fpl.events.find(e => e.deadline > Date.now()));
 window.curEvent = () => (window.fpl.events.find(e => e.cur) || [...window.fpl.events].reverse().find(e => e.deadline < Date.now()));
+
 window.myFantasy = null;      // saved team
 window.fDraft = null;         // team being edited { squad, xi, captain }
 window.loadMyFantasy = async function() {
@@ -9277,6 +10153,7 @@ if (!window.isSignedIn()) return null;
 try { const s = await getDoc(doc(window.db, 'fantasy', window.uidNow())); window.myFantasy = s.exists() ? s.data() : null; } catch (e) {}
 return window.myFantasy;
 };
+
 window.fantasyView = 'team';
 window.renderFantasy = async function() {
 const box = document.getElementById('playBody');
@@ -9511,6 +10388,7 @@ ${cur.length ? cur.slice(0, 100).map((r, i) => `<div class="flex items-center ju
 <span class="text-sm font-black text-emerald-400">${r.pts}</span></div>`).join('') : '<p class="text-xs text-gray-400 text-center py-6">No teams for this gameweek yet. Save yours before the deadline!</p>'}
 </div>`;
 };
+
 window.CHALLENGE_POOL.push(
 { id: 'arcade5', type: 'game', target: 5, label: 'Play 5 Arcade games', icon: '🎮' },
 { id: 'fantasy1', type: 'fantasy', target: 1, label: 'Save your Fantasy team', icon: '🏆' }
@@ -9524,6 +10402,7 @@ try { return window._baseWeekChallenges20(wk); } finally { window.CHALLENGE_POOL
 return window._baseWeekChallenges20(wk);
 };
 window.XP_RULES.game = [2, 10];
+
 window.SG_PROXY = window.SG_PROXY || '';
 window.fetchTimeout = function(url, ms) {
 const ctl = new AbortController();
@@ -9549,6 +10428,7 @@ if (box && !window.fpl && window.playTab === 'fantasy' && box.innerText.includes
 }, 6000);
 try { await window._baseRenderFantasy21(); } finally { clearTimeout(t); }
 };
+
 window.MARKET_BLOCKED = /\b(account|acct|acc|login|password|coins?|fc ?points|diamonds?|uc\b|cp\b|v-?bucks|robux|gift ?card|top-?up|hack|mod ?menu|cheat|aimbot|crack(ed)?|replica|fake|counterfeit|weed|gun|bet(ting)?|followers?|likes|insta(gram)?|tiktok|snap(chat)?|handle|page admin)\b/i;
 window._baseSubmitMarket21 = window._baseSubmitMarket21 || window.submitMarketListingToCloud;
 window.submitMarketListingToCloud = async function(...args) {
@@ -9559,6 +10439,7 @@ return;
 }
 return window._baseSubmitMarket21.apply(this, args);
 };
+
 window.HL_CHANNELS = [
 { id: 'UCG5qGWdu8nIRZqJ_GgDwQ-w', name: 'Premier League', short: 'EPL', flag: '🏴' },
 { id: 'UCyGa1YEx9ST66rYrJTGIKOw', name: 'UEFA', short: 'UCL', flag: '⭐' },
@@ -9647,6 +10528,7 @@ el.innerHTML = `<div class="flex items-center justify-between"><h3 class="text-x
 };
 window._baseSwitchView21 = window._baseSwitchView21 || window.switchView;
 window.switchView = function(v) { window._baseSwitchView21(v); if (v === 'trending') window.renderTrendingHighlights(); };
+
 window.GAMES = {
 dribble: { name: 'Dribble Rush', emoji: '⚡', desc: 'Dodge defenders, grab stars. Tap left or right. How far can you go?', color: 'from-cyan-400 to-emerald-500' },
 keeper: { name: 'Keeper Hero', emoji: '🧤', desc: 'Read the striker and dive the right way. 3 lives.', color: 'from-fuchsia-500 to-cyan-400' },
@@ -9670,6 +10552,7 @@ const dx = e.clientX - g._sx; g._sx = null;
 if (Math.abs(dx) > 40) g.swipe(dx > 0 ? 1 : -1);
 }, true);
 document.addEventListener('pointerdown', (e) => { const g = window.game; if (g) g._sx = e.clientX; }, true);
+
 window.dribbleInit = function(g) {
 g.lanes = 3;
 g.laneX = (i) => g.W * (0.5 + (i - 1) * 0.28);
@@ -9740,6 +10623,7 @@ ctx.font = `${size * 0.42}px system-ui`; ctx.fillText('⚽', g.px + size * 0.15,
 if (g.state === 'play') { ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '800 12px system-ui'; ctx.fillText('◀ tap left · tap right ▶', W / 2, H * 0.95); }
 };
 };
+
 window.keeperInit = function(g) {
 g.reset = function() {
 g.lives = 3; g.saves = 0; g.shot = null; g.wait = 0.8; g.dive = 1; g.diveT = 0; g.flashT = 0; g.lastResult = null;
@@ -9819,7 +10703,9 @@ const txt = { tackled: '😤 Tackled!', cone: '🚧 Hit a cone!', conceded: '⚽
 if (head && txt) head.innerText = txt;
 }
 };
+
 (function gameTapFix() { const st = document.createElement('style'); st.textContent = '#gameOverlay{pointer-events:none}#gameOverlay>*{pointer-events:auto}'; document.head.appendChild(st); })();
+
 window.getFeedBadges = function(username) {
 const p = window.profileFor ? window.profileFor(username) : null;
 const v = p && p.verified ? '<span class="text-[9px] text-sky-400" title="Verified"><i class="fa-solid fa-circle-check"></i></span>' : '';
@@ -9827,6 +10713,7 @@ const lv = p && Number(p.xp) ? window.levelOf(Number(p.xp)).lv : 0;
 const t = window.titleBadgeShort ? window.titleBadgeShort(username) : '';
 return [v, lv >= 2 ? `<span class="text-[8px] font-black px-1 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Lv${lv}</span>` : '', t].filter(Boolean).join(' ');
 };
+
 window.isDemoAccount = (u) => (u || '').replace('@', '').toLowerCase() === 'sinlessgaming';
 window._baseGetOrderedFeed21 = window._baseGetOrderedFeed21 || window.getOrderedFeed;
 window.getOrderedFeed = function() { return window._baseGetOrderedFeed21().filter(p => !window.isDemoAccount(p.user)); };
@@ -9851,6 +10738,7 @@ await window._baseRenderAdminStats21();
 const box = document.getElementById('adminBody');
 if (box && window.adminTab === 'stats' && !document.getElementById('demoCleanBtn')) box.insertAdjacentHTML('beforeend', `<button id="demoCleanBtn" onclick="window.adminDeleteDemoPosts()" class="w-full mt-3 py-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 font-black text-xs uppercase">🧹 Delete old "SinlessGaming" demo posts</button>`);
 };
+
 window.WATCH_CATS = [
 { id: 'football', label: '⚽ Football' }, { id: 'gaming', label: '🎮 Gaming' }, { id: 'wrestling', label: '🤼 Wrestling' },
 { id: 'movies', label: '🎬 Movies & TV' }, { id: 'anime', label: '🍥 Anime' }, { id: 'books', label: '📚 Books & Learning' }, { id: 'wow', label: '🚀 Wow & Tech' }
@@ -9910,6 +10798,7 @@ window._baseSwitchView21b = window._baseSwitchView21b || window.switchView;
 window.switchView = function(v) { window._baseSwitchView21b(v); if (v === 'watch') window.renderWatch(); };
 window._baseSetNewsCat21b = window._baseSetNewsCat21b || window.setNewsCat;
 window.setNewsCat = function(id) { if (id === 'highlights') { window.watchCat = 'football'; window.switchView('watch'); return; } return window._baseSetNewsCat21b(id); };
+
 window._basePlayHighlight21b = window._basePlayHighlight21b || window.playHighlight;
 window.playHighlight = function(i) {
 window._basePlayHighlight21b(i);
@@ -9964,6 +10853,7 @@ try { await deleteDoc(doc(window.db, 'watch', v.vid, 'comments', cid)); await se
 };
 window._baseCloseHighlight21b = window._baseCloseHighlight21b || window.closeHighlight;
 window.closeHighlight = function() { if (window.vidUnsub) { window.vidUnsub(); window.vidUnsub = null; } if (window.vidDocUnsub) { window.vidDocUnsub(); window.vidDocUnsub = null; } window._baseCloseHighlight21b(); };
+
 window._baseSetAdminTab21b = window._baseSetAdminTab21b || window.setAdminTab;
 window.setAdminTab = function(tab) {
 if (tab === 'watch') {
@@ -10012,6 +10902,7 @@ window.watchCfg.featured = [{ vid, title, cat: document.getElementById('afCat').
 window.saveWatchCfg();
 };
 window.adminRemoveFeatured = function(vid) { window.watchCfg.featured = (window.watchCfg.featured || []).filter(f => f.vid !== vid); window.saveWatchCfg(); };
+
 window.GAMES.ludo = { name: 'Ludo', emoji: '🎲', desc: 'Classic Ludo: play vs 1, 2 or 3 AI, or 4 players on one phone.', color: 'from-yellow-400 to-red-500' };
 window.LUDO_PATH = [[6,1],[6,2],[6,3],[6,4],[6,5],[5,6],[4,6],[3,6],[2,6],[1,6],[0,6],[0,7],[0,8],[1,8],[2,8],[3,8],[4,8],[5,8],[6,9],[6,10],[6,11],[6,12],[6,13],[6,14],[7,14],[8,14],[8,13],[8,12],[8,11],[8,10],[8,9],[9,8],[10,8],[11,8],[12,8],[13,8],[14,8],[14,7],[14,6],[13,6],[12,6],[11,6],[10,6],[9,6],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0],[7,0],[6,0]];
 window.LUDO_COLORS = [
@@ -10243,6 +11134,7 @@ window.game.id = 'ludo';
 document.getElementById('gameTitle').innerText = '🎲 Ludo';
 window.showGameOverlay('ready');
 };
+
 window.squadGameTab = 'dribble';
 window._baseRenderSquadHeader22 = window._baseRenderSquadHeader22 || window.renderSquadHeader;
 window.renderSquadHeader = function() {
@@ -10292,6 +11184,7 @@ window._baseCloseGame22();
 const sid = window.returnToSquadGames;
 if (sid) { window.returnToSquadGames = null; window.openSquadDetailsModal(sid); window.activeSquadSubRoom = 'Games'; window.renderSquadHeader(); window.renderSquadChannel(); }
 };
+
 window.bracketHtml = function(t) {
 const N = Math.max(2, t.maxPlayers || 8), R = Math.round(Math.log2(N));
 const rounds = [];
@@ -10361,6 +11254,7 @@ sc.insertBefore(wrap, inner); wrap.appendChild(inner);
 if (k === 0.5) sc.insertAdjacentHTML('afterend', '<p class="text-center text-[9px] text-gray-500 pt-1">Swipe to see the whole bracket ↔</p>');
 });
 };
+
 window.myHost = null;
 window.loadMyHost = async function(force) {
 if (!window.isSignedIn()) { window.myHost = null; return null; }
@@ -10375,6 +11269,7 @@ window.HOST_TEMPLATE = (org) => [
 { id: 'open', name: `${org} Open Cup`, kind: 'cup', tier: 0, format: 'KNOCKOUT' },
 { id: 'ucl', name: `${org} Champions League`, kind: 'cup', tier: 0, format: 'KNOCKOUT' }
 ];
+
 window.tourTab = 'list';
 window.setTourTab = function(tab) {
 window.tourTab = tab;
@@ -10385,6 +11280,7 @@ if (tab === 'calendar') window.renderCalendar(); else if (tab === 'mine') window
 };
 window._baseSwitchView22 = window._baseSwitchView22 || window.switchView;
 window.switchView = function(v) { window._baseSwitchView22(v); if (v === 'tournaments') window.setTourTab(window.tourTab || 'list'); };
+
 window.renderHostDash = async function() {
 const box = document.getElementById('tourExtraBody');
 if (!window.isSignedIn()) { box.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center text-xs text-gray-400">Sign in to run your own league system.</div>`; return; }
@@ -10460,6 +11356,7 @@ window.readHostEdits();
 try { await setDoc(doc(window.db, 'hosts', window.uidNow()), window.cleanForCloud({ org: window.myHost.org, comps: window.myHost.comps }), { merge: true }); showToast('✅ Saved'); window.closePanel(); window.renderHostDash(); }
 catch (e) { showToast("⚠️ Couldn't save."); }
 };
+
 window.onTournTypeChange = async function() {
 const series = document.getElementById('tournTypeSelect').value === 'series';
 document.getElementById('tournSeriesBox').classList.toggle('hidden', !series);
@@ -10516,6 +11413,7 @@ window.openTournamentById = function(id) {
 const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
 window.activeTournament = t; window.setTourTab('list'); window.scrollTo({ top: 0 });
 };
+
 window.finalOrderOf = function(t) {
 const real = (p) => p && !/^Club_\d+$/.test(p) && p !== 'Open Spot' && p !== 'TBD';
 if (t.format === 'LEAGUE') {
@@ -10555,6 +11453,7 @@ showToast(`👑 ${window.dnText(champ)} crowned champion!`);
 window.renderTournamentsTabDedicated();
 } catch (e) { console.warn(e); showToast("⚠️ Couldn't finish. Did you add the new Firebase rules?"); }
 };
+
 window.makeLeagueMatches = function(players, h2h) {
 const ms = []; let n = 0;
 for (let i = 0; i < players.length; i++) for (let j = i + 1; j < players.length; j++) {
@@ -10598,6 +11497,7 @@ players.forEach(async p => { const pr = await window.getProfile(p); if (pr && pr
 showToast(`🔁 ${made} new league season${made === 1 ? '' : 's'} started!`);
 window.renderHostDash();
 };
+
 window._baseRenderTournamentsTabDedicated22b = window._baseRenderTournamentsTabDedicated22b || window.renderTournamentsTabDedicated;
 window.renderTournamentsTabDedicated = function() {
 window._baseRenderTournamentsTabDedicated22b();
@@ -10616,6 +11516,7 @@ ${isHost && t.status !== 'finished' ? `<button onclick="window.finishSeason('${t
 const d = document.createElement('div'); d.innerHTML = bar;
 (panel.children[0] || panel).after(d.firstElementChild);
 };
+
 window.loadTitles = async function() {
 if (window._titles && Date.now() - window._titles.at < 15 * 60000) return window._titles.list;
 const list = [];
@@ -10636,6 +11537,7 @@ const tb = ts.map(t => `<span class="text-[8px] bg-amber-500/15 text-amber-300 b
 return [tb, window._baseGetProfileBadges22(username)].filter(Boolean).join(' ');
 };
 setTimeout(() => window.loadTitles(), 3500);
+
 window.calMonth = null;
 window.renderCalendar = function() {
 const box = document.getElementById('tourExtraBody');
@@ -10674,6 +11576,7 @@ ${dayEv.length ? dayEv.map(evRow).join('') : '<p class="text-xs text-gray-500 px
 <p class="text-[10px] font-black text-gray-400 uppercase px-1 pt-2">Coming up</p>
 ${upcoming.length ? upcoming.map(evRow).join('') : '<p class="text-xs text-gray-500 px-1">No upcoming tournaments. Hosts can add dates when creating one.</p>'}`;
 };
+
 window.assignLeagueRounds = function(t) {
 const ps = [...(t.players || [])]; if (ps.length < 2) return t;
 if (ps.length % 2) ps.push('__BYE__');
@@ -10697,6 +11600,7 @@ window.makeLeagueMatches = function(players, h2h) {
 const t = { players, matches: window._baseMakeLeagueMatches22c(players, h2h) };
 return window.assignLeagueRounds(t).matches;
 };
+
 window.DAY = 864e5;
 window.dayStartOf = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
 window.dayKey = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
@@ -10763,6 +11667,7 @@ else cl.push({ start: t.startAt, end: e, items: [t] });
 });
 return cl;
 };
+
 window.calView = 'plan'; window.calHost = 'all'; window.calSeasonIdx = null;
 window._baseRenderCalendar22c = window._baseRenderCalendar22c || window.renderCalendar;
 window.renderCalendar = function() {
@@ -10835,6 +11740,7 @@ ${rows.map(r => `<div class="grid grid-cols-[34px_74px_1fr] gap-2 px-3 py-2.5 it
 </div>
 <p class="text-[9px] text-gray-500 text-center px-4">Rounds are spread evenly between each competition's start and end dates. Tap a competition above to open its fixtures.</p>`;
 };
+
 window._baseRenderTournamentsTabDedicated22c = window._baseRenderTournamentsTabDedicated22c || window.renderTournamentsTabDedicated;
 window.renderTournamentsTabDedicated = function() {
 window._baseRenderTournamentsTabDedicated22c();
@@ -10845,6 +11751,7 @@ const nextK = Object.keys(sch).map(x => { const [y, m, d] = x.split('-').map(Num
 const txt = today ? `Today: ${today.map(e => e.text).join(' · ')}` : nextK ? `Next: ${new Date(nextK).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} – ${sch[window.dayKey(nextK)].map(e => e.text).join(' · ')}` : '';
 if (txt) bar.insertAdjacentHTML('beforeend', `<button data-today onclick="window.setTourTab('calendar')" class="w-full text-left px-2 py-1 rounded-lg bg-amber-400/10 text-amber-200 border border-amber-500/20">📅 ${escapeHTML(txt)}</button>`);
 };
+
 window.koDayIndex = (r, K, D) => r >= K ? D - 1 : Math.min(D - 1, Math.floor((r - 1) * D / K));
 window.matchDate = function(t, m) {
 if (!t.startAt) return null;
@@ -10929,6 +11836,7 @@ ${Object.keys(byDay).map(k => group(label(+k), byDay[k], +k === today ? 'text-em
 ${group('Date not set yet', undated)}
 ${group('Results', played.slice(0, 15))}`;
 };
+
 document.addEventListener('click', (e) => {
 const box = document.getElementById('tournamentsDedicatedContainer');
 const el = e.target;
@@ -10948,6 +11856,7 @@ document.getElementById('profileMatchesBtn')?.remove();
 if (bio && n) bio.insertAdjacentHTML('afterend', `<button id="profileMatchesBtn" onclick="window.openMyMatches('${escapeHTML(tag)}')" class="mt-2 w-full py-2.5 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-xs font-black">⚽ ${n} upcoming match${n > 1 ? 'es' : ''}: see fixtures</button>`);
 return r;
 };
+
 window.canManageTourn = (t) => window.isSignedIn() && !!t && (window.isAppAdmin || t.hostUid === window.uidNow() || t.hostId === window.uidNow() || (t.host || '').toLowerCase() === window.meLower());
 window._baseOpenMatchReportModal22c = window._baseOpenMatchReportModal22c || window.openMatchReportModal;
 window.openMatchReportModal = function(matchId) {
@@ -11011,6 +11920,7 @@ if (host && !card.querySelector('[data-ff]')) host.outerHTML = `<span data-ff cl
 });
 });
 };
+
 window.isPlaceholder = (p) => !p || /^Club_\d+$/.test(p) || p === 'Open Spot' || p === 'TBD';
 window.realPlayers = (t) => (t.players || []).filter(p => !window.isPlaceholder(p));
 window.registerPlayer = function(t, tag) {
@@ -11063,6 +11973,7 @@ await window.saveTournament(t);
 showToast(`✅ @${window.hnd(real)} added to ${t.title}`);
 if (prof.uid) window.notify(prof.uid, 'tournament', { text: `added you to ${t.title} 🏆 Check My Matches for your fixtures.` });
 };
+
 window.approveMatchNow = function(t, m) {
 m.status = 'approved';
 const loser = m.s1 < m.s2 ? m.p1 : m.s2 < m.s1 ? m.p2 : null;
@@ -11120,6 +12031,7 @@ clearTimeout(window._tourExtraTimer);
 window._tourExtraTimer = setTimeout(() => { if (window.tourTab === 'mine') window.renderMyMatches(); else if (window.tourTab === 'calendar') window.renderCalendar(); }, 150);
 }
 };
+
 window.squadTournFixtures = function(squadId, tag) {
 const me = (tag || '').toLowerCase(), out = [];
 (window.tournamentsList || []).filter(t => t.squadId === squadId && t.status !== 'finished').forEach(t => {
@@ -11177,6 +12089,7 @@ if (n) showToast(`🏳️ ${window.dnText(tag)}'s ${n} unplayed match${n > 1 ? '
 }
 };
 });
+
 window.trophyKind = function(x) {
 const n = (x.compName || x.title || '').toLowerCase();
 if (/champions league/.test(n)) return 'ucl';
@@ -11270,6 +12183,7 @@ st.textContent = `.sg-trophy-float{animation:sgFloat 3.2s ease-in-out infinite}.
 @media (prefers-reduced-motion:reduce){.sg-trophy-float,.sg-trophy::after{animation:none}}`;
 document.head.appendChild(st);
 })();
+
 window._baseProfileFor22e = window._baseProfileFor22e || window.profileFor;
 window.profileFor = function(tag) {
 const r = window._baseProfileFor22e(tag);
@@ -11316,6 +12230,7 @@ const body = document.querySelector('#sgPanel .space-y-2') ;
 const panel = document.getElementById('sgPanelBody') || (body && body.parentElement);
 panel && panel.insertAdjacentHTML('afterbegin', `<button onclick="window.openTrophyCabinet('${escapeHTML(user)}')" class="text-[11px] font-black text-amber-300 mb-1">← Trophy cabinet</button>`);
 };
+
 window.feedVids = {};            // cat → [videos]
 window._feedVidLoading = {};
 window.seenVids = (() => { try { return new Set(JSON.parse(localStorage.getItem('sg_seen_vids') || '[]')); } catch (e) { return new Set(); } })();
@@ -11417,6 +12332,7 @@ const cat = v && (v.cat || window.watchCat);
 if (window.taste && v && cat && cat !== 'football' && before !== null) { window.taste.news.football = before; window.taste.news[cat] = Math.min(60, (window.taste.news[cat] || 0) + 1); window.saveTasteSoon(); }
 };
 setTimeout(() => window.refreshFeedVideos(null), 4000);
+
 window.ytMount = function(stage) {
 if (stage.querySelector('iframe')) return;
 const vid = stage.getAttribute('data-yt-auto'); if (!/^[\w-]{6,20}$/.test(vid)) return;
@@ -11461,6 +12377,7 @@ window._baseRenderFypFeed23b = window._baseRenderFypFeed23b || window.renderFypF
 window.renderFypFeed = function(...a) { const r = window._baseRenderFypFeed23b(...a); try { window.setupFeedAutoplay && window.setupFeedAutoplay(); } catch (e) {} return r; };
 window._baseCloseHighlight23b = window._baseCloseHighlight23b || window.closeHighlight;
 window.closeHighlight = function() { window._baseCloseHighlight23b(); setTimeout(() => window.feedVideoRatios && window.pickFeedVideoToPlay(), 300); };
+
 window.DESK_MODALS = { userProfileModal: 'closeUserProfileModal', squadDetailsModal: 'closeSquadDetailsModal', postDetailModal: 'closePostDetail', dmModal: 'closeDmModal',
 notifModal: 'closeNotifications', sgPanel: 'closePanel', hlModal: 'closeHighlight', loungeModal: 'closeLounge', adminModal: 'closeAdminPanel', gameModal: 'closeGame',
 goLiveModal: 'closeGoLive', liveRoomModal: 'leaveLiveRoom', commentsModal: 'closeCommentsModal' };
@@ -11580,6 +12497,7 @@ setTimeout(() => { window.renderDeskRail(); window.deskMeRender(); }, 3500);
 window._baseAfterAuthChange24 = window._baseAfterAuthChange24 || window.afterAuthChange;
 window.afterAuthChange = async function(u) { const r = await window._baseAfterAuthChange24(u); setTimeout(() => { window.deskMeRender && window.deskMeRender(); window.renderDeskRail && window.renderDeskRail(); }, 500); return r; };
 ['notifBadge', 'dmBadge'].forEach(id => { const el = document.getElementById(id); if (el) new MutationObserver(() => window.syncDeskBadges()).observe(el, { attributes: true, childList: true, characterData: true, subtree: true }); });
+
 window.storyMine = (st) => (window.currentUser && st.uid === window.currentUser.uid) || (st.user || '').toLowerCase() === window.meLower();
 window.storyIsCloud = (st) => st && st.id && !String(st.id).startsWith('local');
 window._storyViewCache = {};
@@ -11644,6 +12562,7 @@ window.closePanel = function() {
 window._baseClosePanel25();
 if (window._storyResume) { window._storyResume = false; document.getElementById('storyViewerModal').classList.remove('hidden'); window.showStory(); }
 };
+
 window.MARKET_CATS = { consoles: '🎮 Consoles', controllers: '🕹️ Controllers & acc.', games: '💿 Games', phones: '📱 Phones & tablets', pc: '🖥️ PC & parts', audio: '🎧 Audio', merch: '👕 Jerseys & merch', other: '📦 Other' };
 window.marketFiles = [];
 window.marketCat = 'all';
@@ -11762,6 +12681,7 @@ window.openGroupThread && window.openGroupThread(ref.id);
 if (!admins.length) showToast('Deal chat created. Our team will be added soon.');
 } catch (e) { showToast('⚠️ Couldn’t start the deal chat. Try again.'); }
 };
+
 window.VIEW_RULES.repeatEveryMs = 12000;
 window.VIEW_RULES.maxPerStay = 3;
 window.viewedPosts = (() => { try { return new Set(JSON.parse(localStorage.getItem('sg_viewed_posts') || '[]')); } catch (e) { return new Set(); } })();
@@ -11785,6 +12705,7 @@ tick(); window.markViewed(id);
 st.interval = setInterval(tick, R.repeatEveryMs);
 }, first ? R.firstAfterMs : R.repeatEveryMs);
 };
+
 window.cldWatermarkUrl = function(url, kind, user, withLogo) {
 if (!url || !url.includes('res.cloudinary.com') || !url.includes('/upload/')) return null;
 const [base, rest] = url.split('/upload/');
@@ -11828,6 +12749,7 @@ const orig = window.openActionSheet;
 window.openActionSheet = (title, items) => orig(title, [{ icon: 'fa-download', label: 'Download (with Sinless GG mark)', run: () => window.downloadPostMedia(postId) }, ...items]);
 try { window._baseOpenPostActions25(postId); } finally { window.openActionSheet = orig; }
 };
+
 window.squadTourTab = 'events';
 window.tourOpenSpots = function(t) {
 if (!t || t.status === 'finished') return 0;
@@ -11912,6 +12834,7 @@ window._baseCloseSquadDetailsModal25 = window._baseCloseSquadDetailsModal25 || w
 window.closeSquadDetailsModal = function() { window.restoreTourNodes(); window.tourTab = window.tourTab === 'mine' || window.tourTab === 'calendar' ? window.tourTab : 'list'; return window._baseCloseSquadDetailsModal25(); };
 window._baseSwitchView25 = window._baseSwitchView25 || window.switchView;
 window.switchView = function(v) { if (v === 'tournaments') window.restoreTourNodes(); return window._baseSwitchView25(v); };
+
 window._baseRenderSquadHeader25 = window._baseRenderSquadHeader25 || window.renderSquadHeader;
 window.renderSquadHeader = function() {
 window._baseRenderSquadHeader25();
@@ -11919,6 +12842,7 @@ const sq = window.activeSquadDetails, nav = document.getElementById('squadSubRoo
 if (sq && nav && window.isSquadAdmin(sq) && !nav.querySelector('[data-addroom]'))
 nav.insertAdjacentHTML('beforeend', `<button data-addroom onclick="window.editChannel(null)" title="Create a room" class="px-3 py-2 rounded-xl text-xs font-black bg-gg-900 text-cyan-300 border border-dashed border-cyan-500/50">＋</button>`);
 };
+
 window._baseJoinActiveTournament25 = window._baseJoinActiveTournament25 || window.joinActiveTournament;
 window.joinActiveTournament = async function(id) {
 const t = (window.tournamentsList || []).find(x => x.id === id);
@@ -11958,6 +12882,7 @@ window.squadTourTab = 'events';
 const t = (window.tournamentsList || []).find(x => x.id === id); if (t) window.activeTournament = t;
 window.switchSquadSubRoom('Tournaments');
 };
+
 window.openTournamentsFor = function(cat) {
 const now = Date.now();
 return (window.tournamentsList || []).filter(t => window.tourOpenSpots(t) > 0 && (!t.endAt || t.endAt > now) && (cat === 'ALL' || (t.game || '').toUpperCase() === cat))
@@ -11989,6 +12914,7 @@ const at = kids[f === 'ALL' ? 2 : 0];
 if (at) (f === 'ALL' ? at.after(strip) : at.before(strip)); else box.prepend(strip);
 return r;
 };
+
 window.dmReplyTo = null;
 window.dmMsgsById = {};
 window.msgPreview = (m) => m.isAudio ? '🎤 Voice note' : m.isImage ? '📷 Photo' : (m.text || '').slice(0, 90);
@@ -12076,6 +13002,7 @@ const st = document.createElement('style');
 st.textContent = `@media (hover:hover){ .dm-row .dm-reply{opacity:0;transition:opacity .15s} .dm-row:hover .dm-reply{opacity:1} } @media (hover:none){ .dm-row .dm-reply{display:none} }`;
 document.head.appendChild(st);
 })();
+
 window.SG_PUSH = { url: '', vapid: '' };
 window.loadPushCfg = async function() {
 if (window._pushCfgAt && Date.now() - window._pushCfgAt < 30 * 60000) return window.SG_PUSH;
@@ -12163,6 +13090,7 @@ await window.pushPing(ref.id);
 showToast('📨 Sent! Close or lock the app to see it.');
 } catch (e) { showToast('⚠️ Test failed.'); }
 };
+
 window.isVerified = (tag) => { const p = window.profileFor && window.profileFor(tag); return !!(p && p.verified); };
 window.verifiedTick = function(tag, pill) {
 if (!window.isVerified(tag)) return '';
@@ -12211,6 +13139,7 @@ if (vs.length) box.insertAdjacentHTML('afterbegin', `<div data-vcreators class="
 <div class="flex flex-wrap gap-2">${vs.map(t => `<button onclick="window.openUserProfileModal('${escapeHTML(t)}')" class="flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full bg-gg-900 border border-sky-500/30">${window.avatarHtml(t, 'w-6 h-6', 'rounded-full', 'text-[8px]').replace(/onclick="[^"]*"/, '')}<span class="text-[11px] font-bold text-white">${window.dn(t)}</span><span class="text-sky-400 text-[10px]">✔</span></button>`).join('')}</div></div>`);
 return r;
 };
+
 window.searchTab = 'all';
 window.openSearch = function() {
 if (!Object.keys(window.allProfilesMap || {}).length && window.loadAllProfiles) window.loadAllProfiles();
@@ -12242,6 +13171,7 @@ const html = sec('people', 'People', P.map(p => row(`window.closePanel(); window
 + sec('posts', 'Posts', Po.map(p => row(`window.closePanel(); window.openPostDetail('${p.docId || p.id}')`, window.avatarHtml(p.user, 'w-10 h-10', 'rounded-xl', 'text-xs').replace(/onclick="[^"]*"/, ''), escapeHTML((p.caption || '📷 Media').slice(0, 80)), `@${window.hnd(escapeHTML(p.user))} · ${escapeHTML(p.game || '')}`)));
 out.innerHTML = html || `<p class="text-xs text-gray-500 text-center py-10">Nothing found for “${escapeHTML(q)}”.</p>`;
 };
+
 window.squadWeekKey = () => window.weekKey ? window.weekKey(Date.now()) : new Date().toISOString().slice(0, 10);
 window.squadWeekly = function(sq) {
 const since = Date.now() - 7 * 864e5, members = new Set((sq.members || []).map(m => (m || '').toLowerCase()));
@@ -12281,6 +13211,7 @@ window.toggleWeekly = function(key) {
 try { if (localStorage.getItem(key)) localStorage.removeItem(key); else localStorage.setItem(key, '1'); } catch (e) {}
 const box = document.getElementById('squadRoomMsgsBox'); box.querySelector('[data-weekly]')?.remove(); window.renderSquadChannel();
 };
+
 window.isSeenPost = (p) => window.viewedPosts && (window.viewedPosts.has(p.docId || p.id) || window.viewedPosts.has(p.id));
 window.rebuildFeedOrder = function() {
 const all = window.fypposts || [];
@@ -12299,6 +13230,7 @@ window.feedOrder = [...ownNew, ...fresh, ...otherUnseen, ...seen].map(p => p.doc
 window.pendingNewIds.clear();
 window.updateNewPostsPill();
 };
+
 window.tourHasResults = (t) => (t.matches || []).some(m => m.s1 !== null && m.s1 !== undefined && m.s1 !== '');
 window.shuffleArr = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 window.shuffleTournament = async function(id) {
@@ -12365,6 +13297,8 @@ bar.insertAdjacentHTML('beforeend', `<span data-hosttools class="flex gap-1.5 fl
 ${canShuffle ? `<button onclick="window.shuffleTournament('${t.id}')" class="px-2.5 py-1 rounded-lg bg-magenta/15 text-magenta border border-magenta/40 uppercase">🔀 Shuffle draw</button>` : ''}
 ${window.realPlayers(t).length ? `<button onclick="window.openRemovePlayer('${t.id}')" class="px-2.5 py-1 rounded-lg bg-red-500/10 text-red-300 border border-red-500/30 uppercase">❌ Remove player</button>` : ''}</span>`);
 };
+
+
 window.STREAK_BONUS = { 3: 15, 7: 50, 14: 100, 30: 250, 50: 400, 100: 1000 };
 window.INVITE_POINTS = 50;
 window._baseLoadMyStats28 = window._baseLoadMyStats28 || window.loadMyStats;
@@ -12448,6 +13382,7 @@ const el = document.getElementById('profileRankBadge'); if (el) el.innerText = i
 }).catch(() => {});
 return r;
 };
+
 window.claimOf = (m, tag) => (m.claims || {})[(tag || '').toLowerCase()];
 window.pendingLabel = function(m) {
 const c = m.claims || {}, a = c[(m.p1 || '').toLowerCase()], b = c[(m.p2 || '').toLowerCase()];
@@ -12534,6 +13469,7 @@ showToast(`✅ Final score ${s1}–${s2} approved. Table updated.`);
 [m.p1, m.p2].forEach(async p => { const pr = await window.getProfile(p); if (pr && pr.uid && pr.uid !== window.uidNow()) window.notify(pr.uid, 'tournament', { text: `approved the final score ${window.dnText(m.p1)} ${s1}–${s2} ${window.dnText(m.p2)} in ${t.title}` }); });
 window.openResultsQueue(tid);
 };
+
 window.isFriendly = (t) => !t.compId;
 window._baseFinishSeason28 = window._baseFinishSeason28 || window.finishSeason;
 window.finishSeason = async function(id) {
@@ -12556,6 +13492,7 @@ const list = await window._baseLoadTitles28();
 if (window._titles && !window._titles.filtered) { window._titles.list = window._titles.list.filter(x => x.compId || x.hostOrg); window._titles.filtered = true; }
 return (window._titles && window._titles.list) || list;
 };
+
 window._baseRenderTournamentsTabDedicated28 = window._baseRenderTournamentsTabDedicated28 || window.renderTournamentsTabDedicated;
 window.renderTournamentsTabDedicated = function() {
 window._baseRenderTournamentsTabDedicated28();
@@ -12565,6 +13502,7 @@ if (window.isFriendly(t) && !bar.querySelector('[data-friendly]')) bar.insertAdj
 const n = window.pendingResults(t).length;
 if (window.canManageTourn(t) && n && !bar.querySelector('[data-resq]')) bar.insertAdjacentHTML('beforeend', `<button data-resq onclick="window.openResultsQueue('${t.id}')" class="px-2.5 py-1 rounded-lg bg-amber-400 text-slate-950 uppercase animate-pulse">⏳ Approve results (${n})</button>`);
 };
+
 window.clipsOfWeek = function(posts) {
 return (posts || []).filter(p => (p.mediaList || []).some(m => m.type === 'video') && Date.now() - window.postTimeValue(p) < 7 * 864e5 && !window.isBlocked(p.user))
 .sort((a, b) => (b.ggsCount || 0) - (a.ggsCount || 0) || (b.viewsCount || 0) - (a.viewsCount || 0)).filter(p => (p.ggsCount || 0) > 0).slice(0, 3);
@@ -12595,6 +13533,7 @@ const b = window._baseGetProfileBadges28(u);
 return window.clipKing && (u || '').replace('@', '').toLowerCase() === window.clipKing.toLowerCase() ? `<span class="text-[8px] px-1.5 py-0.5 rounded font-black bg-magenta/15 text-magenta border border-magenta/40 whitespace-nowrap">🎬 Clip King</span> ${b}` : b;
 };
 window.fetchRankingPosts('week').then(p => { const t = window.clipsOfWeek(p); window.clipKing = t[0] ? t[0].user : null; }).catch(() => {});
+
 window.reportThing = function(kind, id, tag, uid, text) {
 if (window.needSignIn('report')) return;
 window.reportTarget = { kind, id, tag, uid: uid || '', text: (text || '').slice(0, 400) };
@@ -12678,6 +13617,7 @@ try { if (tag) await deleteDoc(doc(window.db, 'profiles', tag)); await deleteDoc
 catch (e) { showToast('⚠️ Couldn’t erase. Did you publish the new rules?'); }
 window.renderAdminReports();
 };
+
 window.deleteAccountData = async function() {
 if (!window.isSignedIn()) {
 if (!(await window.sgConfirm('This clears Sinless GG data saved on this device.', { title: 'Reset this device?', okText: 'Reset', danger: true }))) return;
@@ -12700,6 +13640,7 @@ await window.sgConfirm('Your account has been deleted. Anything left is erased b
 location.reload();
 };
 (function relabelDelete() { const b = document.querySelector('button[onclick="deleteAccountData()"]'); if (b) b.textContent = '🗑️ Delete my account'; })();
+
 window._baseRenderFypFeed28 = window._baseRenderFypFeed28 || window.renderFypFeed;
 window.renderFypFeed = function(...a) {
 const r = window._baseRenderFypFeed28(...a);
@@ -12731,6 +13672,7 @@ setTimeout(async () => { if (await window.sgConfirm('Get a phone alert on match 
 }
 return r;
 };
+
 window.HANDLE_DAYS = 30;
 window.tagFromHandle = function(x) {
 const k = String(x || '').replace(/^@/, '').toLowerCase(); if (!k) return null;
@@ -12759,6 +13701,7 @@ return window._baseOpenUserProfileModalH(raw, e);
 };
 window._baseOpenDmModalH = window._baseOpenDmModalH || window.openDmModal;
 window.openDmModal = function(username, e) { const real = username && window.tagFromHandle(username); return window._baseOpenDmModalH(real || username, e); };
+
 window.openChangeHandle = async function() {
 if (window.needSignIn('change your @name')) return;
 const me = await window.getProfile(window.me(), true) || {};
@@ -12803,6 +13746,7 @@ if (name && !document.getElementById('editHandleRow')) name.insertAdjacentHTML('
 else if (document.getElementById('editHandleRow')) document.querySelector('#editHandleRow [data-cur]').textContent = '@' + window.hnd(window.me());
 return r;
 };
+
 (function moreSources() {
 const gn = (q) => `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-GH&gl=GH&ceid=GH:en`;
 const add = (cat, name, url) => { const l = window.NEWS_SOURCES[cat] = window.NEWS_SOURCES[cat] || []; if (!l.some(x => x[1] === url)) l.push([name, url]); };
@@ -12822,6 +13766,7 @@ if (cat) return window._baseLoadFeedVideos28b(cat);
 const rs = await Promise.all(window.WATCH_CATS.map(c => window._baseLoadFeedVideos28b(c.id).catch(() => false)));
 return rs.some(Boolean);
 };
+
 window.seenExtras = (() => { try { return new Set(JSON.parse(localStorage.getItem('sg_seen_extras') || '[]')); } catch (e) { return new Set(); } })();
 window.markExtraSeen = function(k) { if (!k || window.seenExtras.has(k)) return; window.seenExtras.add(k); try { localStorage.setItem('sg_seen_extras', JSON.stringify([...window.seenExtras].slice(-1500))); } catch (e) {} };
 window.extraKey = function(el) {
@@ -12833,6 +13778,7 @@ const el = e.target;
 if (e.isIntersecting && e.intersectionRatio >= 0.5) { el._seenT = setTimeout(() => window.markExtraSeen(el.getAttribute('data-xkey')), 1200); }
 else clearTimeout(el._seenT);
 }), { threshold: [0, 0.5] }) : null;
+
 window.newFeedMix = function() {
 window.feedMix = { seed: Math.floor(Math.random() * 1e9), seenPosts: new Set(window.viewedPosts || []), seenX: new Set(window.seenExtras), at: Date.now() };
 };
@@ -12848,6 +13794,7 @@ const base = window[fn]; if (!base || base._mix) return;
 window[fn] = function(...a) { window.newFeedMix(); return base.apply(this, a); };
 window[fn]._mix = true;
 });
+
 window._baseRenderFypFeed28b = window._baseRenderFypFeed28b || window.renderFypFeed;
 window.renderFypFeed = function(...a) {
 const r = window._baseRenderFypFeed28b(...a);
@@ -12904,6 +13851,7 @@ const box = document.getElementById('fypFeedContainer'); if (!box) return;
 const strip = box.querySelector(':scope > [data-tourn-strip]');
 if (strip && box.firstElementChild === strip) { const ref = box.children[3] || box.lastElementChild; if (ref && ref !== strip) ref.after(strip); }
 };
+
 window.feedSig = function() {
 const ps = (window.fypposts || []).map(p => [p.docId || p.id, (p.caption || '').length, (p.mediaList || []).map(m => m.url).join('|'), JSON.stringify(p.pollCounts || null), p.repostOf || '', (p.reportsCount || 0) >= (window.REPORT_HIDE_AT || 99)].join('~')).sort().join('^');
 const nx = Object.values(window.newsByCat || {}).reduce((a, l) => a + l.length, 0), nv = Object.values(window.feedVids || {}).reduce((a, x) => a + ((x && x.list) || []).length, 0);
@@ -12956,9 +13904,11 @@ window[fn]._force2 = true;
 });
 window._baseSwitchView28c = window._baseSwitchView28c || window.switchView;
 window.switchView = function(v) { const r = window._baseSwitchView28c(v); if (v === 'fyp') setTimeout(() => { try { window.setupFeedAutoplay(); } catch (e) {} }, 350); return r; };
+
 window._basePickFeedVideoToPlay28c = window._basePickFeedVideoToPlay28c || window.pickFeedVideoToPlay;
 window.pickFeedVideoToPlay = function() { if (!window.feedVideoRatios || !window.feedVideoRatios.size) return; return window._basePickFeedVideoToPlay28c(); };
 setTimeout(() => { try { window.setupFeedAutoplay(); } catch (e) {} }, 4000);
+
 (function moreWatch() {
 const add = (c) => { if (!window.WATCH_CATS.some(x => x.id === c.id)) window.WATCH_CATS.push(c); };
 add({ id: 'films', label: '🎬 Short Films' }); add({ id: 'ai', label: '🤖 AI Films' }); add({ id: 'recaps', label: '📼 Movie Recaps' }); add({ id: 'classics', label: '🍿 Free Movies' });
@@ -12972,6 +13922,7 @@ window._baseLoadWatchCfg28e = window._baseLoadWatchCfg28e || window.loadWatchCfg
 window.loadWatchCfg = async function() { const r = await window._baseLoadWatchCfg28e(); const ch = window.watchCfg.channels || []; window.EXTRA_CHANNELS.forEach(c => { if (!ch.some(x => x.id === c.id)) ch.push(c); }); window.watchCfg.channels = ch; return r; };
 })();
 window._baseLoadFeedVideos28e = window._baseLoadFeedVideos28e || window._baseLoadFeedVideos28b;
+
 window.classicsCache = null;
 window.loadClassics = async function() {
 if (window.classicsCache && Date.now() - window.classicsCache.at < 6 * 3600e3) return window.classicsCache.list;
@@ -13002,6 +13953,7 @@ const list = await window.loadClassics(); if (window.watchCat !== 'classics') re
 body.innerHTML = list.length ? `<div class="glass-panel rounded-2xl p-3 border border-amber-500/30"><p class="text-xs font-black text-white">🍿 Free full movies</p><p class="text-[10px] text-gray-400">Classic films that are free for everyone (public domain). Tap one to watch.</p></div>
 <div class="grid grid-cols-3 gap-2">${window.classicTiles(window.seededShuffle(list, (window.feedMix && window.feedMix.seed) || 1).slice(0, 60))}</div>` : `<p class="text-xs text-gray-400 text-center py-8">Couldn't load free movies right now. Try again in a bit.</p>`;
 };
+
 window.openNews = function(i) {
 const n = window.newsRegistry[i]; if (!n) return;
 window.taste.news[n.cat] = Math.min(60, (window.taste.news[n.cat] || 0) + 1.5); window.saveTasteSoon();
@@ -13020,6 +13972,7 @@ ${next.length ? `<p class="text-[10px] font-black text-gray-400 uppercase pt-2">
 ${x.img ? `<img src="${escapeHTML(x.img)}" loading="lazy" alt="" class="w-20 h-16 rounded-lg object-cover shrink-0 bg-gg-800" onerror="this.style.visibility='hidden'">` : `<div class="w-20 h-16 rounded-lg bg-gg-800 shrink-0 flex items-center justify-center text-xl">${(window.newsCatInfo(x.cat).label || '📰').split(' ')[0]}</div>`}
 <div class="min-w-0"><p class="text-xs font-bold text-white leading-snug line-clamp-3">${escapeHTML(x.title)}</p><p class="text-[10px] text-gray-500 mt-0.5">${escapeHTML(x.source)} · ${window.timeAgo(x.date)}</p></div></button>`).join('')}</div>` : ''}`);
 };
+
 window.clipsList = []; window.clipsShown = 0;
 window.buildClipsList = function() {
 const seenP = window.viewedPosts || new Set(), seenX = window.seenExtras || new Set();
@@ -13083,7 +14036,7 @@ const v = s.querySelector('video[data-clip-video]'), yt = s.querySelector('[data
 if (v) { if (cur) { v.preload = 'auto'; v.muted = window.feedMuted; v.play().catch(() => {}); } else { if (!v.paused) v.pause(); if (k === i + 1) v.preload = 'auto'; } }
 if (yt) {
 const f = yt.querySelector('iframe');
-if (cur && !f) { const id = yt.getAttribute('data-clip-yt'); const fr = document.createElement('iframe'); fr.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=${window.feedMuted ? 1 : 0}&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`; fr.className = 'absolute inset-0 w-full h-full border-0'; fr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; fr.setAttribute('data-clip-frame', '1'); yt.appendChild(fr); }
+if (cur && !f) { const id = yt.getAttribute('data-clip-yt'); const fr = document.createElement('iframe'); fr.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=${window.feedMuted ? 1 : 0}&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&loop=1&playlist=${id}`; fr.className = 'absolute inset-0 w-full h-full border-0'; fr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; fr.setAttribute('data-clip-frame', '1'); yt.appendChild(fr); }
 else if (!cur && f) f.remove();
 }
 });
@@ -13118,6 +14071,7 @@ const c = document.getElementById('sgClips');
 if (c && !c.classList.contains('hidden') && c.innerHTML) { window.pauseFeedVideos(); document.querySelectorAll('[data-yt-auto]').forEach(st => window.ytUnmount(st)); return; }
 return window._basePickFeedVideoToPlay28e();
 };
+
 window.olderPostsDone = false;
 window.loadOlderPosts = async function() {
 if (window._olderLoading || window.olderPostsDone || !window.db) return 0;
@@ -13154,11 +14108,13 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 })();
 window._baseNewFeedMix28e = window._baseNewFeedMix28e || window.newFeedMix;
 window.newFeedMix = function() { window.extraBoost = 0; return window._baseNewFeedMix28e(); };
+
 (function breakReminder() {
 let start = Date.now(), last = 0;
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - last > 30 * 60000) start = Date.now(); if (document.visibilityState === 'hidden') last = Date.now(); });
 setInterval(() => { if (document.visibilityState === 'visible' && Date.now() - start > 90 * 60000) { start = Date.now(); showToast('⏰ 90 minutes on Sinless GG! Stretch, drink some water 💧 We’ll be here.'); } }, 60000);
 })();
+
 window.OL_MAX = { ludo: 4, dribble: 2, keeper: 2, penalty: 2 };
 window.olRoom = null; window.olUnsub = null; window.olId = null;
 window.olCode = () => { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = ''; for (let i = 0; i < 5; i++) c += a[Math.floor(Math.random() * a.length)]; return c; };
@@ -13278,6 +14234,7 @@ if (cancel && window.game) window.showGameOverlay('ready');
 };
 window._baseCloseGame29 = window._baseCloseGame29 || window.closeGame;
 window.closeGame = function() { if (window.olRoom) window.olLeave(false); return window._baseCloseGame29(); };
+
 window.olBegin = function(r) {
 const g = window.game; if (!g || g.id !== r.game) return;
 g.online = true; g.olRoomId = r.id;
@@ -13403,6 +14360,7 @@ const box = document.getElementById('playBody');
 if (box && !box.querySelector('[data-olbanner]')) box.insertAdjacentHTML('afterbegin', `<div data-olbanner class="glass-panel rounded-2xl p-3.5 border border-emerald-400/30 flex items-center gap-3"><span class="text-3xl">🌍</span><div class="flex-1"><p class="text-sm font-black text-white">Play online with anyone</p><p class="text-[11px] text-gray-400">Open any game → <b class="text-emerald-300">Quick match</b> for random players, or invite a friend with a room code.</p></div></div>`);
 return r;
 };
+
 window._baseOpenGame29 = window._baseOpenGame29 || window.openGame;
 window.openGame = function(id) {
 const r = window._baseOpenGame29(id);
@@ -13410,6 +14368,7 @@ const g = window.game, box = document.getElementById('gameOverlay');
 if (g && window.OL_MAX[g.id] && g.state === 'ready' && box && !box.querySelector('[data-olmenu]')) window.showGameOverlay('ready');
 return r;
 };
+
 window.openJoinSheet = function(what) {
 if (window.isSignedIn()) return;
 let el = document.getElementById('sgJoinSheet');
@@ -13440,6 +14399,7 @@ if (Date.now() - last > 24 * 3600e3 && !document.querySelector('.fixed.inset-0:n
 }, 9000);
 window._baseAfterAuthChange29 = window._baseAfterAuthChange29 || window.afterAuthChange;
 window.afterAuthChange = async function(user) { const r = await window._baseAfterAuthChange29(user); if (user) window.closeJoinSheet(); return r; };
+
 window.SG_KEEP_VIEWS = ['fyp', 'news', 'watch', 'trending', 'predict', 'play', 'market', 'clans', 'chat', 'tournaments', 'standings', 'popular'];
 window._baseSwitchView29 = window._baseSwitchView29 || window.switchView;
 window.switchView = function(v) {
@@ -13457,6 +14417,7 @@ if (v && v !== 'fyp' && window.SG_KEEP_VIEWS.includes(v) && document.getElementB
 };
 setTimeout(go, 700);
 })();
+
 window.ADSENSE_CLIENT = 'ca-pub-1335697564441880';
 window.adsenseCfg = { slot: '', on: false };
 window.loadAdsenseCfg = async function() {
@@ -13545,6 +14506,8 @@ if (on && !/^\d{6,20}$/.test(slot)) { showToast('Paste the ad unit ID (numbers o
 try { await setDoc(doc(window.db, 'config', 'adsense'), { slot, on, at: Date.now() }); window.adsenseCfg = { slot, on }; window._gadNodes = {}; showToast(on ? '✅ Google ads switched on' : 'Google ads switched off'); document.querySelector('[data-gadmin]')?.remove(); window.renderAdminAds(); }
 catch (e) { showToast('⚠️ Couldn’t save. Did you publish the new Firebase rules?'); }
 };
+
+
 window._baseShowGameOverlay31 = window._baseShowGameOverlay31 || window.showGameOverlay;
 window.showGameOverlay = function(kind, d = {}) {
 const r = window._baseShowGameOverlay31(kind, d);
@@ -13591,6 +14554,7 @@ window.olBegin = function(r) {
 if (r.game === 'ludo' && r.ai) r = { ...r, players: [...(r.players || []), ...Array.from({ length: r.ai }, (_, k) => ({ uid: 'ai_' + (k + 1), tag: 'AI', ai: true }))] };
 return window._baseOlBegin31(r);
 };
+
 window.SQ_REACTS = [['f', '🔥'], ['h', '❤️'], ['l', '😂'], ['g', '👍'], ['w', '😮'], ['s', '😢'], ['c', '👏']];
 window.squadReplyTo = null;
 window.setSquadReply = function(id) {
@@ -13658,6 +14622,7 @@ row.addEventListener('touchend', () => { bubble.style.transition = 'transform .2
 });
 };
 window.jumpToSquadMsg = function(id) { const el = document.querySelector(`#squadRoomMsgsBox [data-mid="${CSS.escape(id)}"]`); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.background = 'rgba(255,0,127,.15)'; setTimeout(() => el.style.background = '', 1200); } };
+
 window.commentReplyTo = null;
 window.setCommentReply = function(cid, user, uid, text) {
 window.commentReplyTo = { id: cid, user, uid: uid || '', text: String(text || '').slice(0, 120) };
@@ -13696,6 +14661,7 @@ ${depth < 2 ? kids(c.id).map(k => one(k, depth + 1)).join('') : ''}
 list.innerHTML = top.map(c => `<div>${one(c, 0)}</div>`).join('');
 }, () => { list.innerHTML = `<p class="text-xs text-gray-500 py-3">Couldn't load replies.</p>`; });
 };
+
 window.mixFeedDom = (function(base) {
 return function() {
 const box = document.getElementById('fypFeedContainer');
@@ -13729,6 +14695,7 @@ if (box && !window.cloudFeedLoaded && !box.children.length) box.innerHTML = `<di
 return r;
 };
 setTimeout(() => { const s = document.getElementById('sgFeedSentinel'); if (s && !window.cloudFeedLoaded) s.style.display = 'none'; }, 50);
+
 window._baseRunSearch31 = window._baseRunSearch31 || window.runSearch;
 window.runSearch = function(...a) {
 const r = window._baseRunSearch31(...a);
@@ -13771,6 +14738,7 @@ document.getElementById('sgPanelBody').innerHTML = `${j.thumbnail ? `<img src="$
 window.addXP && window.addXP(1, 'news');
 } catch (e) { document.getElementById('sgPanelBody').innerHTML = `<p class="text-xs text-gray-400 text-center py-8">Couldn't load this page.</p>`; }
 };
+
 window.followedMatches = new Set((() => { try { return JSON.parse(localStorage.getItem('sg_follow_matches') || '[]'); } catch (e) { return []; } })());
 window.toggleFollowMatch = function(id, e) {
 if (e) { e.stopPropagation(); e.preventDefault(); }
@@ -13815,6 +14783,7 @@ const onPage = ['view-news', 'view-trending', 'view-fyp'].some(id => !document.g
 if (window._liveBusy) return;
 if ((live && (onPage || followingLive)) || soon) { window._liveBusy = true; window.loadLiveMatches().finally(() => { window._liveBusy = false; }); }
 }, 5000);
+
 Object.assign(window.XP_RULES, { game: [5, 15], chat: [1, 40], react: [1, 30], news: [1, 30], watch: [2, 30], clip: [1, 50], match: [20, 6] });
 window._baseGameOver31 = window._baseGameOver31 || window.gameOver;
 window.gameOver = async function(reason) { const g = window.game, was = g && g.state === 'play' && !g.online; const r = await window._baseGameOver31(reason); if (was) window.addXP(5, 'game'); return r; };
@@ -13824,6 +14793,7 @@ window.playFeedVideo = (function(b) { return function(...a) { const r = b.apply(
 window.playClassic = (function(b) { return function(...a) { const r = b.apply(this, a); window.addXP && window.isSignedIn() && window.addXP(2, 'watch'); return r; }; })(window.playClassic);
 window.clipActivate = (function(b) { return function(i) { const fresh = window.clipCur !== i; const r = b.apply(this, arguments); if (fresh && i > 0 && window.isSignedIn()) window.addXP(1, 'clip'); return r; }; })(window.clipActivate);
 window.approveMatchNow = (function(b) { return function(t, m) { const r = b.apply(this, arguments); if ([m.p1, m.p2].some(p => (p || '').toLowerCase() === window.meLower())) window.addXP(m.winner && m.winner.toLowerCase && m.winner.toLowerCase() === window.meLower() ? 30 : 20, 'match'); return r; }; })(window.approveMatchNow);
+
 (function installNudge() {
 if (window.isStandalone && window.isStandalone()) return;
 setTimeout(() => {
@@ -13835,6 +14805,7 @@ el.innerHTML = `<img src="icon-192.png" class="w-11 h-11 rounded-xl" alt=""><div
 <button onclick="document.getElementById('sgInstallNudge').remove(); window.installApp()" class="px-3 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-[11px] font-black">Install</button><button onclick="document.getElementById('sgInstallNudge').remove()" class="text-gray-400 px-1">✕</button>`;
 }, 25000);
 })();
+
 window.openDmThread = (function(b) {
 return async function(tag) {
 const r = await b.apply(this, arguments);
@@ -13866,6 +14837,8 @@ return r;
 };
 })(window.confirmDeleteTournament);
 window.closeSearch = window.closeSearch || function() { window.closePanel(); };
+
+
 window.netInfo = () => { const c = navigator.connection || {}; return { type: c.effectiveType || '4g', save: !!c.saveData }; };
 window.slowNet = () => { const n = window.netInfo(); return n.save || /^(slow-2g|2g)$/.test(n.type); };
 window.midNet = () => window.netInfo().type === '3g';
@@ -13916,6 +14889,7 @@ return got.some(Boolean);
 })(window.loadFeedVideos);
 window._swHadController = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
 if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange', () => { if (window._swReloadOffered || !window._swHadController) return; window._swReloadOffered = true; const el = document.createElement('div'); el.className = 'fixed left-3 right-3 top-3 mx-auto max-w-md rounded-2xl p-3 flex items-center gap-3 bg-gg-900 border border-cyan-400/50 shadow-2xl'; el.style.zIndex = 320; el.innerHTML = `<span class="text-xl">✨</span><p class="flex-1 text-xs font-bold text-white">A new Sinless GG update is ready</p><button onclick="location.reload()" class="px-3 py-2 rounded-xl bg-cyan-400 text-slate-950 text-[11px] font-black">Update</button><button onclick="this.parentElement.remove()" class="text-gray-400 px-1">✕</button>`; document.body.appendChild(el); });
+
 window.mixFeedDom = (function(prev) {
 return function() {
 const box = document.getElementById('fypFeedContainer');
@@ -13935,6 +14909,7 @@ const mv = (el) => { try { typeof box.moveBefore === 'function' ? box.moveBefore
 mv(d); old.forEach(mv);
 };
 })(window.mixFeedDom);
+
 Object.keys(window.XP_RULES).forEach(k => { window.XP_RULES[k] = [window.XP_RULES[k][0], 1e9]; });
 window._xpLast = {};
 window._baseAddXP32 = window._baseAddXP32 || window.addXP;
@@ -13942,6 +14917,7 @@ window.addXP = function(n, reason) {
 if (reason && !['challenge', 'invite', 'daily'].includes(reason)) { const t = Date.now(); if (t - (window._xpLast[reason] || 0) < 1000) return; window._xpLast[reason] = t; }
 return window._baseAddXP32(n, reason);
 };
+
 window.openFollowList = async function(tag, kind) {
 const prof = await window.getProfile(tag); if (!prof || !prof.uid) return;
 window.openPanel(kind === 'followers' ? `👥 ${escapeHTML(window.dnText(tag))}'s followers` : `➕ ${escapeHTML(window.dnText(tag))} follows`, `<p class="text-xs text-gray-400 text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i></p>`);
@@ -13977,6 +14953,7 @@ const id = (s.parentElement.getAttribute('onclick').match(/'([^']+)'/) || [])[1]
 const p = window.findPost(id); if (!p || !(p.ggsCount > 0)) return;
 e.stopPropagation(); e.preventDefault(); window.openWhoGG(id);
 }, true);
+
 window._baseEnhanceProfileView32 = window._baseEnhanceProfileView32 || window.enhanceProfileView;
 window.enhanceProfileView = async function(tag) {
 const r = await window._baseEnhanceProfileView32(tag);
@@ -14020,8 +14997,8 @@ if (c.kind !== 'pimg') return b(c, i).replace(/<span class="text-\[10px\] font-b
 const p = c.p, on = (p.ggsBy || []).includes(window.uidNow && window.uidNow());
 const side = (icon, label, act) => `<button onclick="event.stopPropagation(); ${act}" class="flex flex-col items-center gap-1 text-white"><span class="w-11 h-11 rounded-full bg-black/45 flex items-center justify-center text-lg">${icon}</span><span class="text-[10px] font-black drop-shadow">${label}</span></button>`;
 return `<section data-clip="${i}" class="relative w-full shrink-0 snap-start bg-black flex items-center justify-center" style="height:100dvh">
-${c.url ? `<img src="${window.cldSized(c.url, 1080)}" alt="" class="w-full h-full object-contain" loading="lazy">` : `<div class="px-8 text-center"><p class="text-xl font-black text-white leading-snug whitespace-pre-wrap">${escapeHTML((p.caption || '').slice(0, 400))}</p></div>`}
-<div class="absolute right-3 bottom-28 flex flex-col gap-4">${side(on ? '💙' : '👍', window.formatCount(p.ggsCount || 0), `window.clipGG('${c.id}', this)`)}${side('💬', window.formatCount(p.commentsCount || 0), `window.closeClips(); window.openPostDetail('${c.id}', true)`)}${side('👥', 'GGs', `window.openWhoGG('${c.id}')`)}${side('↗️', 'Share', `window.sharePost && window.sharePost('${c.id}')`)}</div>
+${c.url ? `<img src="${window.cldSized(c.url, 1080)}" alt="" class="w-full h-full object-contain" loading="lazy">` : `<div class="w-full h-full flex items-center pl-6 pr-20 py-24 overflow-y-auto" style="background:linear-gradient(160deg,#0b1f3a,#2a0a24)"><p class="${(p.caption || '').length > 220 ? 'text-base' : 'text-xl'} font-black text-white leading-snug whitespace-pre-wrap break-words">${escapeHTML((p.caption || '').slice(0, 900))}</p></div>`}
+<div class="absolute right-3 bottom-28 z-10 flex flex-col gap-4">${side(on ? '💙' : '👍', window.formatCount(p.ggsCount || 0), `window.clipGG('${c.id}', this)`)}${side('💬', window.formatCount(p.commentsCount || 0), `window.closeClips(); window.openPostDetail('${c.id}', true)`)}${side('👥', 'GGs', `window.openWhoGG('${c.id}')`)}${side('↗️', 'Share', `window.sharePost && window.sharePost('${c.id}')`)}</div>
 <div class="absolute left-3 right-20 bottom-8 text-white space-y-1"><p class="text-sm font-black drop-shadow">${window.dn(p.user)} <span class="text-[11px] text-gray-300">@${escapeHTML(window.hnd(p.user))}</span></p>${c.url && p.caption ? `<p class="text-xs leading-snug line-clamp-4 drop-shadow">${escapeHTML(p.caption)}</p>` : ''}<p class="text-[10px] text-gray-300">👁 ${window.formatCount(p.viewsCount || 0)} · ${window.timeAgo(window.postTimeValue(p))}</p></div></section>`;
 };
 })(window.clipSlideHtml);
@@ -14034,6 +15011,7 @@ return r;
 };
 })(window.openClips);
 window.clipSlideHtml = (function(b) { return function(c, i) { let h = b(c, i); if (c.kind === 'post' && !/data-whogg/.test(h)) h = h.replace(/(<div class="absolute right-3 bottom-28 flex flex-col gap-4">)/, `$1<button data-whogg onclick="event.stopPropagation(); window.openWhoGG('${c.id}')" class="flex flex-col items-center gap-1 text-white"><span class="w-11 h-11 rounded-full bg-black/45 flex items-center justify-center text-lg">👥</span><span class="text-[10px] font-black drop-shadow">GGs</span></button>`); return h; }; })(window.clipSlideHtml);
+
 window._baseOpenTrophy32 = window._baseOpenTrophy32 || window.openTrophy;
 window.openTrophy = function(user, i) {
 const r = window._baseOpenTrophy32(user, i);
@@ -14053,6 +15031,7 @@ if (t && t.squadId) { window.switchView('clans'); window.openSquadDetailsModal(t
 else if (t) { window.activeTournament = t; window.switchView('tournaments'); window.setTourTab && window.setTourTab('list'); }
 else showToast('That season is no longer on Sinless GG.');
 };
+
 window.sgPlace = function() {
 const vis = (id) => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); };
 const view = [...document.querySelectorAll('.view-section')].find(v => !v.classList.contains('hidden'));
@@ -14083,6 +15062,7 @@ if (p.y > 0) tryScroll(24); else window._placeRestored = true;
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 setTimeout(step, 300);
 })();
+
 window.LIVE_YT = () => [...(window.watchCfg.channels || window.WATCH_DEFAULT)].filter(c => ['gaming', 'football', 'wrestling', 'ai'].includes(c.cat));
 window.LIVE_TWITCH = ['easportsfc', 'riotgames', 'eslcs', 'callofduty', 'playstation'];
 window.liveFollows = new Set((() => { try { return JSON.parse(localStorage.getItem('sg_live_follow') || '[]'); } catch (e) { return []; } })());
@@ -14140,6 +15120,7 @@ window.renderContinueWatching = function() {
 const body = document.getElementById('watchBody'), l = window.recentWatch(); if (!body || !l.length || body.querySelector('[data-cw]')) return;
 body.insertAdjacentHTML('afterbegin', `<div data-cw class="space-y-1.5"><p class="text-[10px] font-black text-gray-400 uppercase tracking-wider">▶ Continue watching</p><div class="flex gap-2 overflow-x-auto scrollbar-none pb-1">${l.slice(0, 10).map(x => `<button onclick="window.replayRecent('${escapeHTML(x.key)}')" class="shrink-0 w-36 text-left"><div class="rounded-xl overflow-hidden bg-gg-900 aspect-video border border-white/10"><img src="${x.kind === 'ia' ? 'https://archive.org/services/img/' + encodeURIComponent(x.id) : 'https://i.ytimg.com/vi/' + escapeHTML(x.vid) + '/mqdefault.jpg'}" alt="" class="w-full h-full object-cover" loading="lazy"></div><p class="text-[10px] font-bold text-white line-clamp-2 mt-1 leading-tight">${escapeHTML(x.title)}</p></button>`).join('')}</div></div>`);
 };
+
 window.MUSIC_GENRES = [['Afro Beat', '🌍 Afrobeats'], ['Hip-Hop/Rap', '🎤 Hip-Hop'], ['R&B/Soul', '💜 R&B'], ['Pop', '⭐ Pop'], ['Dancehall', '🇯🇲 Dancehall'], ['Reggae', '🟢 Reggae'], ['Electronic', '⚡ Electronic'], ['Alternative', '🎸 Alternative'], ['Lo-Fi', '☕ Lo-Fi'], ['Jazz', '🎷 Jazz'], ['World', '🌐 World'], ['Latin', '💃 Latin']];
 window.musicPrefs = new Set((() => { try { return JSON.parse(localStorage.getItem('sg_music_prefs') || '["Afro Beat","Hip-Hop/Rap","R&B/Soul"]'); } catch (e) { return ['Afro Beat']; } })());
 window.musicGenre = 'foryou';
@@ -14236,6 +15217,7 @@ at.after(d);
 return r;
 };
 setTimeout(async () => { if (window.slowNet()) return; try { const l = await window.musicForYou(); window.musicCache.__fy = { at: Date.now(), list: l }; window._forceFeed = true; if (window.isFeedNearTop && window.isFeedNearTop()) window.renderFypFeed(); } catch (e) {} }, 9000);
+
 window.TRIVIA = [
 ['Which country won the 2022 FIFA World Cup?', ['Argentina', 'France', 'Brazil', 'Croatia'], 0], ['How many players does a football team have on the pitch?', ['11', '10', '9', '12'], 0],
 ['Which club is nicknamed "The Phobians" in Ghana?', ['Hearts of Oak', 'Asante Kotoko', 'Medeama', 'Aduana'], 0], ['Who is known as "Porcupine Warriors"?', ['Asante Kotoko', 'Hearts of Oak', 'Legon Cities', 'Dreams FC'], 0],
@@ -14293,6 +15275,7 @@ box.prepend(d);
 };
 window._baseRenderFypFeed32d = window._baseRenderFypFeed32d || window.renderFypFeed;
 window.renderFypFeed = function(...a) { const r = window._baseRenderFypFeed32d(...a); try { if (window.isSignedIn() && window.feedMode !== 'following') window.renderDailyCard(); window.renderCreatorOfWeek(); } catch (e) {} return r; };
+
 window.creatorOfWeek = null;
 window.findCreatorOfWeek = async function() {
 try { const posts = await window.fetchRankingPosts('week'); const top = window.buildCreatorStats(posts).filter(c => !window.isBlocked(c.gamertag) && c.ggs > 0).sort((a, b) => b.ggs - a.ggs)[0]; window.creatorOfWeek = top ? top.gamertag : null; } catch (e) {}
@@ -14310,6 +15293,7 @@ const items = [...box.children].filter(el => el.querySelector('[data-post-id]') 
 (items[3] || items[items.length - 1] || box.lastElementChild) ? (items[3] || items[items.length - 1] || box.lastElementChild).after(d) : box.appendChild(d);
 };
 window.getProfileBadges = (function(b) { return function(u) { const s = b(u); return window.creatorOfWeek && (u || '').replace('@', '').toLowerCase() === window.creatorOfWeek.toLowerCase() ? `<span class="text-[8px] px-1.5 py-0.5 rounded font-black bg-magenta/15 text-magenta border border-magenta/40 whitespace-nowrap">🌟 Creator of the Week</span> ${s}` : s; }; })(window.getProfileBadges);
+
 window._baseRenderClans32 = window._baseRenderClans32 || window.renderClansTab || window.renderSquads;
 window.renderSquadRanking = async function() {
 const view = document.getElementById('view-clans'); if (!view) return;
@@ -14322,6 +15306,7 @@ box.innerHTML = `<div class="glass-panel rounded-2xl p-3 border border-amber-500
 ${rows.map((r, i) => `<button onclick="window.openSquadDetailsModal('${r.s.id}')" class="w-full flex items-center justify-between px-2 py-1.5 rounded-lg ${i < 3 ? 'bg-amber-500/10' : ''} text-left"><span class="text-xs font-bold text-white truncate">${['🥇', '🥈', '🥉'][i] || '#' + (i + 1)} ${escapeHTML(r.s.name)} <span class="text-[9px] text-gray-500">${(r.s.members || []).length} members</span></span><span class="text-xs font-black text-amber-300">${window.formatCount(r.pts)}</span></button>`).join('')}</div>`;
 };
 window.switchView = (function(b) { return function(v) { const r = b(v); if (v === 'clans') setTimeout(window.renderSquadRanking, 500); return r; }; })(window.switchView);
+
 window.feedMix.include = window.feedMix.include || new Set();
 window.feedMix.exclude = window.feedMix.exclude || new Set();
 window.newFeedMix = (function(b) { return function() { const r = b(); window.feedMix.include = new Set(); window.feedMix.exclude = new Set(); return r; }; })(window.newFeedMix);
@@ -14389,6 +15374,7 @@ window._userRefresh = false;
 return window._baseRebuildFeedOrder33(...a);
 };
 ['refreshFeed', 'showNewPosts'].forEach(fn => { const b = window[fn]; if (!b || b._ur) return; window[fn] = function(...a) { window._userRefresh = true; return b.apply(this, a); }; window[fn]._ur = true; });
+
 ['editPostModal', 'deletePostModal', 'actionSheet'].forEach(id => { const el = document.getElementById(id); if (el) el.style.zIndex = id === 'actionSheet' ? 336 : 335; });
 window.openEditPostModal = function(postId) {
 const post = window.findPost(postId); if (!post) return;
@@ -14436,3 +15422,230 @@ if (p && (c.kind === 'post' || c.kind === 'pimg') && window.isMyPost(p)) h = h.r
 return h;
 };
 })(window.clipSlideHtml);
+
+(function funChannels() {
+const add = (c) => { if (!window.WATCH_CATS.some(x => x.id === c.id)) window.WATCH_CATS.splice(2, 0, c); };
+add({ id: 'dance', label: '💃 Dance' }); add({ id: 'fun', label: '😂 Comedy & Fun' }); add({ id: 'magic', label: '🪄 Mind-blowing' });
+window.FUN_CHANNELS = [
+{ id: 'UCq8DICunczvLuJJq414110A', name: 'Zach King', cat: 'magic' }, { id: 'UCvz84_Q0BbvZThy75mbd-Dg', name: 'Zack D. Films', cat: 'magic' },
+{ id: 'UCY1kMZp36IQSyNx_9h4mpCg', name: 'Mark Rober', cat: 'magic' }, { id: 'UCRijo3ddMTht_IHyNSNXpNQ', name: 'Dude Perfect', cat: 'magic' },
+{ id: 'UCX6OQ3DkcsbYNE6H8uQQuVA', name: 'MrBeast', cat: 'fun' }, { id: 'UCkAGrHCLFmlK3H2kd6isipg', name: 'Mr Bean', cat: 'fun' },
+{ id: 'UCo8bcnLyZH8tBIH9V1mLgqQ', name: 'TheOdd1sOut', cat: 'fun' }, { id: 'UCuPuEi0LB3vV6MjPH5Uo1mg', name: '1MILLION Dance Studio', cat: 'dance' },
+{ id: 'UCOpcACMWblDls9Z6GERVi1A', name: 'Honest Trailers (Screen Junkies)', cat: 'movies' }, { id: 'UCHCph-_jLba_9atyCZJPLQQ', name: 'How It Should Have Ended', cat: 'movies' },
+{ id: 'UC2iUwfYi_1FCGGqhOUNx-iA', name: 'ScreenRant (Pitch Meeting)', cat: 'movies' }
+];
+window.FUN_CHANNELS.forEach(c => { if (!window.WATCH_DEFAULT.some(x => x.id === c.id)) window.WATCH_DEFAULT.push(c); if (!window.EXTRA_CHANNELS.some(x => x.id === c.id)) window.EXTRA_CHANNELS.push(c); });
+})();
+
+window.shortsCache = {}; window.shortsPool = []; window.shortsAt = 0;
+window.loadChannelShorts = async function(ch) {
+const c = window.shortsCache[ch.id]; if (c && Date.now() - c.at < 45 * 60000) return c.list;
+const items = await window.fetchFeedItems(ch.name + ' shorts', `https://www.youtube.com/feeds/videos.xml?playlist_id=UUSH${ch.id.slice(2)}`).catch(() => []);
+const list = (items || []).map(x => ({ vid: window.ytId(x.link), title: x.title, date: x.date, short: true, cat: ch.cat, ch: { id: ch.id, name: ch.name } })).filter(v => v.vid).slice(0, 12);
+window.shortsCache[ch.id] = { at: Date.now(), list };
+return list;
+};
+window.clipTaste = (() => { try { return JSON.parse(localStorage.getItem('sg_clip_taste') || '{"c":{},"k":{}}'); } catch (e) { return { c: {}, k: {} }; } })();
+window.saveClipTaste = () => { try { localStorage.setItem('sg_clip_taste', JSON.stringify(window.clipTaste)); } catch (e) {} };
+window.shortsChannels = function() {
+const all = (window.watchCfg.channels || window.WATCH_DEFAULT).filter(c => c.cat !== 'books' && c.cat !== 'classics');
+const k = window.clipTaste.k || {}, t = (window.taste && window.taste.news) || {};
+const score = (c) => (window.FUN_CHANNELS.some(f => f.id === c.id) ? 4 : 0) + (k[c.cat] || 0) + (t[c.cat] || 0) / 10 + (window.clipTaste.c['yt:' + c.id] || 0) + Math.random() * 2;
+return all.map(c => ({ c, s: score(c) })).sort((a, b) => b.s - a.s).slice(0, window.slowNet() ? 8 : 18).map(x => x.c);
+};
+window.loadShorts = async function(force) {
+if (window._shortsLoading) return window._shortsLoading;
+if (!force && window.shortsPool.length && Date.now() - window.shortsAt < 30 * 60000) return window.shortsPool;
+window._shortsLoading = (async () => {
+try { await window.loadWatchCfg(); } catch (e) {}
+const lists = await Promise.all(window.shortsChannels().map(c => window.loadChannelShorts(c).catch(() => [])));
+const seen = new Set(), out = [];
+lists.flat().forEach(v => { if (!seen.has(v.vid)) { seen.add(v.vid); out.push(v); } });
+window.shortsPool = out; window.shortsAt = Date.now();
+return out;
+})().finally(() => { window._shortsLoading = null; });
+return window._shortsLoading;
+};
+setTimeout(() => window.loadShorts().then(() => { if (window.isFeedNearTop && window.isFeedNearTop() && !document.getElementById('view-fyp')?.classList.contains('hidden')) { window._forceFeed = true; window.renderFypFeed(); } }), window.slowNet() ? 15000 : 6000);
+
+window.clipScore = function(it) {
+const T = window.clipTaste, cat = it.cat || (it.p && (it.p.game || '').toLowerCase()) || 'other', who = it.kind === 'post' || it.kind === 'embed' ? 'u:' + ((it.p && it.p.user) || '').toLowerCase() : 'yt:' + ((it.v && it.v.ch && it.v.ch.id) || '');
+const fresh = Math.max(0, 3 - (Date.now() - (it.date || 0)) / 864e5);
+return (T.k[cat] || 0) + 1.5 * (T.c[who] || 0) + fresh + (it.kind === 'post' || it.kind === 'embed' ? 2 : 0) + Math.random() * 2.5;
+};
+window.clipSignal = function(it, ms) {
+if (!it) return;
+const T = window.clipTaste, cat = it.cat || (it.p && (it.p.game || '').toLowerCase()) || 'other', who = it.kind === 'post' || it.kind === 'embed' ? 'u:' + ((it.p && it.p.user) || '').toLowerCase() : 'yt:' + ((it.v && it.v.ch && it.v.ch.id) || '');
+const d = ms < 2000 ? -1 : ms < 6000 ? 0.2 : ms < 15000 ? 0.8 : 1.6;
+T.k[cat] = Math.max(-8, Math.min(20, (T.k[cat] || 0) + d)); T.c[who] = Math.max(-8, Math.min(20, (T.c[who] || 0) + d));
+if (it.p && d > 0.5 && window.tasteAdd) window.tasteAdd(it.p, d);
+window.saveClipTaste();
+};
+window.linkEmbedOf = function(text) {
+const t = String(text || '');
+let m = t.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([\w-]{11})/); if (m) return { kind: 'yt', id: m[1], short: /shorts\//.test(t), name: 'YouTube' };
+m = t.match(/tiktok\.com\/@[\w.\-]+\/video\/(\d+)/); if (m) return { kind: 'tiktok', src: `https://www.tiktok.com/embed/v2/${m[1]}`, h: 740, short: true, name: 'TikTok' };
+m = t.match(/instagram\.com\/(p|reel|tv)\/([\w-]+)/); if (m) return { kind: 'ig', src: `https://www.instagram.com/${m[1]}/${m[2]}/embed`, h: 640, short: m[1] === 'reel', name: 'Instagram' };
+m = t.match(/(?:twitter|x)\.com\/\w+\/status\/(\d+)/); if (m) return { kind: 'x', src: `https://platform.twitter.com/embed/Tweet.html?id=${m[1]}&theme=dark`, h: 560, name: 'X' };
+m = t.match(/https?:\/\/(?:www\.|m\.)?(?:facebook\.com\/[^\s]*(?:videos|reel|watch)[^\s]*|fb\.watch\/[^\s]+)/); if (m) return { kind: 'fb', src: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(m[0])}&show_text=false`, h: 480, short: /reel/.test(m[0]), name: 'Facebook' };
+return null;
+};
+window.buildClipsList = (function(b) {
+return function() {
+if (window._clipsOverride) return b();
+const seenP = window.viewedPosts || new Set(), seenX = window.seenExtras || new Set();
+const posts = [], embeds = [];
+(window.fypposts || []).forEach(p => {
+if (window.isBlocked(p.user)) return; const id = p.docId || p.id, vid = (p.mediaList || []).find(m => m.type === 'video');
+if (vid) posts.push({ kind: 'post', id, p, url: vid.url, cat: (p.game || '').toLowerCase(), date: window.postTimeValue(p), seen: seenP.has(id) });
+else { const e = window.linkEmbedOf(p.caption); if (e && (e.short || e.kind === 'tiktok')) embeds.push({ kind: 'embed', id, p, e, cat: (p.game || '').toLowerCase(), date: window.postTimeValue(p), seen: seenP.has(id) }); }
+});
+const shorts = (window.shortsPool || []).map(v => ({ kind: 'short', id: v.vid, v, cat: v.cat, date: v.date, seen: seenX.has('v:' + v.vid) }));
+if (!shorts.length && !posts.length && !embeds.length) return b();   // nothing short yet: old behaviour while shorts load
+const fresh = [...posts, ...embeds, ...shorts].filter(x => !x.seen), old = [...posts, ...embeds, ...shorts].filter(x => x.seen);
+const ranked = fresh.map(x => ({ x, s: window.clipScore(x) })).sort((a, b) => b.s - a.s).map(o => o.x);
+const out = [], rare = ranked.filter(x => (window.clipTaste.k[x.cat] || 0) <= 0); let ri = 0;
+ranked.forEach((x, i) => { if (out.includes(x)) return; if (i > 0 && i % 5 === 4 && rare[ri]) { const r = rare[ri++]; if (!out.includes(r)) out.push(r); } out.push(x); });
+return [...out.filter((x, i) => out.indexOf(x) === i), ...window.seededShuffle(old, Date.now() % 1e6)];
+};
+})(window.buildClipsList);
+window.shortGG = async function(vid, title, btn) {
+if (window.needSignIn('GG videos')) return;
+const uid = window.uidNow(), k = 'sg_sgg_' + vid; let on = false; try { on = !!localStorage.getItem(k); } catch (e) {}
+try { await setDoc(doc(window.db, 'watch', vid), { title: String(title || '').slice(0, 150), ggs: increment(on ? -1 : 1), ggsBy: on ? arrayRemove(uid) : arrayUnion(uid) }, { merge: true }); } catch (e) {}
+try { on ? localStorage.removeItem(k) : localStorage.setItem(k, '1'); } catch (e) {}
+if (btn) btn.querySelector('span').textContent = on ? '🤍' : '💖';
+if (!on) { window.addXP && window.addXP(1, 'react'); window.clipTaste.k[(window.clipsList[window.clipCur] || {}).cat || 'other'] = (window.clipTaste.k[(window.clipsList[window.clipCur] || {}).cat || 'other'] || 0) + 1; window.saveClipTaste(); }
+};
+window.clipSlideHtml = (function(b) {
+return function(c, i) {
+const side = (icon, label, act) => `<button onclick="event.stopPropagation(); ${act}" class="flex flex-col items-center gap-1 text-white"><span class="w-11 h-11 rounded-full bg-black/45 flex items-center justify-center text-lg">${icon}</span><span class="text-[10px] font-black drop-shadow">${label}</span></button>`;
+if (c.kind === 'short') {
+const v = c.v; let on = false; try { on = !!localStorage.getItem('sg_sgg_' + v.vid); } catch (e) {}
+window.hlRegistry = window.hlRegistry || []; window.hlRegistry.push(v); const hi = window.hlRegistry.length - 1;
+return `<section data-clip="${i}" class="relative w-full shrink-0 snap-start bg-black flex items-center justify-center" style="height:100dvh">
+<div data-clip-yt="${escapeHTML(v.vid)}" class="relative h-full max-w-full bg-black" style="aspect-ratio:9/16"><img src="https://i.ytimg.com/vi/${escapeHTML(v.vid)}/hqdefault.jpg" alt="" class="absolute inset-0 w-full h-full object-cover"></div>
+<div class="absolute right-3 bottom-28 z-10 flex flex-col gap-4">${side(on ? '💖' : '🤍', 'GG', `window.shortGG('${escapeHTML(v.vid)}', ${JSON.stringify(v.title || '').replace(/"/g, '&quot;')}, this)`)}${side('💬', 'Chat', `window.closeClips(); window.playHighlight(${hi})`)}${side('↗️', 'Share', `window.shareClipVideo('${escapeHTML(v.vid)}')`)}</div>
+<div class="absolute left-3 right-20 bottom-8 z-10 text-white space-y-1"><p class="text-sm font-black drop-shadow">${escapeHTML((v.ch && v.ch.name) || 'YouTube')} <span class="text-[9px] text-red-300 font-black">· SHORTS</span></p><p class="text-xs leading-snug line-clamp-2 drop-shadow">${escapeHTML(v.title || '')}</p></div></section>`;
+}
+if (c.kind === 'embed') {
+const p = c.p, e = c.e, on = (p.ggsBy || []).includes(window.uidNow && window.uidNow());
+const inner = e.kind === 'yt' ? `<div data-clip-yt="${escapeHTML(e.id)}" class="relative h-full max-w-full bg-black" style="aspect-ratio:9/16"><img src="https://i.ytimg.com/vi/${escapeHTML(e.id)}/hqdefault.jpg" alt="" class="absolute inset-0 w-full h-full object-cover"></div>`
+: `<div data-clip-embed="${escapeHTML(e.src)}" class="relative w-full max-w-[420px] bg-black" style="height:min(${e.h}px,88dvh)"><p class="absolute inset-0 flex items-center justify-center text-gray-400 text-xs">Loading ${escapeHTML(e.name)}…</p></div>`;
+return `<section data-clip="${i}" class="relative w-full shrink-0 snap-start bg-black flex items-center justify-center" style="height:100dvh">${inner}
+<div class="absolute right-3 bottom-28 z-10 flex flex-col gap-4">${side(on ? '💙' : '👍', window.formatCount(p.ggsCount || 0), `window.clipGG('${c.id}', this)`)}${side('💬', window.formatCount(p.commentsCount || 0), `window.closeClips(); window.openPostDetail('${c.id}', true)`)}${side('↗️', 'Share', `window.sharePost && window.sharePost('${c.id}')`)}</div>
+<div class="absolute left-3 right-20 bottom-8 z-10 text-white space-y-1"><p class="text-sm font-black drop-shadow">${window.dn(p.user)} <span class="text-[10px] text-gray-300">shared from ${escapeHTML(e.name)}</span></p></div></section>`;
+}
+return b(c, i);
+};
+})(window.clipSlideHtml);
+window.clipActivate = (function(b) {
+return function(i) {
+const now = Date.now();
+if (window._clipOn && window._clipOn.i !== i) window.clipSignal(window.clipsList[window._clipOn.i], now - window._clipOn.t);
+if (!window._clipOn || window._clipOn.i !== i) window._clipOn = { i, t: now };
+const r = b.apply(this, arguments);
+document.querySelectorAll('#sgClipsScroll [data-clip-embed]').forEach(el => {
+const cur = +el.closest('[data-clip]').getAttribute('data-clip') === i, f = el.querySelector('iframe');
+if (cur && !f) { const fr = document.createElement('iframe'); fr.src = el.getAttribute('data-clip-embed'); fr.className = 'absolute inset-0 w-full h-full border-0'; fr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; fr.setAttribute('allowfullscreen', ''); el.appendChild(fr); }
+else if (!cur && f) f.remove();
+});
+const c = window.clipsList[i]; if (c && (c.kind === 'short')) window.markExtraSeen && window.markExtraSeen('v:' + c.id);
+if (c && c.kind === 'embed' && !window.viewedPosts.has(c.id)) window.markViewed(c.id);
+return r;
+};
+})(window.clipActivate);
+window.closeClips = (function(b) { return function(...a) { if (window._clipOn) { window.clipSignal(window.clipsList[window._clipOn.i], Date.now() - window._clipOn.t); window._clipOn = null; } return b.apply(this, a); }; })(window.closeClips);
+window.openClips = (function(b) {
+return function(...a) {
+if (!window._clipsOverride && !(window.shortsPool || []).length && !window.slowNet()) {
+showToast('🩳 Loading the best short videos…');
+window.loadShorts().then(() => b.apply(this, a)); return;
+}
+return b.apply(this, a);
+};
+})(window.openClips);
+
+window.feedExtras = (function(b) {
+return function(nc) {
+const base = b(nc);
+if (nc) return base;
+const seenX = window.seenExtras || new Set();
+const shorts = (window.shortsPool || []).filter(v => !seenX.has('v:' + v.vid)).map(v => ({ x: { type: 'video', v }, s: window.clipScore({ kind: 'short', v, cat: v.cat, date: v.date }) })).sort((a, b2) => b2.s - a.s).map(o => o.x).slice(0, 30);
+if (!shorts.length) return base;
+const out = []; let si = 0;
+base.forEach((x, i) => { if (i % 2 === 0 && si < shorts.length) out.push(shorts[si++]); out.push(x); });
+while (si < shorts.length) out.push(shorts[si++]);
+return out;
+};
+})(window.feedExtras);
+window.feedVideoCardHtml = (function(b) {
+return function(v) {
+const h = b(v);
+return v && v.short ? h.replace(`<div data-yt-auto="${v.vid}" class="relative aspect-video bg-black">`, `<div data-yt-auto="${v.vid}" class="relative bg-black mx-auto" style="aspect-ratio:9/16;max-height:72vh">`).replace('· OFFICIAL', '· SHORTS') : h;
+};
+})(window.feedVideoCardHtml);
+
+window.renderFeedCard = (function(b) {
+return function(p, me) {
+let h = b(p, me);
+if (!p || (p.mediaList || []).length) return h;
+const e = window.linkEmbedOf(p.caption); if (!e) return h;
+const box = e.kind === 'yt'
+? `<div data-yt-auto="${escapeHTML(e.id)}" data-user-yt class="relative bg-black rounded-xl overflow-hidden ${e.short ? 'mx-auto' : 'aspect-video'}" style="${e.short ? 'aspect-ratio:9/16;max-height:72vh' : ''}"><img src="https://i.ytimg.com/vi/${escapeHTML(e.id)}/hqdefault.jpg" alt="" class="absolute inset-0 w-full h-full object-cover"></div>`
+: `<div class="rounded-xl overflow-hidden border border-white/10 bg-black" onclick="event.stopPropagation()"><button onclick="window.loadEmbed(this, '${escapeHTML(e.src)}', ${e.h})" class="w-full py-10 flex flex-col items-center gap-2 text-white"><span class="w-14 h-14 rounded-full bg-gradient-to-br from-magenta to-orange-500 flex items-center justify-center text-xl"><i class="fa-solid fa-play"></i></span><span class="text-xs font-black">Play ${escapeHTML(e.name)} video</span></button></div>`;
+const at = h.indexOf('<div class="flex items-center justify-between pt-2 border-t');
+return at > 0 ? h.slice(0, at) + box + h.slice(at) : h;
+};
+})(window.renderFeedCard);
+window.loadEmbed = function(btn, src, hgt) {
+const w = btn.parentElement; w.innerHTML = `<iframe src="${src}" class="w-full border-0" style="height:${Math.min(hgt, Math.round(window.innerHeight * 0.85))}px" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe>`;
+window.addXP && window.isSignedIn() && window.addXP(1, 'watch');
+};
+(function linkHint() { const t = document.getElementById('postTextContent'); if (t && !/TikTok/.test(t.placeholder)) t.placeholder = (t.placeholder ? t.placeholder + ' ' : '') + '(Tip: paste a TikTok, YouTube, Instagram, Facebook or X video link and it plays right here.)'; })();
+
+window._dwellObs = ('IntersectionObserver' in window) ? new IntersectionObserver((ents) => ents.forEach(e => {
+const el = e.target;
+if (e.isIntersecting && e.intersectionRatio >= 0.6) el._dwT = Date.now();
+else if (el._dwT) { const ms = Date.now() - el._dwT; el._dwT = 0; const p = window.findPost(el.getAttribute('data-post-id')); if (p && ms > 4000 && window.tasteAdd) window.tasteAdd(p, Math.min(3, ms / 4000)); }
+}), { threshold: [0, 0.6] }) : null;
+window.renderFypFeed = (function(b) { return function(...a) { const r = b.apply(this, a); if (window._dwellObs) document.querySelectorAll('#fypFeedContainer [data-post-id]').forEach(el => { if (!el._dw) { el._dw = 1; window._dwellObs.observe(el); } }); return r; }; })(window.renderFypFeed);
+
+window.LOVE_OPTS = [['football', '⚽ Football'], ['gaming', '🎮 Gaming'], ['dance', '💃 Dance'], ['fun', '😂 Comedy & Fun'], ['magic', '🪄 Mind-blowing'], ['movies', '🎬 Movies & Parodies'], ['anime', '🍥 Anime'], ['music', '🎵 Music'], ['wrestling', '🤼 Wrestling'], ['wow', '🚀 Science & Tech'], ['books', '📚 Books']];
+window.openLovePicker = function() {
+window._love = new Set();
+window.openPanel('💜 What do you love?', `<p class="text-sm text-gray-300">Pick a few. Your feed and Clips start with these, then learn from what you watch.</p>
+<div class="grid grid-cols-2 gap-2" id="lovePick">${window.LOVE_OPTS.map(([k, l]) => `<button onclick="window.toggleLove('${k}', this)" class="py-4 rounded-2xl bg-gg-900 border border-white/10 text-sm font-black text-white">${l}</button>`).join('')}</div>
+<button onclick="window.saveLove()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-sm font-black uppercase">Let's go 🚀</button>
+<button onclick="try{localStorage.setItem('sg_love_done','skip')}catch(e){}; window.closePanel()" class="w-full py-2 text-xs font-bold text-gray-400">Skip</button>`);
+};
+window.toggleLove = function(k, btn) { if (window._love.has(k)) window._love.delete(k); else window._love.add(k); btn.className = `py-4 rounded-2xl border text-sm font-black ${window._love.has(k) ? 'bg-magenta/25 border-magenta text-white' : 'bg-gg-900 border-white/10 text-white'}`; };
+window.saveLove = function() {
+const picks = [...(window._love || [])]; if (!picks.length) { showToast('Pick at least one 🙂'); return; }
+try { localStorage.setItem('sg_love_done', JSON.stringify(picks)); } catch (e) {}
+picks.forEach(k => { if (window.taste && window.taste.news) window.taste.news[k] = Math.min(60, (window.taste.news[k] || 0) + 15); window.clipTaste.k[k] = (window.clipTaste.k[k] || 0) + 4; });
+if (picks.includes('music') && window.musicPrefs) window.musicPrefs.add('Afro Beat');
+window.saveTasteSoon && window.saveTasteSoon(); window.saveClipTaste();
+if (window.isSignedIn()) setDoc(doc(window.db, 'profiles', window.meLower()), { interests: picks }, { merge: true }).catch(() => {});
+window.closePanel(); showToast('✨ Your feed is ready');
+window.loadShorts(true).then(() => { window.newFeedMix && window.newFeedMix(); window._forceFeed = true; window.renderFypFeed(); });
+};
+setTimeout(() => { let done = null; try { done = localStorage.getItem('sg_love_done'); } catch (e) {} if (!done && !document.querySelector('#sgPanel:not(.hidden), #sgJoinSheet:not(.hidden)')) window.openLovePicker(); }, 12000);
+
+window.coveringOverlay = function() {
+const ids = ['sgPanel', 'sgClips', 'hlModal', 'squadDetailsModal', 'dmModal', 'userProfileModal', 'postDetailModal', 'commentsModal', 'gameModal', 'liveRoomModal', 'storyViewerModal', 'mediaZoomModal', 'adminModal', 'accountModal', 'notifPanel', 'notificationsModal', 'createPostModal', 'sgJoinSheet'];
+if (ids.some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden') && el.offsetParent !== null || (id === 'sgClips' && el && el.innerHTML && !el.classList.contains('hidden')); })) return true;
+return [...document.querySelectorAll('.fixed.inset-0:not(.hidden)')].some(el => el.offsetWidth && getComputedStyle(el).display !== 'none' && !el.closest('#fypFeedContainer'));
+};
+window.pickFeedVideoToPlay = (function(b) {
+return function() {
+if (window.coveringOverlay()) { window.pauseFeedVideos && window.pauseFeedVideos(); document.querySelectorAll('[data-yt-auto]').forEach(st => { if (!st.closest('#sgClips')) window.ytUnmount(st); }); return; }
+return b.apply(this, arguments);
+};
+})(window.pickFeedVideoToPlay);
+setInterval(() => {
+const playing = document.querySelector('#fypFeedContainer iframe[data-yt-frame]') || [...document.querySelectorAll('#fypFeedContainer video[data-feed-video]')].some(v => !v.paused);
+const fyp = !document.getElementById('view-fyp')?.classList.contains('hidden');
+if (playing && (!fyp || window.coveringOverlay())) { window.pauseFeedVideos && window.pauseFeedVideos(); document.querySelectorAll('#fypFeedContainer [data-yt-auto]').forEach(st => window.ytUnmount(st)); window._feedPausedByOverlay = true; }
+else if (window._feedPausedByOverlay && fyp && !window.coveringOverlay()) { window._feedPausedByOverlay = false; window.pickFeedVideoToPlay && window.feedVideoRatios && window.pickFeedVideoToPlay(); }
+}, 700);
