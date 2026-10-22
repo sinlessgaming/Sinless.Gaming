@@ -12716,7 +12716,7 @@ const b64 = btoa(location.origin.startsWith('http') && !location.hostname.includ
 const steps = [kind === 'video' ? 'q_auto:good,c_limit,w_1080' : 'q_auto:good,c_limit,w_1600'];
 if (withLogo) steps.push(`l_fetch:${b64},w_0.13,fl_relative,g_north_west,x_24,y_24,o_92`);
 steps.push(`l_text:Arial_38_bold:${txt('Sinless GG')},co_white,o_92,g_south_west,x_28,y_74`);
-steps.push(`l_text:Arial_28_bold:${txt('@' + window.hnd(user || 'sinlessgg') + ' · sinlessgg.com')},co_white,o_85,g_south_west,x_28,y_32`);
+steps.push(`l_text:Arial_28_bold:${txt('@' + window.hnd(user || 'sinlessgg') + ' · SINLESS GG')},co_white,o_85,g_south_west,x_28,y_32`);
 steps.push(`f_${kind === 'video' ? 'mp4' : 'jpg'},fl_attachment:sinlessgg_${(user || 'post').replace(/\W/g, '')}_${Date.now().toString(36)}`);
 return `${base}/upload/${steps.join('/')}/${parts.join('/')}`;
 };
@@ -16017,126 +16017,136 @@ if (!show) document.getElementById('gameReactBar')?.classList.add('hidden');
 };
 setInterval(window.syncReactBtn, 1000);
 
-window.GAMES.tower = { name: 'Tower Blast', emoji: '💥', desc: 'Drag to aim the cannon, let go to fire. Blast every block off the platform before your balls run out. Endless levels!', color: 'from-orange-400 to-pink-500' };
+window.GAMES.tower = { name: 'Tower Blast', emoji: '💥', desc: 'Drag to aim, let go to fire. One good hit and the whole tower tumbles! Knock every ball off the platform. Endless levels!', color: 'from-orange-400 to-pink-500' };
 window.OL_MAX.tower = 2;
 window.towerRand = (seed) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+window.towerLogo = (() => { const i = new Image(); i.src = 'icon-192.png'; return i; })();
 window.towerLevel = function(g) {
-const L = g.level, rnd = window.towerRand(L * 7919 + 13);
-const C = Math.min(8, 5 + Math.floor(L / 3)), maxR = Math.min(9, 4 + Math.floor(L / 2));
-const shapes = ['wall', 'pyramid', 'towers', 'castle', 'steps', 'twin'];
-const shape = L === 1 ? 'wall' : shapes[Math.floor(rnd() * shapes.length)];
-const hOf = (c) => {
-const mid = (C - 1) / 2;
-switch (shape) {
-case 'pyramid': return Math.max(1, maxR - Math.round(Math.abs(c - mid) * (maxR / (mid + 1))));
-case 'towers': return c % 2 === 0 ? maxR : Math.max(1, Math.floor(maxR / 2));
-case 'castle': return c === 0 || c === C - 1 ? maxR : maxR - 2 + (c % 2);
-case 'steps': return Math.max(1, Math.round((c + 1) * maxR / C));
-case 'twin': return Math.abs(c - mid) > C / 4 ? maxR : Math.max(1, maxR - 3);
-default: return Math.min(maxR, L === 1 ? 3 : maxR - 1);
-}
-};
+const L = g.level, rnd = window.towerRand(L * 7919 + 13), { pw, py, px } = g.geo();
+const C = Math.min(9, 5 + Math.floor(L / 2)), r = pw / C / 2, h = r * Math.sqrt(3);
+const shapes = ['pyramid', 'wall', 'towers', 'twin', 'castle'], shape = L === 1 ? 'pyramid' : shapes[Math.floor(rnd() * shapes.length)];
+const pts = [], add = (x, y) => pts.push({ x: px + x, y: py - y });
+const rows = Math.min(C, 4 + Math.floor(L / 2));
+if (shape === 'pyramid') { for (let k = 0; k < rows; k++) for (let i = 0; i < C - k; i++) add(r + i * 2 * r + k * r, r + k * h); }
+else if (shape === 'wall') { for (let k = 0; k < Math.min(rows, 6); k++) for (let i = 0; i < C - (k % 2); i++) add(r + i * 2 * r + (k % 2) * r, r + k * h); }
+else if (shape === 'towers') { for (let i = 0; i < C; i += 2) { const hh = 3 + Math.floor(rnd() * Math.min(5, 2 + L / 2)); for (let k = 0; k < hh; k++) add(r + i * 2 * r, r + k * 2 * r); } }
+else if (shape === 'twin') { const half = Math.floor(C / 2); [0, C - half].forEach(o => { for (let k = 0; k < half; k++) for (let i = 0; i < half - k; i++) add(r + (o + i) * 2 * r + k * r, r + k * h); }); }
+else { for (let i = 0; i < C; i++) add(r + i * 2 * r, r); for (let i = 0; i < C - 1; i++) add(2 * r + i * 2 * r, r + h); [0, C - 1].forEach(i => { for (let k = 1; k < 5; k++) add(r + i * 2 * r, r + h + k * 2 * r - (k === 1 ? 0 : 0)); }); }
 const pal = ['#22d3ee', '#e11d8f', '#f59e0b', '#10b981', '#8b5cf6'];
-g.C = C; g.cells = [];
-for (let c = 0; c < C; c++) for (let r = 0; r < hOf(c); r++) {
-const x = rnd(); let type = 'box', hp = 1;
-if (L >= 2 && x < Math.min(0.3, 0.06 * L)) { type = 'stone'; hp = 2; }
-else if (L >= 3 && x > 0.95) { type = 'tnt'; }
-else if (x > 0.9) { type = 'gold'; }
-g.cells.push({ c, r, type, hp, max: hp, col: pal[(r + L) % pal.length], yOff: 0, vy: 0, flash: 0 });
-}
-const hpSum = g.cells.reduce((s, b) => s + b.hp, 0);
-g.balls = Math.ceil(hpSum * (L <= 3 ? 0.75 : 0.6)) + 3 + (g.carry || 0); g.carry = 0;
-g.shots = []; g.bits = []; g.shake = 0; g.cleared = false; g.aim = null;
+g.r = r; g.bodies = pts.map((p0, k) => { const x = rnd(); const type = L >= 3 && x > 0.93 ? 'boom' : x > 0.88 ? 'gold' : 'ball'; return { x: p0.x, y: p0.y, px: p0.x, py: p0.y, r: r * 0.98, type, col: pal[(k + L) % pal.length], awake: false, still: 0, out: false, rot: 0 }; });
+g.balls = Math.ceil(g.bodies.length / 5) + 3 + (g.carry || 0); g.carry = 0;
+g.shots = []; g.bits = []; g.shake = 0; g.cleared = false; g.aim = null; g.levelAt = Date.now();
 };
 window.towerInit = function(g) {
-g.level = 1; window.towerLevel(g);
-g.geo = () => { const pw = Math.min(g.W * 0.86, 430), s = pw / g.C, py = g.H * 0.6; return { pw, s, py, px: (g.W - pw) / 2, cx: g.W / 2, cy: g.H - 46 }; };
+g.level = 1;
+g.geo = () => { const pw = Math.min(g.W * 0.84, 430), py = g.H * 0.6; return { pw, py, px: (g.W - pw) / 2, cx: g.W / 2, cy: g.H - 46 }; };
 g.reset = () => { g.level = 1; g.carry = 0; window.towerLevel(g); window.setGameScore(0); };
-g.cellAt = (x, y) => { const { s, py, px } = g.geo(); return g.cells.find(b => x >= px + b.c * s && x < px + (b.c + 1) * s && y >= py - (b.r + 1) * s + b.yOff && y < py - b.r * s + b.yOff); };
 g.tap = (x, y) => { if (g.cleared) return; g.aim = { x, y }; g.aiming = true; };
 g.fire = () => {
-const a = g.aim; g.aiming = false; if (!a || g.balls <= 0 || g.cleared) return;
-if (g.coolT > 0) return; g.coolT = 0.28;
-g.balls--; const { cx, cy } = g.geo();
+const a = g.aim; g.aiming = false; if (!a || g.balls <= 0 || g.cleared || g.coolT > 0) return;
+g.coolT = 0.3; g.balls--; const { cx, cy } = g.geo();
 g.shots.push({ x0: cx, y0: cy - 30, x1: a.x, y1: a.y, t: 0 });
 if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
 };
-g.kill = (b, push) => {
-const { s, py, px } = g.geo(), x = px + b.c * s, y = py - (b.r + 1) * s + b.yOff;
-g.cells = g.cells.filter(o => o !== b);
-const pts = b.type === 'gold' ? 50 : b.type === 'stone' ? 20 : 10;
-window.setGameScore(g.score + pts); window.fxText(g, '+' + pts, x + s / 2, y, b.type === 'gold' ? '#facc15' : '#fff', 18, 0.7);
-for (let k = 0; k < 6; k++) g.bits.push({ x: x + s / 2, y: y + s / 2, vx: (Math.random() - 0.5) * 420 + (push || 0) * 220, vy: -150 - Math.random() * 380, rot: 0, vr: (Math.random() - 0.5) * 14, sz: s * (0.25 + Math.random() * 0.25), col: b.type === 'stone' ? '#94a3b8' : b.type === 'gold' ? '#facc15' : b.type === 'tnt' ? '#ef4444' : b.col, life: 1.6 });
-if (b.type === 'tnt') {
-g.shake = 0.35; window.fxText(g, '💥', x + s / 2, y + s / 2, '#fff', 54, 0.6);
-g.cells.filter(o => Math.abs(o.c - b.c) <= 1 && Math.abs(o.r - b.r) <= 1).forEach(o => setTimeout(() => { if (g.cells.includes(o)) g.kill(o, Math.sign(o.c - b.c)); }, 90));
-}
-};
-g.hit = (b, dmg, push) => { b.hp -= dmg; b.flash = 0.15; if (b.hp <= 0) g.kill(b, push); };
+g.push = (b, vx, vy) => { b.awake = true; b.still = 0; b.px -= vx; b.py -= vy; };
 g.impact = (x, y) => {
-const b = g.cellAt(x, y);
-if (!b) { window.fxText(g, 'Miss', x, y, '#94a3b8', 16, 0.5); return; }
-const { s, px } = g.geo(), push = Math.sign((x - g.W / 2) || 1);
-g.hit(b, 1, push); g.shake = Math.max(g.shake, 0.12);
-if (Math.random() < 0.45) { const nb = g.cells.find(o => o.r === b.r && o.c === b.c + push) || g.cells.find(o => o.c === b.c && o.r === b.r + 1); if (nb) g.hit(nb, 1, push); }
-if (b.hp > 0 && (b.c === 0 || b.c === g.C - 1) && Math.random() < 0.5) g.kill(b, b.c === 0 ? -1 : 1);
+const hit = g.bodies.find(b => !b.out && Math.hypot(b.x - x, b.y - y) < b.r * 1.25);
+if (!hit) { window.fxText(g, 'Miss', x, y, '#94a3b8', 16, 0.5); return; }
+const dirX = Math.sign(x - g.W / 2) || (Math.random() < 0.5 ? -1 : 1);
+g.shake = 0.18; window.fxText(g, '💥', hit.x, hit.y, '#fff', 34, 0.45);
+const R = g.r * 3.2;
+g.bodies.forEach(b => { if (b.out) return; const d = Math.hypot(b.x - x, b.y - y); if (d > R) return; const k = 1 - d / R, nx = (b.x - x) / (d || 1), ny = (b.y - y) / (d || 1); g.push(b, (nx * 7 + dirX * 4) * k, (ny * 5 - 3) * k); });
+g.push(hit, dirX * 9, -4);
+for (let k = 0; k < 6; k++) g.bits.push({ x: hit.x, y: hit.y, vx: (Math.random() - 0.5) * 380, vy: -100 - Math.random() * 300, rot: 0, vr: (Math.random() - 0.5) * 14, sz: g.r * 0.35, col: '#fff', life: 0.6 });
+if (hit.type === 'boom') g.boom(hit);
 };
-g.settle = () => {
-const { s } = g.geo();
-for (let c = 0; c < g.C; c++) {
-const col = g.cells.filter(b => b.c === c).sort((a, b) => a.r - b.r);
-col.forEach((b, i) => { if (b.r !== i) { b.yOff -= (b.r - i) * s; b.r = i; } });
+g.boom = (b) => {
+if (b.boomed) return; b.boomed = true; g.shake = 0.4; window.fxText(g, '💥', b.x, b.y, '#fff', 70, 0.7);
+if (navigator.vibrate) try { navigator.vibrate([20, 30, 40]); } catch (e) {}
+const R = g.r * 6; g.bodies.forEach(o => { if (o.out || o === b) return; const d = Math.hypot(o.x - b.x, o.y - b.y); if (d > R) return; const k = 1 - d / R; g.push(o, (o.x - b.x) / (d || 1) * 14 * k, ((o.y - b.y) / (d || 1) * 10 - 6) * k); });
+b.out = true; g.score += 20; window.setGameScore(g.score);
+for (let k = 0; k < 14; k++) g.bits.push({ x: b.x, y: b.y, vx: (Math.random() - 0.5) * 700, vy: -200 - Math.random() * 500, rot: 0, vr: (Math.random() - 0.5) * 20, sz: g.r * 0.4, col: k % 2 ? '#ef4444' : '#facc15', life: 1 });
+};
+g.step = () => {
+const { px, py, pw } = g.geo(), G = 0.22, B = g.bodies.filter(b => !b.out);
+B.forEach(b => { if (!b.awake) return; const vx = (b.x - b.px) * 0.995, vy = (b.y - b.py) * 0.995; b.px = b.x; b.py = b.y; b.x += vx; b.y += vy + G; b.rot += vx / b.r; });
+for (let it = 0; it < 4; it++) {
+for (let i = 0; i < B.length; i++) for (let j = i + 1; j < B.length; j++) {
+const a = B[i], c = B[j]; if (!a.awake && !c.awake) continue;
+const dx = c.x - a.x, dy = c.y - a.y, d = Math.hypot(dx, dy), m = a.r + c.r; if (d >= m || d === 0) continue;
+const o = (m - d), nx = dx / d, ny = dy / d;
+const sp = (q) => Math.hypot(q.x - q.px, q.y - q.py);
+if (!a.awake && sp(c) > 0.6) { a.awake = true; a.still = 0; } if (!c.awake && sp(a) > 0.6) { c.awake = true; c.still = 0; }
+const wa = a.awake ? (c.awake ? 0.5 : 1) : 0, wc = c.awake ? (a.awake ? 0.5 : 1) : 0;
+a.x -= nx * o * wa; a.y -= ny * o * wa; c.x += nx * o * wc; c.y += ny * o * wc;
 }
+B.forEach(b => {
+if (!b.awake) return;
+if (b.x >= px && b.x <= px + pw && b.y + b.r > py && b.py + b.r <= py + 6) { b.y = py - b.r; b.px += (b.x - b.px) * 0.04; }
+[[px, py], [px + pw, py]].forEach(([qx, qy]) => { const dx = b.x - qx, dy = b.y - qy, d = Math.hypot(dx, dy); if (d < b.r && d > 0 && b.y < qy + b.r * 0.2) { b.x = qx + dx / d * b.r; b.y = qy + dy / d * b.r; } });
+});
+}
+B.forEach(b => {
+if (b.awake) return;
+const onFloor = b.x >= px && b.x <= px + pw && Math.abs(b.y + b.r - py) < 2;
+const held = onFloor || B.some(o => o !== b && !o.out && o.y > b.y + b.r * 0.3 && Math.hypot(o.x - b.x, o.y - b.y) < b.r + o.r + 1.5);
+if (!held) { b.awake = true; b.still = 0; }
+});
+B.forEach(b => { if (!b.awake) return; const s = Math.hypot(b.x - b.px, b.y - b.py); b.still = s < 0.06 ? b.still + 1 : 0; if (b.still > 45) { b.awake = false; b.px = b.x; b.py = b.y; } });
+B.forEach(b => { if (b.y > py + g.r * 5 || b.x < -60 || b.x > g.W + 60) { b.out = true; const pts = b.type === 'gold' ? 50 : 10; g.score += pts; window.setGameScore(g.score); window.fxText(g, '+' + pts, Math.max(30, Math.min(g.W - 30, b.x)), py + 30, b.type === 'gold' ? '#facc15' : '#fff', 18, 0.7); } });
 };
 g.update = (dt) => {
 g.coolT = Math.max(0, (g.coolT || 0) - dt); g.shake = Math.max(0, g.shake - dt);
 g.shots.forEach(sh => { sh.t += dt / 0.42; if (sh.t >= 1 && !sh.done) { sh.done = true; g.impact(sh.x1, sh.y1); } });
 g.shots = g.shots.filter(sh => !sh.done);
-g.settle();
-g.cells.forEach(b => { b.flash = Math.max(0, b.flash - dt); if (b.yOff < 0) { b.vy += 2200 * dt; b.yOff = Math.min(0, b.yOff + b.vy * dt); if (b.yOff === 0) b.vy = 0; } });
+const n = Math.max(1, Math.round(dt / (1 / 120))); for (let k = 0; k < Math.min(4, n); k++) g.step();
 g.bits.forEach(p => { p.vy += 1400 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt; p.life -= dt; });
-g.bits = g.bits.filter(p => p.life > 0 && p.y < g.H + 60);
-const busy = g.shots.length || g.cells.some(b => b.yOff < 0);
-if (!g.cells.length && !g.cleared && !g.shots.length) {
+g.bits = g.bits.filter(p => p.life > 0);
+const left = g.bodies.filter(b => !b.out), busy = g.shots.length || left.some(b => b.awake);
+if (!left.length && !g.cleared) {
 g.cleared = true; const bonus = 100 + g.balls * 25;
 window.setGameScore(g.score + bonus); window.fxText(g, `LEVEL ${g.level} CLEARED! +${bonus}`, g.W / 2, g.H * 0.35, '#facc15', 22, 1.6);
 if (navigator.vibrate) try { navigator.vibrate([30, 40, 30]); } catch (e) {}
 window.addXP && window.isSignedIn() && window.addXP(2, 'game');
 setTimeout(() => { if (window.game === g && g.state === 'play') { g.carry = Math.floor(g.balls / 2); g.level++; window.towerLevel(g); } }, 1500);
-} else if (g.balls <= 0 && !busy && g.cells.length && !g.cleared) { if (!g.outAt) g.outAt = Date.now(); if (Date.now() - g.outAt > 700) window.gameOver('balls'); }
+} else if (g.balls <= 0 && !busy && left.length && !g.cleared) { if (!g.outAt) g.outAt = Date.now(); if (Date.now() - g.outAt > 900) window.gameOver('balls'); }
 else g.outAt = 0;
+};
+g.drawBall = (ctx, b) => {
+const base = b.type === 'gold' ? '#facc15' : b.type === 'boom' ? '#dc2626' : b.col;
+ctx.save(); ctx.translate(b.x, b.y);
+const gr = ctx.createRadialGradient(-b.r * 0.35, -b.r * 0.4, b.r * 0.1, 0, 0, b.r); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.25, base); gr.addColorStop(1, 'rgba(0,0,0,.55)');
+ctx.fillStyle = base; ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = gr; ctx.fill();
+ctx.rotate(b.rot);
+if (b.type === 'boom') { ctx.fillStyle = '#111'; ctx.font = `900 ${Math.round(b.r * 0.55)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('BOOM', 0, 1); ctx.strokeStyle = '#facc15'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, -b.r); ctx.quadraticCurveTo(b.r * 0.3, -b.r * 1.35, b.r * 0.1, -b.r * 1.5); ctx.stroke(); }
+else {
+const lr = b.r * 0.66; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, lr + 2, 0, Math.PI * 2); ctx.fill();
+const lg = window.towerLogo; if (lg && lg.complete && lg.naturalWidth) { ctx.save(); ctx.beginPath(); ctx.arc(0, 0, lr, 0, Math.PI * 2); ctx.clip(); ctx.drawImage(lg, -lr, -lr, lr * 2, lr * 2); ctx.restore(); }
+else { ctx.fillStyle = '#0b1220'; ctx.font = `900 ${Math.round(b.r * 0.6)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('GG', 0, 1); }
+if (b.type === 'gold') { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, lr + 2, 0, Math.PI * 2); ctx.stroke(); }
+}
+ctx.restore();
+ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.ellipse(b.x - b.r * 0.35, b.y - b.r * 0.5, b.r * 0.25, b.r * 0.14, -0.5, 0, Math.PI * 2); ctx.fill();
 };
 g.draw = () => {
 const ctx = g.ctx, W = g.W, H = g.H; if (!W) return;
-const { s, py, px, pw, cx, cy } = g.geo();
+if (!g.bodies) window.towerLevel(g);
+const { py, px, pw, cx, cy } = g.geo();
 ctx.save();
-if (g.shake > 0) ctx.translate((Math.random() - 0.5) * 10 * g.shake / 0.35, (Math.random() - 0.5) * 8 * g.shake / 0.35);
+if (g.shake > 0) ctx.translate((Math.random() - 0.5) * 12 * g.shake / 0.35, (Math.random() - 0.5) * 9 * g.shake / 0.35);
 const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#0b1d3a'); sky.addColorStop(0.55, '#3b1456'); sky.addColorStop(1, '#130a24');
 ctx.fillStyle = sky; ctx.fillRect(-20, -20, W + 40, H + 40);
-ctx.fillStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 26; i++) { const x = (i * 97) % W, y = (i * 53) % (H * 0.4); ctx.fillRect(x, y, 2, 2); }
+ctx.fillStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 26; i++) ctx.fillRect((i * 97) % W, (i * 53) % (H * 0.4), 2, 2);
 [[W * 0.12, H * 0.08], [W * 0.88, H * 0.08]].forEach(([x, y]) => { const gl = ctx.createRadialGradient(x, y, 2, x, y, 90); gl.addColorStop(0, 'rgba(255,255,220,.9)'); gl.addColorStop(1, 'rgba(255,255,220,0)'); ctx.fillStyle = gl; ctx.fillRect(x - 90, y - 90, 180, 180); });
+const lg = window.towerLogo; if (lg && lg.complete && lg.naturalWidth) { ctx.globalAlpha = 0.08; const s = Math.min(W * 0.55, 240); ctx.drawImage(lg, W / 2 - s / 2, H * 0.1, s, s); ctx.globalAlpha = 1; }
 const gr = ctx.createLinearGradient(0, py + 40, 0, H); gr.addColorStop(0, '#0f5132'); gr.addColorStop(1, '#0a2e1f'); ctx.fillStyle = gr; ctx.fillRect(-20, py + 40, W + 40, H);
 ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(W / 2, py + 120, W * 0.35, 30, 0, 0, Math.PI * 2); ctx.stroke();
-ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.moveTo(W / 2 - 16, py + 12); ctx.lineTo(W / 2 + 16, py + 12); ctx.lineTo(W / 2 + 34, py + 70); ctx.lineTo(W / 2 - 34, py + 70); ctx.closePath(); ctx.fill();
-ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(W / 2, py + 72, 70, 12, 0, 0, Math.PI * 2); ctx.fill();
-const pg = ctx.createLinearGradient(0, py, 0, py + 14); pg.addColorStop(0, '#f0abfc'); pg.addColorStop(1, '#a21caf');
-ctx.fillStyle = pg; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(px - 10, py, pw + 20, 14, 7); else ctx.rect(px - 10, py, pw + 20, 14); ctx.fill();
-const d = s * 0.16;
-[...g.cells].sort((a, b) => a.r - b.r || a.c - b.c).forEach(b => {
-const x = px + b.c * s, y = py - (b.r + 1) * s + b.yOff;
-const base = b.type === 'stone' ? '#64748b' : b.type === 'gold' ? '#facc15' : b.type === 'tnt' ? '#dc2626' : b.col;
-ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.moveTo(x + s, y); ctx.lineTo(x + s + d, y - d); ctx.lineTo(x + s + d, y + s - d); ctx.lineTo(x + s, y + s); ctx.closePath(); ctx.fill();
-ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + d, y - d); ctx.lineTo(x + s + d, y - d); ctx.lineTo(x + s, y); ctx.closePath(); ctx.fill();
-ctx.fillStyle = b.flash > 0 ? '#ffffff' : base; ctx.fillRect(x + 1, y + 1, s - 2, s - 2);
-ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x + 1, y + 1, s - 2, (s - 2) * 0.3);
-ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.5; ctx.strokeRect(x + 1.5, y + 1.5, s - 3, s - 3);
-ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `900 ${Math.round(s * 0.42)}px system-ui`;
-if (b.type === 'gold') { ctx.fillStyle = '#92400e'; ctx.fillText('★', x + s / 2, y + s / 2 + 1); }
-else if (b.type === 'tnt') { ctx.fillStyle = '#fff'; ctx.font = `900 ${Math.round(s * 0.26)}px system-ui`; ctx.fillText('BOOM', x + s / 2, y + s / 2 + 1); }
-else if (b.type === 'stone' && b.hp < b.max) { ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + s * 0.2, y + s * 0.3); ctx.lineTo(x + s * 0.5, y + s * 0.55); ctx.lineTo(x + s * 0.4, y + s * 0.8); ctx.moveTo(x + s * 0.5, y + s * 0.55); ctx.lineTo(x + s * 0.8, y + s * 0.45); ctx.stroke(); }
-else { ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = `900 ${Math.round(s * 0.3)}px system-ui`; ctx.fillText('GG', x + s / 2, y + s / 2 + 1); }
-});
+ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.font = '900 22px system-ui'; ctx.textAlign = 'center'; ctx.fillText('SINLESS GG', W / 2, py + 128);
+ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.moveTo(W / 2 - 16, py + 20); ctx.lineTo(W / 2 + 16, py + 20); ctx.lineTo(W / 2 + 34, py + 74); ctx.lineTo(W / 2 - 34, py + 74); ctx.closePath(); ctx.fill();
+const pg = ctx.createLinearGradient(0, py, 0, py + 22); pg.addColorStop(0, '#f0abfc'); pg.addColorStop(1, '#a21caf');
+ctx.fillStyle = pg; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(px - 8, py, pw + 16, 22, 11); else ctx.rect(px - 8, py, pw + 16, 22); ctx.fill();
+ctx.fillStyle = '#fff'; ctx.font = '900 12px system-ui'; ctx.textBaseline = 'middle'; ctx.fillText('⚡ SINLESS GG ⚡', W / 2, py + 12); ctx.textBaseline = 'alphabetic';
+(g.bodies || []).filter(b => !b.out).forEach(b => g.drawBall(ctx, b));
 g.bits.forEach(p => { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.globalAlpha = Math.min(1, p.life); ctx.fillStyle = p.col; ctx.fillRect(-p.sz / 2, -p.sz / 2, p.sz, p.sz); ctx.restore(); });
 const ang = g.aim ? Math.atan2(g.aim.y - (cy - 20), g.aim.x - cx) : -Math.PI / 2;
 if (g.aiming && g.aim) {
@@ -16152,11 +16162,13 @@ ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(
 ctx.save(); ctx.translate(cx, cy - 20); ctx.rotate(ang + Math.PI / 2);
 const cg = ctx.createLinearGradient(-16, 0, 16, 0); cg.addColorStop(0, '#0e7490'); cg.addColorStop(0.5, '#22d3ee'); cg.addColorStop(1, '#0e7490');
 ctx.fillStyle = cg; ctx.fillRect(-15, -62, 30, 62); ctx.fillStyle = '#e11d8f'; ctx.fillRect(-18, -66, 36, 10); ctx.restore();
-ctx.fillStyle = '#4c1d95'; ctx.beginPath(); ctx.arc(cx, cy, 34, Math.PI, 0); ctx.fill(); ctx.fillStyle = '#a21caf'; ctx.fillRect(cx - 50, cy, 100, 46);
+ctx.fillStyle = '#4c1d95'; ctx.beginPath(); ctx.arc(cx, cy, 34, Math.PI, 0); ctx.fill(); ctx.fillStyle = '#a21caf'; ctx.fillRect(cx - 62, cy, 124, 46);
+if (lg && lg.complete && lg.naturalWidth) ctx.drawImage(lg, cx - 56, cy + 5, 28, 28);
+ctx.fillStyle = '#fff'; ctx.font = '900 11px system-ui'; ctx.textAlign = 'left'; ctx.fillText('SINLESS GG', cx - 24, cy + 23);
 ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = '900 15px system-ui'; ctx.fillStyle = '#fff';
 ctx.fillText(`🔴 × ${g.balls}`, 12, 10); ctx.textAlign = 'right'; ctx.fillText(`LEVEL ${g.level}`, W - 12, 10);
-if (g.state === 'play' && g.balls <= 3 && g.balls > 0 && g.cells.length) { ctx.textAlign = 'center'; ctx.fillStyle = '#fca5a5'; ctx.font = '900 13px system-ui'; ctx.fillText(`Only ${g.balls} ball${g.balls > 1 ? 's' : ''} left!`, W / 2, 34); }
-ctx.restore();
+if (g.state === 'play' && g.balls <= 2 && g.balls > 0 && g.bodies.some(b => !b.out)) { ctx.textAlign = 'center'; ctx.fillStyle = '#fca5a5'; ctx.font = '900 13px system-ui'; ctx.fillText(`Only ${g.balls} ball${g.balls > 1 ? 's' : ''} left!`, W / 2, 34); }
+ctx.textBaseline = 'alphabetic'; ctx.restore();
 };
 const cv = document.getElementById('gameCanvas');
 if (!cv._towerWired) {
@@ -16343,3 +16355,767 @@ body.innerHTML = `<div class="rounded-3xl p-5 text-center space-y-2" style="back
 })(window.renderWatch);
 setTimeout(() => { let on = null; try { on = localStorage.getItem('sg_kids_mode'); } catch (e) {} if (on) window.openKids(); }, 300);
 window.openLovePicker = (function(b) { return function(...a) { if (window.kidsMode) return; if (window.coveringOverlay && window.coveringOverlay()) { setTimeout(() => { let d = null; try { d = localStorage.getItem('sg_love_done'); } catch (e) {} if (!d) window.openLovePicker(); }, 20000); return; } return b.apply(this, a); }; })(window.openLovePicker);
+
+(function noAccidentalReload() { const s = document.createElement('style'); s.textContent = 'html,body{overscroll-behavior-y:contain}'; document.head.appendChild(s); })();
+window._authKnown = false;
+window.wasIn = () => { try { return localStorage.getItem('sg_was_in'); } catch (e) { return null; } };
+window.afterAuthChange = (function(b) { return function(u) { window._authKnown = true; document.getElementById('sgSigningIn')?.remove(); return b.apply(this, arguments); }; })(window.afterAuthChange);
+window.needSignIn = (function(b) {
+return function(...a) {
+if (!window._authKnown && !window.isSignedIn() && window.wasIn()) { showToast('⏳ Signing you back in… one moment'); return true; }
+return b.apply(this, a);
+};
+})(window.needSignIn);
+window.openJoinSheet = (function(b) { return function(...a) { if (!window._authKnown && window.wasIn()) return; return b.apply(this, a); }; })(window.openJoinSheet);
+setTimeout(() => {
+const w = window.wasIn(); if (!w || window._authKnown) return;
+const h = document.getElementById('headerUserTag'); if (h && /Guest/.test(h.innerText)) h.innerText = w;
+const el = document.createElement('div'); el.id = 'sgSigningIn'; el.className = 'fixed left-1/2 top-2 px-3 py-1.5 rounded-full bg-gg-900/95 border border-cyan-400/40 text-[11px] font-bold text-cyan-200 shadow-lg'; el.style.cssText += 'z-index:325;transform:translateX(-50%)';
+el.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Signing you in…'; document.body.appendChild(el);
+setTimeout(() => el.remove(), 20000);
+}, 1200);
+
+window._clipsFirst = null;
+document.addEventListener('pointerdown', (e) => { const v = e.target.closest && e.target.closest('#fypFeedContainer [data-post-id] video'); window._vidTap = v ? { id: v.closest('[data-post-id]').getAttribute('data-post-id'), t: Date.now() } : null; }, true);
+window.openClipsAt = function(first) { window._clipsFirst = first; window.openClips(); };
+window.openPostDetail = (function(b) {
+return function(id, ...a) {
+const t = window._vidTap; const p = window.findPost(id);
+if (t && t.id === id && Date.now() - t.t < 1500 && p && (p.mediaList || []).some(m => m.type === 'video')) { window._vidTap = null; return window.openClipsAt({ kind: 'post', id }); }
+return b.call(this, id, ...a);
+};
+})(window.openPostDetail);
+window.playFeedVideo = (function(b) { return function(i) { const v = (window.feedVidReg || [])[i]; if (v && v.short) return window.openClipsAt({ kind: 'short', id: v.vid, v }); return b(i); }; })(window.playFeedVideo);
+window.ytPlayPause = (function(b) {
+return function(stage) {
+const vid = stage.getAttribute('data-yt-auto');
+if (vid && stage.closest('#fypFeedContainer') && !stage.closest('[data-post-id]')) { const v = (window.feedVidReg || []).find(x => x && x.vid === vid); if (v && v.short) return window.openClipsAt({ kind: 'short', id: vid, v }); }
+return b(stage);
+};
+})(window.ytPlayPause);
+window.buildClipsList = (function(b) {
+return function() {
+const l = b(), f = window._clipsFirst; window._clipsFirst = null;
+if (!f) return l;
+let i = l.findIndex(x => x.id === f.id), item = i >= 0 ? l.splice(i, 1)[0] : null;
+if (!item && f.kind === 'post') { const p = window.findPost(f.id), m = p && (p.mediaList || []).find(x => x.type === 'video'); if (m) item = { kind: 'post', id: f.id, p, url: m.url, cat: (p.game || '').toLowerCase() }; }
+if (!item && f.kind === 'short' && f.v) item = { kind: 'short', id: f.id, v: { ...f.v, short: true }, cat: f.v.cat };
+return item ? [item, ...l] : l;
+};
+})(window.buildClipsList);
+
+(function camCss() { const s = document.createElement('style'); s.textContent = `#goLiveModal.sg-cam{background:#000}#goLiveModal.sg-cam #goLivePreviewWrap{position:fixed;inset:0;border-radius:0;border:0;aspect-ratio:auto;z-index:-1}#goLiveModal.sg-cam #goLivePreview{object-fit:cover}#goLiveModal.sg-cam #goLivePreview.mirror{transform:scaleX(-1)}#goLiveModal.sg-cam>div{position:relative;z-index:1;min-height:100dvh;display:flex;flex-direction:column}#goLiveModal.sg-cam #goLiveBody{margin-top:auto;padding-bottom:12px}#goLiveModal.sg-cam input,#goLiveModal.sg-cam select,#goLiveModal.sg-cam #goLiveModes button:not(.bg-red-600){background:rgba(0,0,0,.45)!important;backdrop-filter:blur(6px)}#goLiveModal.sg-cam h3{text-shadow:0 1px 4px #000}#goLiveModal.sg-cam #goLiveBody p{color:#e5e7eb;text-shadow:0 1px 3px #000}`; document.head.appendChild(s); })();
+window.setGoLiveMode = (function(b) {
+return function(mode, ...a) {
+const r = b.call(this, mode, ...a), m = document.getElementById('goLiveModal');
+const cam = mode === 'camera' && innerHeight > innerWidth; m.classList.toggle('sg-cam', cam);
+const v = document.getElementById('goLivePreview'); if (v && mode === 'camera') { v.parentElement.id = 'goLivePreviewWrap'; v.classList.toggle('mirror', window.liveFacing === 'user'); }
+return r;
+};
+})(window.setGoLiveMode);
+window.previewCamera = (function(b) { return async function(...a) { const r = await b.apply(this, a); document.getElementById('goLivePreview')?.classList.toggle('mirror', window.liveFacing === 'user'); return r; }; })(window.previewCamera);
+window.closeGoLive = (function(b) { return function(...a) { document.getElementById('goLiveModal')?.classList.remove('sg-cam'); return b.apply(this, a); }; })(window.closeGoLive);
+
+window.dn = function(tag, fallback) { const t = escapeHTML(String(tag || '').replace('@', '')); return `<span data-user="${t}">${escapeHTML(window.dnText(tag, fallback))}</span>`; };
+document.addEventListener('click', (e) => {
+const u = e.target.closest && e.target.closest('[data-user]'); if (!u) return;
+const own = e.target.closest('[onclick]');
+if (own && !own.matches('.post-card-item, [data-clip], [data-mid]') && (/openUserProfileModal|openDmThread|openGroupThread|olJoin|openPostDetail|openNotification/.test(own.getAttribute('onclick') || '') || own.tagName === 'BUTTON')) return;
+if (u.closest('#gameModal, #sgKids')) return;
+const tag = u.getAttribute('data-user'); if (!tag || /^(Open Spot|TBD|Club_\d+|Unknown)$/i.test(tag)) return;
+e.stopPropagation(); e.preventDefault();
+if (u.closest('#sgClips')) window.closeClips();
+if (u.closest('#squadDetailsModal')) window.closeSquadDetailsModal();
+if (u.closest('#loungeModal')) window.closeLounge && window.closeLounge(), document.getElementById('loungeModal')?.classList.add('hidden');
+window.openUserProfileModal(tag, e);
+}, true);
+(function nameCss() { const s = document.createElement('style'); s.textContent = '[data-user]{cursor:pointer}[data-user]:active{opacity:.7}'; document.head.appendChild(s); })();
+
+window.presenceOn = () => { try { return localStorage.getItem('sg_hide_online') !== '1'; } catch (e) { return true; } };
+window.beat = async function(force) {
+if (!window.isSignedIn() || document.hidden || !window.presenceOn()) return;
+if (!force && Date.now() - (window._beatAt || 0) < 3.5 * 60000) return; window._beatAt = Date.now();
+try { await setDoc(doc(window.db, 'profiles', window.meLower()), { lastSeen: Date.now() }, { merge: true }); } catch (e) {}
+};
+setInterval(() => window.beat(), 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) window.beat(); });
+window.afterAuthChange = (function(b) { return function(u) { const r = b.apply(this, arguments); if (u) setTimeout(() => window.beat(true), 2500); return r; }; })(window.afterAuthChange);
+window.onlineNow = new Map();
+window.loadOnline = async function(force) {
+if (!force && Date.now() - (window._onlineAt || 0) < 90000) return window.onlineNow; window._onlineAt = Date.now();
+try {
+const s = await getDocs(query(collection(window.db, 'profiles'), where('lastSeen', '>', Date.now() - 6 * 60000), limit(300)));
+const m = new Map(); s.forEach(d => m.set(d.id, d.data().lastSeen));
+if (window.isSignedIn() && window.presenceOn()) m.set(window.meLower(), Date.now());
+window.onlineNow = m;
+} catch (e) {}
+return window.onlineNow;
+};
+window.isOnline = (tag) => window.onlineNow.has(String(tag || '').replace('@', '').toLowerCase());
+window.markOnline = function(root) {
+if (!root) return;
+root.querySelectorAll('img[onclick*="openUserProfileModal("]').forEach(img => {
+const tag = ((img.getAttribute('onclick') || '').match(/openUserProfileModal\('([^']+)'/) || [])[1];
+const on = tag && window.isOnline(tag); img.style.boxShadow = on ? '0 0 0 2px #0b1220, 0 0 0 4px #22c55e' : ''; if (on) img.title = 'Online now';
+});
+};
+window.lastSeenText = (ms) => { if (!ms) return ''; const d = Date.now() - ms; return d < 6 * 60000 ? '🟢 Online' : 'last seen ' + window.timeAgo(ms); };
+
+window.chatDocRef = () => { const d = window.activeDm; if (!d || !d.threadId) return null; return d.group ? doc(window.db, 'groups', d.groupId || d.threadId) : doc(window.db, 'dms', d.threadId); };
+window.watchChatDoc = function() {
+if (window._chatDocUnsub) { window._chatDocUnsub(); window._chatDocUnsub = null; }
+window._chatDoc = {}; const ref = window.chatDocRef(); if (!ref) return;
+window._chatDocUnsub = onSnapshot(ref, (s) => { window._chatDoc = (s.exists && s.exists() ? s.data() : {}) || {}; window.renderChatStatus(); }, () => {});
+const d = window.activeDm; let pres = document.getElementById('dmPresence');
+if (!pres) { const h = document.getElementById('dmHeaderUser'); if (h) { h.insertAdjacentHTML('afterend', `<p id="dmPresence" class="text-[10px] font-bold text-emerald-400"></p>`); pres = document.getElementById('dmPresence'); } }
+if (pres) pres.textContent = '';
+if (d && !d.group && d.partnerTag) {
+const upd = async () => { if (window.activeDm !== d) return; try { const s = await getDoc(doc(window.db, 'profiles', d.partnerTag.toLowerCase())); const ls = s.exists() ? s.data().lastSeen : 0; const el = document.getElementById('dmPresence'); if (el && window.activeDm === d) { el.textContent = window.lastSeenText(ls); el.className = `text-[10px] font-bold ${ls && Date.now() - ls < 6 * 60000 ? 'text-emerald-400' : 'text-gray-500'}`; } } catch (e) {} };
+upd(); clearInterval(window._presT); window._presT = setInterval(upd, 60000);
+}
+};
+window.markChatSeen = function() {
+const ref = window.chatDocRef(), msgs = window._dmMsgs || []; if (!ref || document.hidden || document.getElementById('dmModal')?.classList.contains('hidden')) return;
+const uid = window.uidNow(), last = [...msgs].reverse().find(m => m.fromUid !== uid); if (!last) return;
+const t = window.postTimeValue(last) || Date.now(), mine = ((window._chatDoc || {}).seen || {})[uid] || 0;
+if (mine >= t || Date.now() - (window._seenWAt || 0) < 3000) return; window._seenWAt = Date.now();
+updateDoc(ref, { [`seen.${uid}`]: Date.now() }).catch(() => {});
+};
+window.renderChatStatus = function() {
+const d = window.activeDm, box = document.getElementById('dmMessagesContainer'); if (!d || !box) return;
+const uid = window.uidNow(), cd = window._chatDoc || {}, now = Date.now();
+const typers = Object.entries(cd.typing || {}).filter(([u, t]) => u !== uid && now - t < 6000).map(([u]) => u);
+let bar = document.getElementById('dmTypingBar'); const comp = document.getElementById('dmComposer');
+if (!bar && comp) { comp.insertAdjacentHTML('beforebegin', `<div id="dmTypingBar" class="shrink-0 px-4 py-1 text-[11px] font-bold text-cyan-300 hidden"></div>`); bar = document.getElementById('dmTypingBar'); }
+if (bar) {
+if (typers.length) { const who = d.group ? (typers.length > 1 ? `${typers.length} people are` : `${window.dnText(((d.g && d.g.members) || [])[(d.g.memberUids || []).indexOf(typers[0])] || 'Someone')} is`) : `${window.dnText(d.partnerTag)} is`; bar.innerHTML = `${escapeHTML(who)} typing<span class="animate-pulse">…</span>`; bar.classList.remove('hidden'); }
+else bar.classList.add('hidden');
+}
+box.querySelectorAll('.sg-seen').forEach(x => x.remove());
+const msgs = window._dmMsgs || [], last = [...msgs].reverse().find(m => m.fromUid === uid); if (!last || !last.id) return;
+const row = box.querySelector(`.dm-row[data-mid="${CSS.escape(last.id)}"]`); if (!row) return;
+const t = window.postTimeValue(last) || now, seenBy = Object.entries(cd.seen || {}).filter(([u, s]) => u !== uid && s >= t).map(([u]) => u);
+const txt = !last.createdAt ? '🕓 Sending' : d.group ? (seenBy.length ? `✓✓ Seen by ${seenBy.length}` : '✓ Sent') : (seenBy.length ? '✓✓ Seen' : '✓ Sent');
+row.insertAdjacentHTML('afterend', `<p class="sg-seen text-right pr-2 -mt-0.5 text-[10px] font-black ${seenBy.length ? 'text-cyan-300' : 'text-gray-500'}">${txt}</p>`);
+};
+setInterval(() => { if (window.activeDm && !document.getElementById('dmModal')?.classList.contains('hidden')) window.renderChatStatus(); }, 1500);
+window.renderDmMessages = (function(b) { return function(msgs) { window._dmMsgs = msgs; const r = b(msgs); window.renderChatStatus(); window.markChatSeen(); return r; }; })(window.renderDmMessages);
+window.openDmThread = (function(b) { return async function(...a) { const r = await b.apply(this, a); window.watchChatDoc(); return r; }; })(window.openDmThread);
+window.openGroupThread = (function(b) { return function(...a) { const r = b.apply(this, a); window.watchChatDoc(); return r; }; })(window.openGroupThread);
+['closeDmModal', 'showDmInbox'].forEach(fn => { const b = window[fn]; if (typeof b === 'function') window[fn] = function(...a) { if (window._chatDocUnsub) { window._chatDocUnsub(); window._chatDocUnsub = null; } clearInterval(window._presT); document.getElementById('dmTypingBar')?.classList.add('hidden'); const p = document.getElementById('dmPresence'); if (p) p.textContent = ''; return b.apply(this, a); }; });
+document.addEventListener('input', (e) => {
+if (e.target && e.target.id === 'dmInputText' && e.target.value) { const ref = window.chatDocRef(); if (ref && Date.now() - (window._typWAt || 0) > 3500) { window._typWAt = Date.now(); updateDoc(ref, { [`typing.${window.uidNow()}`]: Date.now() }).catch(() => {}); } }
+if (e.target && e.target.id === 'squadSubRoomInput' && e.target.value) window.squadLiveWrite({ typing: Date.now(), room: window.activeSquadSubRoom || '' }, 3500);
+});
+window.renderDmInbox = (function(b) { return function(...a) { const r = b.apply(this, a); window.loadOnline().then(() => window.markOnline(document.getElementById('dmMessagesContainer'))); return r; }; })(window.renderDmInbox);
+
+window.squadLiveRef = (uid) => { const sq = window.activeSquadDetails; return sq ? doc(window.db, 'squads', sq.id, 'live', uid || window.uidNow()) : null; };
+window.squadLiveWrite = function(data, gap) {
+const sq = window.activeSquadDetails; if (!sq || !window.isSignedIn() || !(sq.memberUids || []).includes(window.uidNow())) return;
+const k = Object.keys(data).join(); window._sqW = window._sqW || {};
+if (gap && Date.now() - (window._sqW[k] || 0) < gap) return; window._sqW[k] = Date.now();
+setDoc(window.squadLiveRef(), { tag: window.me(), ...data }, { merge: true }).catch(() => {});
+};
+window.openSquadDetailsModal = (function(b) {
+return function(id, ...a) {
+const r = b.call(this, id, ...a); const sq = window.activeSquadDetails; if (!sq) return r;
+if (window._sqLiveUnsub) window._sqLiveUnsub();
+window._sqLive = {};
+if (window.isSignedIn() && ((sq.memberUids || []).includes(window.uidNow()) || window.isSquadAdmin(sq))) {
+window._sqLiveUnsub = onSnapshot(collection(window.db, 'squads', sq.id, 'live'), (s) => { const m = {}; s.forEach(d => m[d.id] = d.data()); window._sqLive = m; window.renderSquadLive(); }, () => {});
+window.squadLiveWrite({ seen: Date.now(), at: Date.now() });
+}
+window.loadOnline().then(() => window.renderSquadLive());
+return r;
+};
+})(window.openSquadDetailsModal);
+window.closeSquadDetailsModal = (function(b) { return function(...a) { if (window.activeSquadDetails) window.squadLiveWrite({ seen: Date.now(), at: 0 }); if (window._sqLiveUnsub) { window._sqLiveUnsub(); window._sqLiveUnsub = null; } return b.apply(this, a); }; })(window.closeSquadDetailsModal);
+window.renderSquadLive = function() {
+const sq = window.activeSquadDetails; if (!sq) return;
+const uid = window.uidNow(), L = window._sqLive || {}, now = Date.now();
+const lead = document.getElementById('squadDetailLeader');
+if (lead) { const on = (sq.members || []).filter(t => window.isOnline(t)).length; lead.querySelector('.sg-on')?.remove(); if (on) lead.insertAdjacentHTML('afterbegin', `<span class="sg-on text-emerald-400 font-black">🟢 ${on} online · </span>`); }
+const set = document.getElementById('squadSettingsBtn');
+if (set && window.isSignedIn() && (sq.memberUids || []).includes(uid)) {
+let mb = document.getElementById('squadMuteBtn');
+if (!mb) { set.insertAdjacentHTML('beforebegin', `<button id="squadMuteBtn" onclick="window.toggleSquadMute()" class="w-9 h-9 shrink-0 rounded-xl bg-gg-800 text-gray-300" title="Alerts"></button>`); mb = document.getElementById('squadMuteBtn'); }
+mb.textContent = (L[uid] || {}).muted ? '🔕' : '🔔';
+}
+const typers = Object.entries(L).filter(([u, x]) => u !== uid && x.typing && now - x.typing < 6000 && (x.room || '') === (window.activeSquadSubRoom || '')).map(([, x]) => window.dnText(x.tag || 'Someone'));
+let bar = document.getElementById('squadTypingBar'); const inp = document.getElementById('squadInputContainer');
+if (!bar && inp) { inp.insertAdjacentHTML('beforebegin', `<div id="squadTypingBar" class="shrink-0 px-4 py-1 text-[11px] font-bold text-cyan-300 hidden"></div>`); bar = document.getElementById('squadTypingBar'); }
+if (bar) { if (typers.length) { bar.innerHTML = `${escapeHTML(typers.length > 2 ? `${typers.length} people are` : typers.join(' & ') + (typers.length > 1 ? ' are' : ' is'))} typing<span class="animate-pulse">…</span>`; bar.classList.remove('hidden'); } else bar.classList.add('hidden'); }
+const box = document.getElementById('squadRoomMsgsBox'); if (!box) return;
+box.querySelectorAll('.sg-seen').forEach(x => x.remove());
+window.markOnline(box);
+const list = ((window.activeSquadRooms || {})[window.activeSquadSubRoom] || []), last = [...list].reverse().find(m => m.senderUid === uid);
+if (!last || !last.id || String(last.id).startsWith('tmp')) return;
+const row = box.querySelector(`[data-mid="${CSS.escape(last.id)}"]`); if (!row) return;
+const seen = Object.entries(L).filter(([u, x]) => u !== uid && (x.seen || 0) >= (last.timestamp || 0)).map(([, x]) => x.tag);
+window._sqSeenNames = seen;
+const tgt = row.nextElementSibling && row.nextElementSibling.hasAttribute('data-rx') ? row.nextElementSibling : row;
+tgt.insertAdjacentHTML('afterend', `<button onclick="window.showSquadSeen()" class="sg-seen block ml-auto pr-1 text-[10px] font-black ${seen.length ? 'text-cyan-300' : 'text-gray-500'}">${seen.length ? `✓✓ Seen by ${seen.length}` : '✓ Sent'}</button>`);
+};
+window.showSquadSeen = function() { const n = window._sqSeenNames || []; window.sgDialog ? window.sgDialog({ title: '✓✓ Seen by', message: n.length ? n.map(t => '• ' + window.dnText(t)).join('\n') : 'Nobody yet', okText: 'OK' }) : showToast(n.map(t => window.dnText(t)).join(', ')); };
+window.toggleSquadMute = function() {
+const L = window._sqLive || {}, on = !(L[window.uidNow()] || {}).muted;
+window.squadLiveWrite({ muted: on }); (L[window.uidNow()] = L[window.uidNow()] || {}).muted = on; window.renderSquadLive();
+showToast(on ? '🔕 Alerts off for this squad' : '🔔 You’ll get alerts from this squad');
+};
+setInterval(() => { if (window.activeSquadDetails && !document.getElementById('squadDetailsModal')?.classList.contains('hidden')) { window.renderSquadLive(); window.squadLiveWrite({ seen: Date.now(), at: Date.now() }, 4000); } }, 2000);
+window.renderSquadChannel = (function(b) { return function(...a) { const r = b.apply(this, a); try { window.renderSquadLive(); } catch (e) {} return r; }; })(window.renderSquadChannel);
+window.renderSquadHeader = (function(b) { return function(...a) { const r = b.apply(this, a); try { window.renderSquadLive(); } catch (e) {} return r; }; })(window.renderSquadHeader);
+window.sendSquadMessage = (function(b) {
+return async function(payload) {
+const sq = window.activeSquadDetails, room = window.activeSquadSubRoom, r = await b.apply(this, arguments);
+try {
+const chan = sq && window.channelOf ? (window.channelOf(sq, room) || {}) : {};
+if (!sq || chan.staff || !window.isSignedIn()) return r;
+const L = window._sqLive || {}, now = Date.now(), key = 'sg_sqn_' + sq.id;
+let sent = {}; try { sent = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
+const prev = payload && payload.text ? payload.text : payload && payload.isAudio ? '🎤 Voice note' : payload && payload.isImage ? '📷 Photo' : 'new message';
+(sq.memberUids || []).filter(u => u !== window.uidNow()).filter(u => !(L[u] || {}).muted && !((L[u] || {}).at && now - L[u].at < 20000) && now - (sent[u] || 0) > 120000).slice(0, 40).forEach(u => {
+sent[u] = now; window.notify(u, 'squad', { text: `in ${sq.name}: ${prev}`.slice(0, 140), postId: 'squad:' + sq.id });
+});
+try { localStorage.setItem(key, JSON.stringify(sent)); } catch (e) {}
+} catch (e) {}
+return r;
+};
+})(window.sendSquadMessage);
+window.notifText = (function(b) { return function(n) { if (n && n.type === 'squad') return n.text || 'sent a message in your squad'; return b(n); }; })(window.notifText);
+window.openSquadById = async function(id) {
+let sq = (window.clansData || []).find(c => c.id === id);
+if (!sq) { try { const s = await getDoc(doc(window.db, 'squads', id)); if (s.exists()) { sq = { id, ...s.data() }; (window.clansData = window.clansData || []).push(sq); } } catch (e) {} }
+if (!sq) { showToast('Squad not found.'); return; }
+window.switchView && window.switchView('clans'); window.openSquadDetailsModal(id);
+};
+window.openNotification = (function(b) {
+return function(id) {
+const n = (window.notifList || []).find(x => x.id === id);
+if (n && String(n.postId || '').startsWith('squad:')) { window.closeNotifications && window.closeNotifications(); n.read = true; updateDoc(doc(window.db, 'notifications', n.id), { read: true }).catch(() => {}); window.updateNotifBadge && window.updateNotifBadge(); return window.openSquadById(n.postId.slice(6)); }
+return b(id);
+};
+})(window.openNotification);
+window.openPostFromLink = (function(b) {
+return async function(...a) {
+const m = (location.hash || '').match(/^#post=squad:([A-Za-z0-9_\-]+)/);
+if (m) { history.replaceState(null, '', location.pathname + location.search); const go = () => window.isSignedIn() ? window.openSquadById(m[1]) : setTimeout(go, 1500); setTimeout(go, 800); return; }
+return b.apply(this, a);
+};
+})(window.openPostFromLink);
+
+(function ggCss() {
+const s = document.createElement('style');
+s.textContent = `.sg-gg{position:fixed;z-index:420;pointer-events:none;transform:translate(-50%,-50%)}
+.sg-gg b{display:block;font:900 var(--gs,88px)/1 system-ui,sans-serif;letter-spacing:-.04em;background:linear-gradient(135deg,#22d3ee,#a855f7 50%,#ff007f);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:3px #fff;filter:drop-shadow(0 0 14px rgba(255,0,127,.75)) drop-shadow(0 4px 6px rgba(0,0,0,.5));animation:sggg .95s cubic-bezier(.2,1.5,.35,1) forwards}
+@keyframes sggg{0%{transform:scale(.2) rotate(-25deg);opacity:0}25%{transform:scale(1.25) rotate(-8deg);opacity:1}45%{transform:scale(.95) rotate(-10deg)}60%{transform:scale(1.05) rotate(-9deg);opacity:1}100%{transform:translateY(-70px) scale(.9) rotate(-9deg);opacity:0}}
+.sg-gg i{position:absolute;left:50%;top:50%;font-style:normal;font-size:calc(var(--gs,88px)*.28);transition:transform .7s cubic-bezier(.1,.8,.3,1),opacity .7s;opacity:1}
+.gg-pop{animation:ggpop .45s ease}@keyframes ggpop{0%{transform:scale(1)}35%{transform:scale(1.35) rotate(-8deg)}70%{transform:scale(.9)}100%{transform:scale(1)}}`;
+document.head.appendChild(s);
+})();
+window.ggBurst = function(x, y, size) {
+const el = document.createElement('div'); el.className = 'sg-gg'; el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.setProperty('--gs', (size || 88) + 'px');
+const bits = ['⚡', '🔥', '✨', '💥', '⭐', '⚡', '✨', '🔥', '💜', '💙'];
+el.innerHTML = '<b>GG</b>' + bits.map(b => `<i>${b}</i>`).join('');
+document.body.appendChild(el);
+requestAnimationFrame(() => el.querySelectorAll('i').forEach((p, k) => { const a = (k / bits.length) * Math.PI * 2 + Math.random() * 0.5, d = (size || 88) * (0.9 + Math.random() * 0.8); p.style.transform = `translate(calc(-50% + ${Math.cos(a) * d}px), calc(-50% + ${Math.sin(a) * d}px)) scale(${0.7 + Math.random() * 0.7})`; p.style.opacity = '0'; }));
+setTimeout(() => el.remove(), 1000);
+if (navigator.vibrate) try { navigator.vibrate([12, 30, 18]); } catch (e) {}
+};
+window.heartBurst = (function(b) { return function(x, y, emo) { if (window.kidsMode || (emo && emo !== '💖')) return b(x, y, emo); return window.ggBurst(x, y); }; })(window.heartBurst);
+document.addEventListener('click', (e) => {
+const b = e.target.closest && e.target.closest('button[onclick*="toggleGGPost("], button[onclick*="clipGG("], button[onclick*="shortGG("], #hlGGBtn'); if (!b) return;
+const id = ((b.getAttribute('onclick') || '').match(/(?:toggleGGPost|clipGG|shortGG)\('([^']+)'/) || [])[1];
+let already = false;
+if (id && /shortGG/.test(b.getAttribute('onclick'))) { try { already = !!localStorage.getItem('sg_sgg_' + id); } catch (er) {} }
+else if (id) { const p = window.findPost(id) || (window.postFetchCache || {})[id]; already = !!(p && (p.ggsBy || []).includes(window.uidNow())); }
+if (!window.isSignedIn() || already) return;
+const r = b.getBoundingClientRect(); window.ggBurst(r.left + r.width / 2, r.top, 54);
+b.classList.remove('gg-pop'); void b.offsetWidth; b.classList.add('gg-pop');
+}, true);
+
+window.KIDS_TABS = [['all', '⭐ All'], ['shorts', '📱 Shorts'], ['learn', '📚 Learn'], ['songs', '🎵 Songs'], ['cartoons', '📺 Cartoons'], ['live', '🔴 Live']];
+window.loadKidsVideos = (function(b) {
+return async function(t) {
+const wantShorts = t === 'all' || t === 'shorts';
+const [long, shorts] = await Promise.all([t === 'shorts' ? [] : b(t), wantShorts ? Promise.all(window.KIDS_CHANNELS.map(c => window.loadChannelShorts(c).catch(() => []))).then(l => l.flat().filter(window.vidOk)) : []]);
+const sh = window.seededShuffle(shorts.map(v => ({ ...v, short: true })), Math.floor(Date.now() / 3600e3) + 3);
+if (t === 'shorts') return sh;
+const out = []; let si = 0; long.forEach((v, i) => { out.push(v); if (i % 2 === 1 && si < sh.length) out.push(sh[si++]); });
+return out.concat(sh.slice(si));
+};
+})(window.loadKidsVideos);
+window.kidsSlide = function(v, i) {
+if (v.short) return `<section data-kid="${i}" class="snap-start w-full flex flex-col items-center justify-center px-3 gap-2" style="height:calc(100dvh - 112px)">
+<div data-kid-yt="${escapeHTML(v.vid)}" class="relative bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-white/70" style="height:calc(100dvh - 190px);aspect-ratio:9/16;max-width:100%"><img src="https://i.ytimg.com/vi/${escapeHTML(v.vid)}/hqdefault.jpg" alt="" class="absolute inset-0 w-full h-full object-cover"></div>
+<p class="text-sm font-black text-white drop-shadow text-center line-clamp-1 max-w-full">${escapeHTML(v.title || '')}</p></section>`;
+return `<section data-kid="${i}" class="snap-start w-full flex flex-col items-center justify-center px-3 gap-3" style="height:calc(100dvh - 112px)">
+<div data-kid-yt="${escapeHTML(v.vid)}" class="relative w-full max-w-2xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-white/70"><img src="https://i.ytimg.com/vi/${escapeHTML(v.vid)}/hqdefault.jpg" alt="" class="absolute inset-0 w-full h-full object-cover"></div>
+<button onclick="window.kidsBig(${i})" class="px-5 py-3 rounded-2xl bg-white text-indigo-600 text-sm font-black shadow-lg">⛶ Big screen</button>
+<div class="w-full max-w-2xl text-center"><p class="text-base font-black text-white drop-shadow leading-snug line-clamp-2">${escapeHTML(v.title || '')}</p><p class="text-xs font-bold text-white/85">${escapeHTML((v.ch && v.ch.name) || '')}</p></div>
+${i === 0 ? `<p class="text-xs font-black text-white/90 animate-bounce">⬆️ Swipe up for more · tap the sky for balloons 🎈</p>` : ''}</section>`;
+};
+window.kidsBig = async function(i) {
+if (i !== window.kidsCur) window.kidsActivate(i);
+const st = document.querySelector(`#sgKidsScroll [data-kid="${i}"] [data-kid-yt]`); if (!st) return;
+try { await (st.requestFullscreen ? st.requestFullscreen() : st.webkitRequestFullscreen && st.webkitRequestFullscreen()); } catch (e) {}
+try { await screen.orientation.lock('landscape'); } catch (e) {}
+};
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) { try { screen.orientation.unlock(); } catch (e) {} } });
+window.kidsToy = function(x, y) {
+const toys = ['🎈', '🎈', '🎈', '⚽', '⭐', '🫧', '🦋', '🌈', '🍭'];
+for (let k = 0; k < 3; k++) {
+const t = document.createElement('div'), e = toys[Math.floor(Math.random() * toys.length)];
+t.textContent = e; t.style.cssText = `position:fixed;left:${x - 24 + (k - 1) * 34}px;top:${y - 24}px;font-size:${40 + Math.random() * 18}px;z-index:350;transition:transform ${3.5 + Math.random() * 2}s linear,opacity 1s ${3}s;cursor:pointer;user-select:none;touch-action:manipulation`;
+t.onpointerdown = (ev) => { ev.stopPropagation(); t.style.transition = 'transform .18s, opacity .18s'; t.style.transform += ' scale(1.8)'; t.style.opacity = '0'; t.textContent = e === '🎈' ? '💥' : '✨'; if (navigator.vibrate) try { navigator.vibrate(25); } catch (er) {} setTimeout(() => t.remove(), 200); };
+document.body.appendChild(t);
+requestAnimationFrame(() => { t.style.transform = `translate(${(Math.random() - 0.5) * 120}px, -${y + 80}px) rotate(${(Math.random() - 0.5) * 40}deg)`; t.style.opacity = '0'; });
+setTimeout(() => t.remove(), 6000);
+}
+};
+document.addEventListener('pointerdown', (e) => {
+if (!window.kidsMode || !e.target.closest || !e.target.closest('#sgKids')) return;
+if (e.target.closest('[data-kid-yt], button, input, #sgKidsGate, #sgKidsTabs')) return;
+window.kidsToy(e.clientX, e.clientY);
+});
+
+window.loadImg = (src, cors) => new Promise((res) => { const i = new Image(); if (cors) i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => res(null); i.src = src; setTimeout(() => res(null), 8000); });
+window.wrapLines = (ctx, text, maxW, maxLines) => { const words = String(text || '').split(/\s+/), lines = []; let cur = ''; words.forEach(w => { const t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }); if (cur) lines.push(cur); if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = lines[maxLines - 1].replace(/.{0,3}$/, '…'); } return lines; };
+window.makeShareCard = async function({ title, sub, by, img, big }) {
+const draw = async (withImg) => {
+const c = document.createElement('canvas'); c.width = 1080; c.height = 1920; const x = c.getContext('2d');
+const g = x.createLinearGradient(0, 0, 0, 1920); g.addColorStop(0, '#0b1d3a'); g.addColorStop(0.55, '#3b1456'); g.addColorStop(1, '#14061f'); x.fillStyle = g; x.fillRect(0, 0, 1080, 1920);
+const glow = x.createRadialGradient(540, 1700, 50, 540, 1700, 700); glow.addColorStop(0, 'rgba(255,0,127,.45)'); glow.addColorStop(1, 'rgba(255,0,127,0)'); x.fillStyle = glow; x.fillRect(0, 1000, 1080, 920);
+const logo = await window.loadImg('icon-192.png'); if (logo) x.drawImage(logo, 440, 90, 200, 200);
+x.textAlign = 'center'; x.fillStyle = '#fff'; x.font = '900 64px system-ui, sans-serif'; x.fillText('SINLESS GG', 540, 360);
+x.fillStyle = '#22d3ee'; x.font = '700 32px system-ui, sans-serif'; x.fillText('PLAY · WATCH · CONNECT', 540, 410);
+let y = 480;
+if (withImg && img) { const im = await window.loadImg(img, true); if (im) { const w = 940, h = Math.min(900, w * im.height / im.width); x.save(); x.beginPath(); x.roundRect ? x.roundRect(70, y, w, h, 40) : x.rect(70, y, w, h); x.clip(); const sc = Math.max(w / im.width, h / im.height); x.drawImage(im, 70 + (w - im.width * sc) / 2, y + (h - im.height * sc) / 2, im.width * sc, im.height * sc); x.restore(); y += h + 60; } }
+if (big) { x.font = '900 220px system-ui, sans-serif'; x.fillStyle = '#facc15'; x.fillText(big, 540, y + 200); y += 260; }
+x.fillStyle = '#fff'; x.font = '900 60px system-ui, sans-serif'; window.wrapLines(x, title, 920, withImg && img ? 4 : 7).forEach(l => { x.fillText(l, 540, y + 60); y += 76; });
+if (sub) { x.fillStyle = '#d1d5db'; x.font = '600 40px system-ui, sans-serif'; window.wrapLines(x, sub, 920, 3).forEach(l => { x.fillText(l, 540, y + 70); y += 54; }); }
+if (by) { x.fillStyle = '#f0abfc'; x.font = '800 44px system-ui, sans-serif'; x.fillText(by, 540, Math.min(1640, y + 110)); }
+x.fillStyle = '#fff'; x.font = '900 52px system-ui, sans-serif'; x.fillText('Join me on SINLESS GG', 540, 1790);
+x.fillStyle = '#9ca3af'; x.font = '600 32px system-ui, sans-serif'; x.fillText('Free · Games · Football · Clips · Movies', 540, 1845);
+return await new Promise((res, rej) => { try { c.toBlob(b => b ? res(b) : rej(new Error('blob')), 'image/png'); } catch (e) { rej(e); } });
+};
+try { return await draw(true); } catch (e) { return await draw(false); }
+};
+window.shareStatusCard = async function(opts) {
+showToast('📲 Making your picture…');
+try {
+const blob = await window.makeShareCard(opts), file = new File([blob], 'sinless-gg.png', { type: 'image/png' });
+const text = `${opts.title || 'Sinless GG'} 🔥\n${opts.url || 'https://sinlessgg.com'}`;
+if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sinless-gg.png'; document.body.appendChild(a); a.click(); a.remove();
+window.copyText && window.copyText(text);
+showToast('✅ Picture saved. Post it on your WhatsApp Status!');
+} catch (e) { showToast('⚠️ Couldn’t make the picture.'); }
+};
+window.statusCardForPost = function(id) {
+const p = window.findPost(id) || (window.postFetchCache || {})[id]; if (!p) return;
+const m = (p.mediaList || [])[0], img = m ? (m.type === 'video' ? window.cldPoster(m.url, 1000) : window.cldSized(m.url, 1000)) : '';
+window.shareStatusCard({ title: p.caption || 'Check this out on Sinless GG', by: '— ' + window.dnText(p.user), img, url: `https://sinlessgg.com/#post=${id}` });
+};
+window.showGameOverlay = (function(b) {
+return function(kind, d = {}) {
+const r = b.call(this, kind, d), g = window.game;
+if (kind === 'over' && g && d && d.score !== undefined) {
+const box = document.getElementById('gameOverlay').firstElementChild, info = window.GAMES[g.id] || {};
+if (box && !box.querySelector('[data-status]')) box.insertAdjacentHTML('beforeend', `<button data-status onclick="window.shareStatusCard({ big: '${Number(d.score) || 0}', title: 'I scored ${Number(d.score) || 0} in ${escapeHTML(info.name || 'a game')} ${info.emoji || ''}. Can you beat me?', by: '— ' + window.dnText(window.me()) })" class="mt-2 w-full py-2.5 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black">📲 Share to WhatsApp Status</button>`);
+}
+return r;
+};
+})(window.showGameOverlay);
+
+window.savedItems = [];
+window.loadSaved = async function() { if (!window.isSignedIn()) { window.savedItems = []; return; } try { const s = await getDoc(doc(window.db, 'saves', window.uidNow())); window.savedItems = s.exists() ? (s.data().items || []) : []; } catch (e) {} };
+window.afterAuthChange = (function(b) { return function(u) { const r = b.apply(this, arguments); if (u) setTimeout(window.loadSaved, 3000); return r; }; })(window.afterAuthChange);
+window.isSaved = (k) => window.savedItems.some(x => x.k === k);
+window.toggleSave = async function(k, t) {
+if (window.needSignIn('save posts')) return;
+const on = window.isSaved(k);
+window.savedItems = on ? window.savedItems.filter(x => x.k !== k) : [{ k, t: String(t || '').slice(0, 120), at: Date.now() }, ...window.savedItems].slice(0, 300);
+showToast(on ? 'Removed from Saved' : '🔖 Saved! Find it in Menu → Saved');
+try { await setDoc(doc(window.db, 'saves', window.uidNow()), { items: window.savedItems }); } catch (e) { showToast('⚠️ Couldn’t save. Did you publish the new Firebase rules?'); }
+document.querySelectorAll(`[data-save="${CSS.escape(k)}"] span:first-child`).forEach(s => s.textContent = on ? '🏷️' : '🔖');
+};
+window.openSaved = async function() {
+if (window.needSignIn('see your saved posts')) return;
+await window.loadSaved();
+window.openPanel('🔖 Saved', `<div id="savedBody" class="space-y-3"><p class="text-xs text-gray-400 text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i></p></div>`);
+const me = window.me(), items = window.savedItems;
+const parts = await Promise.all(items.map(async x => {
+if (x.k.startsWith('p:')) { const id = x.k.slice(2); let p = window.findPost(id) || (window.postFetchCache || {})[id]; if (!p) try { p = await window.fetchPostById(id); } catch (e) {} return p ? window.renderFeedCard(p, me) : ''; }
+const vid = x.k.slice(2); return `<button onclick="window.closePanel(); window.openClipsAt({ kind: 'short', id: '${escapeHTML(vid)}', v: { vid: '${escapeHTML(vid)}', title: ${JSON.stringify(x.t || '').replace(/"/g, '&quot;')}, ch: { name: 'YouTube' } } })" class="w-full flex items-center gap-3 p-2 rounded-2xl bg-gg-900 border border-white/10 text-left"><img src="https://i.ytimg.com/vi/${escapeHTML(vid)}/mqdefault.jpg" class="w-28 aspect-video object-cover rounded-xl" alt=""><span class="text-xs font-bold text-white line-clamp-3">${escapeHTML(x.t || 'Video')}</span></button>`;
+}));
+const box = document.getElementById('savedBody'); if (!box) return;
+box.innerHTML = parts.filter(Boolean).join('') || `<div class="text-center py-10"><p class="text-4xl">🔖</p><p class="text-sm font-bold text-white mt-2">Nothing saved yet</p><p class="text-xs text-gray-400">Tap ⋯ on a post or 🔖 in Clips to save it for later.</p></div>`;
+};
+window.clipSlideHtml = (function(b) {
+return function(c, i) {
+const h = b(c, i); if (!c || !['post', 'short', 'pimg', 'embed'].includes(c.kind)) return h;
+const k = (c.kind === 'short' ? 'v:' : 'p:') + c.id, t = c.kind === 'short' ? (c.v && c.v.title) : ((c.p && c.p.caption) || '');
+const btn = `<button data-save="${escapeHTML(k)}" onclick="event.stopPropagation(); window.toggleSave('${escapeHTML(k)}', ${JSON.stringify(String(t || '').slice(0, 100)).replace(/"/g, '&quot;')})" class="flex flex-col items-center gap-1 text-white"><span class="w-11 h-11 rounded-full bg-black/45 flex items-center justify-center text-lg">${window.isSaved(k) ? '🔖' : '🏷️'}</span><span class="text-[10px] font-black drop-shadow">Save</span></button>`;
+return h.replace(/(<div class="absolute right-3 [^"]*flex flex-col gap-4">)/, `$1${btn}`);
+};
+})(window.clipSlideHtml);
+
+window.openPostActions = (function(b) {
+return function(postId) {
+const p = window.findPost(postId) || (window.postFetchCache || {})[postId], mine = p && window.isMyPost && window.isMyPost(p);
+const orig = window.openActionSheet, k = 'p:' + postId;
+window.openActionSheet = (title, items) => orig(title, [
+{ icon: 'fa-share-nodes', label: '📲 Share to WhatsApp Status', run: () => window.statusCardForPost(postId) },
+{ icon: 'fa-bookmark', label: window.isSaved(k) ? 'Remove from Saved' : '🔖 Save for later', run: () => window.toggleSave(k, p && p.caption) },
+...(mine ? [{ icon: 'fa-thumbtack', label: window._myPinned === postId ? 'Unpin from my profile' : '📌 Pin to my profile', run: () => window.togglePin(postId) }] : []),
+...items]);
+try { return b(postId); } finally { window.openActionSheet = orig; }
+};
+})(window.openPostActions);
+window.togglePin = async function(id) {
+const on = window._myPinned === id; window._myPinned = on ? '' : id;
+try { await setDoc(doc(window.db, 'profiles', window.meLower()), { pinnedPost: window._myPinned }, { merge: true }); showToast(on ? 'Unpinned' : '📌 Pinned to the top of your profile'); const pr = (window.userProfiles || {})[window.meLower()]; if (pr) pr.pinnedPost = window._myPinned; } catch (e) { showToast('⚠️ Couldn’t pin.'); }
+};
+window.afterAuthChange = (function(b) { return function(u) { const r = b.apply(this, arguments); if (u) setTimeout(async () => { try { const s = await getDoc(doc(window.db, 'profiles', window.meLower())); window._myPinned = s.exists() ? (s.data().pinnedPost || '') : ''; } catch (e) {} }, 3500); return r; }; })(window.afterAuthChange);
+window.loadProfilePosts = (function(b) {
+return async function(tag) {
+const r = await b(tag);
+try {
+if (window.activeProfileUser !== tag) return r;
+const s = await getDoc(doc(window.db, 'profiles', tag.toLowerCase())), pin = s.exists() ? s.data().pinnedPost : '';
+const list = window.profilePostsList || [], i = pin ? list.findIndex(p => (p.docId || p.id) === pin) : -1, box = document.getElementById('profileUserPostsList');
+if (i < 0 || !box || box.children.length !== list.length) return r;
+list.unshift(list.splice(i, 1)[0]); box.insertBefore(box.children[i], box.firstChild);
+[...box.children].forEach((el, k) => el.setAttribute('onclick', `event.stopPropagation(); window.openProfileViewer(${k})`));
+box.firstChild.insertAdjacentHTML('beforeend', `<span class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-amber-400 text-slate-950 text-[9px] font-black">📌 Pinned</span>`);
+} catch (e) {}
+return r;
+};
+})(window.loadProfilePosts);
+
+window.loadSquadEvents = async function(sq) {
+const out = []; try { const s = await getDocs(query(collection(window.db, 'squads', sq.id, 'events'), where('at', '>', Date.now() - 3 * 3600e3), orderBy('at', 'asc'), limit(20))); s.forEach(d => out.push({ id: d.id, ...d.data() })); } catch (e) {}
+window._sqEvents = out;
+try { const mine = JSON.parse(localStorage.getItem('sg_my_events') || '[]').filter(x => x.sid !== sq.id && x.at > Date.now() - 3600e3); out.filter(e => (e.going || []).includes(window.uidNow())).forEach(e => mine.push({ sid: sq.id, sname: sq.name, eid: e.id, title: e.title, at: e.at })); localStorage.setItem('sg_my_events', JSON.stringify(mine.slice(-30))); } catch (e) {}
+window.renderSquadEventBar();
+return out;
+};
+window.fmtWhen = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+window.renderSquadEventBar = function() {
+const sq = window.activeSquadDetails, nav = document.getElementById('squadSubRoomsNav'); if (!sq || !nav) return;
+document.getElementById('squadEventBar')?.remove();
+const e = (window._sqEvents || []).find(x => x.at > Date.now() - 2 * 3600e3); if (!e) return;
+const going = (e.going || []).includes(window.uidNow());
+nav.insertAdjacentHTML('afterend', `<div id="squadEventBar" class="shrink-0 mx-3 mt-2 p-2.5 rounded-xl bg-violet-500/15 border border-violet-400/40 flex items-center gap-2"><span class="text-xl">📅</span><button onclick="window.openSquadEvents()" class="flex-1 min-w-0 text-left"><p class="text-xs font-black text-white truncate">${escapeHTML(e.title)}</p><p class="text-[10px] text-violet-200">${window.fmtWhen(e.at)} · ${(e.going || []).length} going</p></button><button onclick="window.toggleGoing('${e.id}')" class="px-3 py-2 rounded-xl text-[11px] font-black ${going ? 'bg-gg-900 text-emerald-300 border border-emerald-500/40' : 'bg-emerald-500 text-slate-950'}">${going ? '✓ Going' : 'I’m in ✅'}</button></div>`);
+};
+window.openSquadEvents = function() {
+const sq = window.activeSquadDetails; if (!sq) return;
+const admin = window.isSquadAdmin(sq), ev = window._sqEvents || [];
+window.openPanel('📅 Squad events', `${admin ? `<div class="glass-panel rounded-2xl p-3 space-y-2 border border-violet-400/30"><p class="text-xs font-black text-white">New event</p><input id="sqEvTitle" maxlength="80" placeholder="e.g. FC Mobile match night 🔥" class="w-full bg-gg-950 border border-violet-400/30 rounded-xl px-3 py-2.5 text-sm text-white"><input id="sqEvAt" type="datetime-local" class="w-full bg-gg-950 border border-violet-400/30 rounded-xl px-3 py-2.5 text-sm text-white"><button onclick="window.createSquadEvent()" class="w-full py-2.5 rounded-xl bg-violet-500 text-white text-xs font-black uppercase">Create & tell the squad</button></div>` : ''}
+${ev.length ? ev.map(e => `<div class="glass-panel rounded-2xl p-3 flex items-center gap-3 border border-white/10"><div class="flex-1 min-w-0"><p class="text-sm font-black text-white">${escapeHTML(e.title)}</p><p class="text-[11px] text-gray-400">${window.fmtWhen(e.at)} · ${(e.going || []).length} going</p></div><button onclick="window.toggleGoing('${e.id}', true)" class="px-3 py-2 rounded-xl text-[11px] font-black ${(e.going || []).includes(window.uidNow()) ? 'bg-gg-900 text-emerald-300 border border-emerald-500/40' : 'bg-emerald-500 text-slate-950'}">${(e.going || []).includes(window.uidNow()) ? '✓ Going' : 'I’m in'}</button></div>`).join('') : `<p class="text-xs text-gray-400 text-center py-6">No upcoming events.${admin ? '' : ' Squad admins can create one.'}</p>`}
+<p class="text-[10px] text-gray-500 text-center">Everyone going gets a reminder 30 minutes before.</p>`);
+};
+window.createSquadEvent = async function() {
+const sq = window.activeSquadDetails, title = (document.getElementById('sqEvTitle').value || '').trim(), at = new Date(document.getElementById('sqEvAt').value).getTime();
+if (!sq || !title || !at || at < Date.now()) { showToast('Add a title and a future date & time.'); return; }
+try {
+await addDoc(collection(window.db, 'squads', sq.id, 'events'), { title, at, by: window.me(), byUid: window.uidNow(), going: [window.uidNow()], reminded: false, createdAt: serverTimestamp() });
+window.sendSquadMessage({ text: `📅 New event: ${title} · ${window.fmtWhen(at)}. Tap the 📅 bar to join!` });
+window.closePanel(); await window.loadSquadEvents(sq); showToast('📅 Event created');
+} catch (e) { showToast('⚠️ Couldn’t create. Did you publish the new Firebase rules?'); }
+};
+window.toggleGoing = async function(eid, reopen) {
+const sq = window.activeSquadDetails, e = (window._sqEvents || []).find(x => x.id === eid); if (!sq || !e || window.needSignIn('join events')) return;
+const on = (e.going || []).includes(window.uidNow());
+e.going = on ? e.going.filter(u => u !== window.uidNow()) : [...(e.going || []), window.uidNow()];
+window.renderSquadEventBar(); if (reopen) window.openSquadEvents();
+try { await updateDoc(doc(window.db, 'squads', sq.id, 'events', eid), { going: on ? arrayRemove(window.uidNow()) : arrayUnion(window.uidNow()) }); if (!on) showToast('✅ You’re in! We’ll remind you 30 minutes before.'); window.loadSquadEvents(sq); } catch (er) { showToast('⚠️ Couldn’t update.'); }
+};
+window.openSquadDetailsModal = (function(b) { return function(id, ...a) { const r = b.call(this, id, ...a); const sq = window.activeSquadDetails; if (sq) { window._sqEvents = []; window.loadSquadEvents(sq); } return r; }; })(window.openSquadDetailsModal);
+window.renderSquadHeader = (function(b) {
+return function(...a) {
+const r = b.apply(this, a), set = document.getElementById('squadSettingsBtn');
+if (set && !document.getElementById('squadEventsBtn')) set.insertAdjacentHTML('beforebegin', `<button id="squadEventsBtn" onclick="window.openSquadEvents()" class="w-9 h-9 shrink-0 rounded-xl bg-gg-800 text-gray-300" title="Events">📅</button>`);
+window.renderSquadEventBar(); return r;
+};
+})(window.renderSquadHeader);
+window.checkEventReminders = async function() {
+if (!window.isSignedIn()) return;
+let mine = []; try { mine = JSON.parse(localStorage.getItem('sg_my_events') || '[]'); } catch (e) {}
+let done = {}; try { done = JSON.parse(localStorage.getItem('sg_ev_done') || '{}'); } catch (e) {}
+for (const x of mine) {
+const left = x.at - Date.now(); if (left > 30 * 60000 || left < -15 * 60000 || done[x.eid]) continue;
+done[x.eid] = 1;
+showToast(`⏰ ${x.title} starts ${left > 60000 ? 'in ' + Math.round(left / 60000) + ' min' : 'now'} (${x.sname})`);
+try { if (Notification.permission === 'granted') (await navigator.serviceWorker.ready).showNotification('📅 ' + x.title, { body: `${x.sname} · starts ${left > 60000 ? 'in ' + Math.round(left / 60000) + ' minutes' : 'now'}`, icon: 'icon-192.png', tag: 'ev' + x.eid }); } catch (e) {}
+try { const ref = doc(window.db, 'squads', x.sid, 'events', x.eid), s = await getDoc(ref); if (s.exists() && !s.data().reminded) { await updateDoc(ref, { reminded: true }); (s.data().going || []).filter(u => u !== window.uidNow()).slice(0, 40).forEach(u => window.notify(u, 'squad', { text: `⏰ ${x.title} starts soon in ${x.sname}`, postId: 'squad:' + x.sid })); } } catch (e) {}
+}
+try { localStorage.setItem('sg_ev_done', JSON.stringify(done)); } catch (e) {}
+};
+setInterval(window.checkEventReminders, 5 * 60000); setTimeout(window.checkEventReminders, 15000);
+
+window.toggleLiteMode = function() {
+const on = !window.dataSaver; try { localStorage.setItem('sg_datasaver', on ? '1' : '0'); } catch (e) {}
+showToast(on ? '📶 Lite mode on: smaller pictures, no autoplay. Reloading…' : 'Lite mode off. Reloading…'); setTimeout(() => location.reload(), 900);
+};
+(function offlineBanner() {
+const show = () => { let b = document.getElementById('sgOffline'); if (navigator.onLine) { b && b.remove(); return; } if (b) return; b = document.createElement('div'); b.id = 'sgOffline'; b.className = 'fixed left-0 right-0 top-0 py-1.5 text-center text-[11px] font-black bg-amber-500 text-slate-950'; b.style.zIndex = 330; b.textContent = '📶 You’re offline · showing what’s saved on your phone'; document.body.appendChild(b); };
+window.addEventListener('online', () => { show(); showToast('✅ Back online'); }); window.addEventListener('offline', show); setTimeout(show, 1500);
+})();
+(function menuItems() {
+const add = () => {
+const ul = document.querySelector('.drawer-menu'); if (!ul || ul.querySelector('[data-v36]')) return;
+const mk = (html, on) => { const li = document.createElement('li'); li.className = 'drawer-menu-item'; li.setAttribute('data-v36', '1'); li.setAttribute('onclick', on); li.innerHTML = html; return li; };
+const first = ul.querySelector('[data-kids]') || ul.firstChild;
+ul.insertBefore(mk('<span>🔖 Saved</span>', 'toggleDrawer(false); window.openSaved();'), first ? first.nextSibling : null);
+ul.appendChild(mk(`<span>📶 Lite mode (for 2G/3G)</span><span class="badge">${window.dataSaver ? 'ON' : 'OFF'}</span>`, 'toggleDrawer(false); window.toggleLiteMode();'));
+ul.appendChild(mk(`<span>🟢 Show when I’m online</span><span class="badge">${window.presenceOn() ? 'ON' : 'OFF'}</span>`, "toggleDrawer(false); try{localStorage.setItem('sg_hide_online', window.presenceOn() ? '1' : '0')}catch(e){}; showToast(window.presenceOn() ? '🟢 People can see when you’re online' : '🙈 Your online status is hidden'); this.querySelector('.badge').textContent = window.presenceOn() ? 'ON' : 'OFF'"));
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add();
+})();
+
+window.streakNudge = function() {
+if (!window.isSignedIn() || window.kidsMode) return;
+const h = new Date().getHours(), s = window.dailyState(), st = (window.myStats || {}).streak || 0;
+let shown = null; try { shown = localStorage.getItem('sg_streak_nudge'); } catch (e) {}
+if (h < 17 || s.reward || shown === window.todayStr() || document.getElementById('sgStreak')) return;
+try { localStorage.setItem('sg_streak_nudge', window.todayStr()); } catch (e) {}
+const el = document.createElement('div'); el.id = 'sgStreak'; el.className = 'fixed left-3 right-3 bottom-20 mx-auto max-w-md rounded-2xl p-3 flex items-center gap-3 border border-amber-400/50 shadow-2xl'; el.style.cssText += 'z-index:329;background:linear-gradient(135deg,#7c2d12,#3b0764)';
+el.innerHTML = `<span class="text-3xl">🔥</span><p class="flex-1 text-xs font-bold text-white">${st > 1 ? `Don’t lose your <b>${st}-day streak</b>!` : 'Your daily reward is waiting!'} Claim today’s points 🎁</p><button onclick="this.parentElement.remove(); window.claimDailyReward()" class="px-3 py-2 rounded-xl bg-amber-400 text-slate-950 text-[11px] font-black">Claim</button><button onclick="this.parentElement.remove()" class="text-gray-300 px-1">✕</button>`;
+document.body.appendChild(el);
+};
+setInterval(window.streakNudge, 10 * 60000); setTimeout(window.streakNudge, 20000);
+
+window.pickResult = (p) => p ? (p.pick || (Number.isInteger(p.h) && Number.isInteger(p.a) ? (p.h > p.a ? 'H' : p.h < p.a ? 'A' : 'D') : null)) : null;
+window.matchResult = (m) => { const H = parseInt(m.home.score), A = parseInt(m.away.score); return isNaN(H) || isNaN(A) ? null : H > A ? 'H' : H < A ? 'A' : 'D'; };
+window.pickExact = (p, m) => !!(m && m.state === 'post' && Number.isInteger(p.h) && Number.isInteger(p.a) && p.h === parseInt(m.home.score) && p.a === parseInt(m.away.score));
+window.scorerHit = (p, m) => !!(p.scorer && m && (m.details || []).some(d => d.scoringPlay && !d.ownGoal && (d.athletesInvolved || []).some(a => (p.scorerId && String(a.id) === String(p.scorerId)) || (a.displayName || '').toLowerCase() === p.scorer.toLowerCase())));
+window.pickPoints = function(p, m) {
+if (!m || m.state !== 'post') return null;
+const savedAt = window.postTimeValue({ createdAt: p.updatedAt });
+if (savedAt && savedAt >= new Date(m.date).getTime() + 60000) return 0;
+let pts = 0; const r = window.matchResult(m); if (!r) return null;
+if (window.pickResult(p) === r) pts += 2;
+if (window.pickExact(p, m)) pts += 3;
+if (window.scorerHit(p, m)) pts += 2;
+return pts;
+};
+window.weeklyStandings = async function(wk) {
+const [s, e] = window.weekRange(wk); let preds = [];
+try { const snap = await getDocs(query(collection(window.db, 'predictions'), where('week', '==', wk), limit(3000))); snap.forEach(d => preds.push(d.data())); } catch (err) {}
+const results = await window.fetchMatchesRange(s, e), byId = Object.fromEntries(results.map(m => [m.id, m])), table = {};
+preds.forEach(p => { const t = table[p.uid] || (table[p.uid] = { uid: p.uid, user: p.user, pts: 0, exact: 0, picks: 0 }); t.picks++; const m = byId[p.matchId], pts = window.pickPoints(p, m); if (pts) t.pts += pts; if (window.pickExact(p, m)) t.exact++; });
+return Object.values(table).filter(t => !window.isBlocked(t.user)).sort((a, b) => b.pts - a.pts || b.exact - a.exact || a.picks - b.picks);
+};
+window.savePick2 = async function(matchId, patch) {
+if (window.needSignIn('make predictions')) return;
+const m = window.findMatch(matchId); if (!m) return;
+if (Date.now() >= new Date(m.date).getTime()) { showToast('🔒 This match has started.'); return; }
+const old = window.myPicks[matchId] || {}, isNew = !window.myPicks[matchId];
+const data = { uid: window.uidNow(), user: window.me(), matchId, league: m.league, home: m.home.abbr, away: m.away.abbr, homeName: m.home.name || m.home.abbr, awayName: m.away.name || m.away.abbr,
+kickoff: new Date(m.date).getTime(), week: window.weekKey(new Date(m.date).getTime()), pick: patch.pick || old.pick || window.pickResult(old) || null,
+h: 'h' in patch ? patch.h : old.h, a: 'a' in patch ? patch.a : old.a, scorer: 'scorer' in patch ? patch.scorer : old.scorer, scorerId: 'scorerId' in patch ? patch.scorerId : old.scorerId, updatedAt: serverTimestamp() };
+if (Number.isInteger(data.h) && Number.isInteger(data.a) && !patch.pick) data.pick = data.h > data.a ? 'H' : data.h < data.a ? 'A' : 'D';
+Object.keys(data).forEach(k => { if (data[k] === undefined || data[k] === null || data[k] === '') delete data[k]; });
+if (!data.pick && !(Number.isInteger(data.h) && Number.isInteger(data.a))) { showToast('Pick who wins first 👆'); return; }
+window.myPicks[matchId] = { ...data, updatedAt: { seconds: Date.now() / 1000 } };
+window.renderPredictMatches(matchId);
+try {
+await setDoc(doc(window.db, 'predictions', `${matchId}_${window.uidNow()}`), data);
+if (isNew) { window.addXP && window.addXP(3, 'predict'); window.bumpChallenge && window.bumpChallenge('predict'); }
+} catch (e) { showToast("⚠️ Couldn't save. Did you publish the new Firebase rules?"); }
+};
+window.savePick = function(matchId) {
+const h = parseInt((document.getElementById(`pk_${matchId}_h`) || {}).value), a = parseInt((document.getElementById(`pk_${matchId}_a`) || {}).value);
+if (isNaN(h) || isNaN(a) || h < 0 || a < 0 || h > 20 || a > 20) { showToast('⚠️ Enter a score for both teams.'); return; }
+window.savePick2(matchId, { h, a }); showToast('🎯 Exact score saved');
+};
+window.pickWinner = (id, r) => { window.savePick2(id, { pick: r, ...(window.myPicks[id] && Number.isInteger(window.myPicks[id].h) && window.pickResult({ h: window.myPicks[id].h, a: window.myPicks[id].a }) !== r ? { h: null, a: null } : {}) }); if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {} };
+window._rosters = {};
+window.loadRoster = async function(league, teamId) {
+const k = league + teamId; if (window._rosters[k]) return window._rosters[k];
+try { const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/teams/${teamId}/roster`); const j = await r.json();
+const list = (j.athletes || []).filter(a => ((a.position || {}).abbreviation || '') !== 'G').map(a => ({ id: a.id, name: a.displayName, pos: (a.position || {}).abbreviation || '', n: a.jersey || '' }));
+const order = { F: 0, M: 1, D: 2 }; list.sort((x, y) => (order[x.pos] ?? 3) - (order[y.pos] ?? 3));
+window._rosters[k] = list; return list; } catch (e) { return []; }
+};
+window.openScorerPick = async function(id) {
+if (window.needSignIn('make predictions')) return;
+const m = window.findMatch(id); if (!m) return;
+window.openPanel('⚽ Who will score?', `<p class="text-xs text-gray-400 text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i> Loading players…</p>`);
+const [hl, al] = await Promise.all([m.home.id ? window.loadRoster(m.league, m.home.id) : [], m.away.id ? window.loadRoster(m.league, m.away.id) : []]);
+const cur = (window.myPicks[id] || {}).scorerId;
+const col = (t, l) => `<div class="space-y-1.5"><p class="text-[10px] font-black text-gray-400 uppercase">${escapeHTML(t.name || t.abbr)}</p>${l.length ? l.map(a => `<button onclick="window.closePanel(); window.savePick2('${id}', { scorer: ${JSON.stringify(a.name).replace(/"/g, '&quot;')}, scorerId: '${escapeHTML(String(a.id))}' }); showToast('⚽ ${escapeHTML(a.name).replace(/'/g, '’')} to score!')" class="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left ${String(a.id) === String(cur) ? 'bg-emerald-500/20 border border-emerald-400' : 'bg-gg-900 border border-white/10'}"><span class="w-6 text-[10px] text-gray-500 font-black">${escapeHTML(a.n)}</span><span class="flex-1 text-xs font-bold text-white truncate">${escapeHTML(a.name)}</span><span class="text-[9px] text-gray-500">${escapeHTML(a.pos)}</span></button>`).join('') : '<p class="text-[11px] text-gray-500">Players not available yet</p>'}</div>`;
+const body = document.getElementById('sgPanelBody'); if (!body) return;
+body.innerHTML = `<p class="text-xs text-gray-300 text-center">Pick a player. If they score (any time, not an own goal) you get <b class="text-emerald-400">+2</b>.</p><div class="grid grid-cols-2 gap-3">${col(m.home, hl)}${col(m.away, al)}</div>${cur ? `<button onclick="window.closePanel(); window.savePick2('${id}', { scorer: null, scorerId: null })" class="w-full py-2.5 rounded-xl bg-gg-900 border border-white/10 text-gray-300 text-xs font-black">Remove my scorer pick</button>` : ''}`;
+};
+window.toggleExact = (id) => { const el = document.getElementById('ex_' + id); if (el) el.classList.toggle('hidden'); };
+window.renderPredictMatches = async function(focusId) {
+const box = document.getElementById('predictBody');
+if (!window.predMatches.length || !focusId) box.innerHTML = `<p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading fixtures…</p>`;
+const now = new Date();
+const [list] = focusId && window.predMatches.length ? [window.predMatches] : await Promise.all([window.fetchMatchesRange(new Date(now.getTime() - 86400000), new Date(now.getTime() + 7 * 86400000)), window.loadMyPicks()]);
+if (window.predTab !== 'matches') return;
+window.predMatches = list;
+const show = list.filter(m => m.state !== 'post' || (Date.now() - new Date(m.date)) < 6 * 3600000);
+if (!show.length) { box.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center text-xs text-gray-400">No fixtures this week. Check back soon!</div>`; return; }
+const keepY = window.scrollY; let lastDay = '';
+box.innerHTML = `<div class="glass-panel rounded-2xl p-3 border border-emerald-500/30 text-[11px] text-gray-200 text-center">👆 Tap who wins <b class="text-emerald-400">+2</b> · ⚽ Who scores <b class="text-emerald-400">+2</b> · 🎯 Exact score <b class="text-emerald-400">+3</b></div>` + show.map(m => {
+const day = new Date(m.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' }), head = day !== lastDay ? `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">${day}</p>` : ''; lastDay = day;
+const pk = window.myPicks[m.id], res = window.pickResult(pk), locked = m.state !== 'pre' || Date.now() >= new Date(m.date).getTime();
+const opt = (r, label, t) => `<button ${locked ? 'disabled' : `onclick="window.pickWinner('${m.id}','${r}')"`} class="flex-1 py-2.5 px-1 rounded-xl flex flex-col items-center gap-1 ${res === r ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/30' : 'bg-gg-950 border border-white/10 text-white'} ${locked && res !== r ? 'opacity-50' : ''}">${!t ? '<span class="text-xl leading-7">🤝</span>' : t.logo ? `<img src="${t.logo}" class="w-7 h-7 object-contain" alt="" onerror="this.outerHTML='<span class=&quot;w-7 h-7 rounded-full bg-gg-800 text-[9px] font-black flex items-center justify-center&quot;>${escapeHTML(t.abbr || '')}</span>'">` : `<span class="w-7 h-7 rounded-full bg-gg-800 text-[9px] font-black text-white flex items-center justify-center">${escapeHTML(t.abbr || '?')}</span>`}<span class="text-[11px] font-black truncate max-w-full">${escapeHTML(label)}</span></button>`;
+const status = m.state !== 'pre' ? `<span class="text-[10px] font-black ${m.state === 'in' ? 'text-red-400' : 'text-gray-400'}">${m.state === 'in' ? '● LIVE ' : 'FT '}${escapeHTML(m.home.score ?? '')}-${escapeHTML(m.away.score ?? '')}</span>` : `<span class="text-[10px] text-gray-400 font-bold">${new Date(m.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>`;
+const inp = (side, v) => `<input id="pk_${m.id}_${side}" type="number" inputmode="numeric" min="0" max="20" value="${v ?? ''}" ${locked ? 'disabled' : ''} class="w-12 h-11 text-center text-lg font-black rounded-xl bg-gg-950 border border-emerald-500/40 text-white">`;
+const hasEx = pk && Number.isInteger(pk.h);
+return `${head}<div id="pm_${m.id}" class="glass-panel rounded-2xl p-3 border ${focusId === m.id ? 'border-emerald-400' : 'border-cyan-500/15'} space-y-2">
+<div class="flex items-center justify-between"><span class="text-[9px] font-black text-gray-500 uppercase">${escapeHTML(m.leagueShort)}</span>${status}</div>
+<div class="flex gap-2">${opt('H', (m.home.abbr || m.home.name) + ' win', m.home)}${opt('D', 'Draw', null)}${opt('A', (m.away.abbr || m.away.name) + ' win', m.away)}</div>
+<div class="flex gap-2">
+<button ${locked ? 'disabled' : `onclick="window.openScorerPick('${m.id}')"`} class="flex-1 py-2 rounded-xl text-[11px] font-black ${pk && pk.scorer ? 'bg-emerald-500/15 border border-emerald-400/60 text-emerald-300' : 'bg-gg-900 border border-white/10 text-gray-200'}">⚽ ${pk && pk.scorer ? escapeHTML(pk.scorer) : 'Who scores?'}</button>
+<button ${locked ? 'disabled' : `onclick="window.toggleExact('${m.id}')"`} class="px-3 py-2 rounded-xl text-[11px] font-black ${hasEx ? 'bg-emerald-500/15 border border-emerald-400/60 text-emerald-300' : 'bg-gg-900 border border-white/10 text-gray-200'}">🎯 ${hasEx ? pk.h + '-' + pk.a : 'Score'}</button>
+<button onclick="window.openLounge('${m.id}')" class="px-3 py-2 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-[11px] font-black">💬</button>
+</div>
+<div id="ex_${m.id}" class="hidden flex items-center justify-center gap-2 pt-1"><span class="text-xs font-bold text-white">${escapeHTML(m.home.abbr)}</span>${inp('h', pk && pk.h)}<span class="text-gray-500 font-black">:</span>${inp('a', pk && pk.a)}<span class="text-xs font-bold text-white">${escapeHTML(m.away.abbr)}</span><button onclick="window.savePick('${m.id}')" class="px-3 py-2.5 rounded-xl bg-emerald-500 text-slate-950 text-[11px] font-black">Save</button></div>
+${locked ? `<p class="text-[10px] text-gray-500 text-center">${pk ? '🔒 Locked in' : '🔒 Predictions closed'}</p>` : ''}
+</div>`;
+}).join('');
+if (focusId) window.scrollTo(0, keepY);
+};
+window.pickLabel = (p) => { const r = window.pickResult(p); return [r === 'H' ? `🏠 ${p.home} win` : r === 'A' ? `✈️ ${p.away} win` : r === 'D' ? '🤝 Draw' : '', p.scorer ? `⚽ ${p.scorer}` : '', Number.isInteger(p.h) ? `🎯 ${p.h}-${p.a}` : ''].filter(Boolean).join(' · '); };
+window.renderMyPicks = async function() {
+const box = document.getElementById('predictBody');
+if (!window.isSignedIn()) { box.innerHTML = `<div class="glass-panel p-8 rounded-2xl text-center text-xs text-gray-400">Sign in to make predictions.</div>`; return; }
+box.innerHTML = `<p class="text-xs text-gray-400 text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i></p>`;
+const wk = window.weekKey(Date.now()), [s] = window.weekRange(wk), e = new Date(s.getTime() + 13 * 86400000);
+await window.loadMyPicks(); const results = await window.fetchMatchesRange(s, e); if (window.predTab !== 'mine') return;
+const byId = Object.fromEntries(results.map(m => [m.id, m])), picks = Object.values(window.myPicks).filter(p => p.kickoff >= s.getTime()).sort((a, b) => a.kickoff - b.kickoff);
+let total = 0; const thisWeek = picks.filter(p => p.week === wk), later = picks.filter(p => p.week !== wk);
+thisWeek.forEach(p => { const pts = window.pickPoints(p, byId[p.matchId]); if (pts) total += pts; });
+const row = (p) => { const m = byId[p.matchId], pts = window.pickPoints(p, m); return `<div class="glass-panel rounded-xl p-3 flex items-center justify-between text-xs border border-cyan-500/15"><div class="min-w-0"><p class="font-bold text-white truncate">${escapeHTML(p.homeName || p.home)} vs ${escapeHTML(p.awayName || p.away)} ${m && m.state !== 'pre' ? `<span class="text-gray-400">(${escapeHTML(m.home.score ?? '')}-${escapeHTML(m.away.score ?? '')})</span>` : ''}</p><p class="text-[10px] text-gray-300">${escapeHTML(window.pickLabel(p))}</p></div><div class="text-sm shrink-0 ml-2 font-black ${pts ? 'text-emerald-400' : 'text-gray-500'}">${pts === null ? '⏳' : pts ? '+' + pts : '0'}</div></div>`; };
+box.innerHTML = `<div class="glass-panel rounded-2xl p-4 border border-emerald-500/30 text-center"><p class="text-[10px] text-gray-400 font-bold uppercase">This week</p><p class="text-3xl font-black text-emerald-400">${total} pts</p><p class="text-[10px] text-gray-400">${thisWeek.length} picks</p>
+${thisWeek.length ? `<button onclick="window.shareMyPicks()" class="mt-2 w-full py-2.5 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black">📲 Share my picks to WhatsApp Status</button>` : ''}</div>` +
+thisWeek.map(row).join('') + (later.length ? `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">Next week</p>` + later.map(row).join('') : '') +
+(!picks.length ? `<div class="glass-panel p-6 rounded-2xl text-center text-xs text-gray-400">No picks yet. <button onclick="window.setPredictTab('matches')" class="text-emerald-400 font-bold underline">Make your first pick</button></div>` : '');
+};
+window.shareMyPicks = function() {
+const up = Object.values(window.myPicks).filter(p => p.kickoff > Date.now() - 3 * 3600e3).sort((a, b) => a.kickoff - b.kickoff).slice(0, 6);
+window.shareStatusCard({ title: '🎯 My predictions', sub: up.map(p => `${p.home} v ${p.away}: ${window.pickLabel(p).replace(/🏠 |✈️ /g, '')}`).join('  •  '), by: '— ' + window.dnText(window.me()) + ' · beat me on Sinless GG' });
+};
+
+
+window.feedPlayable = () => [...document.querySelectorAll('#fypFeedContainer video[data-feed-video], #fypFeedContainer [data-yt-auto]')];
+window.pickFeedVideoToPlay = function() {
+const fyp = !document.getElementById('view-fyp')?.classList.contains('hidden');
+const blocked = !fyp || window.dataSaver || (window.coveringOverlay && window.coveringOverlay()) || document.hidden;
+const els = window.feedPlayable(), top = 56, vh = innerHeight;
+let best = null, bestScore = 0;
+if (!blocked) els.forEach(el => {
+const r = el.getBoundingClientRect(); if (!r.height) return;
+const vis = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, top)), score = vis / Math.min(r.height, vh - top);
+if (score >= 0.6 && score > bestScore + 0.01) { best = el; bestScore = score; }
+});
+const canSound = !navigator.userActivation || navigator.userActivation.hasBeenActive;
+els.forEach(el => {
+if (el.tagName === 'VIDEO') {
+if (el === best) { if (el.paused && !el._userPaused) { el.preload = 'auto'; el.muted = window.feedMuted || !canSound; el.play().catch(() => { el.muted = true; el.play().catch(() => {}); }); } }
+else { el._userPaused = false; if (!el.paused) el.pause(); }
+} else {
+if (el === best) { if (!el.querySelector('iframe')) { const keep = window.feedMuted; if (!canSound) window.feedMuted = true; window._baseYtMount32(el); window.feedMuted = keep; } }
+else window.ytUnmount(el);
+}
+});
+};
+(function watchNewVideos() {
+let t = null; const tick = () => { if (t) return; t = requestAnimationFrame(() => { t = null; window.pickFeedVideoToPlay(); }); };
+window.addEventListener('scroll', tick, { passive: true }); window.addEventListener('resize', tick);
+const box = () => document.getElementById('fypFeedContainer');
+const start = () => { const b = box(); if (!b) return setTimeout(start, 500); new MutationObserver(() => setTimeout(tick, 60)).observe(b, { childList: true, subtree: false }); tick(); };
+start(); setInterval(tick, 1500);
+})();
+document.addEventListener('pause', (e) => { const v = e.target; if (v && v.matches && v.matches('#fypFeedContainer video[data-feed-video]') && v._sgTapPause) v._userPaused = true; }, true);
+document.addEventListener('pointerdown', (e) => { const v = e.target.closest && e.target.closest('#fypFeedContainer video[data-feed-video]'); if (v) { v._sgTapPause = !v.paused; if (v.paused) v._userPaused = false; } }, true);
+
+(function cmtCss() {
+const s = document.createElement('style');
+s.textContent = `#sgClipsScroll [data-clip]{transition:height .32s cubic-bezier(.2,.8,.2,1)}
+#sgClips.sg-cmt #sgClipsScroll{overflow:hidden!important}
+#sgClips.sg-cmt [data-clip].sg-cmt-on{height:34dvh!important}
+#sgClips.sg-cmt [data-clip].sg-cmt-on>div.absolute,#sgClips.sg-cmt [data-clip].sg-cmt-on>button.absolute{opacity:0;pointer-events:none;transition:opacity .2s}
+#sgClips.sg-cmt [data-clip].sg-cmt-on video{object-fit:contain}
+#sgCmtSheet{position:fixed;left:0;right:0;bottom:0;height:66dvh;z-index:340;transform:translateY(100%);transition:transform .32s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;background:#0b1220;border-radius:18px 18px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.6)}
+#sgCmtSheet.on{transform:translateY(0)}`;
+document.head.appendChild(s);
+})();
+window.openClipComments = function(c) {
+if (!c) return;
+const clips = document.getElementById('sgClips'), sec = document.querySelector(`#sgClipsScroll [data-clip="${window.clipCur}"]`);
+if (!clips || !sec) return;
+window._cmt = c; window.commentReplyTo = null;
+clips.classList.add('sg-cmt'); sec.classList.add('sg-cmt-on');
+let sh = document.getElementById('sgCmtSheet');
+if (!sh) { sh = document.createElement('div'); sh.id = 'sgCmtSheet'; document.body.appendChild(sh); }
+sh.innerHTML = `<div id="sgCmtHandle" class="shrink-0 pt-2 pb-1 flex flex-col items-center" style="touch-action:none"><div class="w-10 h-1 rounded-full bg-gray-600"></div></div>
+<div class="shrink-0 flex items-center justify-between px-4 pb-2 border-b border-white/10"><p class="text-sm font-black text-white">💬 Comments <span id="sgCmtCount" class="text-gray-400 font-bold"></span></p><button onclick="window.closeClipComments()" class="w-8 h-8 rounded-full bg-gg-800 text-white">✕</button></div>
+<div id="sgCmtList" class="flex-1 overflow-y-auto px-3 py-3 space-y-3"><p class="text-xs text-gray-500 text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i></p></div>
+<div id="sgCmtReplyBar" class="hidden shrink-0 px-4 py-1.5 text-[11px] text-cyan-300 font-bold bg-gg-900 flex items-center justify-between"></div>
+<div class="shrink-0 flex items-center gap-2 p-3 border-t border-white/10 bg-gg-900" style="padding-bottom:max(12px, env(safe-area-inset-bottom))">${window.avatarHtml(window.isSignedIn() ? window.me() : '', 'w-8 h-8', 'rounded-full', 'text-[9px]')}
+<input id="sgCmtInput" maxlength="300" placeholder="Post your reply" class="flex-1 bg-gg-950 border border-white/15 rounded-full px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400" onkeydown="if(event.key==='Enter') window.sendClipComment()">
+<button onclick="window.sendClipComment()" class="w-10 h-10 shrink-0 rounded-full bg-cyan-400 text-slate-950"><i class="fa-solid fa-paper-plane"></i></button></div>`;
+requestAnimationFrame(() => requestAnimationFrame(() => sh.classList.add('on')));
+const h = document.getElementById('sgCmtHandle'); let y0 = null;
+h.addEventListener('pointerdown', (e) => { y0 = e.clientY; sh.style.transition = 'none'; h.setPointerCapture && h.setPointerCapture(e.pointerId); });
+h.addEventListener('pointermove', (e) => { if (y0 === null) return; const dy = Math.max(0, e.clientY - y0); sh.style.transform = `translateY(${dy}px)`; });
+h.addEventListener('pointerup', (e) => { if (y0 === null) return; const dy = e.clientY - y0; y0 = null; sh.style.transition = ''; sh.style.transform = ''; if (dy > 90) window.closeClipComments(); });
+window.listenClipComments();
+};
+window.closeClipComments = function() {
+const sh = document.getElementById('sgCmtSheet'); if (sh) sh.classList.remove('on');
+document.getElementById('sgClips')?.classList.remove('sg-cmt');
+document.querySelectorAll('#sgClipsScroll .sg-cmt-on').forEach(s => s.classList.remove('sg-cmt-on'));
+if (window._cmtUnsub) { window._cmtUnsub(); window._cmtUnsub = null; }
+window._cmt = null;
+};
+window.listenClipComments = function() {
+const c = window._cmt; if (!c) return;
+if (window._cmtUnsub) window._cmtUnsub();
+const col = c.kind === 'watch' ? collection(window.db, 'watch', c.id, 'comments') : collection(window.db, 'posts', c.id, 'comments');
+window._cmtUnsub = onSnapshot(query(col, orderBy('createdAt', 'desc'), limit(150)), (snap) => {
+if (window._cmt !== c) return;
+const all = []; snap.forEach(d => all.push({ id: d.id, ...d.data() }));
+const vis = all.filter(x => !window.isBlocked(x.user)).reverse();
+const top = vis.filter(x => !x.replyTo || !vis.some(y => y.id === x.replyTo.id)), kids = (id) => vis.filter(x => x.replyTo && x.replyTo.id === id);
+const one = (x, d) => `<div class="flex gap-2.5 ${d ? 'ml-10 mt-2' : ''}">${window.avatarHtml(x.user, d ? 'w-7 h-7' : 'w-9 h-9', 'rounded-full', 'text-[9px]')}
+<div class="flex-1 min-w-0"><p class="text-[12px]"><span class="font-black text-white">${window.dn(x.user)}</span> <span class="text-gray-500 text-[10px]">· ${window.timeAgo(window.postTimeValue(x))}</span></p>
+<p class="text-[13px] text-gray-100 leading-snug whitespace-pre-wrap break-words">${formatMentions(x.text || '')}</p>
+${c.kind === 'post' ? `<button onclick='window.clipCmtReply(${JSON.stringify(x.id)}, ${JSON.stringify(x.user || "")}, ${JSON.stringify(x.uid || "")}, ${JSON.stringify((x.text || "").slice(0, 100)).replace(/'/g, "&#39;")})' class="text-[11px] text-gray-400 font-bold mt-0.5">Reply</button>` : ''}
+${d < 1 ? kids(x.id).map(k => one(k, d + 1)).join('') : ''}</div></div>`;
+const list = document.getElementById('sgCmtList'); if (!list) return;
+list.innerHTML = top.length ? top.map(x => one(x, 0)).join('') : `<div class="text-center py-10"><p class="text-3xl">💬</p><p class="text-sm font-bold text-white mt-1">No comments yet</p><p class="text-xs text-gray-400">Start the conversation 👇</p></div>`;
+const cnt = document.getElementById('sgCmtCount'); if (cnt) cnt.textContent = vis.length ? `· ${vis.length}` : '';
+}, () => { const list = document.getElementById('sgCmtList'); if (list) list.innerHTML = `<p class="text-xs text-gray-500 text-center py-6">Couldn't load comments.</p>`; });
+};
+window.clipCmtReply = function(id, user, uid, text) {
+window.commentReplyTo = { id, user, uid, text };
+const bar = document.getElementById('sgCmtReplyBar'); if (bar) { bar.classList.remove('hidden'); bar.innerHTML = `<span>↩ Replying to ${escapeHTML(window.dnText(user))}</span><button onclick="window.commentReplyTo=null; this.parentElement.classList.add('hidden')" class="text-gray-400">✕</button>`; }
+document.getElementById('sgCmtInput')?.focus();
+};
+window.sendClipComment = async function() {
+const c = window._cmt, inp = document.getElementById('sgCmtInput'), text = (inp && inp.value || '').trim();
+if (!c || !text || window.needSignIn('comment')) return;
+inp.value = ''; document.getElementById('sgCmtReplyBar')?.classList.add('hidden');
+try {
+if (c.kind === 'watch') { await addDoc(collection(window.db, 'watch', c.id, 'comments'), { uid: window.uidNow(), user: window.me(), text: text.slice(0, 300), createdAt: serverTimestamp() }); window.addXP && window.addXP(1, 'chat'); }
+else { const hidden = document.getElementById('commentInputText'); window.activeCommentPostId = c.id; hidden.value = text; await window.submitCommentReply(); }
+} catch (e) { showToast('⚠️ Comment not sent.'); inp.value = text; }
+};
+document.addEventListener('click', (e) => {
+const b = e.target.closest && e.target.closest('#sgClipsScroll button'); if (!b) return;
+const oc = b.getAttribute('onclick') || ''; if (!/openPostDetail\(|playHighlight\(/.test(oc) || /openUserProfileModal/.test(oc)) return;
+const c = (window.clipsList || [])[window.clipCur]; if (!c) return;
+e.stopImmediatePropagation(); e.preventDefault();
+window.openClipComments(c.kind === 'short' || c.kind === 'yt' ? { kind: 'watch', id: c.id } : { kind: 'post', id: c.id });
+}, true);
+document.addEventListener('pointerdown', (e) => { if (window._cmt && e.target.closest && e.target.closest('#sgClipsScroll .sg-cmt-on')) { e.stopPropagation(); window.closeClipComments(); } }, true);
+window.closeClips = (function(b) { return function(...a) { window.closeClipComments(); return b.apply(this, a); }; })(window.closeClips);
+window.clipActivate = (function(b) { return function(i) { if (window._cmt && i !== window.clipCur) window.closeClipComments(); return b.apply(this, arguments); }; })(window.clipActivate);
