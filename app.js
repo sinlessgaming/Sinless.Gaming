@@ -17119,3 +17119,205 @@ window.openClipComments(c.kind === 'short' || c.kind === 'yt' ? { kind: 'watch',
 document.addEventListener('pointerdown', (e) => { if (window._cmt && e.target.closest && e.target.closest('#sgClipsScroll .sg-cmt-on')) { e.stopPropagation(); window.closeClipComments(); } }, true);
 window.closeClips = (function(b) { return function(...a) { window.closeClipComments(); return b.apply(this, a); }; })(window.closeClips);
 window.clipActivate = (function(b) { return function(i) { if (window._cmt && i !== window.clipCur) window.closeClipComments(); return b.apply(this, arguments); }; })(window.clipActivate);
+
+(function ttCss() {
+const s = document.createElement('style');
+s.textContent = `#liveRoomModal.sg-tt>div{display:none!important}
+#liveRoomModal.sg-tt>#sgTT{display:block!important}
+#sgTT{position:absolute;inset:0;background:#000;overflow:hidden}
+#sgTT #liveStage{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto}
+#sgTT #liveVideo{object-fit:cover!important}
+#sgTT.wide #liveVideo{object-fit:contain!important}
+#sgTT .tt-shade-top{position:absolute;left:0;right:0;top:0;height:140px;background:linear-gradient(rgba(0,0,0,.55),transparent);pointer-events:none}
+#sgTT .tt-shade-bot{position:absolute;left:0;right:0;bottom:0;height:45%;background:linear-gradient(transparent,rgba(0,0,0,.65));pointer-events:none}
+#sgTT #liveChatBox{position:absolute;left:10px;bottom:74px;width:74%;max-height:34%;overflow-y:auto;padding:0;display:flex;flex-direction:column;gap:6px;-webkit-mask-image:linear-gradient(transparent,#000 28%);mask-image:linear-gradient(transparent,#000 28%);scrollbar-width:none}
+#sgTT #liveChatBox::-webkit-scrollbar{display:none}
+#sgTT #liveChatBox>p{align-self:flex-start;background:rgba(0,0,0,.32);border-radius:14px;padding:5px 10px;color:#fff!important;text-shadow:0 1px 2px rgba(0,0,0,.6);font-size:13px;max-width:100%}
+#sgTT #liveHypeLayer{position:absolute;right:0;bottom:70px;width:110px;height:60%;pointer-events:none}
+#sgTT #liveChatInput{background:rgba(0,0,0,.45)!important;border:1px solid rgba(255,255,255,.25)!important;color:#fff}
+#sgTT #liveViewerCount{background:rgba(0,0,0,.4)!important;padding:5px 10px!important;border-radius:999px!important;font-size:12px!important}`;
+document.head.appendChild(s);
+})();
+window.ttLiveBuild = function() {
+const r = window.liveRoom, m = document.getElementById('liveRoomModal'); if (!r || !m) return;
+let tt = document.getElementById('sgTT');
+if (!tt) { tt = document.createElement('div'); tt.id = 'sgTT'; m.appendChild(tt); }
+const d = r.data, host = d.host || '', fol = window.amFollowing && window.amFollowing(host), mine = r.isHost;
+tt.innerHTML = `<div id="ttStage"></div><div class="tt-shade-top"></div><div class="tt-shade-bot"></div>
+<div class="absolute left-3 top-3 flex flex-col gap-1.5" style="z-index:5;padding-top:env(safe-area-inset-top)">
+<div class="flex items-center gap-2 pl-1 pr-1 py-1 rounded-full" style="background:rgba(0,0,0,.4)">${window.avatarHtml(host, 'w-9 h-9', 'rounded-full', 'text-[9px]')}
+<div class="min-w-0 max-w-[120px]"><p class="text-[12px] font-black text-white truncate">${window.dn(host)}</p><p class="text-[10px] text-white/80 font-bold">🔥 <span id="ttHype">${window.formatCount ? window.formatCount(d.hype || 0) : (d.hype || 0)}</span></p></div>
+${mine ? '' : `<button id="ttFollow" onclick="window.ttFollow()" class="px-3 py-1.5 rounded-full text-[11px] font-black ${fol ? 'bg-white/20 text-white' : 'bg-magenta text-white'}">${fol ? '✓' : '+ Follow'}</button>`}</div>
+<div class="flex items-center gap-1.5"><span class="px-2 py-0.5 rounded-md bg-red-600 text-white text-[10px] font-black">LIVE</span><span class="text-[11px] text-white/90 font-bold truncate max-w-[180px] drop-shadow">${escapeHTML(d.title || '')}</span></div>
+</div>
+<div class="absolute right-3 top-3 flex flex-col items-end gap-2" style="z-index:5;padding-top:env(safe-area-inset-top)">
+<div class="flex items-center gap-2"><span id="ttViewers"></span><button onclick="window.closeLiveRoom()" class="w-9 h-9 rounded-full text-white text-lg" style="background:rgba(0,0,0,.4)">✕</button></div>
+${mine ? `<button onclick="window.previewCamera(true)" class="w-10 h-10 rounded-full text-white" style="background:rgba(0,0,0,.4)" title="Flip"><i class="fa-solid fa-camera-rotate"></i></button>
+<button onclick="window.toggleLiveMic(); setTimeout(window.ttLiveBuild, 50)" class="w-10 h-10 rounded-full text-white" style="background:rgba(0,0,0,.4)" title="Mic"><i class="fa-solid ${r.micOff ? 'fa-microphone-slash' : 'fa-microphone'}"></i></button>
+<button onclick="window.endLive()" class="px-3 h-9 rounded-full bg-red-600 text-white text-[11px] font-black">END</button>` : ''}
+</div>
+<div id="ttChatSlot"></div>
+<div class="absolute left-0 right-0 bottom-0 flex items-center gap-2 px-3 pb-3 pt-2" style="z-index:6;padding-bottom:max(12px, env(safe-area-inset-bottom))">
+<div id="ttInputSlot" class="flex-1 min-w-0"></div>
+<button onclick="window.ttEmojiBar()" class="w-10 h-10 shrink-0 rounded-full text-xl" style="background:rgba(0,0,0,.4)">😂</button>
+<button onclick="window.shareLive()" class="w-10 h-10 shrink-0 rounded-full text-white" style="background:rgba(0,0,0,.4)"><i class="fa-solid fa-share"></i></button>
+<button onclick="window.sendHype('💖')" class="w-11 h-11 shrink-0 rounded-full text-2xl active:scale-90 transition" style="background:linear-gradient(135deg,#ff007f,#a855f7)">❤️</button>
+</div>
+<div id="ttEmoji" class="hidden absolute left-3 right-3 flex justify-between px-2 py-2 rounded-2xl" style="bottom:70px;z-index:7;background:rgba(0,0,0,.6)">${['🔥', '⚽', '🏆', '👏', '😂', '💯', '🐐', '😱'].map(e => `<button onclick="window.sendHype('${e}'); document.getElementById('ttEmoji').classList.add('hidden')" class="text-2xl px-1">${e}</button>`).join('')}</div>`;
+const put = (id, slot) => { const el = document.getElementById(id), to = tt.querySelector(slot); if (el && to) to.replaceWith ? (slot === '#ttStage' ? to.replaceWith(el) : to.appendChild(el)) : 0; };
+const stage = document.getElementById('liveStage'); if (stage) { stage._home = stage._home || stage.parentElement; tt.querySelector('#ttStage').replaceWith(stage); }
+const hype = document.getElementById('liveHypeLayer'); if (hype) { hype._home = hype._home || hype.parentElement; tt.appendChild(hype); }
+const chat = document.getElementById('liveChatBox'); if (chat) { chat._home = chat._home || chat.parentElement; chat._next = chat._next || chat.nextElementSibling; tt.querySelector('#ttChatSlot').replaceWith(chat); chat.scrollTop = chat.scrollHeight; }
+const inp = document.getElementById('liveChatInput'); if (inp) { inp._home = inp._home || inp.parentElement; inp.placeholder = 'Add comment…'; inp.classList.add('w-full'); tt.querySelector('#ttInputSlot').appendChild(inp); }
+const vc = document.getElementById('liveViewerCount'); if (vc) { vc._home = vc._home || vc.parentElement; tt.querySelector('#ttViewers').replaceWith(vc); }
+const v = document.getElementById('liveVideo'); if (v) { const fit = () => tt.classList.toggle('wide', v.videoWidth > v.videoHeight && innerHeight > innerWidth ? false : v.videoWidth > v.videoHeight && innerWidth > innerHeight); v.addEventListener('loadedmetadata', fit); fit(); if (r.isHost && window.liveFacing === 'user') v.style.transform = 'scaleX(-1)'; }
+m.classList.add('sg-tt');
+};
+window.ttLiveUnbuild = function() {
+const m = document.getElementById('liveRoomModal'); if (!m || !m.classList.contains('sg-tt')) return;
+const back = (id, before) => { const el = document.getElementById(id); if (el && el._home) { if (before && before.parentElement === el._home) el._home.insertBefore(el, before); else el._home.appendChild(el); } };
+const stage = document.getElementById('liveStage'); if (stage && stage._home) stage._home.insertBefore(stage, stage._home.firstChild);
+back('liveHypeLayer'); const chat = document.getElementById('liveChatBox'); if (chat && chat._home) chat._home.insertBefore(chat, chat._next || null);
+const inp = document.getElementById('liveChatInput'); if (inp && inp._home) { inp._home.insertBefore(inp, inp._home.firstChild); inp.placeholder = 'Say something…'; inp.classList.remove('w-full'); }
+const vc = document.getElementById('liveViewerCount'); if (vc && vc._home) vc._home.appendChild(vc);
+document.getElementById('sgTT')?.remove(); m.classList.remove('sg-tt');
+};
+window.ttEmojiBar = () => document.getElementById('ttEmoji')?.classList.toggle('hidden');
+window.ttFollow = function() { const r = window.liveRoom; if (!r) return; window.toggleFollowUser(r.data.host); setTimeout(() => { const b = document.getElementById('ttFollow'), on = window.amFollowing(r.data.host); if (b) { b.textContent = on ? '✓' : '+ Follow'; b.className = `px-3 py-1.5 rounded-full text-[11px] font-black ${on ? 'bg-white/20 text-white' : 'bg-magenta text-white'}`; } }, 400); };
+window.renderLiveStage = (function(b) {
+return function(...a) {
+const r = b.apply(this, a), lr = window.liveRoom, m = document.getElementById('liveRoomModal');
+const tt = !!(lr && lr.mode === 'direct' && lr.data && lr.data.source === 'camera');
+m.classList.remove('sg-portrait', 'sg-wide');
+if (tt) window.ttLiveBuild(); else window.ttLiveUnbuild();
+return r;
+};
+})(window.renderLiveStage);
+window.renderLiveRoomInfo = (function(b) { return function(...a) { const r = b.apply(this, a); const h = document.getElementById('ttHype'), lr = window.liveRoom; if (h && lr) h.textContent = window.formatCount ? window.formatCount(lr.data.hype || 0) : (lr.data.hype || 0); return r; }; })(window.renderLiveRoomInfo);
+window.leaveLiveRoom = (function(b) { return async function(...a) { window.ttLiveUnbuild(); return b.apply(this, a); }; })(window.leaveLiveRoom);
+window.floatHype = (function(b) {
+return function(emoji) {
+if (!document.getElementById('sgTT')) return b(emoji);
+const layer = document.getElementById('liveHypeLayer'); if (!layer) return;
+const el = document.createElement('span'); el.textContent = emoji;
+el.style.cssText = `position:absolute;bottom:0;right:${18 + Math.random() * 30}px;font-size:${26 + Math.random() * 14}px;transition:transform 2.4s cubic-bezier(.2,.6,.4,1), opacity 2.4s ease-in;`;
+layer.appendChild(el);
+requestAnimationFrame(() => { el.style.transform = `translate(${(Math.random() - 0.5) * 70}px, -${260 + Math.random() * 120}px) scale(${1 + Math.random() * 0.4})`; el.style.opacity = '0'; });
+setTimeout(() => el.remove(), 2500);
+};
+})(window.floatHype);
+
+window.LIVE_FILTERS = [
+['none', '🚫', 'None', ''],
+['beauty', '✨', 'Beauty', 'brightness(1.07) contrast(1.02) saturate(1.1)'],
+['bright', '☀️', 'Bright', 'brightness(1.18) contrast(1.05)'],
+['warm', '🌅', 'Warm', 'sepia(.22) saturate(1.25) brightness(1.06)'],
+['cool', '❄️', 'Cool', 'hue-rotate(-12deg) saturate(1.1) brightness(1.05)'],
+['vivid', '🌈', 'Vivid', 'saturate(1.55) contrast(1.12)'],
+['pink', '🌸', 'Pink', 'sepia(.15) hue-rotate(-25deg) saturate(1.3) brightness(1.08)'],
+['bw', '🖤', 'B&W', 'grayscale(1) contrast(1.15)']
+];
+window.liveFilter = (() => { try { return localStorage.getItem('sg_live_filter') || 'beauty'; } catch (e) { return 'beauty'; } })();
+window.setLiveFilter = function(k) { window.liveFilter = k; try { localStorage.setItem('sg_live_filter', k); } catch (e) {} document.querySelectorAll('[data-lf]').forEach(b => b.classList.toggle('ring-2', b.getAttribute('data-lf') === k)); };
+window.liveFilterChips = () => `<div id="liveFilterRow" class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none">${window.LIVE_FILTERS.map(([k, e, l]) => `<button data-lf="${k}" onclick="window.setLiveFilter('${k}')" class="shrink-0 flex flex-col items-center gap-0.5 w-14 py-1.5 rounded-2xl ring-cyan-400 ${window.liveFilter === k ? 'ring-2' : ''}" style="background:rgba(0,0,0,.45)"><span class="text-xl">${e}</span><span class="text-[9px] font-black text-white">${l}</span></button>`).join('')}</div>`;
+window.camFx = null;
+window.ensureCamFx = function() {
+if (window.camFx) return window.camFx;
+const src = document.createElement('video'); src.muted = true; src.playsInline = true; src.setAttribute('playsinline', '');
+const cv = document.createElement('canvas'); cv.width = 540; cv.height = 960; const ctx = cv.getContext('2d');
+const out = cv.captureStream ? cv.captureStream(30) : null;
+const fx = window.camFx = { src, cv, ctx, out, timer: null };
+const draw = () => {
+const v = fx.src; if (!v.videoWidth) return;
+const s = Math.min(1, 960 / Math.max(v.videoWidth, v.videoHeight)), w = Math.round(v.videoWidth * s), h = Math.round(v.videoHeight * s);
+if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+const f = (window.LIVE_FILTERS.find(x => x[0] === window.liveFilter) || [])[3] || '';
+ctx.filter = f || 'none'; ctx.globalAlpha = 1; ctx.drawImage(v, 0, 0, w, h);
+if (window.liveFilter === 'beauty') { ctx.filter = 'blur(3px) brightness(1.06)'; ctx.globalAlpha = 0.42; ctx.drawImage(v, 0, 0, w, h); ctx.globalAlpha = 1; }   // soft skin
+ctx.filter = 'none';
+};
+fx.timer = setInterval(draw, 33);
+return fx;
+};
+window.getCam = async function() {
+const facing = window.liveFacing;
+const tries = [
+{ video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 960 }, resizeMode: 'none' }, audio: true },
+{ video: { facingMode: facing }, audio: true },
+{ video: true, audio: true }
+];
+let lastErr = null;
+for (const c of tries) {
+for (let k = 0; k < 2; k++) {
+try { return await navigator.mediaDevices.getUserMedia(c); }
+catch (e) { lastErr = e; if (e && e.name === 'NotAllowedError') throw e; await new Promise(r => setTimeout(r, 450)); }
+}
+}
+throw lastErr;
+};
+window.previewCamera = async function(flip) {
+if (flip) window.liveFacing = window.liveFacing === 'user' ? 'environment' : 'user';
+if (window._camBusy) return; window._camBusy = true;
+try {
+if (window._rawCam) { window._rawCam.getVideoTracks().forEach(t => t.stop()); }
+const raw = await window.getCam();
+try { const t = raw.getVideoTracks()[0], cap = t.getCapabilities ? t.getCapabilities() : {}; if (cap.zoom) await t.applyConstraints({ advanced: [{ zoom: cap.zoom.min }] }); } catch (e) {}
+if (window._rawCam) window._rawCam.getAudioTracks().forEach(t => t.stop());
+window._rawCam = raw;
+const fx = window.ensureCamFx();
+fx.src.srcObject = raw; fx.src.play().catch(() => {});
+let out;
+if (fx.cv.captureStream) {
+out = window._camOut; const vt = out && out.getVideoTracks()[0];
+if (!vt || vt.readyState === 'ended') { out = window._camOut = new MediaStream([fx.cv.captureStream(30).getVideoTracks()[0]]); }
+out.getAudioTracks().forEach(t => out.removeTrack(t)); raw.getAudioTracks().forEach(t => out.addTrack(t));
+} else out = raw;
+const lr = window.liveRoom;
+if (lr && lr.isHost && lr.mode === 'direct') { if (lr.stream !== out) window.swapHostStream(out); }
+else window.livePreviewStream = out;
+const v = document.getElementById('goLivePreview'); if (v) { v.srcObject = out; v.classList.toggle('mirror', window.liveFacing === 'user'); window.fillBlur(v); }
+const lv = document.getElementById('liveVideo'); if (lv && lr && lr.isHost) { lv.srcObject = out; lv.style.transform = window.liveFacing === 'user' ? 'scaleX(-1)' : ''; window.fillBlur(lv); }
+} catch (e) {
+if (e && e.name === 'NotAllowedError') showToast('⚠️ Allow camera & microphone to go live (tap the 🔒 next to the address).');
+else showToast('📷 Camera is busy. Close other camera apps and tap Flip camera.');
+} finally { window._camBusy = false; }
+};
+window.stopPreviewStream = (function(b) {
+return function(...a) {
+const keep = window.liveRoom && window.liveRoom.isHost && window.liveRoom.stream === window._camOut;
+const r = b.apply(this, a);
+if (!keep) window.stopRawCam();
+return r;
+};
+})(window.stopPreviewStream);
+window.stopRawCam = function() { if (window._rawCam) { window._rawCam.getTracks().forEach(t => t.stop()); window._rawCam = null; } if (window._camOut) { window._camOut.getAudioTracks().forEach(t => window._camOut.removeTrack(t)); } };
+window.endLive = (function(b) { return async function(...a) { const r = await b.apply(this, a); window.stopRawCam(); return r; }; })(window.endLive);
+window.closeGoLive = (function(b) { return function(...a) { const r = b.apply(this, a); if (!(window.liveRoom && window.liveRoom.isHost)) window.stopRawCam(); return r; }; })(window.closeGoLive);
+window.fillBlur = function(v) {
+if (!v) return; const p = v.parentElement; if (!p) return;
+v.style.objectFit = 'contain'; v.style.position = v.style.position || 'relative'; v.style.zIndex = '1';
+let bg = p.querySelector(':scope > video.sg-blurbg');
+if (!bg) { bg = document.createElement('video'); bg.className = 'sg-blurbg'; bg.muted = true; bg.autoplay = true; bg.playsInline = true; bg.setAttribute('playsinline', ''); bg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(22px) brightness(.65);transform:scale(1.15);z-index:0;pointer-events:none'; p.insertBefore(bg, p.firstChild); }
+if (bg.srcObject !== v.srcObject) { bg.srcObject = v.srcObject; bg.play().catch(() => {}); }
+};
+(function noCropCss() { const s = document.createElement('style'); s.textContent = '#goLiveModal.sg-cam #goLivePreview{object-fit:contain!important}#sgTT #liveVideo{object-fit:contain!important}#sgTT #liveStage{overflow:hidden}'; document.head.appendChild(s); })();
+setInterval(() => { const lv = document.querySelector('#sgTT #liveVideo'); if (lv && lv.srcObject) window.fillBlur(lv); const gv = document.querySelector('#goLiveModal.sg-cam #goLivePreview'); if (gv && gv.srcObject) window.fillBlur(gv); }, 1000);
+window.setGoLiveMode = (function(b) {
+return function(mode, ...a) {
+const r = b.call(this, mode, ...a);
+if (mode === 'camera') { const fb = document.querySelector('#goLiveBody button[onclick*="previewCamera(true)"]'); const row = fb && fb.parentElement; if (row && !document.getElementById('liveFilterRow')) row.insertAdjacentHTML('beforebegin', window.liveFilterChips()); }
+return r;
+};
+})(window.setGoLiveMode);
+window.ttLiveBuild = (function(b) {
+return function(...a) {
+const r = b.apply(this, a), lr = window.liveRoom, tt = document.getElementById('sgTT');
+if (tt && lr && lr.isHost && !tt.querySelector('#ttFxBtn')) {
+const col = tt.querySelector('.absolute.right-3.top-3');
+if (col) col.insertAdjacentHTML('beforeend', `<button id="ttFxBtn" onclick="document.getElementById('ttFx').classList.toggle('hidden')" class="w-10 h-10 rounded-full text-lg" style="background:rgba(0,0,0,.4)" title="Filters">✨</button>`);
+tt.insertAdjacentHTML('beforeend', `<div id="ttFx" class="hidden absolute left-3 right-3" style="bottom:72px;z-index:8">${window.liveFilterChips().replace('id="liveFilterRow"', 'id="liveFilterRow2"')}</div>`);
+}
+const lv = document.getElementById('liveVideo'); if (lv && lv.srcObject) window.fillBlur(lv);
+return r;
+};
+})(window.ttLiveBuild);
