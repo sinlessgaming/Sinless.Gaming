@@ -2625,7 +2625,7 @@ standings[m.p2].d++; standings[m.p2].pts += 1;
 });
 
 Object.values(standings).forEach(s => s.gd = s.gf - s.ga);
-let tableArr = Object.values(standings).sort((a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+let tableArr = window.leagueTable ? window.leagueTable(current) : Object.values(standings).sort((a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
 
 bodyHtml += `
 <div class="bg-gg-950 rounded-xl border border-cyan-500/20 overflow-x-auto mb-3 shadow-inner">
@@ -2646,9 +2646,9 @@ bodyHtml += `
 `;
 tableArr.forEach((row, i) => {
 bodyHtml += `
-<tr>
-<td class="px-2 py-1.5 font-bold">${i+1}</td>
-<td class="px-2 py-1.5 truncate max-w-[110px]">${window.nameLink(row.p, 'font-bold text-white')}</td>
+<tr title="${row.zl || ''}">
+<td class="px-2 py-1.5 font-bold" style="${row.zc ? `box-shadow:inset 3px 0 0 ${row.zc}` : ''}">${i+1}</td>
+<td class="px-2 py-1.5 truncate max-w-[110px]">${window.nameLink(row.p, 'font-bold text-white')}${row.tie ? ' <span title="Playoff needed">⚔️</span>' : ''}</td>
 <td class="px-2 text-center">${row.played}</td>
 <td class="px-2 text-center text-emerald-400">${row.w}</td>
 <td class="px-2 text-center text-gray-400">${row.d}</td>
@@ -2659,6 +2659,7 @@ bodyHtml += `
 `;
 });
 bodyHtml += `</tbody></table></div>`;
+if (window.tableLegend) bodyHtml += window.tableLegend(current);
 
 bodyHtml += `<div class="space-y-2 pt-2"><h4 class="text-[10px] font-black text-white uppercase">League Fixtures & Results</h4><div class="space-y-2 max-h-[350px] overflow-y-auto pr-1">`;
 current.matches.forEach(m => {
@@ -11814,7 +11815,7 @@ const row = (x) => `<button onclick="window.openTournamentById('${x.t.id}')" cla
 <div class="flex-1 min-w-0">
 <p class="text-[10px] font-black uppercase tracking-wider truncate" style="color:${x.color}">${escapeHTML(window.compShort(x.t))}${x.t.season ? ' · S' + x.t.season : ''} · ${escapeHTML(x.m.stage || '')}</p>
 <p class="text-sm font-black text-white truncate">vs ${oppName(x.opp)}</p>
-<p class="text-[10px] text-gray-500">${escapeHTML(x.t.game || '')}</p>
+<p class="text-[10px] text-gray-500">${escapeHTML(x.t.game || '')}${window.dueChip ? window.dueChip(x.t, x.m) : ''}</p>
 </div>
 ${x.played ? `<div class="text-right"><p class="text-base font-black text-white">${x.my}–${x.their}</p>${x.m.forfeit ? '<p class="text-[9px] font-black text-red-300">Forfeit</p>' : ''}<span class="text-[10px] font-black px-1.5 py-0.5 rounded ${x.res === 'W' ? 'bg-emerald-500/20 text-emerald-300' : x.res === 'L' ? 'bg-red-500/20 text-red-300' : 'bg-gray-500/20 text-gray-300'}">${x.res}</span></div>`
 : x.m.status === 'disputed' ? '<span class="text-[9px] font-black px-2 py-1 rounded-lg bg-amber-500/15 text-amber-300">Awaiting approval</span>' : '<i class="fa-solid fa-chevron-right text-gray-600 text-xs"></i>'}
@@ -12122,9 +12123,11 @@ const body = kind === 'ucl'
 const star = `<path d="M32 15l2.4 4.8 5.3.8-3.8 3.7.9 5.3-4.8-2.5-4.8 2.5.9-5.3-3.8-3.7 5.3-.8z" fill="#fff" opacity=".85"/>`;
 return `<svg viewBox="0 0 64 64" width="${size}" height="${size}" style="filter:drop-shadow(0 0 10px ${s.glow}88)">${grad}${body}${base}${star}</svg>`;
 };
+window.divTag = (x) => x && (x.compKind === 'league' || (!x.compKind && x.tier)) && +x.tier > 0 ? 'D' + x.tier : '';
+window.divSuffix = (x) => window.divTag(x) ? ' · ' + window.divTag(x) : '';
 window.cabinetFor = function(user) {
 const ts = window.titlesFor(user), groups = {};
-ts.forEach(x => { const k = (x.hostOrg || '') + '|' + (x.compName || x.title); (groups[k] = groups[k] || { name: x.compName || x.title.replace(/ Champion$/, ''), org: x.hostOrg, kind: window.trophyKind(x), wins: [] }).wins.push(x); });
+ts.forEach(x => { const k = (x.hostOrg || '') + '|' + (x.compName || x.title); (groups[k] = groups[k] || { name: x.compName || x.title.replace(/ Champion$/, ''), org: x.hostOrg, kind: window.trophyKind(x), div: window.divTag(x), wins: [] }).wins.push(x); });
 return Object.values(groups).sort((a, b) => window.TROPHY_STYLE[a.kind].rank - window.TROPHY_STYLE[b.kind].rank || b.wins.length - a.wins.length);
 };
 window.trophyCabinetHtml = function(user) {
@@ -12134,6 +12137,7 @@ const tile = (g, i) => { const st = window.TROPHY_STYLE[g.kind];
 return `<button onclick="window.openTrophy('${escapeHTML(user)}', ${i})" class="sg-trophy relative flex flex-col items-center text-center px-1.5 pt-3 pb-2 rounded-2xl" style="background:radial-gradient(circle at 50% 35%, ${st.glow}33, transparent 70%)">
 ${g.wins.length > 1 ? `<span class="absolute top-1 right-1 text-[10px] font-black px-1.5 py-0.5 rounded-full text-slate-950" style="background:${st.glow}">×${g.wins.length}</span>` : ''}
 <div class="sg-trophy-float">${window.trophySvg(g.kind, 58)}</div>
+${g.div ? `<span class="absolute top-1 left-1 text-[9px] font-black px-1.5 py-0.5 rounded-md text-slate-950" style="background:${st.glow}" title="Division ${g.div.slice(1)}">${g.div}</span>` : ''}
 <p class="text-[10px] font-black text-white leading-tight mt-1.5 line-clamp-2">${escapeHTML(g.name)}</p>
 <p class="text-[8px] font-black uppercase tracking-wider mt-0.5" style="color:${st.glow}">${g.wins.length > 1 ? g.wins.length + '× ' : ''}${g.kind === 'gold' || g.kind === 'silver' || g.kind === 'bronze' ? 'Champion' : 'Winner'}</p>
 </button>`; };
@@ -12151,12 +12155,12 @@ window.openTrophy = function(user, i) {
 const g = window.cabinetFor(user)[i]; if (!g) return;
 const st = window.TROPHY_STYLE[g.kind];
 const when = (x) => x.at && x.at.toDate ? x.at.toDate().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-window.openPanel(`🏆 ${g.name}`, `<div class="text-center pt-2"><div class="inline-block sg-trophy-float">${window.trophySvg(g.kind, 110)}</div>
+window.openPanel(`🏆 ${escapeHTML(g.name)}${g.div ? ` · Division ${g.div.slice(1)}` : ''}`, `<div class="text-center pt-2"><div class="inline-block sg-trophy-float">${window.trophySvg(g.kind, 110)}</div>
 <p class="text-2xl font-black text-white mt-2">${g.wins.length}× ${g.kind === 'gold' || g.kind === 'silver' || g.kind === 'bronze' ? 'Champion' : 'Winner'}</p>
 <p class="text-xs font-bold" style="color:${st.glow}">${escapeHTML(window.dnText(user))}${g.org ? ` · hosted by ${escapeHTML(g.org)}` : ''}</p></div>
 <div class="space-y-2 pt-2">${g.wins.sort((a, b) => (b.season || 0) - (a.season || 0)).map(x => `<div class="flex items-center gap-3 p-3 rounded-xl bg-gg-900 border border-white/5">
 <span class="text-lg font-black w-10 text-center" style="color:${st.glow}">S${x.season || 1}</span>
-<div class="flex-1 min-w-0"><p class="text-xs font-black text-white truncate">${escapeHTML(x.title)}</p><p class="text-[10px] text-gray-400">${[when(x), x.game, x.runnerUp ? 'beat ' + window.dnText(x.runnerUp) + ' to the title' : ''].filter(Boolean).map(escapeHTML).join(' · ')}</p></div></div>`).join('')}</div>`);
+<div class="flex-1 min-w-0"><p class="text-xs font-black text-white truncate">${escapeHTML(x.title + window.divSuffix(x))}</p><p class="text-[10px] text-gray-400">${[when(x), x.game, x.runnerUp ? 'beat ' + window.dnText(x.runnerUp) + ' to the title' : ''].filter(Boolean).map(escapeHTML).join(' · ')}</p></div></div>`).join('')}</div>`);
 };
 window.getProfileBadges = (function(base) {
 return function(username) {
@@ -12209,7 +12213,7 @@ return window.currentChampions().filter(x => x.tag === k).sort((a, b) => window.
 window.champLabel = function(user, small) {
 const cur = window.currentTitlesOf(user); if (!cur.length) return '';
 const x = cur[0], st = window.TROPHY_STYLE[window.trophyKind(x)];
-const name = (x.compName || x.title.replace(/ Champion$/, '')) + ' Champion';
+const name = (x.compName || x.title.replace(/ Champion$/, '')) + ' Champion' + window.divSuffix(x);
 return `<span class="inline-flex items-center ml-1.5 ${small ? 'text-[8px]' : 'text-[9px]'} font-black px-1.5 py-0.5 rounded-md whitespace-nowrap max-w-[190px] truncate" style="color:${st.glow};background:${st.glow}1f;border:1px solid ${st.glow}55" title="${escapeHTML(name)}">👑 ${escapeHTML(name)}${cur.length > 1 ? ` +${cur.length - 1}` : ''}</span>`;
 };
 window.titleBadgeShort = function(user) { return window.champLabel(user, true); };
@@ -12217,7 +12221,7 @@ window.getProfileBadges = function(username) {
 const tag = (username || '').replace('@', '');
 const cur = window.currentTitlesOf(tag);
 const total = window.titlesFor(tag).length;
-const labels = cur.slice(0, 1).map(x => { const st = window.TROPHY_STYLE[window.trophyKind(x)]; return `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-md whitespace-nowrap" style="color:${st.glow};background:${st.glow}1f;border:1px solid ${st.glow}55">👑 ${escapeHTML((x.compName || x.title.replace(/ Champion$/, '')) + ' Champion')}</span>`; }).join(' ');
+const labels = cur.slice(0, 1).map(x => { const st = window.TROPHY_STYLE[window.trophyKind(x)]; return `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-md whitespace-nowrap" style="color:${st.glow};background:${st.glow}1f;border:1px solid ${st.glow}55">👑 ${escapeHTML((x.compName || x.title.replace(/ Champion$/, '')) + ' Champion' + window.divSuffix(x))}</span>`; }).join(' ');
 const more = cur.length > 1 ? `<span class="text-[9px] font-black text-amber-300">+${cur.length - 1}</span>` : '';
 const btn = total ? `<button onclick="window.openTrophyCabinet('${escapeHTML(tag)}')" class="shrink-0 inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow whitespace-nowrap" title="Trophy cabinet">🏆 ${total} troph${total > 1 ? 'ies' : 'y'}</button>` : '';
 return [btn, labels, more, window._baseGetProfileBadges22(username)].filter(Boolean).join(' ');
@@ -17585,77 +17589,144 @@ if (changed) window.updateNotifBadge();
 window.renderDmInbox = (function(b) { return function(...a) { const r = b.apply(this, a); setTimeout(window.cleanChatOrphans, 1500); return r; }; })(window.renderDmInbox);
 
 window.CAM_FILTERS = [
-['none', 'Normal', ''], ['beauty', 'Beauty', 'brightness(1.07) contrast(1.02) saturate(1.1)'], ['bright', 'Bright', 'brightness(1.18) contrast(1.05)'],
-['warm', 'Warm', 'sepia(.22) saturate(1.25) brightness(1.06)'], ['cool', 'Cool', 'hue-rotate(-12deg) saturate(1.1) brightness(1.05)'], ['vivid', 'Vivid', 'saturate(1.55) contrast(1.12)'],
-['pink', 'Pink', 'sepia(.15) hue-rotate(-25deg) saturate(1.3) brightness(1.08)'], ['sunset', 'Sunset', 'sepia(.3) saturate(1.45) hue-rotate(-15deg) brightness(1.05)'],
-['neon', 'Neon', 'saturate(1.9) hue-rotate(20deg) contrast(1.2)'], ['vintage', 'Vintage', 'sepia(.5) contrast(1.1) saturate(.85) brightness(1.03)'],
-['drama', 'Drama', 'contrast(1.35) saturate(1.1) brightness(.95)'], ['glow', 'Glow', 'brightness(1.12) contrast(.95) saturate(1.2)'], ['bw', 'B&W', 'grayscale(1) contrast(1.15)']
+['none', 'Normal', ''], ['beauty', 'Beauty', 'brightness(1.06) saturate(1.08)'], ['bright', 'Bright', 'brightness(1.16) contrast(1.06) saturate(1.1)'],
+['gg', 'GG Purple', 'contrast(1.08) saturate(1.2)'], ['warm', 'Golden', 'sepia(.15) saturate(1.3) brightness(1.05)'], ['cool', 'Cool', 'saturate(1.05) brightness(1.04)'],
+['vivid', 'Vivid', 'saturate(1.6) contrast(1.15)'], ['pink', 'Rosé', 'brightness(1.06) saturate(1.1)'], ['sunset', 'Sunset', 'saturate(1.25) brightness(1.03)'],
+['neon', 'Neon', 'contrast(1.15) saturate(1.45)'], ['film', 'Film', 'contrast(1.1) saturate(.9)'], ['vintage', 'Vintage', 'sepia(.45) contrast(1.05) saturate(.85)'],
+['drama', 'Drama', 'contrast(1.35) saturate(1.1) brightness(.95)'], ['glow', 'Glow', 'brightness(1.1) contrast(.95) saturate(1.2)'],
+['bw', 'B&W', 'grayscale(1) contrast(1.2)'], ['noir', 'Noir', 'grayscale(1) contrast(1.5) brightness(.9)']
 ];
+window.CAM_LOOKS = {
+warm: { tint: ['#ff9a3c', 0.2, 'soft-light'] }, cool: { tint: ['#3c8dff', 0.26, 'soft-light'] }, pink: { tint: ['#ff5fa2', 0.26, 'soft-light'] },
+sunset: { grad: ['#ff7a18', '#af00ff', 0.34, 'soft-light'] }, neon: { grad: ['#00f3ff', '#ff007f', 0.3, 'overlay'] }, gg: { grad: ['#8b5cf6', '#2ee6a6', 0.32, 'soft-light'] },
+film: { grad: ['#008c8c', '#ff8a3d', 0.26, 'soft-light'], vig: 0.3 }, vintage: { tint: ['#f5d6a0', 0.18, 'multiply'], vig: 0.45 },
+drama: { vig: 0.55 }, glow: { tint: ['#ffd1e8', 0.14, 'screen'] }, bw: { vig: 0.35 }, noir: { vig: 0.6 }
+};
 window.CAM_EFFECTS = [['none', '🚫', 'None'], ['hearts', '💖', 'Hearts'], ['sparkle', '✨', 'Sparkle'], ['confetti', '🎉', 'Confetti'], ['fire', '🔥', 'Fire'], ['neonframe', '🟣', 'Neon frame'], ['sgframe', '🎮', 'GG frame'], ['snow', '❄️', 'Snow']];
 window.CAM_MODES = [['photo', 'Photo'], ['15', '15s'], ['60', '60s'], ['180', '3m'], ['text', 'Text']];
+window.camCss = (k) => ((window.CAM_FILTERS.find(x => x[0] === k) || [])[2]) || 'none';
+window.camLook = function(ctx, w, h, key) {
+const L = window.CAM_LOOKS[key]; if (!L) return;
+ctx.save();
+if (L.tint) { ctx.globalCompositeOperation = L.tint[2]; ctx.globalAlpha = L.tint[1]; ctx.fillStyle = L.tint[0]; ctx.fillRect(0, 0, w, h); }
+if (L.grad) { const g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, L.grad[0]); g.addColorStop(1, L.grad[1]); ctx.globalCompositeOperation = L.grad[3]; ctx.globalAlpha = L.grad[2]; ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); }
+if (L.vig) { ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${L.vig})`); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); }
+ctx.restore();
+};
+window.camCover = function(ctx, src, sw, sh, w, h, mirror) {
+const s = Math.max(w / sw, h / sh), dw = sw * s, dh = sh * s;
+ctx.save(); if (mirror) { ctx.translate(w, 0); ctx.scale(-1, 1); }
+ctx.drawImage(src, (w - dw) / 2, (h - dh) / 2, dw, dh); ctx.restore();
+};
+window.camSize = function() { const a = Math.min(0.5625, Math.max(0.42, innerWidth / innerHeight)); return [Math.round(1280 * a / 2) * 2, 1280]; };
 window.cam = null;
+window.CAM_GLASS = 'background:rgba(16,16,24,.42);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)';
+window.CAM_TS = 'text-shadow:0 1px 3px rgba(0,0,0,.85)';
 window.openCamera = async function() {
 if (window.needSignIn('post')) return;
 window.pauseFeedVideos && window.pauseFeedVideos(); window.stopSound && window.stopSound();
-const c = window.cam = { facing: 'user', mode: 'photo', filter: (() => { try { return localStorage.getItem('sg_cam_filter') || 'beauty'; } catch (e) { return 'beauty'; } })(), effect: 'none', beauty: 1, timer: 0, flash: false, rec: null, parts: [], tab: 'filters', fx: [] };
+const c = window.cam = { facing: 'user', mode: 'photo', filter: (() => { try { const f = localStorage.getItem('sg_cam_filter'); return window.CAM_FILTERS.some(x => x[0] === f) ? f : 'beauty'; } catch (e) { return 'beauty'; } })(), effect: 'none', beauty: 1, timer: 0, flash: false, rec: null, parts: [], tab: 'filters', fx: [] };
 let el = document.getElementById('sgCam');
-if (!el) { el = document.createElement('div'); el.id = 'sgCam'; el.className = 'fixed inset-0 bg-black select-none'; el.style.zIndex = 360; document.body.appendChild(el); }
+if (!el) { el = document.createElement('div'); el.id = 'sgCam'; el.className = 'fixed inset-0 bg-black select-none overflow-hidden'; el.style.zIndex = 360; document.body.appendChild(el); }
 el.classList.remove('hidden');
-el.innerHTML = `<canvas id="camBg" class="absolute inset-0 w-full h-full" style="object-fit:cover;filter:blur(24px) brightness(.55);transform:scale(1.15)"></canvas>
-<canvas id="camCv" class="absolute inset-0 w-full h-full" style="object-fit:contain"></canvas>
-<div id="camTop" class="absolute left-0 right-0 top-0 flex items-start justify-between p-3" style="padding-top:max(12px,env(safe-area-inset-top));z-index:3">
-<button onclick="window.closeCamera()" class="w-10 h-10 rounded-full text-white text-xl" style="background:rgba(0,0,0,.35)">✕</button>
-<button id="camSound" onclick="window.camPickSound()" class="max-w-[55%] px-4 py-2 rounded-full text-white text-xs font-black truncate" style="background:rgba(0,0,0,.45)">🎵 Add a sound</button>
-<div class="flex flex-col gap-3">
-${[['flip', 'fa-camera-rotate', 'Flip'], ['flash', 'fa-bolt', 'Flash'], ['timer', 'fa-stopwatch', 'Timer'], ['beauty', 'fa-wand-magic-sparkles', 'Beauty']].map(([k, ic, l]) => `<button onclick="window.camTool('${k}')" class="flex flex-col items-center text-white"><span id="camT_${k}" class="w-10 h-10 rounded-full flex items-center justify-center" style="background:rgba(0,0,0,.35)"><i class="fa-solid ${ic}"></i></span><span class="text-[9px] font-black drop-shadow mt-0.5" id="camL_${k}">${l}</span></button>`).join('')}
-</div></div>
-<div id="camCount" class="hidden absolute inset-0 flex items-center justify-center text-white font-black" style="font-size:120px;z-index:4;text-shadow:0 4px 20px rgba(0,0,0,.6)"></div>
-<div id="camFlashOv" class="hidden absolute inset-0 bg-white" style="z-index:5"></div>
-<div id="camTextUI" class="hidden absolute inset-0 flex items-center justify-center p-8" style="z-index:2"><textarea id="camText" maxlength="300" placeholder="Type something…" class="w-full bg-transparent text-center text-white text-3xl font-black outline-none resize-none" rows="5" style="text-shadow:0 2px 8px rgba(0,0,0,.35)"></textarea></div>
-<div id="camBottom" class="absolute left-0 right-0 bottom-0 pb-4" style="padding-bottom:max(16px,env(safe-area-inset-bottom));z-index:3;background:linear-gradient(transparent,rgba(0,0,0,.55))">
-<div id="camTabs" class="flex justify-center gap-4 mb-2 text-[11px] font-black"></div>
-<div id="camStrip" class="flex gap-2 overflow-x-auto px-4 pb-2" style="scrollbar-width:none"></div>
-<div class="flex items-center justify-around px-6 mt-1">
-<label class="w-11 h-11 rounded-xl border-2 border-white/80 flex items-center justify-center text-white cursor-pointer" style="background:rgba(0,0,0,.35)"><i class="fa-solid fa-image"></i><input type="file" accept="image/*,video/*" multiple class="hidden" onchange="window.camFromGallery(this)"></label>
-<button id="camShutter" onclick="window.camShutter()" class="relative w-20 h-20 rounded-full flex items-center justify-center" style="border:5px solid rgba(255,255,255,.9)"><span id="camShutIn" class="w-16 h-16 rounded-full bg-white transition-all"></span><svg id="camRing" class="absolute inset-0 -rotate-90 hidden" viewBox="0 0 80 80"><circle cx="40" cy="40" r="37" fill="none" stroke="#ff007f" stroke-width="5" stroke-dasharray="232.5" stroke-dashoffset="232.5" id="camRingC"/></svg></button>
-<button onclick="window.camTab(window.cam.tab === 'filters' ? 'effects' : 'filters')" class="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style="background:rgba(0,0,0,.35)" id="camFxBtn">✨</button>
+const G = window.CAM_GLASS, TS = window.CAM_TS, land = innerWidth > innerHeight;
+el.innerHTML = `<canvas id="camCv" class="absolute inset-0 w-full h-full" style="object-fit:${land ? 'contain' : 'cover'}"></canvas>
+<div class="absolute inset-x-0 top-0 h-36 pointer-events-none" style="background:linear-gradient(rgba(0,0,0,.5),transparent)"></div>
+<div class="absolute inset-x-0 bottom-0 h-72 pointer-events-none" style="background:linear-gradient(transparent,rgba(0,0,0,.65))"></div>
+<div id="camTop" class="absolute left-0 right-0 top-0 px-3" style="padding-top:max(12px,env(safe-area-inset-top));z-index:3">
+<div class="flex items-center justify-between gap-2">
+<button onclick="window.closeCamera()" aria-label="Close" class="w-10 h-10 rounded-full text-white text-lg flex items-center justify-center" style="${G}"><i class="fa-solid fa-xmark"></i></button>
+<button id="camSound" onclick="window.camPickSound()" class="max-w-[62%] px-4 h-10 rounded-full text-white text-[13px] font-black truncate flex items-center gap-2" style="${G}"></button>
+<span class="w-10"></span>
 </div>
-<div id="camModes" class="flex justify-center gap-5 mt-3 text-[12px] font-black"></div>
+<div id="camRecPill" class="hidden absolute left-1/2 -translate-x-1/2 px-3 h-8 rounded-full bg-red-500/90 text-white text-xs font-black items-center gap-1.5" style="top:max(16px,env(safe-area-inset-top))"><span class="w-2 h-2 rounded-full bg-white animate-pulse"></span><span id="camRecT">0:00</span></div>
+<div id="camRail" class="absolute right-3 flex flex-col gap-4" style="top:calc(max(12px,env(safe-area-inset-top)) + 56px)">
+${[['flip', 'fa-camera-rotate', 'Flip'], ['flash', 'fa-bolt', 'Flash'], ['timer', 'fa-stopwatch', 'Timer'], ['beauty', 'fa-wand-magic-sparkles', 'Beauty']].map(([k, ic, l]) => `<button onclick="window.camTool('${k}')" class="flex flex-col items-center text-white"><span id="camT_${k}" class="w-11 h-11 rounded-full flex items-center justify-center text-[17px]" style="${G}"><i class="fa-solid ${ic}"></i></span><span class="text-[10px] font-black mt-1" style="${TS}" id="camL_${k}">${l}</span></button>`).join('')}
+</div></div>
+<div id="camFName" class="absolute inset-x-0 text-center pointer-events-none opacity-0 transition-opacity duration-300" style="top:38%;z-index:3"><p id="camFNameT" class="text-white text-[34px] font-black tracking-tight" style="${TS}"></p><p class="text-white/80 text-[11px] font-bold" style="${TS}">Swipe ← → for more</p></div>
+<div id="camCount" class="hidden absolute inset-0 flex items-center justify-center text-white font-black" style="font-size:120px;z-index:4;${TS}"></div>
+<div id="camFlashOv" class="hidden absolute inset-0 bg-white" style="z-index:5"></div>
+<div id="camTextUI" class="hidden absolute inset-0 flex items-center justify-center p-8" style="z-index:2"><textarea id="camText" maxlength="300" placeholder="Type something…" class="w-full bg-transparent text-center text-white text-3xl font-black outline-none resize-none placeholder-white/70" rows="5" style="${TS}"></textarea></div>
+<div id="camBottom" class="absolute left-0 right-0 bottom-0" style="padding-bottom:max(14px,env(safe-area-inset-bottom));z-index:3">
+<div id="camTabs" class="flex justify-center mb-2.5"></div>
+<div id="camStrip" class="flex gap-2.5 overflow-x-auto px-[calc(50%-29px)] pt-1.5 pb-2 snap-x snap-mandatory" style="scrollbar-width:none"></div>
+<div class="flex items-center justify-between px-8 mt-1.5">
+<button id="camFxBtn" onclick="window.camTab(window.cam.tab === 'filters' ? 'effects' : 'filters')" class="flex flex-col items-center w-14"><span id="camFxIco" class="w-11 h-11 rounded-2xl flex items-center justify-center text-xl" style="${G}">✨</span><span id="camFxLbl" class="text-[10px] font-black text-white mt-1" style="${TS}">Effects</span></button>
+<button id="camShutter" onclick="window.camShutter()" aria-label="Capture" class="relative w-[84px] h-[84px] rounded-full flex items-center justify-center active:scale-95 transition-transform">
+<span id="camShutRing" class="absolute inset-0 rounded-full" style="border:5px solid rgba(255,255,255,.95)"></span>
+<span id="camShutIn" class="w-[66px] h-[66px] rounded-full bg-white transition-all"></span>
+<svg id="camRing" class="absolute inset-0 -rotate-90 hidden" viewBox="0 0 80 80"><circle cx="40" cy="40" r="37" fill="none" stroke="#ff2d6f" stroke-width="5" stroke-linecap="round" stroke-dasharray="232.5" stroke-dashoffset="232.5" id="camRingC"/></svg></button>
+<label class="flex flex-col items-center w-14 cursor-pointer"><span class="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-lg border-2 border-white/90" style="${G}"><i class="fa-regular fa-image"></i></span><span class="text-[10px] font-black text-white mt-1" style="${TS}">Upload</span><input type="file" accept="image/*,video/*" multiple class="hidden" onchange="window.camFromGallery(this)"></label>
+</div>
+<div id="camModes" class="flex justify-center gap-6 mt-3 text-[13px] font-black"></div>
 </div>
 <div id="camPreview" class="hidden absolute inset-0 bg-black" style="z-index:6"></div>`;
+window.camGestures(el);
 window.camRenderUI();
 window.camRenderSound();
 await window.camStart();
 window.camLoop();
+setTimeout(() => window.camFlashName(), 400);
+};
+window.camGestures = function(el) {
+let sx = 0, sy = 0, st = 0, lastTap = 0;
+const skip = (t) => t.closest && t.closest('button,label,#camStrip,#camBottom,#camTop,textarea,#camPreview');
+el.addEventListener('touchstart', (e) => { if (skip(e.target)) return; const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = Date.now(); }, { passive: true });
+el.addEventListener('touchend', (e) => {
+const c = window.cam; if (!c || skip(e.target) || c.rec || c.mode === 'text' || !st) return;
+const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; st = 0;
+if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.4) { window.camStepFilter(dx < 0 ? 1 : -1); return; }
+if (Math.abs(dx) < 12 && Math.abs(dy) < 12) { const now = Date.now(); if (now - lastTap < 320) { lastTap = 0; window.camTool('flip'); } else lastTap = now; }
+});
+};
+window.camStepFilter = function(d) {
+const L = window.CAM_FILTERS, i = L.findIndex(x => x[0] === window.cam.filter);
+window.camFilter(L[(i + d + L.length) % L.length][0]);
+};
+window.camFlashName = function() {
+const c = window.cam, box = document.getElementById('camFName'); if (!c || !box || c.mode === 'text') return;
+document.getElementById('camFNameT').textContent = (window.CAM_FILTERS.find(x => x[0] === c.filter) || [, 'Normal'])[1];
+box.style.opacity = '1'; clearTimeout(window._camFNT); window._camFNT = setTimeout(() => { box.style.opacity = '0'; }, 1100);
 };
 window.camRenderUI = function() {
 const c = window.cam; if (!c) return;
-document.getElementById('camModes').innerHTML = window.CAM_MODES.map(([k, l]) => `<button onclick="window.camMode('${k}')" class="px-2 py-1 rounded-full ${c.mode === k ? 'bg-white text-slate-950' : 'text-white/80'}">${l}</button>`).join('');
-document.getElementById('camTabs').innerHTML = [['filters', 'Filters'], ['effects', 'Effects']].map(([k, l]) => `<button onclick="window.camTab('${k}')" class="${c.tab === k ? 'text-white border-b-2 border-white' : 'text-white/60'} pb-0.5">${l}</button>`).join('');
+const isText = c.mode === 'text', TS = window.CAM_TS, G = window.CAM_GLASS;
+document.getElementById('camModes').innerHTML = window.CAM_MODES.map(([k, l]) => `<button onclick="window.camMode('${k}')" class="relative pb-2 ${c.mode === k ? 'text-white' : 'text-white/55'}" style="${TS}">${l}${c.mode === k ? '<span class="absolute left-1/2 -translate-x-1/2 bottom-0 w-1.5 h-1.5 rounded-full bg-white"></span>' : ''}</button>`).join('');
+document.getElementById('camTabs').innerHTML = `<div class="flex p-1 rounded-full gap-1" style="${G}">${[['filters', 'Filters'], ['effects', 'Effects']].map(([k, l]) => `<button onclick="window.camTab('${k}')" class="px-4 py-1 rounded-full text-[11px] font-black ${c.tab === k ? 'bg-white text-slate-950' : 'text-white/80'}">${l}</button>`).join('')}</div>`;
 const strip = document.getElementById('camStrip');
-if (c.mode === 'text') {
-strip.innerHTML = window.TEXT_BGS.map((g, i) => `<button onclick="window.camTextBg(${i})" class="shrink-0 w-11 h-11 rounded-full border-2 ${c.textBg === i ? 'border-white' : 'border-white/30'}" style="background:${g}"></button>`).join('');
-} else if (c.tab === 'filters') strip.innerHTML = window.CAM_FILTERS.map(([k, l]) => `<button onclick="window.camFilter('${k}')" class="shrink-0 flex flex-col items-center gap-1"><span class="w-14 h-14 rounded-2xl overflow-hidden border-2 ${c.filter === k ? 'border-white' : 'border-transparent'}" style="background:linear-gradient(135deg,#f97316,#ec4899,#8b5cf6);filter:${(window.CAM_FILTERS.find(x => x[0] === k) || [])[2] || 'none'}"></span><span class="text-[9px] font-black text-white drop-shadow">${l}</span></button>`).join('');
-else strip.innerHTML = window.CAM_EFFECTS.map(([k, e, l]) => `<button onclick="window.camEffect('${k}')" class="shrink-0 flex flex-col items-center gap-1"><span class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl border-2 ${c.effect === k ? 'border-white' : 'border-transparent'}" style="background:rgba(0,0,0,.45)">${e}</span><span class="text-[9px] font-black text-white drop-shadow">${l}</span></button>`).join('');
-const isText = c.mode === 'text';
+if (isText) strip.innerHTML = window.TEXT_BGS.map((g, i) => `<button onclick="window.camTextBg(${i})" class="snap-center shrink-0 w-[58px] h-[58px] rounded-full ${c.textBg === i ? 'ring-[3px] ring-white' : 'ring-1 ring-white/30'}" style="background:${g}"></button>`).join('');
+else if (c.tab === 'filters') strip.innerHTML = window.CAM_FILTERS.map(([k, l]) => { const on = c.filter === k;
+return `<button data-fk="${k}" onclick="window.camFilter('${k}')" class="snap-center shrink-0 flex flex-col items-center gap-1 w-[58px]"><span class="block w-[58px] h-[58px] rounded-2xl overflow-hidden transition-transform ${on ? 'scale-105' : 'opacity-90'}" style="${on ? 'box-shadow:0 0 0 3px #fff,0 0 18px rgba(255,0,127,.55)' : 'box-shadow:0 0 0 1px rgba(255,255,255,.25)'}"><canvas data-thumb="${k}" width="72" height="72" class="w-full h-full block bg-gg-900"></canvas></span><span class="text-[10px] ${on ? 'font-black text-white' : 'font-bold text-white/80'} truncate max-w-full" style="${TS}">${l}</span></button>`; }).join('');
+else strip.innerHTML = window.CAM_EFFECTS.map(([k, e, l]) => { const on = c.effect === k;
+return `<button onclick="window.camEffect('${k}')" class="snap-center shrink-0 flex flex-col items-center gap-1 w-[58px]"><span class="w-[58px] h-[58px] rounded-2xl flex items-center justify-center text-[28px] ${on ? 'scale-105' : ''}" style="${G};${on ? 'box-shadow:0 0 0 3px #fff,0 0 18px rgba(139,92,246,.6)' : ''}">${e}</span><span class="text-[10px] ${on ? 'font-black text-white' : 'font-bold text-white/80'}" style="${TS}">${l}</span></button>`; }).join('');
+window._camThumbAt = 0;
+const sel = strip.querySelector(isText ? '.ring-\\[3px\\]' : c.tab === 'filters' ? `[data-fk="${c.filter}"]` : '.scale-105');
+if (sel) requestAnimationFrame(() => { const b = sel.closest('button') || sel; strip.scrollTo({ left: b.offsetLeft - strip.clientWidth / 2 + b.offsetWidth / 2, behavior: 'smooth' }); });
 document.getElementById('camTextUI').classList.toggle('hidden', !isText);
 document.getElementById('camTabs').classList.toggle('hidden', isText);
 document.getElementById('camFxBtn').classList.toggle('invisible', isText);
-document.querySelectorAll('#camTop > div.flex-col > button').forEach((x, i) => x.classList.toggle('invisible', isText));
+document.getElementById('camRail').classList.toggle('invisible', isText);
+const fx = window.CAM_EFFECTS.find(x => x[0] === c.effect);
+document.getElementById('camFxIco').textContent = c.tab === 'effects' ? '🎨' : c.effect !== 'none' && fx ? fx[1] : '✨';
+document.getElementById('camFxLbl').textContent = c.tab === 'effects' ? 'Filters' : 'Effects';
 document.getElementById('camL_timer').textContent = c.timer ? c.timer + 's' : 'Timer';
-document.getElementById('camL_beauty').textContent = ['Beauty off', 'Beauty', 'Beauty+'][c.beauty];
-document.getElementById('camT_flash').style.background = c.flash ? 'rgba(250,204,21,.8)' : 'rgba(0,0,0,.35)';
-const sh = document.getElementById('camShutIn'); if (sh) sh.className = `${c.mode === 'photo' || isText ? 'w-16 h-16 rounded-full bg-white' : 'w-16 h-16 rounded-full bg-red-500'} transition-all`;
+document.getElementById('camL_beauty').textContent = ['Beauty off', 'Beauty', 'Beauty max'][c.beauty];
+document.getElementById('camT_beauty').style.boxShadow = c.beauty ? 'inset 0 0 0 2px rgba(255,255,255,.85)' : '';
+document.getElementById('camT_timer').style.boxShadow = c.timer ? 'inset 0 0 0 2px rgba(255,255,255,.85)' : '';
+document.getElementById('camT_flash').style.background = c.flash ? 'rgba(250,204,21,.9)' : '';
+const vid = !(c.mode === 'photo' || isText);
+const ring = document.getElementById('camShutRing'); if (ring) ring.style.borderColor = vid ? 'rgba(255,45,111,.95)' : 'rgba(255,255,255,.95)';
+const sh = document.getElementById('camShutIn'); if (sh && !c.rec) sh.className = `w-[66px] h-[66px] rounded-full transition-all ${vid ? 'bg-[#ff2d6f]' : 'bg-white'}`;
 };
 window.TEXT_BGS = ['linear-gradient(160deg,#8b5cf6,#ec4899)', 'linear-gradient(160deg,#0ea5e9,#22d3ee)', 'linear-gradient(160deg,#f97316,#facc15)', 'linear-gradient(160deg,#10b981,#065f46)', 'linear-gradient(160deg,#111827,#374151)', 'linear-gradient(160deg,#ff007f,#7c3aed)', 'linear-gradient(160deg,#dc2626,#7f1d1d)'];
 window.camTextBg = (i) => { window.cam.textBg = i; window.camRenderUI(); };
 window.camTab = (t) => { window.cam.tab = t; window.camRenderUI(); };
-window.camFilter = (k) => { window.cam.filter = k; try { localStorage.setItem('sg_cam_filter', k); } catch (e) {} window.camRenderUI(); };
+window.camFilter = (k) => { window.cam.filter = k; try { localStorage.setItem('sg_cam_filter', k); } catch (e) {} if (window.cam.tab !== 'filters') window.cam.tab = 'filters'; window.camRenderUI(); window.camFlashName(); };
 window.camEffect = (k) => { window.cam.effect = k; window.cam.fx = []; window.camRenderUI(); };
 window.camMode = (k) => { const c = window.cam; if (c.rec) return; c.mode = k; if (k === 'text' && c.textBg === undefined) c.textBg = 0; window.camRenderUI(); if (k === 'text') setTimeout(() => document.getElementById('camText')?.focus(), 200); };
 window.camTool = async function(k) {
 const c = window.cam; if (!c) return;
-if (k === 'flip') { c.facing = c.facing === 'user' ? 'environment' : 'user'; await window.camStart(); }
+if (k === 'flip') { if (c.rec) return; c.facing = c.facing === 'user' ? 'environment' : 'user'; await window.camStart(); }
 if (k === 'timer') c.timer = c.timer === 0 ? 3 : c.timer === 3 ? 10 : 0;
 if (k === 'beauty') c.beauty = (c.beauty + 1) % 3;
 if (k === 'flash') { c.flash = !c.flash; try { const t = c.stream && c.stream.getVideoTracks()[0]; if (t && (t.getCapabilities ? t.getCapabilities() : {}).torch) await t.applyConstraints({ advanced: [{ torch: c.flash }] }); } catch (e) {} }
@@ -17665,7 +17736,7 @@ window.camStart = async function() {
 const c = window.cam; if (!c) return;
 if (c.stream) c.stream.getTracks().forEach(t => t.stop());
 try {
-c.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: c.facing, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: true });
+c.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: c.facing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
 } catch (e) {
 try { c.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: c.facing }, audio: true }); }
 catch (e2) { try { c.stream = await navigator.mediaDevices.getUserMedia({ video: true }); } catch (e3) { showToast(e3 && e3.name === 'NotAllowedError' ? '⚠️ Allow the camera to use it (tap 🔒 next to the address).' : '📷 Camera is busy. Close other camera apps.'); return; } }
@@ -17676,23 +17747,29 @@ c.v.srcObject = c.stream; c.v.play().catch(() => {});
 };
 window.camLoop = function() {
 const c = window.cam; if (!c) return;
-const cv = document.getElementById('camCv'), bg = document.getElementById('camBg'); if (!cv) return;
-const ctx = cv.getContext('2d'), v = c.v;
+const cv = document.getElementById('camCv'); if (!cv) return;
+const ctx = cv.getContext('2d'), v = c.v, [W, H] = window.camSize();
+if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
 if (c.mode === 'text') {
-if (cv.width !== 720) { cv.width = 720; cv.height = 1280; }
 const g = window.TEXT_BGS[c.textBg || 0].match(/#[0-9a-f]{6}/gi) || ['#8b5cf6', '#ec4899'];
-const gr = ctx.createLinearGradient(0, 0, 720, 1280); gr.addColorStop(0, g[0]); gr.addColorStop(1, g[1] || g[0]); ctx.fillStyle = gr; ctx.fillRect(0, 0, 720, 1280);
+const gr = ctx.createLinearGradient(0, 0, W, H); gr.addColorStop(0, g[0]); gr.addColorStop(1, g[1] || g[0]); ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
 } else if (v && v.videoWidth) {
-const s = Math.min(1, 960 / Math.max(v.videoWidth, v.videoHeight)), w = Math.round(v.videoWidth * s), h = Math.round(v.videoHeight * s);
-if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-ctx.save(); if (c.facing === 'user') { ctx.translate(w, 0); ctx.scale(-1, 1); }
-ctx.filter = ((window.CAM_FILTERS.find(x => x[0] === c.filter) || [])[2]) || 'none'; ctx.drawImage(v, 0, 0, w, h);
-const soft = c.beauty === 0 ? 0 : (c.beauty === 1 ? 0.35 : 0.55) + (c.filter === 'glow' ? 0.1 : 0);
-if (soft) { ctx.filter = 'blur(3px) brightness(1.06)'; ctx.globalAlpha = soft; ctx.drawImage(v, 0, 0, w, h); ctx.globalAlpha = 1; }
-ctx.filter = 'none'; ctx.restore();
-window.camDrawEffect(ctx, w, h);
+const mir = c.facing === 'user', vw = v.videoWidth, vh = v.videoHeight;
+ctx.filter = window.camCss(c.filter); window.camCover(ctx, v, vw, vh, W, H, mir);
+const soft = c.beauty === 0 ? 0 : (c.beauty === 1 ? 0.32 : 0.52) + (c.filter === 'glow' ? 0.1 : 0);
+if (soft) { ctx.filter = 'blur(3px) brightness(1.06)'; ctx.globalAlpha = soft; window.camCover(ctx, v, vw, vh, W, H, mir); ctx.globalAlpha = 1; }
+ctx.filter = 'none';
+window.camLook(ctx, W, H, c.filter);
+window.camDrawEffect(ctx, W, H);
+const now = Date.now();
+if (c.tab === 'filters' && !c.rec && now - (window._camThumbAt || 0) > 250) {
+window._camThumbAt = now;
+document.querySelectorAll('#camStrip canvas[data-thumb]').forEach(tc => {
+const k = tc.dataset.thumb, x = tc.getContext('2d');
+x.filter = window.camCss(k); window.camCover(x, v, vw, vh, 72, 72, mir); x.filter = 'none'; window.camLook(x, 72, 72, k);
+});
 }
-if (bg) { if (bg.width !== 64) { bg.width = 64; bg.height = 96; } bg.getContext('2d').drawImage(cv, 0, 0, 64, 96); }
+}
 c.raf = requestAnimationFrame(window.camLoop);
 };
 window.camLogo = (() => { const i = new Image(); i.src = 'icon-192.png'; return i; })();
@@ -17762,9 +17839,14 @@ tick();
 };
 window.camStopRec = function() { const c = window.cam; if (c && c.rec && c.rec.state !== 'inactive') { if (Date.now() - c.recAt < 800) setTimeout(() => c.rec && c.rec.stop(), 800); else c.rec.stop(); } };
 window.camRecUI = function(on) {
+const c = window.cam;
 document.getElementById('camRing')?.classList.toggle('hidden', !on);
-const sh = document.getElementById('camShutIn'); if (sh) sh.className = on ? 'w-8 h-8 rounded-lg bg-red-500 transition-all' : 'w-16 h-16 rounded-full bg-red-500 transition-all';
-['camModes', 'camStrip', 'camTabs'].forEach(id => document.getElementById(id)?.classList.toggle('invisible', on));
+const sh = document.getElementById('camShutIn'); if (sh) sh.className = on ? 'w-8 h-8 rounded-lg bg-[#ff2d6f] transition-all' : 'w-[66px] h-[66px] rounded-full bg-[#ff2d6f] transition-all';
+['camModes', 'camStrip', 'camTabs', 'camFxBtn', 'camRail', 'camSound'].forEach(id => document.getElementById(id)?.classList.toggle('invisible', on));
+const pill = document.getElementById('camRecPill'); if (pill) { pill.classList.toggle('hidden', !on); pill.classList.toggle('flex', on); }
+clearInterval(window._camRecTick);
+if (on) window._camRecTick = setInterval(() => { const cc = window.cam, t = document.getElementById('camRecT'); if (!cc || !cc.rec || !t) return clearInterval(window._camRecTick); const s = Math.floor((Date.now() - cc.recAt) / 1000); t.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} / ${window.fmtDur ? window.fmtDur(cc.recMax / 1000) : cc.recMax / 1000 + 's'}`; }, 250);
+else window.camRenderUI && window.camRenderUI();
 };
 window.camTextNext = async function() {
 const t = (document.getElementById('camText').value || '').trim(); if (!t) { showToast('Type something first ✍️'); return; }
@@ -17780,7 +17862,7 @@ window.camShowPreview(new File([blob], `sinless-text-${Date.now()}.jpg`, { type:
 window.camShowPreview = function(file, kind, caption) {
 const c = window.cam; if (!c) return; c.file = file; c.kind = kind; c.caption = caption || '';
 const url = URL.createObjectURL(file), box = document.getElementById('camPreview'); box.classList.remove('hidden');
-box.innerHTML = `${kind === 'video' ? `<video src="${url}" autoplay loop playsinline class="absolute inset-0 w-full h-full object-contain" id="camPrevV"></video>` : `<img src="${url}" class="absolute inset-0 w-full h-full object-contain" alt="">`}
+box.innerHTML = `${kind === 'video' ? `<video src="${url}" autoplay loop playsinline class="absolute inset-0 w-full h-full ${innerWidth > innerHeight ? 'object-contain' : 'object-cover'}" id="camPrevV"></video>` : `<img src="${url}" class="absolute inset-0 w-full h-full ${innerWidth > innerHeight ? 'object-contain' : 'object-cover'}" alt="">`}
 <div class="absolute left-0 right-0 bottom-0 flex gap-3 p-4" style="padding-bottom:max(16px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.7))">
 <button onclick="window.camRetake()" class="flex-1 py-3.5 rounded-2xl bg-white/15 text-white font-black text-sm">↺ Retake</button>
 <button onclick="window.camNext()" class="flex-1 py-3.5 rounded-2xl text-white font-black text-sm" style="background:linear-gradient(135deg,#ff007f,#8b5cf6)">Next ➜</button></div>
@@ -17906,12 +17988,17 @@ if (k === 'sticker') return window.edPanel(`<div class="flex justify-between ite
 <div class="grid grid-cols-3 gap-2">${window.ED_GG.map(([t, st], i) => `<button onclick="window.edAddSticker('${i}', true)" class="py-2 rounded-xl bg-white/5" style="${window.edOverlayStyle({ style: st, size: 0.06 }, 300)}">${escapeHTML(t)}</button>`).join('')}</div>
 <div class="grid grid-cols-8 gap-1">${window.ED_STICKERS.map(s => `<button onclick="window.edAddSticker('${s}')" class="text-3xl py-1">${s}</button>`).join('')}</div>`);
 if (k === 'filter') { const e = window.ed; return window.edPanel(`<div class="flex justify-between items-center"><p class="text-white font-black text-sm">Filters</p><button onclick="window.edClosePanel()" class="text-white font-black text-xs px-3 py-1 rounded-full bg-white/10">Done</button></div>
-<div class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none">${window.CAM_FILTERS.map(([fk, l, css]) => `<button onclick="window.edSetFilter('${fk}')" class="shrink-0 flex flex-col items-center gap-1"><span class="w-14 h-14 rounded-2xl border-2 ${e.filter === fk ? 'border-white' : 'border-transparent'}" style="background:linear-gradient(135deg,#f97316,#ec4899,#8b5cf6);filter:${css || 'none'}"></span><span class="text-[9px] font-black text-white">${l}</span></button>`).join('')}</div>`); }
+<div class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none">${window.CAM_FILTERS.map(([fk, l]) => `<button onclick="window.edSetFilter('${fk}')" class="shrink-0 flex flex-col items-center gap-1"><span class="block w-14 h-14 rounded-2xl overflow-hidden" style="${e.filter === fk ? 'box-shadow:0 0 0 3px #fff' : 'box-shadow:0 0 0 1px rgba(255,255,255,.25)'}"><canvas data-edthumb="${fk}" width="72" height="72" class="w-full h-full block bg-gg-900"></canvas></span><span class="text-[9px] font-black text-white">${l}</span></button>`).join('')}</div>`, window.edThumbs()); }
 if (k === 'trim') { const e = window.ed, d = e.dur || 0; return window.edPanel(`<div class="flex justify-between items-center"><p class="text-white font-black text-sm">✂️ Trim <span id="edTrimLbl" class="text-gray-400 font-bold text-xs">${window.fmtDur(e.trim[0])} – ${window.fmtDur(e.trim[1])}</span></p><button onclick="window.edClosePanel()" class="text-white font-black text-xs px-3 py-1 rounded-full bg-white/10">Done</button></div>
 <label class="block text-[10px] text-gray-300 font-black">Start<input type="range" min="0" max="${d}" step="0.1" value="${e.trim[0]}" class="w-full accent-pink-500" oninput="window.edSetTrim(0, +this.value)"></label>
 <label class="block text-[10px] text-gray-300 font-black">End<input type="range" min="0" max="${d}" step="0.1" value="${e.trim[1]}" class="w-full accent-pink-500" oninput="window.edSetTrim(1, +this.value)"></label>`); }
 };
 window.edSetTrim = function(k, v) { const e = window.ed; e.trim[k] = v; if (e.trim[1] - e.trim[0] < 1) { if (k === 0) e.trim[0] = Math.max(0, e.trim[1] - 1); else e.trim[1] = Math.min(e.dur, e.trim[0] + 1); } const l = document.getElementById('edTrimLbl'); if (l) l.textContent = `${window.fmtDur(e.trim[0])} – ${window.fmtDur(e.trim[1])}`; const m = document.getElementById('edMedia'); try { m.currentTime = e.trim[k]; } catch (er) {} };
+window.edThumbs = function() {
+setTimeout(() => { const m = document.getElementById('edMedia'); if (!m) return; const sw = m.videoWidth || m.naturalWidth, sh = m.videoHeight || m.naturalHeight; if (!sw) return;
+document.querySelectorAll('canvas[data-edthumb]').forEach(tc => { const k = tc.dataset.edthumb, x = tc.getContext('2d'); try { x.filter = window.camCss(k); window.camCover(x, m, sw, sh, 72, 72, false); x.filter = 'none'; window.camLook(x, 72, 72, k); } catch (er) {} }); }, 30);
+return '';
+};
 window.edSetFilter = function(k) { window.ed.filter = k; const m = document.getElementById('edMedia'); if (m) m.style.filter = ((window.CAM_FILTERS.find(x => x[0] === k) || [])[2]) || 'none'; window.edTool('filter'); };
 window.edAddSticker = function(s, isGG) {
 const e = window.ed; if (isGG) { const [t, st] = window.ED_GG[+s]; e.overlays.push({ kind: 'sticker', text: t, style: st, size: 0.14, x: 0.5, y: 0.4 }); }
@@ -17953,9 +18040,9 @@ ctx.restore();
 });
 };
 window.edPaintFrame = function(ctx, src, W, H, filterKey) {
-const css = ((window.CAM_FILTERS.find(x => x[0] === filterKey) || [])[2]) || 'none';
-ctx.filter = css; ctx.drawImage(src, 0, 0, W, H); ctx.filter = 'none';
+ctx.filter = window.camCss(filterKey); ctx.drawImage(src, 0, 0, W, H); ctx.filter = 'none';
 if (filterKey === 'beauty' || filterKey === 'glow') { ctx.filter = 'blur(3px) brightness(1.06)'; ctx.globalAlpha = 0.35; ctx.drawImage(src, 0, 0, W, H); ctx.globalAlpha = 1; ctx.filter = 'none'; }
+window.camLook(ctx, W, H, filterKey);
 };
 window.edDone = async function() {
 const e = window.ed; if (!e) return;
@@ -18203,3 +18290,1034 @@ const tick = () => { add(); window.listDrafts().then(ds => { const n = document.
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(tick, 500)); else setTimeout(tick, 500);
 window.openUniversalCreateModal = (function(b) { return function(...a) { const r = b.apply(this, a); tick(); return r; }; })(window.openUniversalCreateModal);
 })();
+
+window.isTournOwner = (t) => window.isSignedIn() && !!t && (window.isAppAdmin || t.hostUid === window.uidNow() || t.hostId === window.uidNow() || (!t.hostUid && (t.host || '').toLowerCase() === window.meLower()));
+window.isCoHost = (t) => window.isSignedIn() && !!t && (t.coHostUids || []).includes(window.uidNow());
+window.canManageTourn = (function(b) { return function(t) { return b(t) || window.isCoHost(t); }; })(window.canManageTourn);
+window.tq = (s) => escapeHTML(String(s == null ? '' : s));
+window.tagEq = (a, b) => (a || '').toLowerCase() === (b || '').toLowerCase();
+window.isPlayedM = (m) => m && m.status === 'approved' && m.winner !== null && m.winner !== undefined && m.s1 !== null && m.s1 !== undefined && m.s1 !== '';
+window.notifyTag = async function(tag, text) { try { const pr = await window.getProfile(tag); if (pr && pr.uid && pr.uid !== window.uidNow()) window.notify(pr.uid, 'tournament', { text }); } catch (e) {} };
+window.tlog = async function(t, entry) {
+if (!t || !window.isSignedIn() || !(window.cloudTournamentIds && window.cloudTournamentIds.has(t.id))) return;
+try { await addDoc(collection(window.db, 'tournaments', t.id, 'log'), window.cleanForCloud({ ...entry, text: String(entry.text || '').slice(0, 480), byUid: window.uidNow(), by: window.me(), at: Date.now() })); } catch (e) {}
+};
+window.fmtDay = (ms, o) => new Date(ms).toLocaleDateString(undefined, o || { weekday: 'short', day: 'numeric', month: 'short' });
+window.dateInputVal = (ms) => { if (!ms) return ''; const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+window.dateFromInput = (v, end) => /^\d{4}-\d{2}-\d{2}$/.test(v || '') ? new Date(v + (end ? 'T23:59:00' : 'T00:00:00')).getTime() : null;
+
+window.roundDayIndex = (r, R, D) => R <= 1 || D <= 1 ? 0 : R <= D ? Math.round((r - 1) * (D - 1) / (R - 1)) : Math.min(D - 1, Math.floor((r - 1) * D / R));
+window._baseMatchDate38 = window._baseMatchDate38 || window.matchDate;
+window.matchDate = function(t, m) {
+if (m && m.date) return window.dayStartOf(m.date);
+if (!t.startAt) return null;
+if (t.format === 'LEAGUE') {
+const R = window.leagueRoundsOf(t), maxR = Math.max(0, ...(t.matches || []).map(x => x.round || 0));
+if (maxR <= 1 && R > 1) return null;
+const r = (m && m.round) || 1;
+if (t.mdDates && t.mdDates[r]) return window.dayStartOf(t.mdDates[r]);
+const D = window.daysBetween(t.startAt, t.endAt || t.startAt) + 1;
+return window.dayStartOf(t.startAt) + window.roundDayIndex(r, R, D) * window.DAY;
+}
+return window._baseMatchDate38(t, m);
+};
+window._baseCompSchedule38 = window._baseCompSchedule38 || window.compSchedule;
+window.compSchedule = function(t, color) {
+if (t.format !== 'LEAGUE' || !t.startAt) return window._baseCompSchedule38(t, color);
+const out = {}, add = (ms, text) => { const k = window.dayKey(ms); (out[k] = out[k] || []).push({ text, color, tid: t.id }); };
+const name = window.compShort(t);
+if (t.regAt) add(t.regAt, `${name} registration opens`);
+const R = window.leagueRoundsOf(t), byDay = {};
+for (let r = 1; r <= R; r++) { const d = window.matchDate(t, { round: r }); if (d !== null) (byDay[d] = byDay[d] || []).push(r); }
+const first = window.dayStartOf(t.startAt), last = window.dayStartOf(t.endAt || t.startAt);
+const days = [...new Set([first, last, ...Object.keys(byDay).map(Number)])].sort((a, b) => a - b);
+const rr = (l) => l.length === 1 ? `Round ${l[0]}` : `Rounds ${Math.min(...l)}–${Math.max(...l)}`;
+days.forEach(d => {
+const l = byDay[d] || [], isF = d === first, isL = d === last;
+let txt = l.length ? `${name} ${rr(l)}` : name;
+if (isF && isL) txt = `${name} STARTS – ${l.length ? rr(l) + ' – ' : ''}END`;
+else if (isF) txt = `${name} STARTS${l.length ? ' – ' + rr(l) : ''}`;
+else if (isL) txt = l.length ? `${name} ${rr(l)} – END` : `${name} END`;
+add(d + 3600e3, txt);
+});
+return out;
+};
+window.dueAt = function(t, m) { const d = window.matchDate(t, m); return d === null ? null : d + window.DAY + (t.deadlineHrs === undefined ? 24 : +t.deadlineHrs) * 3600e3 - 60e3; };
+window.isOverdue = (t, m) => { if (window.isPlayedM(m) || m.status === 'disputed' || !window.isRealPlayer(m.p1) || !window.isRealPlayer(m.p2) || t.status === 'finished') return false; const d = window.dueAt(t, m); return d !== null && d < Date.now(); };
+window.dueChip = function(t, m) {
+if (window.isPlayedM(m) || m.status === 'disputed') return '';
+const d = window.dueAt(t, m); if (d === null) return '';
+if (m.resch && (m.resch.st === 'asked' || m.resch.st === 'agreed')) return '<span class="ml-1 text-[9px] font-black text-sky-300">📅 move requested</span>';
+if (d < Date.now()) return '<span class="ml-1 text-[9px] font-black text-red-300">⏰ overdue</span>';
+const h = (d - Date.now()) / 3600e3;
+return `<span class="ml-1 text-[9px] font-black ${h < 24 ? 'text-amber-300' : 'text-gray-400'}">⏰ play by ${h < 24 ? new Date(d).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : window.fmtDay(d)}</span>`;
+};
+
+window.TIEBREAK_TEXT = 'Win = 3 pts · Draw = 1 · Loss = 0. Level on points? 1) Goal difference 2) Goals scored 3) Head-to-head points 4) Head-to-head goal difference 5) Playoff if still level.';
+window.leagueTable = function(t) {
+const real = (p) => window.isRealPlayer(p);
+const st = {}, row = (p) => (st[p] = st[p] || { p, played: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 });
+(t.players || []).filter(real).forEach(row);
+const done = (t.matches || []).filter(m => window.isPlayedM(m) && real(m.p1) && real(m.p2));
+done.forEach(m => {
+const a = row(m.p1), b = row(m.p2); a.played++; b.played++;
+if (m.bothLost) { a.l++; b.l++; return; }
+a.gf += +m.s1; a.ga += +m.s2; b.gf += +m.s2; b.ga += +m.s1;
+if (+m.s1 > +m.s2) { a.w++; a.pts += 3; b.l++; } else if (+m.s2 > +m.s1) { b.w++; b.pts += 3; a.l++; } else { a.d++; b.d++; a.pts++; b.pts++; }
+});
+const rows = Object.values(st); rows.forEach(r => { r.gd = r.gf - r.ga; });
+rows.sort((x, y) => y.pts - x.pts || y.gd - x.gd || y.gf - x.gf);
+const won = window.tieWinners(t);
+const complete = (t.matches || []).filter(m => real(m.p1) && real(m.p2)).every(window.isPlayedM);   // playoffs only once every match is played
+const out = []; let i = 0;
+while (i < rows.length) {
+let j = i + 1; while (j < rows.length && rows[j].pts === rows[i].pts && rows[j].gd === rows[i].gd && rows[j].gf === rows[i].gf) j++;
+const grp = rows.slice(i, j);
+if (grp.length > 1) {
+const set = new Set(grp.map(r => r.p)), h = {}; grp.forEach(r => { h[r.p] = { pts: 0, gd: 0 }; });
+done.filter(m => !m.bothLost && set.has(m.p1) && set.has(m.p2)).forEach(m => {
+const d = +m.s1 - +m.s2; h[m.p1].gd += d; h[m.p2].gd -= d;
+if (d > 0) h[m.p1].pts += 3; else if (d < 0) h[m.p2].pts += 3; else { h[m.p1].pts++; h[m.p2].pts++; }
+});
+grp.forEach(r => { r.h2h = h[r.p].pts; r.h2hgd = h[r.p].gd; r.won = won.indexOf(r.p.toLowerCase()); });
+grp.sort((x, y) => y.h2h - x.h2h || y.h2hgd - x.h2hgd || ((x.won < 0 ? 99 : x.won) - (y.won < 0 ? 99 : y.won)));
+let a = 0; while (a < grp.length) { let b = a + 1; while (b < grp.length && grp[b].h2h === grp[a].h2h && grp[b].h2hgd === grp[a].h2hgd && grp[b].won < 0 && grp[a].won < 0) b++; if (b - a > 1 && grp[a].played && complete) grp.slice(a, b).forEach(r => { r.tie = grp.slice(a, b).map(x => x.p); }); a = b; }
+}
+out.push(...grp); i = j;
+}
+const z = window.tourZones(t), n = out.length;
+out.forEach((r, k) => {
+const pos = k + 1;
+if (z.up && pos <= z.up) { r.zc = '#34d399'; r.zl = 'Promotion'; }
+else if (z.down && pos > n - z.down) { r.zc = '#f87171'; r.zl = 'Relegation'; }
+let from = 0; (z.q || []).forEach(q => { if (!r.qz && pos > from && pos <= from + q.n) { r.qz = q; if (!r.zc) { r.zc = q.color; r.zl = q.label; } } from += q.n; });
+if (z.po && !r.zc && pos > z.up && pos <= z.up + 4 && n - z.down >= pos) { r.zc = '#38bdf8'; r.zl = 'Promotion play-off'; }
+});
+return out;
+};
+window.tieWinners = (t) => (window.tournamentsList || []).filter(x => x.compKind === 'tiebreak' && x.pfor === t.id && x.status === 'finished' && x.champion).map(x => x.champion.toLowerCase());
+window._hostDocs = {};
+window.hostDocOf = function(t) {
+if (!t || !t.hostId) return null;
+if (t.hostId === window.uidNow() && window.myHost) return window.myHost;
+const c = window._hostDocs[t.hostId];
+if (c === undefined) { window._hostDocs[t.hostId] = null; getDoc(doc(window.db, 'hosts', t.hostId)).then(s => { window._hostDocs[t.hostId] = s.exists() ? s.data() : false; if (window.activeTournament && window.activeTournament.hostId === t.hostId) window.renderTournamentsTabDedicated(); }).catch(() => {}); }
+return c || null;
+};
+window.QCOLORS = ['#a78bfa', '#ff4fa3', '#f59e0b'];
+window.tourZones = function(t) {
+if (!t || t.compKind !== 'league') return {};
+const h = window.hostDocOf(t), c = h && (h.comps || []).find(x => x.id === t.compId);
+const src = c || t.zones || {}, leagues = h ? (h.comps || []).filter(x => x.kind === 'league') : [];
+const lower = c && leagues.find(x => x.tier === (c.tier || 0) + 1);
+const up = (c ? (c.tier > 1 ? c.promote || 0 : 0) : (src.up || 0));
+const down = c ? (lower ? c.relegate || 0 : 0) : (src.down || 0);
+const q = (src.qual || src.q || []).filter(x => x && x.n > 0).map((x, i) => { const cup = h && (h.comps || []).find(y => y.id === x.to); return { n: +x.n, to: x.to, label: x.label || (cup ? cup.name : 'Cup'), color: window.QCOLORS[i % 3] }; });
+return { up, down, q, po: !!(c ? c.playoff && c.tier > 1 : src.po) };
+};
+window.tableLegend = function(t) {
+const rows = window.leagueTable(t), z = window.tourZones(t);
+const items = [];
+if (z.up) items.push(['#34d399', `Top ${z.up}: promoted`]);
+(z.q || []).forEach(q => items.push([q.color, `${q.n} → ${q.label}`]));
+if (z.po) items.push(['#38bdf8', 'Promotion play-off']);
+if (z.down) items.push(['#f87171', `Bottom ${z.down}: relegated`]);
+const ties = []; const seen = new Set();
+rows.forEach((r, k) => { if (r.tie && !seen.has(r.tie.join())) { seen.add(r.tie.join()); ties.push({ ps: r.tie, pos: k + 1 }); } });
+const mgr = window.canManageTourn(t);
+return `<div data-legend class="space-y-1.5 mb-2">
+${items.length ? `<div class="flex flex-wrap gap-x-3 gap-y-1 text-[9px] font-bold text-gray-300">${items.map(([c, l]) => `<span><span class="inline-block w-2 h-2 rounded-sm mr-1 align-middle" style="background:${c}"></span>${escapeHTML(l)}</span>`).join('')}</div>` : ''}
+${ties.map(x => `<div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30"><span class="text-[10px] font-black text-red-200">⚔️ Playoff needed: ${x.ps.map(p => escapeHTML(window.dnText(p))).join(' vs ')} are level on everything</span>${mgr && x.ps.length === 2 && window.isTournOwner(t) ? `<button onclick="window.makeTiePlayoff('${t.id}', '${window.tq(x.ps[0])}', '${window.tq(x.ps[1])}')" class="shrink-0 px-2 py-1 rounded-lg bg-red-500 text-white text-[9px] font-black">Create playoff</button>` : ''}</div>`).join('')}
+<p class="text-[9px] text-gray-500 leading-snug">📏 ${escapeHTML(window.TIEBREAK_TEXT)}</p></div>`;
+};
+window._baseFinalOrderOf38 = window._baseFinalOrderOf38 || window.finalOrderOf;
+window.finalOrderOf = function(t) { return t.format === 'LEAGUE' ? window.leagueTable(t).map(r => r.p) : window._baseFinalOrderOf38(t); };
+
+window.makeKnockoutMatches = function(players, N, stamp) {
+const ms = [], st = getKnockoutStageName(N, 1);
+for (let i = 0; i < N / 2; i++) ms.push({ id: `m_${stamp || Date.now()}_${i}`, round: 1, p1: players[i * 2] || 'Open Spot', p2: players[i * 2 + 1] || 'Open Spot', s1: null, s2: null, winner: null, stage: st, streamUrl: '', mvp: null, status: 'approved' });
+return ms;
+};
+window.pow2 = (n) => { let k = 2; while (k < n) k *= 2; return k; };
+window.makeTiePlayoff = async function(id, a, b) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.isTournOwner(t)) return;
+if ((window.tournamentsList || []).some(x => x.compKind === 'tiebreak' && x.pfor === t.id && x.status !== 'finished' && [a, b].every(p => (x.players || []).some(q => window.tagEq(q, p))))) { showToast('This playoff already exists. Open it from the list.'); return; }
+if (!await window.sgConfirm(`${window.dnText(a)} and ${window.dnText(b)} are level on points, goal difference, goals and head-to-head.\n\nCreate a one-match playoff? The winner finishes higher in ${t.title}.`, { title: '⚔️ Playoff', okText: 'Create playoff' })) return;
+const p = { id: 'tourn_' + Date.now() + '_po', title: `${window.compShort(t)} Playoff · ${window.dnText(a)} vs ${window.dnText(b)}`, host: window.me(), game: t.game, format: 'KNOCKOUT', maxPlayers: 2, prizePool: 'Higher place', squadId: t.squadId || null,
+players: [a, b], eliminated: [], matches: window.makeKnockoutMatches([a, b], 2), compKind: 'tiebreak', pfor: t.id, status: 'active', startAt: window.dayStartOf(Date.now()), endAt: window.dayStartOf(Date.now()) + 2 * window.DAY };
+window.tournamentsList.unshift(p); window.activeTournament = p;
+await window.saveTournament(p, true); window.renderTournamentsTabDedicated();
+window.tlog(t, { type: 'playoff', text: `Playoff created: ${a} vs ${b}` });
+[a, b].forEach(x => window.notifyTag(x, `⚔️ You have a playoff in ${t.title}. Win it to finish higher!`));
+};
+window._baseFinishSeason38 = window._baseFinishSeason38 || window.finishSeason;
+window.finishSeason = async function(id) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+if (t.compKind !== 'tiebreak' && t.compKind !== 'playoff') {
+const r = await window._baseFinishSeason38(id);
+if (t.status === 'finished') window.tlog(t, { type: 'finish', text: `Finished. Winner: ${t.champion}` });
+return r;
+}
+const order = window.finalOrderOf(t); if (!order.length) { showToast('Approve the result first.'); return; }
+if (!await window.sgConfirm(`${window.dnText(order[0])} wins ${t.title}.`, { title: '🏁 Finish', okText: 'Finish' })) return;
+try { await updateDoc(doc(window.db, 'tournaments', t.id), { status: 'finished', champion: order[0], finalOrder: order, finishedAt: Date.now() }); Object.assign(t, { status: 'finished', champion: order[0], finalOrder: order }); showToast(`🏁 ${window.dnText(order[0])} wins!`); window.renderTournamentsTabDedicated(); }
+catch (e) { showToast("⚠️ Couldn't finish. Try again."); }
+};
+
+window.squadOf = (t) => t && t.squadId ? (window.clansData || []).find(c => c.id === t.squadId) : null;
+window.tournRoleOf = function(t, tag) {
+if (window.tagEq(t.host, tag)) return 'Hosting';
+if ((t.coHosts || []).some(c => window.tagEq(c.tag, tag))) return 'Co-hosting';
+const sq = window.squadOf(t); if (sq && ((sq.admins || []).some(a => window.tagEq(a, tag)) || window.tagEq(sq.owner, tag))) return 'Squad admin';
+return '';
+};
+window.hostingNow = (tag) => (window.tournamentsList || []).filter(t => t.status !== 'finished' && t.compKind !== 'tiebreak' && window.tournRoleOf(t, tag));
+window.spotsLeft = (t) => t.format === 'LEAGUE' ? (t.players || []).filter(p => /^Club_\d+$/.test(p)).length : Math.max(0, (t.maxPlayers || 8) - window.realPlayers(t).length);
+window.openTournFromProfile = function(id, join) {
+window.closeUserProfileModal && window.closeUserProfileModal();
+window.switchView('tournaments'); window.openTournamentById(id);
+if (join) setTimeout(() => window.joinActiveTournament(id), 250);   // squad tournaments: joining the squad comes first (handled by the join flow)
+};
+window._baseOpenUserProfileModal38 = window._baseOpenUserProfileModal38 || window.openUserProfileModal;
+window.openUserProfileModal = function(username, e) {
+const r = window._baseOpenUserProfileModal38(username, e);
+const tag = (username || '').replace('@', ''), list = window.hostingNow(tag).sort((a, b) => window.spotsLeft(b) - window.spotsLeft(a));
+document.getElementById('profileHostingBox')?.remove();
+const bio = document.getElementById('profileBioText');
+if (bio && list.length) bio.insertAdjacentHTML('afterend', `<div id="profileHostingBox" class="mt-3 space-y-2 text-left">${list.slice(0, 3).map(t => {
+const left = window.spotsLeft(t), joined = window.isSignedIn() && (t.players || []).some(p => window.tagEq(p, window.me())), sq = window.squadOf(t);
+const member = !sq || (window.isSquadMember && window.isSquadMember(sq)), open = left > 0 && !window.tourHasResults(t);
+return `<div class="rounded-2xl p-3 border space-y-2" style="background:linear-gradient(135deg,rgba(251,191,36,.14),rgba(255,0,127,.12));border-color:rgba(251,191,36,.45)">
+<div class="flex items-start justify-between gap-2"><div class="min-w-0"><p class="text-[9px] font-black uppercase tracking-wider text-amber-300">🎙️ ${window.tournRoleOf(t, tag)}${sq ? ` · 🛡️ ${escapeHTML(sq.name)}` : ''}</p>
+<p class="text-sm font-black text-white truncate">🏆 ${escapeHTML(t.title)}</p>
+<p class="text-[10px] text-gray-300">${escapeHTML(t.game || '')} · ${window.realPlayers(t).length}/${t.maxPlayers || '?'} players${t.startAt ? ` · starts ${window.fmtDay(t.startAt)}` : ''}</p></div>
+<span class="shrink-0 text-[9px] font-black px-2 py-1 rounded-lg ${open ? 'bg-emerald-500 text-slate-950' : 'bg-gray-700 text-gray-200'}">${open ? `OPEN · ${left} spot${left === 1 ? '' : 's'}` : 'IN PROGRESS'}</span></div>
+<div class="flex gap-2">
+${open && !joined ? `<button onclick="window.openTournFromProfile('${t.id}', true)" class="flex-1 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 text-[11px] font-black uppercase">${member ? '✍️ Register' : '🛡️ Join squad & register'}</button>` : ''}
+<button onclick="window.openTournFromProfile('${t.id}', false)" class="flex-1 py-2 rounded-xl bg-gg-900 border border-white/15 text-white text-[11px] font-black">${joined ? '✓ Registered · View' : 'View'}</button></div></div>`; }).join('')}</div>`);
+return r;
+};
+
+window.openEditTourn = function(id) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.isTournOwner(t)) return;
+window.panelKind = 'tournedit'; window._editTid = id;
+const f = 'w-full mt-1 bg-gg-900 border border-amber-500/30 rounded-xl px-2.5 py-2 text-xs text-white';
+const R = t.format === 'LEAGUE' ? window.leagueRoundsOf(t) : 0;
+window.openPanel('✏️ Dates & rules', `
+<p class="text-[11px] text-gray-400">Change these any time. Players get a notification when the dates change.</p>
+<div class="grid grid-cols-2 gap-2">
+<label class="text-[10px] text-gray-400 font-bold">Starts<input id="etStart" type="date" value="${window.dateInputVal(t.startAt)}" class="${f}"></label>
+<label class="text-[10px] text-gray-400 font-bold">Ends<input id="etEnd" type="date" value="${window.dateInputVal(t.endAt)}" class="${f}"></label></div>
+<label class="block text-[10px] text-gray-400 font-bold">Registration opens <span class="text-gray-500">(optional)</span><input id="etReg" type="date" value="${window.dateInputVal(t.regAt)}" class="${f}"></label>
+<label class="block text-[10px] text-gray-400 font-bold">⏰ Time to play after the match day
+<select id="etDl" class="${f}">${[[12, '12 hours'], [24, '1 day'], [48, '2 days'], [72, '3 days'], [168, '1 week']].map(([v, l]) => `<option value="${v}" ${(t.deadlineHrs === undefined ? 24 : +t.deadlineHrs) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+<label class="block text-[10px] text-gray-400 font-bold">📜 Your rules <span class="text-gray-500">(players accept these when they join)</span><textarea id="etRules" rows="4" maxlength="1500" placeholder="e.g. Max team rating 95 · Send a screenshot of the final score · Be on time" class="${f}">${escapeHTML(t.rules || '')}</textarea></label>
+<label class="flex items-center gap-2 text-xs text-white font-bold"><input id="etGid" type="checkbox" ${t.needGameId ? 'checked' : ''} class="w-4 h-4 accent-amber-400"> 🎮 Players must give their in-game ID when joining</label>
+${R > 1 && t.startAt ? `<div class="glass-panel rounded-2xl p-3 border border-cyan-500/20 space-y-1.5">
+<div class="flex items-center justify-between"><p class="text-xs font-black text-white">📅 Matchday dates</p><button onclick="window.resetMdDates()" class="text-[10px] font-black text-cyan-300">↺ Spread evenly</button></div>
+<p class="text-[10px] text-gray-500">Matchdays are spread from the first day to the last. Move any single one here.</p>
+<div class="grid grid-cols-2 gap-1.5 max-h-64 overflow-y-auto">${Array.from({ length: R }, (_, i) => i + 1).map(r => `<label class="text-[10px] text-gray-400 font-bold">Matchday ${r}<input data-md="${r}" data-orig="${window.dateInputVal(window.matchDate(t, { round: r }))}" type="date" value="${window.dateInputVal(window.matchDate(t, { round: r }))}" class="${f}"></label>`).join('')}</div></div>` : ''}
+<button onclick="window.saveEditTourn()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs uppercase">Save</button>`);
+};
+window.resetMdDates = function() {
+const t = (window.tournamentsList || []).find(x => x.id === window._editTid); if (!t) return;
+const s = window.dateFromInput(document.getElementById('etStart').value) || t.startAt, e = window.dateFromInput(document.getElementById('etEnd').value) || t.endAt;
+const tmp = { ...t, startAt: s, endAt: e, mdDates: null };
+document.querySelectorAll('[data-md]').forEach(el => { el.value = el.dataset.orig = window.dateInputVal(window.matchDate(tmp, { round: +el.dataset.md })); el.dataset.reset = '1'; });
+window._mdReset = true;
+};
+window.saveEditTourn = async function() {
+const t = (window.tournamentsList || []).find(x => x.id === window._editTid); if (!t || !window.isTournOwner(t)) return;
+const startAt = window.dateFromInput(document.getElementById('etStart').value), endAt = window.dateFromInput(document.getElementById('etEnd').value, true), regAt = window.dateFromInput(document.getElementById('etReg').value);
+if (startAt && endAt && endAt < startAt) { showToast('⚠️ The end date is before the start date.'); return; }
+const upd = { startAt: startAt || null, endAt: endAt || null, regAt: regAt || null, deadlineHrs: +document.getElementById('etDl').value, rules: document.getElementById('etRules').value.trim().slice(0, 1500), needGameId: document.getElementById('etGid').checked, updatedAt: serverTimestamp() };
+const auto = { ...t, ...upd, mdDates: null }, md = {};
+document.querySelectorAll('[data-md]').forEach(el => { const r = +el.dataset.md, v = window.dateFromInput(el.value);
+if (el.dataset.reset) { if (el.value !== el.dataset.orig && v && v !== window.matchDate(auto, { round: r })) md[r] = v; return; }
+if (el.value !== el.dataset.orig) { if (v && v !== window.matchDate(auto, { round: r })) md[r] = v; }   // the host moved this one
+else if (t.mdDates && t.mdDates[r]) md[r] = t.mdDates[r];                                              // keep an earlier move
+});
+upd.mdDates = Object.keys(md).length ? md : null;
+const datesChanged = upd.startAt !== (t.startAt || null) || upd.endAt !== (t.endAt || null) || JSON.stringify(upd.mdDates || {}) !== JSON.stringify(t.mdDates || {});
+try { await updateDoc(doc(window.db, 'tournaments', t.id), window.cleanForCloud(upd)); }
+catch (e) { showToast("⚠️ Couldn't save. Did you paste the new Firebase rules?"); return; }
+Object.assign(t, upd); delete t.updatedAt;
+window.closePanel(); window.renderTournamentsTabDedicated(); showToast('✅ Saved');
+if (datesChanged) {
+window.tlog(t, { type: 'dates', text: `Dates changed: ${upd.startAt ? window.fmtDay(upd.startAt) : '?'} – ${upd.endAt ? window.fmtDay(upd.endAt) : '?'}${upd.mdDates ? ` (${Object.keys(upd.mdDates).length} matchday${Object.keys(upd.mdDates).length > 1 ? 's' : ''} moved)` : ''}` });
+window.realPlayers(t).filter(p => !window.tagEq(p, window.me())).forEach(p => window.notifyTag(p, `📅 The dates of ${t.title} changed. Check My Matches for your new match days.`));
+}
+};
+
+window.showTournRules = function(id) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+window.openPanel('📜 Rules', `<div class="glass-panel rounded-2xl p-3 border border-cyan-500/20 space-y-1"><p class="text-xs font-black text-white">⚖️ Points & tie-breakers</p><p class="text-[11px] text-gray-300 leading-relaxed">${escapeHTML(window.TIEBREAK_TEXT)}</p></div>
+<div class="glass-panel rounded-2xl p-3 border border-amber-500/20 space-y-1"><p class="text-xs font-black text-white">⏰ Deadlines</p><p class="text-[11px] text-gray-300 leading-relaxed">Play each match by the end of its match day + ${({ 12: '12 hours', 24: '1 day', 48: '2 days', 72: '3 days', 168: '1 week' })[t.deadlineHrs === undefined ? 24 : +t.deadlineHrs] || (t.deadlineHrs + ' hours')}. Can't make it? Ask your opponent to move the match from the match screen. Unplayed matches go to the host, who decides.</p></div>
+<div class="glass-panel rounded-2xl p-3 border border-emerald-500/20 space-y-1"><p class="text-xs font-black text-white">✅ Results</p><p class="text-[11px] text-gray-300 leading-relaxed">Both players report the score (add a screenshot). Same score = final straight away. Different scores = the host decides and must give a reason. Every change is kept in the match history.</p></div>
+${t.rules ? `<div class="glass-panel rounded-2xl p-3 border border-magenta/30 space-y-1"><p class="text-xs font-black text-white">📜 Host's rules</p><p class="text-[11px] text-gray-200 whitespace-pre-line leading-relaxed">${escapeHTML(t.rules)}</p></div>` : ''}`);
+};
+window._baseJoinActiveTournament38 = window._baseJoinActiveTournament38 || window.joinActiveTournament;
+window.joinActiveTournament = async function(id) {
+const t = (window.tournamentsList || []).find(x => x.id === id);
+const sq = window.squadOf(t);   // squad tournaments: join the squad first (the rules come after)
+if (!t || !window.isSignedIn() || (t.players || []).some(p => window.tagEq(p, window.me())) || (sq && window.isSquadMember && !window.isSquadMember(sq))) return window._baseJoinActiveTournament38(id);
+let gid = null;
+if (t.rules || t.needGameId) {
+const ok = await window.sgConfirm(`${t.rules ? '📜 ' + t.rules + '\n\n' : ''}⚖️ ${window.TIEBREAK_TEXT}`, { title: `Rules of ${t.title.slice(0, 40)}`, okText: 'I accept' });
+if (!ok) return;
+if (t.needGameId) {
+gid = await window.sgPrompt(`Your player ID / name in ${t.game || 'the game'}. Your opponents use it to find you. It's locked once you join (only the host can change it).`, { title: '🎮 In-game ID', placeholder: 'e.g. 123456789 or KumiFC', okText: 'Join' });
+gid = (gid || '').trim().slice(0, 40); if (!gid) { showToast('🎮 Your in-game ID is needed for this tournament.'); return; }
+}
+}
+const r = await window._baseJoinActiveTournament38(id);
+if ((t.players || []).some(p => window.tagEq(p, window.me())) && (t.rules || gid)) {
+const k = window.meLower(), upd = {};
+if (t.rules) { t.accepted = { ...(t.accepted || {}), [k]: Date.now() }; upd.accepted = t.accepted; }
+if (gid) { t.gameIds = { ...(t.gameIds || {}), [k]: gid }; upd.gameIds = t.gameIds; }
+try { await updateDoc(doc(window.db, 'tournaments', t.id), upd); } catch (e) {}
+window.tlog(t, { type: 'join', text: `${window.me()} joined${t.rules ? ' and accepted the rules' : ''}${gid ? ` · in-game ID ${gid}` : ''}` });
+}
+return r;
+};
+window.gameIdOf = (t, tag) => (t.gameIds || {})[(tag || '').toLowerCase()] || '';
+window.editGameId = async function(id, tag) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.canManageTourn(t)) return;
+const v = await window.sgPrompt(`In-game ID for ${window.dnText(tag)}`, { title: '🎮 Change in-game ID', placeholder: window.gameIdOf(t, tag) || 'ID', okText: 'Save' });
+if (v === null) return;
+t.gameIds = { ...(t.gameIds || {}), [tag.toLowerCase()]: v.trim().slice(0, 40) };
+try { await updateDoc(doc(window.db, 'tournaments', t.id), { gameIds: t.gameIds }); showToast('✅ Saved'); window.tlog(t, { type: 'gameid', text: `In-game ID of ${tag} changed to ${v.trim()}` }); } catch (e) { showToast("⚠️ Couldn't save."); }
+};
+
+window.allPlayedOf = function(tag) {
+const out = [];
+(window.tournamentsList || []).forEach(t => (t.matches || []).forEach(m => { if (window.isPlayedM(m) && (window.tagEq(m.p1, tag) || window.tagEq(m.p2, tag))) out.push({ t, m, k: (window.matchDate(t, m) || t.startAt || window.postTimeValue(t) || 0) + (m.round || 0) }); }));
+return out.sort((a, b) => b.k - a.k);
+};
+window.resOf = (m, tag) => m.bothLost ? 'L' : (+m.s1 === +m.s2 ? 'D' : ((+m.s1 > +m.s2) === window.tagEq(m.p1, tag) ? 'W' : 'L'));
+window.formHtml = function(tag) {
+const l = window.allPlayedOf(tag).slice(0, 5);
+if (!l.length) return '<span class="text-[9px] text-gray-500">no games yet</span>';
+const C = { W: 'bg-emerald-500 text-slate-950', D: 'bg-gray-500 text-white', L: 'bg-red-500 text-white' };
+return l.map(x => { const r = window.resOf(x.m, tag); return `<span class="inline-flex w-4 h-4 rounded items-center justify-center text-[8px] font-black ${C[r]}">${r}</span>`; }).join('');
+};
+window.h2hOf = function(a, b) {
+const r = { a: 0, b: 0, d: 0, ga: 0, gb: 0 };
+(window.tournamentsList || []).forEach(t => (t.matches || []).forEach(m => {
+if (!window.isPlayedM(m) || m.bothLost) return;
+const ab = window.tagEq(m.p1, a) && window.tagEq(m.p2, b), ba = window.tagEq(m.p1, b) && window.tagEq(m.p2, a); if (!ab && !ba) return;
+const sa = ab ? +m.s1 : +m.s2, sb = ab ? +m.s2 : +m.s1; r.ga += sa; r.gb += sb;
+if (sa > sb) r.a++; else if (sb > sa) r.b++; else r.d++;
+}));
+return r;
+};
+window.completionOf = function(tag) {
+let due = 0, ok = 0;
+(window.tournamentsList || []).forEach(t => (t.matches || []).forEach(m => {
+if (!(window.tagEq(m.p1, tag) || window.tagEq(m.p2, tag)) || !window.isRealPlayer(m.p1) || !window.isRealPlayer(m.p2)) return;
+const d = window.dueAt(t, m); if (window.isPlayedM(m)) { due++; if (!window.tagEq(m.forfeit, tag) && !m.bothLost) ok++; } else if (d !== null && d < Date.now()) due++;
+}));
+return due ? { pct: Math.round(ok * 100 / due), ok, due } : null;
+};
+
+window._baseOpenMatchReportModal38 = window._baseOpenMatchReportModal38 || window.openMatchReportModal;
+window.openMatchReportModal = function(matchId) {
+window._baseOpenMatchReportModal38(matchId);
+const t = window.activeTournament, m = window.activeMatchForReporting, modal = document.getElementById('matchReportModal'); if (!t || !m || !modal) return;
+const card = modal.firstElementChild; card.classList.add('max-h-[92vh]', 'overflow-y-auto'); card.style.maxHeight = '92vh'; card.style.overflowY = 'auto';
+card.querySelectorAll('[data-x38]').forEach(x => x.remove());
+const real = window.isRealPlayer(m.p1) && window.isRealPlayer(m.p2), me = window.meLower(), mine = [m.p1, m.p2].some(p => window.tagEq(p, me)), mgr = window.canManageTourn(t);
+const d = window.matchDate(t, m), due = window.dueAt(t, m), played = window.isPlayedM(m);
+const h = real ? window.h2hOf(m.p1, m.p2) : null;
+const pl = (p) => { const g = window.gameIdOf(t, p), c = mgr ? window.completionOf(p) : null;
+return `<div class="flex-1 min-w-0 space-y-1"><p class="text-[11px] font-black text-white truncate">${escapeHTML(window.dnText(p))}</p><div class="flex gap-0.5">${window.formHtml(p)}</div>
+${g ? `<p class="text-[9px] text-cyan-300 font-bold truncate">🎮 ${escapeHTML(g)}${mgr ? ` <button onclick="window.editGameId('${t.id}','${window.tq(p)}')" class="text-gray-500 underline">edit</button>` : ''}</p>` : ''}
+${c ? `<p class="text-[9px] ${c.pct >= 80 ? 'text-emerald-300' : c.pct >= 50 ? 'text-amber-300' : 'text-red-300'} font-bold" title="Only hosts see this">✅ ${c.pct}% played (${c.ok}/${c.due})</p>` : ''}</div>`; };
+let resch = '';
+const rq = m.resch;
+if (real && !played && t.status !== 'finished') {
+if (rq && rq.st === 'asked') resch = window.tagEq(rq.by, me) ? `<p class="text-[10px] text-sky-300 font-bold">📅 You asked to move this match to ${window.fmtDay(rq.to)}. Waiting for your opponent.</p>`
+: mine ? `<div class="space-y-1.5"><p class="text-[10px] text-sky-200 font-bold">📅 ${escapeHTML(window.dnText(rq.by))} asks to move this match to <b>${window.fmtDay(rq.to)}</b>${rq.why ? ` (“${escapeHTML(rq.why)}”)` : ''}</p><div class="flex gap-2"><button onclick="window.reschAnswer(true)" class="flex-1 py-2 rounded-xl bg-sky-400 text-slate-950 text-[11px] font-black">Accept</button><button onclick="window.reschAnswer(false)" class="flex-1 py-2 rounded-xl bg-gg-900 border border-white/10 text-gray-300 text-[11px] font-black">Decline</button></div></div>`
+: `<p class="text-[10px] text-sky-300 font-bold">📅 Move to ${window.fmtDay(rq.to)} requested.</p>`;
+else if (rq && rq.st === 'agreed') resch = mgr ? `<div class="space-y-1.5"><p class="text-[10px] text-sky-200 font-bold">📅 Both players agreed to move this match to <b>${window.fmtDay(rq.to)}</b>.</p><div class="flex gap-2"><button onclick="window.reschDecide('${t.id}','${m.id}',true)" class="flex-1 py-2 rounded-xl bg-sky-400 text-slate-950 text-[11px] font-black">✅ Approve</button><button onclick="window.reschDecide('${t.id}','${m.id}',false)" class="flex-1 py-2 rounded-xl bg-gg-900 border border-white/10 text-gray-300 text-[11px] font-black">Reject</button></div></div>` : `<p class="text-[10px] text-sky-300 font-bold">📅 Both agreed on ${window.fmtDay(rq.to)}. Waiting for the host to approve.</p>`;
+else if (mine && d !== null) resch = `<button onclick="window.reschAsk()" class="w-full py-2 rounded-xl bg-gg-950 border border-sky-500/40 text-sky-300 text-[11px] font-black">📅 Can't play then? Ask to move this match</button>`;
+}
+const top = `<div data-x38 class="space-y-2">
+${d !== null ? `<div class="flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl ${!played && due < Date.now() ? 'bg-red-500/10 border border-red-500/30' : 'bg-gg-950 border border-white/5'}"><span class="text-[10px] font-black text-white">📅 ${escapeHTML(m.stage || '')} · ${window.fmtDay(d)}</span>${played ? '<span class="text-[9px] font-black text-emerald-300">✓ played</span>' : `<span class="text-[9px] font-black ${due < Date.now() ? 'text-red-300' : 'text-amber-300'}">⏰ ${due < Date.now() ? 'overdue' : 'play by ' + window.fmtDay(due, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>`}</div>` : ''}
+${real ? `<div class="p-2.5 rounded-xl bg-gg-950 border border-white/5 space-y-2"><div class="flex gap-3">${pl(m.p1)}<div class="w-px bg-white/10"></div>${pl(m.p2)}</div>
+<p class="text-[10px] text-gray-400 font-bold text-center">⚔️ Head-to-head: ${h.a + h.b + h.d ? `${escapeHTML(window.dnText(m.p1))} <b class="text-white">${h.a}</b> · draws <b class="text-white">${h.d}</b> · <b class="text-white">${h.b}</b> ${escapeHTML(window.dnText(m.p2))} <span class="text-gray-500">(goals ${h.ga}–${h.gb})</span>` : 'first meeting'}</p></div>` : ''}
+${resch ? `<div class="p-2.5 rounded-xl bg-sky-500/5 border border-sky-500/30">${resch}</div>` : ''}</div>`;
+card.children[0].insertAdjacentHTML('afterend', top);
+const mvp = document.getElementById('matchMvpInput');
+if (mvp && real && (mine || mgr) && t.status !== 'finished') {
+const cur = mine ? ((m.sc || {})[me] || '') : '';
+mvp.insertAdjacentHTML('afterend', `<input data-x38 id="matchScorersInput" maxlength="160" value="${escapeHTML(cur)}" placeholder="⚽ ${mine ? 'Your' : 'Goal'} scorers for the Golden Boot (optional) e.g. Mbappé 2, Saka" class="w-full bg-gg-950 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">`);
+}
+const fb = document.getElementById('forfeitBox');
+(fb || card.lastElementChild).insertAdjacentHTML('afterend', `<div data-x38 class="pt-1"><button onclick="window.toggleMatchLog('${t.id}','${m.id}')" class="w-full py-2 rounded-xl bg-gg-950 border border-white/10 text-gray-300 text-[11px] font-black">🧾 Match history & notes ${m.conflict ? '<span class="text-red-300">· dispute</span>' : ''}</button><div id="matchLogBox" class="hidden space-y-1.5 pt-2"></div></div>`);
+if (m.conflict && (mine || mgr)) window.toggleMatchLog(t.id, m.id);
+};
+window.toggleMatchLog = async function(tid, mid) {
+const box = document.getElementById('matchLogBox'); if (!box) return;
+if (!box.classList.contains('hidden') && box.dataset.mid === mid) { box.classList.add('hidden'); return; }
+box.classList.remove('hidden'); box.dataset.mid = mid; box.innerHTML = '<p class="text-[10px] text-gray-500 text-center"><i class="fa-solid fa-spinner fa-spin"></i></p>';
+const t = (window.tournamentsList || []).find(x => x.id === tid), m = t && (t.matches || []).find(x => x.id === mid); if (!m) return;
+let list = [];
+try { const s = await getDocs(query(collection(window.db, 'tournaments', tid, 'log'), where('mid', '==', mid), limit(60))); s.forEach(d => list.push(d.data())); } catch (e) {}
+Object.values(m.claims || {}).forEach(c => { if (!list.some(x => x.type === 'report' && window.tagEq(x.by, c.by) && Math.abs((x.at || 0) - (c.at || 0)) < 5000)) list.push({ type: 'report', by: c.by, at: c.at, text: `reported ${c.s1}–${c.s2}`, img: c.proof || '' }); });
+list.sort((a, b) => (a.at || 0) - (b.at || 0));
+const mine = [m.p1, m.p2].some(p => window.tagEq(p, window.me())), mgr = window.canManageTourn(t);
+box.innerHTML = (list.length ? list.map(x => `<div class="px-2.5 py-1.5 rounded-lg ${x.type === 'decision' ? 'bg-amber-500/10 border border-amber-500/30' : x.type === 'note' ? 'bg-sky-500/5 border border-sky-500/20' : 'bg-gg-950 border border-white/5'}">
+<p class="text-[10px] text-gray-300"><b class="text-white">${escapeHTML(window.dnText(x.by || ''))}</b> ${escapeHTML(x.text || '')}${x.why ? ` <span class="text-amber-200">· Reason: ${escapeHTML(x.why)}</span>` : ''}</p>
+${x.img ? `<img src="${window.cldSized(x.img, 600)}" alt="" loading="lazy" class="mt-1 w-full rounded-lg border border-white/10">` : ''}
+<p class="text-[8px] text-gray-500">${x.at ? new Date(x.at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : ''}</p></div>`).join('') : '<p class="text-[10px] text-gray-500 text-center">Nothing yet.</p>')
++ ((mine || mgr) ? `<div class="flex gap-1.5 pt-1"><input id="matchNoteIn" maxlength="300" placeholder="Add a note for the host (what happened?)" class="flex-1 min-w-0 bg-gg-950 border border-sky-500/30 rounded-xl px-2.5 py-2 text-[11px] text-white focus:outline-none">
+<label class="shrink-0 w-9 rounded-xl bg-gg-950 border border-sky-500/30 text-sky-300 flex items-center justify-center cursor-pointer" title="Add a screenshot">📸<input type="file" accept="image/*" class="hidden" onchange="window.pickNoteImg(this)"></label>
+<button onclick="window.addMatchNote('${tid}','${mid}')" class="shrink-0 px-3 rounded-xl bg-sky-400 text-slate-950 text-[11px] font-black">Send</button></div><p id="matchNoteImgLbl" class="text-[9px] text-gray-500"></p>` : '');
+};
+window.pickNoteImg = async function(input) {
+const f = input.files && input.files[0], l = document.getElementById('matchNoteImgLbl'); if (!f) return;
+l.textContent = 'Uploading…';
+try { const up = await window.prepareAndUpload(f, (p) => { l.textContent = `Uploading ${p}%`; }, 1600, 1600); window._noteImg = up.url; l.textContent = '✅ Screenshot added'; } catch (e) { l.textContent = '⚠️ Upload failed'; }
+};
+window.addMatchNote = async function(tid, mid) {
+const t = (window.tournamentsList || []).find(x => x.id === tid), m = t && (t.matches || []).find(x => x.id === mid); if (!m) return;
+const txt = (document.getElementById('matchNoteIn').value || '').trim(); if (!txt && !window._noteImg) return;
+await window.tlog(t, { type: 'note', mid, text: txt ? `: “${txt}”` : 'added a screenshot', img: window._noteImg || '' });
+window._noteImg = null;
+const others = [m.p1, m.p2].filter(p => !window.tagEq(p, window.me()));
+others.forEach(p => window.notifyTag(p, `added a note to your match in ${t.title}`));
+if (t.hostUid && t.hostUid !== window.uidNow()) window.notify(t.hostUid, 'tournament', { text: `added a note to ${window.dnText(m.p1)} vs ${window.dnText(m.p2)} in ${t.title}` });
+document.getElementById('matchLogBox').dataset.mid = ''; window.toggleMatchLog(tid, mid);
+};
+window.reschAsk = function() {
+const t = window.activeTournament, m = window.activeMatchForReporting; if (!t || !m) return;
+const f = 'w-full mt-1 bg-gg-900 border border-sky-500/30 rounded-xl px-2.5 py-2 text-xs text-white';
+window.openPanel('📅 Move this match', `<p class="text-xs text-gray-400">${escapeHTML(window.dnText(m.p1))} vs ${escapeHTML(window.dnText(m.p2))}. Your opponent must accept, then the host approves.</p>
+<label class="block text-[10px] text-gray-400 font-bold">New day<input id="reschDay" type="date" min="${window.dateInputVal(Date.now())}" value="${window.dateInputVal(Date.now() + window.DAY)}" class="${f}"></label>
+<label class="block text-[10px] text-gray-400 font-bold">Why? <span class="text-gray-500">(optional)</span><input id="reschWhy" maxlength="80" placeholder="e.g. No data / travelling" class="${f}"></label>
+<button onclick="window.reschSend()" class="w-full py-3 rounded-2xl bg-sky-400 text-slate-950 font-black text-xs uppercase">Send request</button>`);
+window._reschCtx = { tid: t.id, mid: m.id };
+};
+window.reschSend = async function() {
+const c = window._reschCtx, t = (window.tournamentsList || []).find(x => x.id === c.tid), m = t && (t.matches || []).find(x => x.id === c.mid); if (!m) return;
+const to = window.dateFromInput(document.getElementById('reschDay').value); if (!to) { showToast('Pick a day.'); return; }
+m.resch = { by: window.me(), to, why: (document.getElementById('reschWhy').value || '').trim().slice(0, 80), st: 'asked', at: Date.now() };
+window.closePanel(); window.closeMatchReportModal(); window.renderTournamentsTabDedicated();
+await window.saveTournament(t);
+window.tlog(t, { type: 'resch', mid: m.id, text: `asked to move the match to ${window.fmtDay(to)}${m.resch.why ? ` (${m.resch.why})` : ''}` });
+const opp = window.tagEq(m.p1, window.me()) ? m.p2 : m.p1;
+window.notifyTag(opp, `📅 asks to move your ${t.title} match to ${window.fmtDay(to)}. Tap to accept or decline.`);
+showToast('📨 Request sent to your opponent.');
+};
+window.reschAnswer = async function(yes) {
+const t = window.activeTournament, m = window.activeMatchForReporting; if (!t || !m || !m.resch) return;
+const rq = m.resch;
+if (yes) { rq.st = window.canManageTourn(t) ? 'approved' : 'agreed'; if (rq.st === 'approved') m.date = rq.to; } else rq.st = 'declined';
+window.closeMatchReportModal(); window.renderTournamentsTabDedicated();
+await window.saveTournament(t);
+window.tlog(t, { type: 'resch', mid: m.id, text: yes ? `accepted moving the match to ${window.fmtDay(rq.to)}` : 'declined the new day' });
+window.notifyTag(rq.by, yes ? `✅ accepted moving your ${t.title} match to ${window.fmtDay(rq.to)}${rq.st === 'agreed' ? '. The host will approve it.' : '.'}` : `❌ declined moving your ${t.title} match. Play on the original day.`);
+if (yes && rq.st === 'agreed' && t.hostUid && t.hostUid !== window.uidNow()) window.notify(t.hostUid, 'tournament', { text: `📅 ${window.dnText(m.p1)} and ${window.dnText(m.p2)} want to move their ${t.title} match to ${window.fmtDay(rq.to)}. Tap to approve.` });
+showToast(yes ? '✅ Accepted' : 'Declined');
+};
+window.reschDecide = async function(tid, mid, yes) {
+const t = (window.tournamentsList || []).find(x => x.id === tid), m = t && (t.matches || []).find(x => x.id === mid); if (!m || !m.resch || !window.canManageTourn(t)) return;
+m.resch.st = yes ? 'approved' : 'rejected'; if (yes) m.date = m.resch.to;
+window.closeMatchReportModal(); window.renderTournamentsTabDedicated();
+await window.saveTournament(t);
+window.tlog(t, { type: 'decision', mid, text: yes ? `approved the new day ${window.fmtDay(m.resch.to)}` : 'rejected the new day' });
+[m.p1, m.p2].forEach(p => window.notifyTag(p, yes ? `📅 Your ${t.title} match is now on ${window.fmtDay(m.resch.to)}.` : `The host kept your ${t.title} match on its original day.`));
+if (window.panelKind === 'cc') window.openCommandCentre();
+};
+window._baseSubmitMatchScoreReport38 = window._baseSubmitMatchScoreReport38 || window.submitMatchScoreReport;
+window.submitMatchScoreReport = async function() {
+const t = window.activeTournament, m = window.activeMatchForReporting;
+const s1 = parseInt(document.getElementById('reportP1ScoreInput')?.value), s2 = parseInt(document.getElementById('reportP2ScoreInput')?.value);
+const sc = (document.getElementById('matchScorersInput')?.value || '').trim().slice(0, 160);
+if (m && sc && [m.p1, m.p2].some(p => window.tagEq(p, window.me()))) m.sc = { ...(m.sc || {}), [window.meLower()]: sc };
+const before = m ? m.status : null, mid = m && m.id;
+const r = await window._baseSubmitMatchScoreReport38();
+if (t && m && !isNaN(s1) && !isNaN(s2)) window.tlog(t, { type: 'report', mid, text: `reported ${window.dnText(m.p1)} ${s1}–${s2} ${window.dnText(m.p2)}${m.status === 'approved' && before !== 'approved' ? ' · final ✅' : m.conflict ? ' · ⚠️ different from the other player' : ''}`, img: ((m.claims || {})[window.meLower()] || {}).proof || m.proof || '' });
+return r;
+};
+window._baseConfirmOpponentScore38 = window._baseConfirmOpponentScore38 || window.confirmOpponentScore;
+window.confirmOpponentScore = async function() {
+const t = window.activeTournament, m = window.activeMatchForReporting, mid = m && m.id, s = m ? `${m.s1}–${m.s2}` : '';
+const r = await window._baseConfirmOpponentScore38();
+if (t && mid) window.tlog(t, { type: 'report', mid, text: `confirmed the score ${s} · final ✅` });
+return r;
+};
+window.askReason = async function(def) {
+const why = await window.sgPrompt('Why? Players can see this in the match history.', { title: '🧾 Reason', placeholder: def || 'e.g. Checked both screenshots', okText: 'Confirm' });
+if (why === null) return null;
+return (why.trim() || def || 'No reason given').slice(0, 200);
+};
+window._baseDecideResult38 = window._baseDecideResult38 || window.decideResult;
+window.decideResult = async function(tid, mid, s1, s2) {
+const t = (window.tournamentsList || []).find(x => x.id === tid); if (!t || !window.canManageTourn(t)) return;
+const why = await window.askReason('Checked both screenshots'); if (why === null) return;
+await window._baseDecideResult38(tid, mid, s1, s2);
+window.tlog(t, { type: 'decision', mid, text: `decided the final score ${s1}–${s2}`, why });
+};
+window._baseForfeitMatch38 = window._baseForfeitMatch38 || window.forfeitMatch;
+window.forfeitMatch = async function(side) {
+const t = window.activeTournament, m = window.activeMatchForReporting; if (!t || !m) return;
+const loser = side === 1 ? m.p1 : m.p2, self = window.tagEq(loser, window.me()), mid = m.id;
+let why = '';
+if (!self) { why = await window.askReason('Did not play before the deadline'); if (why === null) return; }
+await window._baseForfeitMatch38(side);
+if (m.forfeit) window.tlog(t, { type: self ? 'report' : 'decision', mid, text: `${self ? 'conceded the match' : `recorded a forfeit by ${loser}`} (1–0)`, why });
+};
+
+window.ccData = function() {
+const ts = (window.tournamentsList || []).filter(t => t.status !== 'finished' && window.canManageTourn(t));
+const pend = [], resch = [], over = [], soon = [];
+ts.forEach(t => (t.matches || []).forEach(m => {
+if (!window.isRealPlayer(m.p1) || !window.isRealPlayer(m.p2)) return;
+if (m.status === 'disputed' && m.s1 !== null && m.s1 !== undefined) pend.push({ t, m });
+else if (m.resch && m.resch.st === 'agreed') resch.push({ t, m });
+else if (window.isOverdue(t, m)) over.push({ t, m });
+else if (!window.isPlayedM(m)) { const d = window.dueAt(t, m); if (d !== null && d - Date.now() < 36 * 3600e3) soon.push({ t, m }); }
+}));
+return { ts, pend, resch, over, soon, n: pend.length + resch.length + over.length };
+};
+window.openCommandCentre = function() {
+if (!window.isSignedIn()) return;
+window.panelKind = 'cc';
+const D = window.ccData();
+const vs = (x) => `<p class="text-xs font-black text-white truncate">${window.dn(x.m.p1)} <span class="text-gray-500">vs</span> ${window.dn(x.m.p2)}</p><p class="text-[9px] text-gray-500 truncate">${escapeHTML(window.compShort(x.t))}${x.t.season ? ' S' + x.t.season : ''} · ${escapeHTML(x.m.stage || '')}</p>`;
+const sec = (title, list, body, empty) => `<div class="space-y-1.5"><p class="text-[10px] font-black uppercase tracking-wider text-gray-400 px-1">${title} <span class="text-gray-600">· ${list.length}</span></p>${list.length ? list.map(body).join('') : `<p class="text-[10px] text-gray-600 px-1">${empty}</p>`}</div>`;
+const btn = (on, cls, l) => `<button onclick="${on}" class="flex-1 py-1.5 rounded-lg text-[10px] font-black ${cls}">${l}</button>`;
+window.openPanel('🧭 Command centre', `
+<div class="grid grid-cols-3 gap-2 text-center">${[['⏳', D.pend.length, 'to approve'], ['📅', D.resch.length, 'moves'], ['⏰', D.over.length, 'overdue']].map(([e, n, l]) => `<div class="rounded-2xl p-2.5 bg-gg-900 border ${n ? 'border-amber-500/40' : 'border-white/5'}"><p class="text-lg font-black text-white">${e} ${n}</p><p class="text-[9px] text-gray-400 font-bold uppercase">${l}</p></div>`).join('')}</div>
+${!D.ts.length ? '<p class="text-xs text-gray-500 text-center py-6">You are not running any tournament right now.</p>' : ''}
+${sec('⏳ Results waiting for you', D.pend, x => `<div class="p-2.5 rounded-xl bg-gg-900 border ${x.m.conflict ? 'border-red-500/40' : 'border-amber-500/30'} flex items-center gap-2"><div class="flex-1 min-w-0">${vs(x)}${x.m.conflict ? '<p class="text-[9px] font-black text-red-300">⚠️ different scores</p>' : ''}</div><button onclick="window.closePanel(); window.openResultsQueue('${x.t.id}')" class="px-3 py-2 rounded-lg bg-amber-400 text-slate-950 text-[10px] font-black">Decide</button></div>`, 'All results are final ✅')}
+${sec('📅 Match moves to approve', D.resch, x => `<div class="p-2.5 rounded-xl bg-gg-900 border border-sky-500/30 space-y-1.5">${vs(x)}<p class="text-[10px] text-sky-200">Both agreed: ${window.fmtDay(x.m.resch.to)}${x.m.resch.why ? ` · “${escapeHTML(x.m.resch.why)}”` : ''}</p><div class="flex gap-1.5">${btn(`window.reschDecide('${x.t.id}','${x.m.id}',true)`, 'bg-sky-400 text-slate-950', '✅ Approve')}${btn(`window.reschDecide('${x.t.id}','${x.m.id}',false)`, 'bg-gg-950 border border-white/10 text-gray-300', 'Reject')}</div></div>`, 'No requests')}
+${sec('⏰ Overdue: you decide', D.over, x => `<div class="p-2.5 rounded-xl bg-gg-900 border border-red-500/30 space-y-1.5">${vs(x)}<p class="text-[9px] text-red-300 font-bold">Should have been played by ${window.fmtDay(window.dueAt(x.t, x.m))}</p>
+<div class="grid grid-cols-3 gap-1">${btn(`window.overdueAct('${x.t.id}','${x.m.id}','extend')`, 'bg-sky-500/15 text-sky-300 border border-sky-500/30', '+2 days')}${btn(`window.overdueAct('${x.t.id}','${x.m.id}','draw')`, 'bg-gray-500/20 text-gray-200', '0–0 draw')}${btn(`window.overdueAct('${x.t.id}','${x.m.id}','both')`, 'bg-red-500/15 text-red-300 border border-red-500/30', 'Both lose')}
+${btn(`window.overdueAct('${x.t.id}','${x.m.id}','ff1')`, 'bg-red-500/10 text-red-300 col-span-3 truncate', `🏳️ ${window.tq(window.dnText(x.m.p1))} forfeits`)}${btn(`window.overdueAct('${x.t.id}','${x.m.id}','ff2')`, 'bg-red-500/10 text-red-300 col-span-3 truncate', `🏳️ ${window.tq(window.dnText(x.m.p2))} forfeits`)}</div></div>`, 'Nothing overdue 🎉')}
+${sec('🔜 Due in the next 36 hours', D.soon, x => `<div class="p-2.5 rounded-xl bg-gg-900 border border-white/5">${vs(x)}<p class="text-[9px] text-amber-300 font-bold">⏰ play by ${window.fmtDay(window.dueAt(x.t, x.m), { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</p></div>`, 'Nothing due soon')}
+${D.soon.length || D.over.length ? `<button onclick="window.remindPlayers()" class="w-full py-2.5 rounded-2xl bg-gg-900 border border-amber-500/40 text-amber-300 text-xs font-black">📣 Remind these players</button>` : ''}
+${D.ts.filter(t => window.isTournOwner(t)).length ? `<div class="space-y-1.5"><p class="text-[10px] font-black uppercase tracking-wider text-gray-400 px-1">🤝 Co-hosts</p>${D.ts.filter(t => window.isTournOwner(t)).map(t => `<button onclick="window.openCoHosts('${t.id}')" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-gg-900 border border-white/5 text-left"><span class="text-[11px] font-black text-white truncate">${escapeHTML(t.title)}</span><span class="text-[10px] text-gray-400 shrink-0">${(t.coHosts || []).length} co-host${(t.coHosts || []).length === 1 ? '' : 's'} ›</span></button>`).join('')}</div>` : ''}`);
+};
+window.remindPlayers = function() {
+const D = window.ccData(), sent = new Set();
+[...D.over, ...D.soon].forEach(x => [x.m.p1, x.m.p2].forEach(p => { const k = p.toLowerCase() + x.m.id; if (sent.has(k)) return; sent.add(k); window.notifyTag(p, `⏰ Reminder: play your ${x.t.title} match vs ${window.dnText(window.tagEq(p, x.m.p1) ? x.m.p2 : x.m.p1)} by ${window.fmtDay(window.dueAt(x.t, x.m))}.`); }));
+showToast(`📣 ${sent.size} reminder${sent.size === 1 ? '' : 's'} sent`);
+};
+window.overdueAct = async function(tid, mid, act) {
+const t = (window.tournamentsList || []).find(x => x.id === tid), m = t && (t.matches || []).find(x => x.id === mid); if (!m || !window.canManageTourn(t)) return;
+const labels = { extend: 'gave 2 more days', draw: 'recorded a 0–0 draw', both: 'recorded a loss for both players', ff1: `recorded a forfeit by ${m.p1}`, ff2: `recorded a forfeit by ${m.p2}` };
+if (t.format !== 'LEAGUE' && (act === 'draw' || act === 'both')) { showToast('A knockout match needs a winner. Use a forfeit or +2 days.'); return; }
+const why = await window.askReason(act === 'extend' ? 'Both players asked for more time' : 'Not played before the deadline'); if (why === null) return;
+if (act === 'extend') m.date = window.dayStartOf(Date.now()) + window.DAY;
+else if (act === 'draw') Object.assign(m, { s1: 0, s2: 0, winner: 'DRAW', status: 'approved', approvedBy: window.me() });
+else if (act === 'both') Object.assign(m, { s1: 0, s2: 0, winner: 'NONE', bothLost: true, status: 'approved', approvedBy: window.me() });
+else { const side = act === 'ff1' ? 1 : 2, loser = side === 1 ? m.p1 : m.p2, winner = side === 1 ? m.p2 : m.p1; Object.assign(m, { s1: side === 1 ? 0 : 1, s2: side === 1 ? 1 : 0, winner, status: 'approved', forfeit: loser, forfeitBy: window.me() }); if (t.format !== 'LEAGUE') { t.eliminated = t.eliminated || []; if (!t.eliminated.includes(loser)) t.eliminated.push(loser); advanceWinnerInBracket(t, m); } }
+window.renderTournamentsTabDedicated(); await window.saveTournament(t);
+window.tlog(t, { type: 'decision', mid, text: labels[act], why });
+[m.p1, m.p2].forEach(p => window.notifyTag(p, `Your overdue ${t.title} match: the host ${labels[act]}. Reason: ${why}`));
+showToast('✅ Done'); window.openCommandCentre();
+};
+
+window.openCoHosts = function(id) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.isTournOwner(t)) return;
+const list = t.coHosts || [];
+window.openPanel('🤝 Co-hosts', `<p class="text-xs text-gray-400">Co-hosts can approve scores, decide disputes, handle overdue matches and approve match moves in <b class="text-white">${escapeHTML(t.title)}</b>. They can't change dates or rules, finish the season or delete it. Up to 3.</p>
+${list.map(c => `<div class="flex items-center gap-3 p-2.5 rounded-xl bg-gg-900 border border-white/5"><div class="flex-1 min-w-0"><p class="text-sm font-bold text-white truncate">${window.dn(c.tag)}</p></div><button onclick="window.removeCoHost('${t.id}','${window.tq(c.uid)}')" class="px-3 py-1.5 rounded-xl bg-red-500/15 border border-red-500/40 text-red-300 text-[11px] font-black">Remove</button></div>`).join('') || '<p class="text-[11px] text-gray-500 text-center py-3">No co-hosts yet.</p>'}
+${list.length < 3 ? `<button onclick="window.addCoHost('${t.id}')" class="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs uppercase">➕ Add co-host by gamertag</button>` : ''}`);
+};
+window.addCoHost = async function(id) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.isTournOwner(t)) return;
+const raw = await window.sgPrompt('Their gamertag. They must have a Sinless GG account.', { title: '🤝 Add co-host', placeholder: '@gamertag', okText: 'Add' }); if (!raw) return;
+const prof = await window.getProfile(raw.trim().replace(/^@/, ''), true);
+if (!prof || !prof.uid) { showToast('❌ No player with that gamertag.'); return; }
+if (prof.uid === t.hostUid) { showToast('That is you 🙂'); return; }
+const coHosts = [...(t.coHosts || []).filter(c => c.uid !== prof.uid), { uid: prof.uid, tag: prof.gamertag }].slice(0, 3);
+try { await updateDoc(doc(window.db, 'tournaments', t.id), { coHosts, coHostUids: coHosts.map(c => c.uid) }); } catch (e) { showToast("⚠️ Couldn't save. Did you paste the new Firebase rules?"); return; }
+Object.assign(t, { coHosts, coHostUids: coHosts.map(c => c.uid) });
+window.notify(prof.uid, 'tournament', { text: `🤝 made you a co-host of ${t.title}. You can approve scores and handle matches.` });
+window.tlog(t, { type: 'cohost', text: `added ${prof.gamertag} as co-host` });
+window.openCoHosts(id); window.renderTournamentsTabDedicated();
+};
+window.removeCoHost = async function(id, uid) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.isTournOwner(t)) return;
+const gone = (t.coHosts || []).find(c => c.uid === uid), coHosts = (t.coHosts || []).filter(c => c.uid !== uid);
+try { await updateDoc(doc(window.db, 'tournaments', t.id), { coHosts, coHostUids: coHosts.map(c => c.uid) }); } catch (e) { showToast("⚠️ Couldn't save."); return; }
+Object.assign(t, { coHosts, coHostUids: coHosts.map(c => c.uid) });
+window.tlog(t, { type: 'cohost', text: `removed ${gone ? gone.tag : 'a'} co-host` });
+window.openCoHosts(id); window.renderTournamentsTabDedicated();
+};
+
+window.editHostComps = function() {
+const h = window.myHost; if (!h) return;
+window.panelKind = 'hostedit';
+const f = 'w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-2.5 py-2 text-xs text-white';
+const cups = h.comps.filter(c => c.kind === 'cup');
+const qRow = (c, i, k) => { const q = (c.qual || [])[k] || {};
+return `<div class="flex items-center gap-1.5 text-[10px] text-gray-400 font-bold"><span class="shrink-0">🏆 Top</span><input data-hq="n" data-i="${i}" data-k="${k}" type="number" min="0" max="16" value="${q.n || 0}" class="${f} text-center" style="width:56px">
+<span class="shrink-0">→</span><select data-hq="to" data-i="${i}" data-k="${k}" class="${f}">${cups.map(cp => `<option value="${cp.id}" ${q.to === cp.id ? 'selected' : ''}>${escapeHTML(cp.name)}</option>`).join('')}</select></div>`; };
+window.openPanel('🏛️ League system', `
+<label class="text-[10px] text-gray-400 font-bold">League system name<input id="heOrg" value="${escapeHTML(h.org)}" class="${f} mt-1"></label>
+<p class="text-[10px] text-gray-500">Tier 1 is the top division. Promotion = how many go UP from that division. Relegation = how many go DOWN. Qualification = who gets into a cup next season (e.g. top 4 → Champions League).</p>
+${h.comps.map((c, i) => `<div class="glass-panel rounded-2xl p-3 border ${c.kind === 'league' ? 'border-cyan-500/20' : 'border-magenta/30'} space-y-2">
+<input data-he="name" data-i="${i}" value="${escapeHTML(c.name)}" class="${f}">
+${c.kind === 'league' ? `<div class="grid grid-cols-3 gap-2 text-[10px] text-gray-400 font-bold">
+<label>Tier<input data-he="tier" data-i="${i}" type="number" min="1" max="9" value="${c.tier}" class="${f} mt-0.5"></label>
+<label>⬆️ Promoted<input data-he="promote" data-i="${i}" type="number" min="0" max="8" value="${c.promote || 0}" class="${f} mt-0.5"></label>
+<label>⬇️ Relegated<input data-he="relegate" data-i="${i}" type="number" min="0" max="8" value="${c.relegate || 0}" class="${f} mt-0.5"></label></div>
+<label class="block text-[10px] text-gray-400 font-bold">Fixtures<select data-he="h2h" data-i="${i}" class="${f} mt-0.5"><option value="1x" ${c.h2h !== '2x' ? 'selected' : ''}>Play each opponent once</option><option value="2x" ${c.h2h === '2x' ? 'selected' : ''}>Home & away (twice)</option></select></label>
+${cups.length ? `<p class="text-[10px] font-black text-gray-300 pt-1">Qualification for next season</p>${qRow(c, i, 0)}${cups.length > 1 || (c.qual || [])[1] ? qRow(c, i, 1) : ''}` : ''}
+${c.tier > 1 ? `<label class="flex items-center gap-2 text-[10px] text-gray-300 font-bold"><input data-he="playoff" data-i="${i}" type="checkbox" ${c.playoff ? 'checked' : ''} class="w-4 h-4 accent-sky-400"> 🔼 Promotion play-off (next 4 play for one more spot)</label>` : ''}` : '<p class="text-[10px] text-gray-500">Cup · knockout. Players get in through the qualification spots of the leagues (or the host adds them).</p>'}
+<button onclick="window.removeHostComp(${i})" class="text-[10px] text-red-400 font-black">Remove</button></div>`).join('')}
+<div class="flex gap-2"><button onclick="window.addHostComp('league')" class="flex-1 py-2.5 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-xs font-black">+ League division</button><button onclick="window.addHostComp('cup')" class="flex-1 py-2.5 rounded-xl bg-gg-900 border border-magenta/30 text-magenta text-xs font-black">+ Cup</button></div>
+<button onclick="window.saveHostComps()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs uppercase">Save</button>`);
+};
+window.readHostEdits = function() {
+const h = window.myHost; if (!h) return;
+document.querySelectorAll('[data-he]').forEach(el => { const c = h.comps[+el.dataset.i]; if (!c) return; const k = el.dataset.he;
+c[k] = k === 'name' ? (el.value.trim() || c.name) : k === 'h2h' ? el.value : k === 'playoff' ? el.checked : Math.max(0, parseInt(el.value) || 0); });
+document.querySelectorAll('[data-hq]').forEach(el => { const c = h.comps[+el.dataset.i]; if (!c) return; const k = +el.dataset.k; c.qual = c.qual || []; c.qual[k] = c.qual[k] || { n: 0, to: '' }; c.qual[k][el.dataset.hq] = el.dataset.hq === 'n' ? Math.max(0, parseInt(el.value) || 0) : el.value; });
+h.comps.forEach(c => { if (c.qual) c.qual = c.qual.filter(q => q && q.n > 0 && q.to); });
+const o = document.getElementById('heOrg'); if (o) h.org = o.value.trim() || h.org;
+};
+
+window.latestOf = (cid, kind) => (window.tournamentsList || []).filter(t => t.hostId === window.uidNow() && t.compId === cid && (kind ? t.compKind === kind : true)).sort((a, b) => (b.season || 0) - (a.season || 0))[0];
+window.startNextLeagueSeason = function() { window._ns = null; window.openNextSeason(); };
+window.nsPlan = function() {
+const h = window.myHost, leagues = h.comps.filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier), cups = h.comps.filter(c => c.kind === 'cup');
+const S = window._ns = window._ns || { adj: {}, dates: {}, superCup: true };
+const prev = leagues.map(c => ({ c, t: window.latestOf(c.id, 'league') }));
+const orders = prev.map(x => x.t ? (x.t.status === 'finished' && x.t.finalOrder ? x.t.finalOrder : window.finalOrderOf(x.t)) : []);
+const next = orders.map(o => [...o]), moves = [], boundary = [];
+for (let k = 0; k < leagues.length - 1; k++) {
+const lowT = prev[k + 1].t, po = leagues[k + 1].playoff && lowT && window.latestPlayoff(leagues[k + 1].id, lowT.season);
+const poWin = po && po.status === 'finished' && po.champion && orders[k + 1].some(p => window.tagEq(p, po.champion)) ? po.champion : null;
+const adjU = S.adj['u' + k] || 0, adjD = S.adj['d' + k] || 0;
+const up = Math.max(0, Math.min((leagues[k + 1].promote || 0) + adjU, orders[k + 1].length)), down = Math.max(0, Math.min((leagues[k].relegate || 0) + adjD + (poWin ? 1 : 0), orders[k].length));
+const promoted = orders[k + 1].slice(0, up); if (poWin && !promoted.some(p => window.tagEq(p, poWin))) promoted.push(poWin);
+const relegated = down ? orders[k].slice(-down) : [];
+next[k] = next[k].filter(p => !relegated.includes(p)).concat(promoted);
+next[k + 1] = next[k + 1].filter(p => !promoted.includes(p)).concat(relegated);
+boundary.push({ k, up, down, promoted, relegated, poWin, po, lowT });
+promoted.forEach(p => moves.push({ p, to: leagues[k].name, up: true }));
+relegated.forEach(p => moves.push({ p, to: leagues[k + 1].name, up: false }));
+}
+const cupIn = {}; cups.forEach(c => { cupIn[c.id] = []; });
+leagues.forEach((c, k) => { let from = 0; (c.qual || []).forEach(q => { if (!cupIn[q.to]) return; orders[k].slice(from, from + q.n).forEach(p => { if (!cupIn[q.to].some(x => window.tagEq(x, p))) cupIn[q.to].push(p); }); from += q.n; }); });
+const topChamp = orders[0] && orders[0][0], lastCups = cups.map(c => window.latestOf(c.id)).filter(t => t && t.status === 'finished' && t.champion);
+const cupWin = lastCups.length ? lastCups.sort((a, b) => (/champion/i.test(b.compName || '') ? 1 : 0) - (/champion/i.test(a.compName || '') ? 1 : 0))[0].champion : null;
+const sc2 = cupWin && !window.tagEq(cupWin, topChamp) ? cupWin : orders[0] && orders[0][1];
+const superCup = topChamp && sc2 ? [topChamp, sc2] : null;
+return { h, leagues, cups, prev, orders, next, moves, boundary, cupIn, superCup, S };
+};
+window.latestPlayoff = (cid, season) => (window.tournamentsList || []).find(t => t.compKind === 'playoff' && t.pfor === cid && t.season === season);
+window.nsDefaults = function(P) {
+const S = P.S, base = window.dayStartOf(Date.now()) + window.DAY;
+P.leagues.forEach((c, k) => { if (!S.dates[c.id]) { const n = P.next[k].length, R = Math.max(1, (n + (n % 2) - 1) * (c.h2h === '2x' ? 2 : 1)); S.dates[c.id] = [base, base + Math.max(6, Math.min(60, R * 2)) * window.DAY]; } });
+const lastLeague = Math.max(base + 13 * window.DAY, ...P.leagues.map(c => S.dates[c.id][1]));
+P.cups.forEach(c => { if (!S.dates[c.id]) S.dates[c.id] = [base + 7 * window.DAY, lastLeague + 4 * window.DAY]; });   // cups start later and end last
+if (!S.dates.supercup) S.dates.supercup = [base, base + window.DAY];
+};
+window.openNextSeason = function() {
+const h = window.myHost; if (!h) return;
+window.readNsInputs && window.readNsInputs();
+const P = window.nsPlan(); window.nsDefaults(P);
+const S = P.S, f = 'w-full mt-0.5 bg-gg-900 border border-cyan-500/30 rounded-lg px-2 py-1.5 text-[11px] text-white';
+const pill = (p, up) => `<span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-black ${up ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/15 text-red-300 border border-red-500/30'}">${up ? '⬆️' : '⬇️'} ${escapeHTML(window.dnText(p))}</span>`;
+const step = (key, d) => `<button onclick="window._ns.adj['${key}']=(window._ns.adj['${key}']||0)+(${d}); window.openNextSeason()" class="w-6 h-6 rounded-md bg-gg-950 border border-white/10 text-white text-xs font-black">${d > 0 ? '+' : '−'}</button>`;
+const dates = (id) => `<div class="grid grid-cols-2 gap-1.5"><label class="text-[9px] text-gray-400 font-bold">Starts<input data-nsd="${id}" data-e="0" type="date" value="${window.dateInputVal(S.dates[id][0])}" class="${f}"></label><label class="text-[9px] text-gray-400 font-bold">Ends<input data-nsd="${id}" data-e="1" type="date" value="${window.dateInputVal(S.dates[id][1])}" class="${f}"></label></div>`;
+const unfinished = P.prev.filter(x => x.t && x.t.status !== 'finished');
+window.openPanel('🔁 Next season', `
+${unfinished.length ? `<div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200">⚠️ Not finished yet: ${unfinished.map(x => escapeHTML(x.c.name)).join(', ')}. This preview uses the current table. Finish them (🏁 Finish &amp; crown champion) before you can lock the new season.</div>` : ''}
+<p class="text-[11px] text-gray-400">Check who goes up, down and into the cups. Change the numbers for this season with − / +, set the dates for each competition, then lock it.</p>
+${P.boundary.map(b => `<div class="glass-panel rounded-2xl p-3 border border-white/10 space-y-2">
+<p class="text-[11px] font-black text-white">${escapeHTML(P.leagues[b.k + 1].name)} ⇅ ${escapeHTML(P.leagues[b.k].name)}</p>
+<div class="flex items-center justify-between gap-2 text-[10px] text-gray-300 font-bold"><span>⬆️ Promoted: ${b.up}${b.poWin ? ' + play-off winner' : ''}</span><span class="flex gap-1">${step('u' + b.k, -1)}${step('u' + b.k, 1)}</span></div>
+<div class="flex flex-wrap gap-1">${b.promoted.map(p => pill(p, true)).join('') || '<span class="text-[10px] text-gray-500">nobody</span>'}</div>
+<div class="flex items-center justify-between gap-2 text-[10px] text-gray-300 font-bold"><span>⬇️ Relegated: ${b.down}</span><span class="flex gap-1">${step('d' + b.k, -1)}${step('d' + b.k, 1)}</span></div>
+<div class="flex flex-wrap gap-1">${b.relegated.map(p => pill(p, false)).join('') || '<span class="text-[10px] text-gray-500">nobody</span>'}</div>
+${P.leagues[b.k + 1].playoff && b.lowT ? (b.po ? `<p class="text-[10px] ${b.po.status === 'finished' ? 'text-sky-300' : 'text-amber-300'} font-bold">🔼 Play-off: ${b.po.status === 'finished' ? `${escapeHTML(window.dnText(b.po.champion))} won and goes up` : 'still being played'}</p>`
+: `<button onclick="window.createPromoPlayoff('${P.leagues[b.k + 1].id}')" class="w-full py-2 rounded-xl bg-sky-500/15 border border-sky-500/40 text-sky-300 text-[11px] font-black">🔼 Create the promotion play-off (places ${(P.leagues[b.k + 1].promote || 0) + 1}–${(P.leagues[b.k + 1].promote || 0) + 4})</button>`) : ''}
+</div>`).join('')}
+${P.leagues.map((c, k) => `<div class="glass-panel rounded-2xl p-3 border border-cyan-500/20 space-y-1.5"><div class="flex items-center justify-between"><p class="text-[11px] font-black text-white">${['🥇', '🥈', '🥉'][c.tier - 1] || '🏅'} ${escapeHTML(c.name)}</p><span class="text-[10px] text-gray-400 font-bold">${P.next[k].length} players · S${((P.prev[k].t && P.prev[k].t.season) || 0) + 1}</span></div>${dates(c.id)}</div>`).join('')}
+${P.cups.map(c => `<div class="glass-panel rounded-2xl p-3 border border-magenta/30 space-y-1.5"><div class="flex items-center justify-between"><p class="text-[11px] font-black text-white">🏆 ${escapeHTML(c.name)}</p><span class="text-[10px] text-gray-400 font-bold">${P.cupIn[c.id].length} qualified</span></div>
+${P.cupIn[c.id].length ? `<div class="flex flex-wrap gap-1">${P.cupIn[c.id].map(p => `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-500/15 text-purple-200 border border-purple-500/30">${escapeHTML(window.dnText(p))}</span>`).join('')}</div>${dates(c.id)}<p class="text-[9px] text-gray-500">${P.cupIn[c.id].length < 2 ? 'Needs 2+ players.' : `${window.pow2(P.cupIn[c.id].length)}-player bracket${window.pow2(P.cupIn[c.id].length) > P.cupIn[c.id].length ? `, ${window.pow2(P.cupIn[c.id].length) - P.cupIn[c.id].length} open spot(s) you can fill` : ''}. The draw is random.`}</p>` : '<p class="text-[10px] text-gray-500">Nobody qualifies. Set "Top N → this cup" in ✏️ Edit.</p>'}</div>`).join('')}
+${P.superCup ? `<label class="glass-panel rounded-2xl p-3 border border-amber-500/30 flex items-start gap-2"><input id="nsSuper" type="checkbox" ${S.superCup ? 'checked' : ''} onchange="window._ns.superCup=this.checked" class="mt-0.5 w-4 h-4 accent-amber-400"><span><span class="block text-[11px] font-black text-white">🥇 Super Cup to open the season</span><span class="block text-[10px] text-gray-400">${escapeHTML(window.dnText(P.superCup[0]))} vs ${escapeHTML(window.dnText(P.superCup[1]))}, one match.</span></span></label>` : ''}
+<button onclick="window.lockNextSeason()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 font-black text-xs uppercase">🔒 Lock & start the new season</button>`);
+};
+window.readNsInputs = function() { const S = window._ns; if (!S) return; document.querySelectorAll('[data-nsd]').forEach(el => { const v = window.dateFromInput(el.value, el.dataset.e === '1'); if (v && S.dates[el.dataset.nsd]) S.dates[el.dataset.nsd][+el.dataset.e] = v; }); };
+window.nsId = (cid, season) => `tourn_${window.uidNow().slice(0, 6)}_${cid}_s${season}`.replace(/[^\w-]/g, '_');
+window.lockNextSeason = async function() {
+if (window._nsBusy) return;
+window.readNsInputs();
+const P = window.nsPlan(), S = P.S, h = P.h; window.nsDefaults(P);
+const open = P.prev.filter(x => x.t && x.t.status !== 'finished');
+if (open.length) { showToast(`🏁 Finish ${open.map(x => x.c.name).join(' & ')} first (🏁 Finish & crown champion).`); return; }
+for (const id in S.dates) if (S.dates[id][1] < S.dates[id][0]) { showToast('⚠️ One competition ends before it starts.'); return; }
+if (!await window.sgConfirm(`Start the new season now?\n\n${P.moves.map(x => `${x.up ? '⬆️' : '⬇️'} ${window.dnText(x.p)} → ${x.to}`).join('\n') || 'No promotions or relegations.'}`, { title: '🔒 Lock season', okText: 'Start season' })) return;
+window._nsBusy = true; let made = 0;
+const exists = async (id) => { if ((window.tournamentsList || []).some(t => t.id === id)) return true; try { return (await getDoc(doc(window.db, 'tournaments', id))).exists(); } catch (e) { return false; } };
+const mk = async (t, notifyText) => {
+if (await exists(t.id)) return;
+window.tournamentsList.unshift(t); await window.saveTournament(t, true); made++;
+window.realPlayers(t).forEach(p => window.notifyTag(p, notifyText));
+};
+try {
+for (let k = 0; k < P.leagues.length; k++) {
+const c = P.leagues[k], players = P.next[k], pt = P.prev[k].t; if (players.length < 2) continue;
+const season = ((pt && pt.season) || 0) + 1, [s, e] = S.dates[c.id];
+await mk({ id: window.nsId(c.id, season), title: `${c.name} · Season ${season}`, host: window.me(), game: (pt && pt.game) || 'FC MOBILE', format: 'LEAGUE', leagueH2H: c.h2h || '1x', maxPlayers: players.length,
+prizePool: (pt && pt.prizePool) || 'Bragging Rights', squadId: (pt && pt.squadId) || null, players, eliminated: [], matches: window.makeLeagueMatches(window.shuffleArr ? window.shuffleArr(players) : players, c.h2h || '1x'),
+hostId: window.uidNow(), hostOrg: h.org, compId: c.id, compName: c.name, compKind: 'league', tier: c.tier, season, status: 'active', startAt: s, endAt: e,
+rules: (pt && pt.rules) || '', needGameId: !!(pt && pt.needGameId), deadlineHrs: pt && pt.deadlineHrs !== undefined ? pt.deadlineHrs : 24, coHosts: (pt && pt.coHosts) || [], coHostUids: (pt && pt.coHostUids) || [], gameIds: (pt && pt.gameIds) || {} },
+`⚽ Season ${season} of ${c.name} has started. Check My Matches!`);
+}
+const ref = P.prev.find(x => x.t) || {}, rt = ref.t || {};
+for (const c of P.cups) {
+const ins = P.cupIn[c.id]; if (ins.length < 2) continue;
+const last = window.latestOf(c.id), season = ((last && last.season) || 0) + 1, N = window.pow2(ins.length), [s, e] = S.dates[c.id];
+await mk({ id: window.nsId(c.id, season), title: `${c.name} · Season ${season}`, host: window.me(), game: rt.game || 'FC MOBILE', format: 'KNOCKOUT', maxPlayers: N, prizePool: (last && last.prizePool) || 'Bragging Rights', squadId: rt.squadId || null,
+players: ins, eliminated: [], matches: window.makeKnockoutMatches(window.shuffleArr ? window.shuffleArr(ins) : ins, N), hostId: window.uidNow(), hostOrg: h.org, compId: c.id, compName: c.name, compKind: 'cup', tier: 0, season, status: 'active', startAt: s, endAt: e,
+rules: rt.rules || '', deadlineHrs: rt.deadlineHrs !== undefined ? rt.deadlineHrs : 24, coHosts: rt.coHosts || [], coHostUids: rt.coHostUids || [], gameIds: rt.gameIds || {} },
+`🏆 You qualified for ${c.name}! The draw is out. Check your first match.`);
+}
+if (P.superCup && S.superCup) {
+const last = window.latestOf('supercup'), season = ((last && last.season) || 0) + 1, [s, e] = S.dates.supercup;
+await mk({ id: window.nsId('supercup', season), title: `${h.org} Super Cup · Season ${season}`, host: window.me(), game: rt.game || 'FC MOBILE', format: 'KNOCKOUT', maxPlayers: 2, prizePool: 'Super Cup', squadId: rt.squadId || null,
+players: P.superCup, eliminated: [], matches: window.makeKnockoutMatches(P.superCup, 2), hostId: window.uidNow(), hostOrg: h.org, compId: 'supercup', compName: `${h.org} Super Cup`, compKind: 'cup', tier: 0, season, status: 'active', startAt: s, endAt: e, coHosts: rt.coHosts || [], coHostUids: rt.coHostUids || [] },
+`🥇 You play the ${h.org} Super Cup to open the new season!`);
+}
+P.moves.forEach(x => window.notifyTag(x.p, x.up ? `⬆️ Promoted! You play in ${x.to} this season 🎉` : `⬇️ Relegated to ${x.to}. Fight your way back up 💪`));
+try { await setDoc(doc(window.db, 'hosts', window.uidNow()), { lastRollAt: Date.now() }, { merge: true }); } catch (e) {}
+window._ns = null; window.closePanel();
+showToast(made ? `🔁 New season started: ${made} competition${made === 1 ? '' : 's'}!` : 'This season was already started.');
+window.renderHostDash();
+} finally { window._nsBusy = false; }
+};
+window.createPromoPlayoff = async function(cid) {
+const h = window.myHost, c = h && h.comps.find(x => x.id === cid), lt = c && window.latestOf(cid, 'league'); if (!lt) return;
+const order = lt.finalOrder || window.finalOrderOf(lt), from = c.promote || 0, ps = order.slice(from, from + 4);
+if (ps.length < 2) { showToast('Not enough players for a play-off.'); return; }
+if (window.latestPlayoff(cid, lt.season)) { showToast('The play-off already exists.'); return; }
+const N = window.pow2(ps.length), seeded = N === 4 && ps.length === 4 ? [ps[0], ps[3], ps[1], ps[2]] : ps;
+const t = { id: window.nsId(cid + '_po', lt.season), title: `${c.name} Promotion Play-off · Season ${lt.season}`, host: window.me(), game: lt.game, format: 'KNOCKOUT', maxPlayers: N, prizePool: 'Promotion', squadId: lt.squadId || null,
+players: ps, eliminated: [], matches: window.makeKnockoutMatches(seeded, N), hostId: window.uidNow(), hostOrg: h.org, compKind: 'playoff', pfor: cid, season: lt.season, status: 'active',
+startAt: window.dayStartOf(Date.now()) + window.DAY, endAt: window.dayStartOf(Date.now()) + 4 * window.DAY, coHosts: lt.coHosts || [], coHostUids: lt.coHostUids || [] };
+window.tournamentsList.unshift(t); await window.saveTournament(t, true);
+ps.forEach(p => window.notifyTag(p, `🔼 You're in the ${c.name} promotion play-off! Win it to go up.`));
+showToast('🔼 Play-off created.'); window.openNextSeason();
+};
+
+window.parseScorers = function(s) {
+const out = {};
+String(s || '').split(/[,;\n]+/).forEach(x => { const m = x.trim().match(/^(.*?)(?:\s*[x×]?\s*(\d{1,2}))?$/i); if (!m) return; const name = m[1].trim().replace(/\s+/g, ' '); if (!name || name.length > 30) return; out[name] = (out[name] || 0) + (m[2] ? Math.min(20, +m[2]) : 1); });
+return out;
+};
+window.goldenBoot = function(t) {
+const g = {};
+(t.matches || []).filter(window.isPlayedM).forEach(m => Object.entries(m.sc || {}).forEach(([who, s]) => {
+const tag = [m.p1, m.p2].find(p => window.tagEq(p, who)); if (!tag) return;
+Object.entries(window.parseScorers(s)).forEach(([n, k]) => { const key = n.toLowerCase() + '|' + tag.toLowerCase(); g[key] = g[key] || { name: n, tag, goals: 0 }; g[key].goals += k; });
+}));
+return Object.values(g).sort((a, b) => b.goals - a.goals).slice(0, 10);
+};
+window.openAwards = async function(id) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+window.panelKind = 'awards'; window._awardsTid = id;
+const rows = t.format === 'LEAGUE' ? window.leagueTable(t).filter(r => r.played) : [];
+const best = (k, dir) => rows.length ? [...rows].sort((a, b) => dir * (a[k] - b[k]) || b.pts - a.pts)[0] : null;
+const atk = best('gf', -1), def = rows.length ? [...rows].sort((a, b) => (a.ga / a.played) - (b.ga / b.played) || b.pts - a.pts)[0] : null, wins = best('w', -1);
+const unbeaten = rows.filter(r => r.l === 0 && r.played >= 3);
+const fair = rows.filter(r => !(t.matches || []).some(m => window.tagEq(m.forfeit, r.p)) && window.completionOf(r.p) && window.completionOf(r.p).pct === 100);
+const gb = window.goldenBoot(t);
+let votes = [], my = null;
+try { const s = await getDocs(query(collection(window.db, 'tournaments', id, 'votes'), limit(500))); s.forEach(d => { votes.push(d.data()); if (d.id === window.uidNow()) my = d.data().pick; }); } catch (e) {}
+if (window._awardsTid !== id) return;
+const tally = {}; votes.forEach(v => { if (v.pick) tally[v.pick.toLowerCase()] = (tally[v.pick.toLowerCase()] || 0) + 1; });
+const ps = window.realPlayers(t), top = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+const card = (e, title, who, sub) => who ? `<div class="flex items-center gap-3 p-3 rounded-2xl bg-gg-900 border border-amber-500/20"><span class="text-2xl">${e}</span><div class="min-w-0 flex-1"><p class="text-[10px] font-black text-amber-300 uppercase tracking-wider">${title}</p><p class="text-sm font-black text-white truncate">${who}</p>${sub ? `<p class="text-[10px] text-gray-400">${sub}</p>` : ''}</div></div>` : '';
+window.openPanel('🏅 Season awards', `<p class="text-[11px] text-gray-400">${escapeHTML(t.title)}${t.status === 'finished' ? '' : ' · so far'}. Awards are worked out from confirmed results. Player of the Season is voted by players (one vote per account).</p>
+${card('👑', t.status === 'finished' ? 'Champion' : 'Leader', t.champion || (rows[0] && rows[0].p) ? escapeHTML(window.dnText(t.champion || rows[0].p)) : '', '')}
+${card('⚔️', 'Best attack', atk ? escapeHTML(window.dnText(atk.p)) : '', atk ? `${atk.gf} goals scored` : '')}
+${card('🧱', 'Best defence', def ? escapeHTML(window.dnText(def.p)) : '', def ? `${def.ga} conceded in ${def.played} games` : '')}
+${card('🔥', 'Most wins', wins ? escapeHTML(window.dnText(wins.p)) : '', wins ? `${wins.w} wins` : '')}
+${unbeaten.length ? card('🛡️', 'Unbeaten', unbeaten.map(r => escapeHTML(window.dnText(r.p))).join(', '), 'no defeats') : ''}
+${fair.length ? card('🤝', 'Fair play', fair.slice(0, 4).map(r => escapeHTML(window.dnText(r.p))).join(', '), 'played every match, no forfeits') : ''}
+<div class="glass-panel rounded-2xl p-3 border border-cyan-500/20 space-y-1.5"><p class="text-xs font-black text-white">⚽ Golden Boot <span class="text-[10px] text-gray-500 font-bold">(in-game scorers players typed in)</span></p>
+${gb.length ? gb.map((x, i) => `<div class="flex items-center justify-between text-[11px]"><span class="text-gray-200 truncate"><b class="text-white">${i + 1}. ${escapeHTML(x.name)}</b> <span class="text-gray-500">· ${escapeHTML(window.dnText(x.tag))}</span></span><span class="font-black text-amber-300">${x.goals}</span></div>`).join('') : '<p class="text-[10px] text-gray-500">No scorers yet. Players can add them when they report a score.</p>'}</div>
+<div class="glass-panel rounded-2xl p-3 border border-magenta/30 space-y-2"><p class="text-xs font-black text-white">🗳️ Player of the Season</p>
+${top.length ? `<p class="text-[11px] text-gray-300">Leading: <b class="text-white">${escapeHTML(window.dnText((ps.find(p => p.toLowerCase() === top[0][0]) || top[0][0])))}</b> · ${top[0][1]} vote${top[0][1] === 1 ? '' : 's'} (${votes.length} total)</p>` : '<p class="text-[10px] text-gray-500">No votes yet.</p>'}
+${window.isSignedIn() ? `<div class="flex flex-wrap gap-1.5">${ps.map(p => `<button onclick="window.votePots('${t.id}','${window.tq(p)}')" class="px-2.5 py-1 rounded-full text-[10px] font-black ${my && window.tagEq(my, p) ? 'bg-magenta text-white' : 'bg-gg-900 border border-white/10 text-gray-300'}">${escapeHTML(window.dnText(p))}${tally[p.toLowerCase()] ? ` · ${tally[p.toLowerCase()]}` : ''}</button>`).join('')}</div><p class="text-[9px] text-gray-500">You can't vote for yourself. You can change your vote.</p>` : ''}</div>`);
+};
+window.votePots = async function(id, p) {
+if (window.needSignIn('vote')) return;
+if (window.tagEq(p, window.me())) { showToast('Vote for someone else 🙂'); return; }
+try { await setDoc(doc(window.db, 'tournaments', id, 'votes', window.uidNow()), { pick: p, by: window.me(), at: Date.now() }); showToast(`🗳️ You voted for ${window.dnText(p)}`); window.openAwards(id); }
+catch (e) { showToast("⚠️ Couldn't vote. Did the host paste the new Firebase rules?"); }
+};
+
+window.openHallOfFame = async function(hostUid) {
+window.panelKind = 'hof';
+window.openPanel('📜 Hall of Fame', '<p class="text-xs text-gray-400 text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i></p>');
+const titles = (await window.loadTitles()).filter(x => x.hostUid === hostUid);
+if (window.panelKind !== 'hof') return;
+const org = (titles[0] && titles[0].hostOrg) || ((window.tournamentsList || []).find(t => t.hostId === hostUid) || {}).hostOrg || 'League';
+const byComp = {}; titles.forEach(x => { (byComp[x.compName || x.title] = byComp[x.compName || x.title] || []).push(x); });
+const count = {}; titles.forEach(x => { const k = x.tag; count[k] = count[k] || { user: x.user, n: 0 }; count[k].n++; });
+const kings = Object.values(count).sort((a, b) => b.n - a.n).slice(0, 5);
+let rec = null; (window.tournamentsList || []).filter(t => t.hostId === hostUid && t.format === 'LEAGUE' && t.status === 'finished').forEach(t => window.leagueTable(t).forEach(r => { if (!rec || r.pts > rec.pts) rec = { ...r, t }; }));
+document.getElementById('sgPanelBody').innerHTML = `<div class="text-center space-y-1"><p class="text-3xl">🏛️</p><p class="text-base font-black text-white">${escapeHTML(org)}</p><p class="text-[10px] text-gray-400">Every champion, every season</p></div>
+${kings.length ? `<div class="glass-panel rounded-2xl p-3 border border-amber-500/30 space-y-1.5"><p class="text-xs font-black text-amber-300">👑 Most titles</p>${kings.map((k, i) => `<div class="flex items-center justify-between text-[12px]"><span class="text-white font-bold">${['🥇', '🥈', '🥉', '4.', '5.'][i]} ${window.dn(k.user)}</span><span class="font-black text-amber-300">${k.n} 🏆</span></div>`).join('')}</div>` : ''}
+${rec ? `<div class="glass-panel rounded-2xl p-3 border border-cyan-500/20"><p class="text-xs font-black text-cyan-300">📈 Record points in a season</p><p class="text-[12px] text-white font-bold">${window.dn(rec.p)} · ${rec.pts} pts <span class="text-gray-500 text-[10px]">(${escapeHTML(window.compShort(rec.t))} S${rec.t.season || 1})</span></p></div>` : ''}
+${Object.keys(byComp).length ? Object.entries(byComp).map(([c, l]) => `<div class="glass-panel rounded-2xl p-3 border border-white/10 space-y-1"><p class="text-xs font-black text-white">🏆 ${escapeHTML(c)}${window.divTag(l[0]) ? ` <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 align-middle">${window.divTag(l[0])}</span>` : ''}</p>${l.sort((a, b) => (b.season || 0) - (a.season || 0)).map(x => `<div class="flex items-center justify-between text-[11px]"><span class="text-gray-400 font-bold">Season ${x.season || 1}</span><span class="text-white font-bold">${window.dn(x.user)}${x.runnerUp ? ` <span class="text-gray-500 text-[10px]">· runner-up ${escapeHTML(window.dnText(x.runnerUp))}</span>` : ''}</span></div>`).join('')}</div>`).join('')
+: '<p class="text-xs text-gray-500 text-center py-6">No champions yet. Finish a season to crown the first one.</p>'}`;
+};
+
+window.playLiveDraw = function(id) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+const first = Math.min(...(t.matches || []).map(m => m.round || 1)), r1 = (t.matches || []).filter(m => (m.round || 1) === first);
+const names = window.realPlayers(t);
+let el = document.getElementById('sgDraw'); if (!el) { el = document.createElement('div'); el.id = 'sgDraw'; el.className = 'fixed inset-0 flex flex-col items-center justify-center p-5'; el.style.cssText = 'z-index:400;background:radial-gradient(ellipse at center,#1a0b2e 0%,#02050b 80%)'; document.body.appendChild(el); }
+el.classList.remove('hidden');
+el.innerHTML = `<p class="text-[11px] font-black tracking-[0.3em] text-amber-300">LIVE DRAW</p><p class="text-lg font-black text-white text-center mt-1">${escapeHTML(t.title)}</p>
+<div id="drawSpin" class="my-5 h-12 flex items-center justify-center text-2xl font-black text-white"></div>
+<div id="drawList" class="w-full max-w-sm space-y-2"></div>
+<button onclick="document.getElementById('sgDraw').classList.add('hidden'); clearInterval(window._drawT)" class="mt-6 px-6 py-2.5 rounded-full bg-white/10 text-white text-xs font-black">Close</button>`;
+const spin = document.getElementById('drawSpin'), list = document.getElementById('drawList');
+let i = 0, tick = 0; clearInterval(window._drawT);
+const nm = (p) => window.isRealPlayer(p) ? escapeHTML(window.dnText(p)) : '<span class="text-gray-500">Open spot</span>';
+window._drawT = setInterval(() => {
+if (i >= r1.length) { clearInterval(window._drawT); spin.innerHTML = '✅ Draw complete'; return; }
+tick++; spin.textContent = names.length ? window.dnText(names[Math.floor(Math.random() * names.length)]) : '…';
+if (tick % 9 === 0) { const m = r1[i++]; list.insertAdjacentHTML('beforeend', `<div class="flex items-center justify-between gap-2 p-3 rounded-2xl bg-gg-900 border border-amber-500/30"><span class="text-[13px] font-black text-white truncate flex-1">${nm(m.p1)}</span><span class="text-[10px] font-black text-amber-300 px-2">VS</span><span class="text-[13px] font-black text-white truncate flex-1 text-right">${nm(m.p2)}</span></div>`); if (navigator.vibrate) try { navigator.vibrate(20); } catch (e) {} }
+}, 110);
+};
+window.hostLiveDraw = async function(id) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.canManageTourn(t)) return;
+if (window.tourHasResults(t)) { window.playLiveDraw(id); return; }
+if (!await window.sgConfirm('Do the draw now? Players are placed in random spots, everyone gets a notification, and the draw is shown live.', { title: '🎲 Live draw', okText: 'Draw!' })) return;
+const first = Math.min(...(t.matches || []).map(m => m.round || 1)), r1 = (t.matches || []).filter(m => (m.round || 1) === first);
+const slots = window.shuffleArr(r1.flatMap(m => [m.p1 || 'Open Spot', m.p2 || 'Open Spot']));
+r1.forEach((m, i) => { m.p1 = slots[i * 2]; m.p2 = slots[i * 2 + 1]; m.winner = null; m.status = 'approved'; });
+t.drawnAt = Date.now();
+await window.saveTournament(t); window.renderTournamentsTabDedicated();
+window.tlog(t, { type: 'draw', text: 'did the live draw' });
+window.realPlayers(t).filter(p => !window.tagEq(p, window.me())).forEach(p => window.notifyTag(p, `🎲 The ${t.title} draw is out! Tap to see who you play.`));
+window.playLiveDraw(id);
+};
+
+window.shareCanvas = async function(cv, name, text) {
+const blob = await new Promise(r => cv.toBlob(r, 'image/png')), file = new File([blob], name, { type: 'image/png' });
+if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+showToast('✅ Picture saved. Post it on your WhatsApp Status!');
+};
+window.cardBase = async function(H, title, sub) {
+const c = document.createElement('canvas'); c.width = 1080; c.height = H; const x = c.getContext('2d');
+const g = x.createLinearGradient(0, 0, 1080, H); g.addColorStop(0, '#0b1d3a'); g.addColorStop(0.6, '#2a0f45'); g.addColorStop(1, '#10061c'); x.fillStyle = g; x.fillRect(0, 0, 1080, H);
+const glow = x.createRadialGradient(900, 120, 20, 900, 120, 600); glow.addColorStop(0, 'rgba(255,0,127,.35)'); glow.addColorStop(1, 'rgba(255,0,127,0)'); x.fillStyle = glow; x.fillRect(0, 0, 1080, 700);
+const logo = window.loadImg ? await window.loadImg('icon-192.png') : null; if (logo) x.drawImage(logo, 60, 56, 110, 110);
+x.fillStyle = '#fff'; x.font = '900 40px system-ui, sans-serif'; x.fillText('SINLESS GG', 190, 102); x.fillStyle = '#22d3ee'; x.font = '700 26px system-ui, sans-serif'; x.fillText('LEAGUES · TOURNAMENTS', 190, 142);
+x.fillStyle = '#fff'; x.font = '900 56px system-ui, sans-serif'; (window.wrapLines ? window.wrapLines(x, title, 960, 2) : [title]).forEach((l, i) => x.fillText(l, 60, 250 + i * 64));
+x.fillStyle = '#fbbf24'; x.font = '800 30px system-ui, sans-serif'; x.fillText(sub, 60, title.length > 28 ? 370 : 306);
+x.fillStyle = 'rgba(255,255,255,.55)'; x.font = '700 28px system-ui, sans-serif'; x.textAlign = 'center'; x.fillText('Play in leagues for free on sinlessgg.com', 540, H - 50); x.textAlign = 'left';
+return { c, x, y0: title.length > 28 ? 420 : 360 };
+};
+window.shareTableCard = async function(id) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+showToast('📲 Making the picture…');
+const rows = window.leagueTable(t).slice(0, 16), H = Math.max(1350, 520 + rows.length * 62);
+const { c, x, y0 } = await window.cardBase(H, window.compShort(t) + (t.season ? ` · Season ${t.season}` : ''), `TABLE · ${new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`);
+let y = y0 + 20;
+x.fillStyle = 'rgba(255,255,255,.5)'; x.font = '800 24px system-ui'; ['#', 'PLAYER', 'P', 'W', 'D', 'L', 'GD', 'PTS'].forEach((h, i) => { x.textAlign = i < 2 ? 'left' : 'center'; x.fillText(h, [70, 130, 640, 710, 780, 850, 925, 1005][i], y); });
+y += 22;
+rows.forEach((r, i) => {
+const yy = y + i * 62; x.fillStyle = i % 2 ? 'rgba(255,255,255,.04)' : 'rgba(255,255,255,.08)'; x.fillRect(50, yy, 980, 56);
+if (r.zc) { x.fillStyle = r.zc; x.fillRect(50, yy, 8, 56); }
+x.fillStyle = '#fff'; x.font = '900 28px system-ui'; x.textAlign = 'left'; x.fillText(String(i + 1), 72, yy + 38);
+x.font = '800 28px system-ui'; let n = window.dnText(r.p); while (x.measureText(n).width > 480 && n.length > 3) n = n.slice(0, -2) + '…'; x.fillText(n + (r.tie ? ' ⚔️' : ''), 130, yy + 38);
+x.textAlign = 'center'; x.font = '700 28px system-ui'; x.fillStyle = '#d1d5db';
+[r.played, r.w, r.d, r.l, (r.gd > 0 ? '+' : '') + r.gd].forEach((v, k) => x.fillText(String(v), [640, 710, 780, 850, 925][k], yy + 38));
+x.fillStyle = '#22d3ee'; x.font = '900 30px system-ui'; x.fillText(String(r.pts), 1005, yy + 38);
+});
+x.textAlign = 'left';
+await window.shareCanvas(c, 'sinless-table.png', `${t.title} table 🔥 https://sinlessgg.com`);
+};
+window.shareFixturesCard = async function(id) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+const ms = (t.matches || []).filter(m => window.isRealPlayer(m.p1) && window.isRealPlayer(m.p2));
+const next = ms.filter(m => !window.isPlayedM(m)), nr = next.length ? Math.min(...next.map(m => m.round || 1)) : null;
+const list = nr !== null ? next.filter(m => (m.round || 1) === nr) : ms.filter(window.isPlayedM).slice(-8);
+if (!list.length) { showToast('No fixtures yet.'); return; }
+showToast('📲 Making the picture…');
+const H = Math.max(1350, 560 + list.length * 110), d = nr !== null ? window.matchDate(t, list[0]) : null;
+const { c, x, y0 } = await window.cardBase(H, window.compShort(t) + (t.season ? ` · S${t.season}` : ''), nr !== null ? `${(list[0].stage || 'NEXT MATCHES').toUpperCase()}${d !== null ? ' · ' + window.fmtDay(d).toUpperCase() : ''}` : 'LATEST RESULTS');
+list.slice(0, 12).forEach((m, i) => {
+const yy = y0 + 30 + i * 110; x.fillStyle = 'rgba(255,255,255,.07)'; x.beginPath(); x.roundRect ? x.roundRect(50, yy, 980, 92, 24) : x.rect(50, yy, 980, 92); x.fill();
+const f = (s) => { let n = window.dnText(s); x.font = '800 32px system-ui'; while (x.measureText(n).width > 360 && n.length > 3) n = n.slice(0, -2) + '…'; return n; };
+x.fillStyle = '#fff'; x.textAlign = 'right'; x.fillText(f(m.p1), 450, yy + 58); x.textAlign = 'left'; x.fillText(f(m.p2), 630, yy + 58);
+x.textAlign = 'center'; x.font = '900 34px system-ui'; x.fillStyle = window.isPlayedM(m) ? '#22d3ee' : '#fbbf24'; x.fillText(window.isPlayedM(m) ? `${m.s1} – ${m.s2}` : 'VS', 540, yy + 58);
+});
+x.textAlign = 'left';
+await window.shareCanvas(c, 'sinless-fixtures.png', `${t.title} 🔥 https://sinlessgg.com`);
+};
+
+window.TPL_KEY = 'sg_tourn_tpls';
+window.tournTpls = () => { try { return JSON.parse(localStorage.getItem(window.TPL_KEY) || '[]'); } catch (e) { return []; } };
+window.saveTournTpl = async function() {
+const name = await window.sgPrompt('Name this template', { title: '💾 Save template', placeholder: 'e.g. Weekend 16-player cup', okText: 'Save' }); if (!name) return;
+const v = (id) => (document.getElementById(id) || {}).value || '';
+const tp = { name: name.trim().slice(0, 40), title: v('tournTitleInput'), game: v('tournGameSelect'), format: v('tournFormatSelect'), h2h: v('tournLeagueH2HSelect'), size: v('tournSizeSelect'), prize: v('tournPrizeInput') };
+const l = window.tournTpls().filter(x => x.name !== tp.name); l.unshift(tp);
+try { localStorage.setItem(window.TPL_KEY, JSON.stringify(l.slice(0, 12))); } catch (e) {}
+showToast('💾 Template saved'); window.renderTplBar();
+};
+window.useTournTpl = function(i) {
+const tp = window.tournTpls()[i]; if (!tp) return;
+const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+set('tournTitleInput', tp.title); set('tournGameSelect', tp.game); set('tournFormatSelect', tp.format); set('tournLeagueH2HSelect', tp.h2h); set('tournSizeSelect', tp.size); set('tournPrizeInput', tp.prize);
+window.toggleTournamentFormatOptions && window.toggleTournamentFormatOptions(tp.format);
+showToast(`📂 ${tp.name} loaded`);
+};
+window.renderTplBar = function() {
+const title = document.getElementById('tournTitleInput'); if (!title) return;
+document.getElementById('tournTplBar')?.remove();
+const l = window.tournTpls();
+title.insertAdjacentHTML('beforebegin', `<div id="tournTplBar" class="flex gap-1.5 overflow-x-auto scrollbar-none">${l.map((x, i) => `<button type="button" onclick="window.useTournTpl(${i})" class="shrink-0 px-2.5 py-1 rounded-full bg-gg-950 border border-amber-500/30 text-amber-300 text-[10px] font-black">📂 ${escapeHTML(x.name)}</button>`).join('')}<button type="button" onclick="window.saveTournTpl()" class="shrink-0 px-2.5 py-1 rounded-full bg-gg-950 border border-white/10 text-gray-300 text-[10px] font-black">💾 Save as template</button></div>`);
+};
+window.openCreateTournamentModal = (function(b) { return function(...a) { const r = b.apply(this, a); window.renderTplBar(); return r; }; })(window.openCreateTournamentModal);
+
+window._baseRenderTournamentsTabDedicated38 = window._baseRenderTournamentsTabDedicated38 || window.renderTournamentsTabDedicated;
+window.renderTournamentsTabDedicated = function() {
+window._baseRenderTournamentsTabDedicated38();
+const t = window.activeTournament, box = document.getElementById('tournamentsDedicatedContainer'), bar = box && box.querySelector('[data-season-bar]');
+if (!t || !bar || bar.querySelector('[data-v38]')) return;
+const own = window.isTournOwner(t), mgr = window.canManageTourn(t), ko = t.format !== 'LEAGUE', noRes = !window.tourHasResults(t);
+const b = (on, cls, l) => `<button onclick="${on}" class="px-2.5 py-1 rounded-lg ${cls}">${l}</button>`;
+const cc = mgr ? window.ccData().n : 0;
+bar.insertAdjacentHTML('beforeend', `<span data-v38 class="flex gap-1.5 flex-wrap w-full">
+${mgr && t.status !== 'finished' ? b('window.openCommandCentre()', `${cc ? 'bg-amber-400 text-slate-950' : 'bg-gg-900 text-amber-300 border border-amber-500/40'} uppercase`, `🧭 Command centre${cc ? ` (${cc})` : ''}`) : ''}
+${own && t.status !== 'finished' ? b(`window.openEditTourn('${t.id}')`, 'bg-gg-900 text-white border border-white/15', '✏️ Dates & rules') : ''}
+${own && t.status !== 'finished' ? b(`window.openCoHosts('${t.id}')`, 'bg-gg-900 text-white border border-white/15', `🤝 Co-hosts${(t.coHosts || []).length ? ' · ' + t.coHosts.length : ''}`) : ''}
+${ko && noRes && mgr && t.status !== 'finished' && window.realPlayers(t).length >= 2 ? b(`window.hostLiveDraw('${t.id}')`, 'bg-magenta/20 text-magenta border border-magenta/40 uppercase', '🎲 Live draw') : ''}
+${ko && (t.drawnAt || (!noRes && false)) ? b(`window.playLiveDraw('${t.id}')`, 'bg-gg-900 text-magenta border border-magenta/30', '🎲 Watch the draw') : ''}
+${b(`window.showTournRules('${t.id}')`, 'bg-gg-900 text-gray-200 border border-white/10', '📏 Rules')}
+${!ko ? b(`window.shareTableCard('${t.id}')`, 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30', '📲 Share table') : ''}
+${b(`window.shareFixturesCard('${t.id}')`, 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30', '📲 Fixtures')}
+${!ko ? b(`window.openAwards('${t.id}')`, 'bg-gg-900 text-amber-300 border border-amber-500/30', '🏅 Awards') : ''}
+${t.hostId ? b(`window.openHallOfFame('${t.hostId}')`, 'bg-gg-900 text-amber-300 border border-amber-500/30', '📜 Hall of Fame') : ''}
+${(t.coHosts || []).length ? `<span class="px-2 py-1 rounded-lg bg-gg-900 text-gray-400 border border-white/10">🤝 ${t.coHosts.map(c => escapeHTML(window.dnText(c.tag))).join(', ')}</span>` : ''}
+</span>`);
+(t.matches || []).forEach(m => { const chip = window.dueChip(t, m); if (!chip) return; box.querySelectorAll(`[onclick*="openMatchReportModal('${m.id}')"]`).forEach(card => { const head = card.firstElementChild; if (head && !head.querySelector('[data-due]')) head.firstElementChild?.insertAdjacentHTML('beforeend', chip.replace('<span ', '<span data-due ')); }); });
+};
+
+window._baseRenderHostDash38 = window._baseRenderHostDash38 || window.renderHostDash;
+window.renderHostDash = async function() {
+await window._baseRenderHostDash38();
+const box = document.getElementById('tourExtraBody'); if (!box || window.tourTab !== 'host' || !window.myHost || box.querySelector('[data-hd38]')) return;
+const cc = window.ccData().n;
+box.insertAdjacentHTML('afterbegin', `<div data-hd38 class="grid grid-cols-2 gap-2">
+<button onclick="window.openCommandCentre()" class="py-3 rounded-2xl text-xs font-black ${cc ? 'bg-amber-400 text-slate-950' : 'bg-gg-900 border border-amber-500/40 text-amber-300'}">🧭 Command centre${cc ? ` (${cc})` : ''}</button>
+<button onclick="window.openHallOfFame('${window.uidNow()}')" class="py-3 rounded-2xl bg-gg-900 border border-amber-500/40 text-amber-300 text-xs font-black">📜 Hall of Fame</button></div>`);
+const nb = box.querySelector('[onclick*="startNextLeagueSeason"]'); if (nb) { nb.disabled = false; nb.className = 'w-full py-3 rounded-2xl font-black text-xs uppercase bg-gradient-to-r from-cyan-400 to-magenta text-slate-950'; nb.innerHTML = '🔁 Next season: preview promotion, relegation &amp; qualification'; }
+};
+
+window.myDueReminder = function() {
+if (!window.isSignedIn()) return;
+const k = 'sg_due_rem_' + new Date().toDateString(); try { if (localStorage.getItem(k)) return; } catch (e) {}
+const mine = window.matchesOf(window.me()).filter(x => !x.played && window.isRealPlayer(x.opp));
+const soon = mine.filter(x => { const d = window.dueAt(x.t, x.m); return d !== null && d > Date.now() && d - Date.now() < 30 * 3600e3; });
+const moves = mine.filter(x => x.m.resch && x.m.resch.st === 'asked' && !window.tagEq(x.m.resch.by, window.me()));
+if (!soon.length && !moves.length) return;
+try { localStorage.setItem(k, '1'); } catch (e) {}
+setTimeout(() => showToast(moves.length ? `📅 ${window.dnText(moves[0].m.resch.by)} asked to move your match. Open My Matches.` : `⏰ You have ${soon.length} match${soon.length > 1 ? 'es' : ''} to play by tomorrow. Open My Matches.`), 4000);
+};
+setTimeout(() => window.myDueReminder(), 9000);
+setTimeout(() => window.myDueReminder(), 25000);
+
+window.STORY_QUICK = ['🔥', '😂', '😍', '👏', '💯', '⚽'];
+window.storyPause = function() { clearTimeout(window.storyViewer.timer); const v = document.getElementById('storyVideo'); if (v) try { v.pause(); } catch (e) {} };
+window.replyToStory = function() {
+const st = window.storyViewer.list[window.storyViewer.index]; if (!st || window.needSignIn('reply to stories')) return;
+window.storyPause();
+const modal = document.getElementById('storyViewerModal'); if (!modal) return;
+document.getElementById('storyReplySheet')?.remove();
+modal.insertAdjacentHTML('beforeend', `<div id="storyReplySheet" class="absolute inset-0 flex flex-col justify-end" style="z-index:5;background:linear-gradient(transparent 35%,rgba(0,0,0,.75))" onclick="event.stopPropagation(); if (event.target === this) window.closeStoryReply(true)">
+<div class="p-3 pt-4 space-y-2.5 rounded-t-3xl" style="padding-bottom:max(14px,env(safe-area-inset-bottom));background:rgba(10,10,18,.94)" onclick="event.stopPropagation()">
+<div class="flex justify-center gap-2">${window.STORY_QUICK.map(e => `<button onclick="window.sendStoryReply('${e}')" class="w-11 h-11 rounded-full text-2xl" style="background:rgba(255,255,255,.12)">${e}</button>`).join('')}</div>
+<div class="flex items-center gap-2"><input id="storyReplyIn" maxlength="300" placeholder="Reply to ${escapeHTML(window.dnText(st.user))}'s story…" class="flex-1 min-w-0 rounded-full px-4 py-3 text-sm text-white outline-none" style="background:rgba(255,255,255,.14)" onkeydown="if(event.key==='Enter') window.sendStoryReply()">
+<button onclick="window.sendStoryReply()" class="w-11 h-11 rounded-full bg-magenta text-white shrink-0"><i class="fa-solid fa-paper-plane"></i></button></div>
+<p class="text-[10px] text-white/60 text-center">Only ${escapeHTML(window.dnText(st.user))} sees your reply. It stays with the story.</p></div></div>`);
+setTimeout(() => document.getElementById('storyReplyIn')?.focus(), 80);
+};
+window.closeStoryReply = function(resume) { document.getElementById('storyReplySheet')?.remove(); if (resume && !document.getElementById('storyViewerModal').classList.contains('hidden')) window.showStory(); };
+window.sendStoryReply = async function(quick) {
+const st = window.storyViewer.list[window.storyViewer.index]; if (!st) return;
+const text = (quick || document.getElementById('storyReplyIn')?.value || '').trim().slice(0, 300); if (!text) return;
+window.closeStoryReply(false);
+try {
+await addDoc(collection(window.db, 'stories', st.id, 'replies'), { uid: window.uidNow(), user: window.me(), ownerUid: st.uid, text, at: Date.now() });
+if (st.uid) window.notify(st.uid, 'story', { postId: 'story:' + st.id, text: `replied to your story: “${text.slice(0, 80)}”` });
+showToast(quick ? `${quick} sent` : '💬 Reply sent');
+} catch (e) { showToast("⚠️ Couldn't send. The story may have ended."); }
+window.showStory();
+};
+window._baseShowStory38 = window._baseShowStory38 || window.showStory;
+window.showStory = function() {
+window._baseShowStory38();
+const st = window.storyViewer.list[window.storyViewer.index];
+if (!st || !window.storyIsCloud(st) || !window.isSignedIn() || !window.storyMine(st)) return;
+const vb = document.getElementById('storyViewersBtn'); if (!vb || document.getElementById('storyRepliesBtn')) return;
+vb.insertAdjacentHTML('afterend', `<button id="storyRepliesBtn" onclick="event.stopPropagation(); window.openStoryReplies('${st.id}')" class="ml-2 px-5 py-2.5 rounded-full bg-white/15 text-white text-sm font-black backdrop-blur">💬 …</button>`);
+vb.parentElement.classList.add('gap-0');
+getDocs(query(collection(window.db, 'stories', st.id, 'replies'), where('ownerUid', '==', window.uidNow()), limit(300))).then(s => { const b = document.getElementById('storyRepliesBtn'); if (b) b.innerHTML = `💬 ${s.size} repl${s.size === 1 ? 'y' : 'ies'}`; }).catch(() => { const b = document.getElementById('storyRepliesBtn'); if (b) b.innerHTML = '💬 Replies'; });
+};
+window.openStoryReplies = async function(id) {
+if (window.needSignIn('see story replies')) return;
+window.storyPause();
+const modal = document.getElementById('storyViewerModal'); if (modal && !modal.classList.contains('hidden')) { modal.classList.add('hidden'); window._storyResume = true; }
+window.panelKind = 'storyreplies'; window._srId = id;
+window.openPanel('💬 Story replies', '<p class="text-xs text-gray-400 text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i></p>');
+const me = window.uidNow(), seen = new Map();
+const grab = async (f, v) => { try { const s = await getDocs(query(collection(window.db, 'stories', id, 'replies'), where(f, '==', v), limit(300))); s.forEach(d => seen.set(d.id, { id: d.id, ...d.data() })); } catch (e) {} };
+await Promise.all([grab('ownerUid', me), grab('uid', me), grab('toUid', me)]);
+if (window._srId !== id || window.panelKind !== 'storyreplies') return;
+const list = [...seen.values()].sort((a, b) => (a.at || 0) - (b.at || 0));
+const owner = list.length ? list[0].ownerUid === me : true;
+const convs = new Map();
+list.forEach(r => { const other = r.uid === r.ownerUid ? r.toUid : r.uid; const k = other || 'x'; if (!convs.has(k)) convs.set(k, { other, user: r.uid === r.ownerUid ? r.toUser : r.user, items: [] }); convs.get(k).items.push(r); });
+const body = document.getElementById('sgPanelBody'); if (!body) return;
+body.innerHTML = convs.size ? [...convs.values()].map(c => `<div class="p-3 rounded-2xl bg-gg-900 border border-white/5 space-y-1.5">
+<div class="flex items-center gap-2">${window.avatarHtml(c.user || '', 'w-8 h-8', 'rounded-full', 'text-[10px]')}<p class="text-xs font-black text-white truncate">${window.dn(c.user || '')}</p></div>
+${c.items.map(r => { const mineR = r.uid === me; return `<div class="flex ${mineR ? 'justify-end' : 'justify-start'}"><p class="max-w-[80%] px-3 py-1.5 rounded-2xl text-xs ${mineR ? 'bg-magenta text-white' : 'bg-white/10 text-gray-100'}">${escapeHTML(r.text)}<span class="block text-[8px] opacity-60 mt-0.5">${window.timeAgo(r.at)}</span></p></div>`; }).join('')}
+${owner && c.other ? `<div class="flex gap-1.5 pt-1"><input data-sr="${escapeHTML(c.other)}" data-su="${escapeHTML(c.user || '')}" maxlength="300" placeholder="Reply to ${escapeHTML(window.dnText(c.user || ''))}…" class="flex-1 min-w-0 bg-gg-950 border border-white/10 rounded-full px-3 py-2 text-xs text-white focus:outline-none" onkeydown="if(event.key==='Enter') window.answerStoryReply('${id}', this)">
+<button onclick="window.answerStoryReply('${id}', this.previousElementSibling)" class="px-3 rounded-full bg-magenta text-white text-[11px] font-black">Send</button></div>` : ''}</div>`).join('')
+: `<div class="text-center py-10 space-y-2"><p class="text-3xl">💬</p><p class="text-xs text-gray-400">${owner ? 'No replies yet. When people reply to your story, they show up here.' : 'No replies here yet.'}</p></div>`;
+};
+window.answerStoryReply = async function(id, input) {
+const text = (input.value || '').trim().slice(0, 300); if (!text) return;
+try {
+await addDoc(collection(window.db, 'stories', id, 'replies'), { uid: window.uidNow(), user: window.me(), ownerUid: window.uidNow(), toUid: input.dataset.sr, toUser: input.dataset.su, text, at: Date.now() });
+window.notify(input.dataset.sr, 'story', { postId: 'story:' + id, text: `answered your story reply: “${text.slice(0, 80)}”` });
+window.openStoryReplies(id);
+} catch (e) { showToast("⚠️ Couldn't send. The story may have ended."); }
+};
+window.notifIcon = (function(b) { return function(type) { return type === 'story' ? 'fa-circle-play text-magenta' : b(type); }; })(window.notifIcon);
+window.openNotification = (function(b) { return function(id) {
+const n = (window.notifList || []).find(x => x.id === id);
+if (n && String(n.postId || '').startsWith('story:')) { window.closeNotifications(); return window.openStoryReplies(n.postId.slice(6)); }
+if (n && n.type === 'story') { window.closeNotifications(); return window.openUserProfileModal(n.fromUser); }
+return b(id);
+}; })(window.openNotification);
+window.openNotifications = function() {
+if (window.needSignIn('get notifications')) return;
+document.getElementById('notifModal').classList.remove('hidden');
+window.renderNotifications();
+setTimeout(() => {
+(window.notifList || []).filter(n => !n.read && !window.isChatNotif(n)).forEach(n => { n.read = true; if (n.id) updateDoc(doc(window.db, 'notifications', n.id), { read: true }).catch(() => {}); });
+window.updateNotifBadge();
+}, 1200);
+};
+
