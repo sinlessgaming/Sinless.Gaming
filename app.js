@@ -576,7 +576,7 @@ if (!m.file) { mediaList.push({ type: m.type, url: m.url }); continue; }
 const uploaded = await window.prepareAndUpload(m.file, (pct) => {
 if (publishBtn) publishBtn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up mr-1"></i> Uploading ${i + 1}/${picked.length} · ${pct}%`;
 });
-mediaList.push(uploaded);
+mediaList.push(m.coverAt ? { ...uploaded, coverAt: m.coverAt } : uploaded);
 }
 } catch (err) {
 console.error("Media upload failed:", err);
@@ -603,6 +603,7 @@ caption: text,
 mediaList: mediaList,
 audioTrack: audioTrack,
 poll: window.pollDraft || null,
+...(window.postExtras ? window.postExtras() : {}),
 pollCounts: {},
 pollVoters: [],
 ggsCount: 0,
@@ -650,6 +651,7 @@ showToast("Published to Feed!");
 }
 
 function resetPostForm() {
+if (window.resetPostExtras) window.resetPostExtras();
 document.getElementById('postTextContent').value = '';
 window.uploadedMediaBlobs = [];
 window.selectedAudioTrack = null;
@@ -4733,9 +4735,10 @@ window.notifIcon = function(type) {
 return ({ gg: 'fa-thumbs-up text-cyan-400', reply: 'fa-comment text-emerald-400', mention: 'fa-at text-magenta', follow: 'fa-user-plus text-amber-400', dm: 'fa-envelope text-blue-400', tournament: 'fa-trophy text-amber-400', squad: 'fa-shield-halved text-emerald-400' })[type] || 'fa-bell text-gray-400';
 };
 
+window.isChatNotif = (n) => !!n && (n.type === 'dm' || (n.type === 'group' && String(n.postId || '').startsWith('group:')));
 window.updateNotifBadge = function() {
-const notifUnread = window.notifList.filter(n => !n.read && !['dm', 'group'].includes(n.type)).length;
-const dmUnread = window.notifList.filter(n => !n.read && ['dm', 'group'].includes(n.type)).length;
+const notifUnread = window.notifList.filter(n => !n.read && !window.isChatNotif(n) && !(window.isBlocked && window.isBlocked(n.fromUser))).length;
+const dmUnread = window.notifList.filter(n => !n.read && window.isChatNotif(n) && !(window.isBlocked && window.isBlocked(n.fromUser))).length;
 const set = (id, n) => { const el = document.getElementById(id); if (!el) return; el.innerText = n > 9 ? '9+' : n; el.classList.toggle('hidden', !n); };
 set('notifBadge', notifUnread);
 set('dmBadge', dmUnread);
@@ -4758,7 +4761,7 @@ window.closeNotifications = function() { document.getElementById('notifModal').c
 
 window.renderNotifications = function() {
 const box = document.getElementById('notifList');
-const list = window.notifList.filter(n => !['dm', 'group'].includes(n.type) && !window.isBlocked(n.fromUser));
+const list = window.notifList.filter(n => !window.isChatNotif(n) && !window.isBlocked(n.fromUser));
 if (!list.length) {
 box.innerHTML = `<div class="text-center py-16 space-y-2"><i class="fa-solid fa-bell text-3xl text-gray-600"></i><p class="text-xs text-gray-400">No notifications yet.<br>When people GG, reply, mention or follow you, it shows here.</p></div>`;
 return;
@@ -5293,7 +5296,7 @@ window.dmThreads = [];
 if (!window.isSignedIn()) return;
 const q = query(collection(window.db, 'dms'), where('participants', 'array-contains', window.currentUser.uid), limit(100));
 window.dmInboxUnsub = onSnapshot(q, (snap) => {
-window.dmThreads = [];
+window.dmThreads = []; window._dmThreadsLoaded = true;
 snap.forEach(d => window.dmThreads.push({ id: d.id, ...d.data() }));
 window.dmThreads.sort((a, b) => window.postTimeValue({ createdAt: b.lastAt }) - window.postTimeValue({ createdAt: a.lastAt }));
 if (!window.activeDm && !document.getElementById('dmModal').classList.contains('hidden')) window.renderDmInbox();
@@ -14577,7 +14580,7 @@ const rt = window.squadReplyTo;
 if (rt) { payload = { ...payload, replyTo: rt }; window.squadReplyTo = null; window.renderSquadReplyBar(); }
 const r = await window._baseSendSquadMessage31(payload);
 window.addXP && window.addXP(1, 'chat');
-if (rt && rt.fromUid && rt.fromUid !== window.uidNow()) window.notify(rt.fromUid, 'group', { text: `replied to you in ${(window.activeSquadDetails || {}).name || 'a squad'}` });
+if (rt && rt.fromUid && rt.fromUid !== window.uidNow()) window.notify(rt.fromUid, 'squad', { text: `replied to you in ${(window.activeSquadDetails || {}).name || 'a squad'}`, postId: 'squad:' + ((window.activeSquadDetails || {}).id || '') });
 return r;
 };
 window.toggleSquadReact = async function(id, k) {
@@ -17519,7 +17522,7 @@ if (!h.includes('data-sound-chip')) { const at = h.indexOf('<div class="flex ite
 return h.replace('data-post-id="' + id + '"', 'data-post-id="' + id + '" data-has-sound="1"');
 };
 })(window.renderFeedCard);
-window.postAudio = (() => { const a = new Audio(); a.preload = 'auto'; a.addEventListener('timeupdate', () => { const s = window._snd; if (s && a.currentTime > (s.start || 0) + 45) a.currentTime = s.start || 0; }); a.addEventListener('ended', () => { const s = window._snd; if (s) { a.currentTime = s.start || 0; a.play().catch(() => {}); } }); return a; })();
+window.postAudio = (() => { const a = new Audio(); a.preload = 'auto'; a.addEventListener('timeupdate', () => { const s = window._snd; if (s && !s._withVideo && a.currentTime > (s.start || 0) + 45) a.currentTime = s.start || 0; }); a.addEventListener('ended', () => { const s = window._snd; if (s) { a.currentTime = s.start || 0; a.play().catch(() => {}); } }); return a; })();
 window.playSound = function(s, key) {
 const a = window.postAudio; if (!s) return window.stopSound();
 if (window._sndKey !== key) { window._sndKey = key; window._snd = s; a.src = window.soundUrl(s); const st = s.start || 0; a.addEventListener('loadedmetadata', () => { try { a.currentTime = st; } catch (e) {} }, { once: true }); }
@@ -17565,3 +17568,638 @@ const chip = `<div class="pt-1" style="max-width:85%">${window.soundChip(p, c.id
 return h.replace(/(<div class="absolute left-3 right-20 bottom-8[^"]*">)/, `$1${chip}`);
 };
 })(window.clipSlideHtml);
+
+
+window.notifText = (function(b) { return function(n) { if (n && n.type === 'group' && !window.isChatNotif(n)) return n.text || 'replied to you in a squad'; return b(n); }; })(window.notifText);
+window.cleanChatOrphans = function() {
+if (!window._dmThreadsLoaded || !window.isSignedIn()) return;
+const uid = window.uidNow(), partners = new Set(), groups = new Set((window.groupThreads || []).map(g => g.id));
+(window.dmThreads || []).forEach(t => { const o = (t.participants || []).find(p => p !== uid); const nm = (t.names || {})[o]; if (nm) partners.add(String(nm).toLowerCase()); (t.participantNames || []).forEach(x => partners.add(String(x).toLowerCase())); });
+let changed = false;
+(window.notifList || []).filter(n => !n.read && window.isChatNotif(n)).forEach(n => {
+const orphan = n.type === 'dm' ? (!partners.has(String(n.fromUser || '').toLowerCase()) || window.isBlocked(n.fromUser)) : !groups.has(String(n.postId).slice(6));
+if (orphan) { n.read = true; changed = true; updateDoc(doc(window.db, 'notifications', n.id), { read: true }).catch(() => {}); }
+});
+if (changed) window.updateNotifBadge();
+};
+window.renderDmInbox = (function(b) { return function(...a) { const r = b.apply(this, a); setTimeout(window.cleanChatOrphans, 1500); return r; }; })(window.renderDmInbox);
+
+window.CAM_FILTERS = [
+['none', 'Normal', ''], ['beauty', 'Beauty', 'brightness(1.07) contrast(1.02) saturate(1.1)'], ['bright', 'Bright', 'brightness(1.18) contrast(1.05)'],
+['warm', 'Warm', 'sepia(.22) saturate(1.25) brightness(1.06)'], ['cool', 'Cool', 'hue-rotate(-12deg) saturate(1.1) brightness(1.05)'], ['vivid', 'Vivid', 'saturate(1.55) contrast(1.12)'],
+['pink', 'Pink', 'sepia(.15) hue-rotate(-25deg) saturate(1.3) brightness(1.08)'], ['sunset', 'Sunset', 'sepia(.3) saturate(1.45) hue-rotate(-15deg) brightness(1.05)'],
+['neon', 'Neon', 'saturate(1.9) hue-rotate(20deg) contrast(1.2)'], ['vintage', 'Vintage', 'sepia(.5) contrast(1.1) saturate(.85) brightness(1.03)'],
+['drama', 'Drama', 'contrast(1.35) saturate(1.1) brightness(.95)'], ['glow', 'Glow', 'brightness(1.12) contrast(.95) saturate(1.2)'], ['bw', 'B&W', 'grayscale(1) contrast(1.15)']
+];
+window.CAM_EFFECTS = [['none', '🚫', 'None'], ['hearts', '💖', 'Hearts'], ['sparkle', '✨', 'Sparkle'], ['confetti', '🎉', 'Confetti'], ['fire', '🔥', 'Fire'], ['neonframe', '🟣', 'Neon frame'], ['sgframe', '🎮', 'GG frame'], ['snow', '❄️', 'Snow']];
+window.CAM_MODES = [['photo', 'Photo'], ['15', '15s'], ['60', '60s'], ['180', '3m'], ['text', 'Text']];
+window.cam = null;
+window.openCamera = async function() {
+if (window.needSignIn('post')) return;
+window.pauseFeedVideos && window.pauseFeedVideos(); window.stopSound && window.stopSound();
+const c = window.cam = { facing: 'user', mode: 'photo', filter: (() => { try { return localStorage.getItem('sg_cam_filter') || 'beauty'; } catch (e) { return 'beauty'; } })(), effect: 'none', beauty: 1, timer: 0, flash: false, rec: null, parts: [], tab: 'filters', fx: [] };
+let el = document.getElementById('sgCam');
+if (!el) { el = document.createElement('div'); el.id = 'sgCam'; el.className = 'fixed inset-0 bg-black select-none'; el.style.zIndex = 360; document.body.appendChild(el); }
+el.classList.remove('hidden');
+el.innerHTML = `<canvas id="camBg" class="absolute inset-0 w-full h-full" style="object-fit:cover;filter:blur(24px) brightness(.55);transform:scale(1.15)"></canvas>
+<canvas id="camCv" class="absolute inset-0 w-full h-full" style="object-fit:contain"></canvas>
+<div id="camTop" class="absolute left-0 right-0 top-0 flex items-start justify-between p-3" style="padding-top:max(12px,env(safe-area-inset-top));z-index:3">
+<button onclick="window.closeCamera()" class="w-10 h-10 rounded-full text-white text-xl" style="background:rgba(0,0,0,.35)">✕</button>
+<button id="camSound" onclick="window.camPickSound()" class="max-w-[55%] px-4 py-2 rounded-full text-white text-xs font-black truncate" style="background:rgba(0,0,0,.45)">🎵 Add a sound</button>
+<div class="flex flex-col gap-3">
+${[['flip', 'fa-camera-rotate', 'Flip'], ['flash', 'fa-bolt', 'Flash'], ['timer', 'fa-stopwatch', 'Timer'], ['beauty', 'fa-wand-magic-sparkles', 'Beauty']].map(([k, ic, l]) => `<button onclick="window.camTool('${k}')" class="flex flex-col items-center text-white"><span id="camT_${k}" class="w-10 h-10 rounded-full flex items-center justify-center" style="background:rgba(0,0,0,.35)"><i class="fa-solid ${ic}"></i></span><span class="text-[9px] font-black drop-shadow mt-0.5" id="camL_${k}">${l}</span></button>`).join('')}
+</div></div>
+<div id="camCount" class="hidden absolute inset-0 flex items-center justify-center text-white font-black" style="font-size:120px;z-index:4;text-shadow:0 4px 20px rgba(0,0,0,.6)"></div>
+<div id="camFlashOv" class="hidden absolute inset-0 bg-white" style="z-index:5"></div>
+<div id="camTextUI" class="hidden absolute inset-0 flex items-center justify-center p-8" style="z-index:2"><textarea id="camText" maxlength="300" placeholder="Type something…" class="w-full bg-transparent text-center text-white text-3xl font-black outline-none resize-none" rows="5" style="text-shadow:0 2px 8px rgba(0,0,0,.35)"></textarea></div>
+<div id="camBottom" class="absolute left-0 right-0 bottom-0 pb-4" style="padding-bottom:max(16px,env(safe-area-inset-bottom));z-index:3;background:linear-gradient(transparent,rgba(0,0,0,.55))">
+<div id="camTabs" class="flex justify-center gap-4 mb-2 text-[11px] font-black"></div>
+<div id="camStrip" class="flex gap-2 overflow-x-auto px-4 pb-2" style="scrollbar-width:none"></div>
+<div class="flex items-center justify-around px-6 mt-1">
+<label class="w-11 h-11 rounded-xl border-2 border-white/80 flex items-center justify-center text-white cursor-pointer" style="background:rgba(0,0,0,.35)"><i class="fa-solid fa-image"></i><input type="file" accept="image/*,video/*" multiple class="hidden" onchange="window.camFromGallery(this)"></label>
+<button id="camShutter" onclick="window.camShutter()" class="relative w-20 h-20 rounded-full flex items-center justify-center" style="border:5px solid rgba(255,255,255,.9)"><span id="camShutIn" class="w-16 h-16 rounded-full bg-white transition-all"></span><svg id="camRing" class="absolute inset-0 -rotate-90 hidden" viewBox="0 0 80 80"><circle cx="40" cy="40" r="37" fill="none" stroke="#ff007f" stroke-width="5" stroke-dasharray="232.5" stroke-dashoffset="232.5" id="camRingC"/></svg></button>
+<button onclick="window.camTab(window.cam.tab === 'filters' ? 'effects' : 'filters')" class="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style="background:rgba(0,0,0,.35)" id="camFxBtn">✨</button>
+</div>
+<div id="camModes" class="flex justify-center gap-5 mt-3 text-[12px] font-black"></div>
+</div>
+<div id="camPreview" class="hidden absolute inset-0 bg-black" style="z-index:6"></div>`;
+window.camRenderUI();
+window.camRenderSound();
+await window.camStart();
+window.camLoop();
+};
+window.camRenderUI = function() {
+const c = window.cam; if (!c) return;
+document.getElementById('camModes').innerHTML = window.CAM_MODES.map(([k, l]) => `<button onclick="window.camMode('${k}')" class="px-2 py-1 rounded-full ${c.mode === k ? 'bg-white text-slate-950' : 'text-white/80'}">${l}</button>`).join('');
+document.getElementById('camTabs').innerHTML = [['filters', 'Filters'], ['effects', 'Effects']].map(([k, l]) => `<button onclick="window.camTab('${k}')" class="${c.tab === k ? 'text-white border-b-2 border-white' : 'text-white/60'} pb-0.5">${l}</button>`).join('');
+const strip = document.getElementById('camStrip');
+if (c.mode === 'text') {
+strip.innerHTML = window.TEXT_BGS.map((g, i) => `<button onclick="window.camTextBg(${i})" class="shrink-0 w-11 h-11 rounded-full border-2 ${c.textBg === i ? 'border-white' : 'border-white/30'}" style="background:${g}"></button>`).join('');
+} else if (c.tab === 'filters') strip.innerHTML = window.CAM_FILTERS.map(([k, l]) => `<button onclick="window.camFilter('${k}')" class="shrink-0 flex flex-col items-center gap-1"><span class="w-14 h-14 rounded-2xl overflow-hidden border-2 ${c.filter === k ? 'border-white' : 'border-transparent'}" style="background:linear-gradient(135deg,#f97316,#ec4899,#8b5cf6);filter:${(window.CAM_FILTERS.find(x => x[0] === k) || [])[2] || 'none'}"></span><span class="text-[9px] font-black text-white drop-shadow">${l}</span></button>`).join('');
+else strip.innerHTML = window.CAM_EFFECTS.map(([k, e, l]) => `<button onclick="window.camEffect('${k}')" class="shrink-0 flex flex-col items-center gap-1"><span class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl border-2 ${c.effect === k ? 'border-white' : 'border-transparent'}" style="background:rgba(0,0,0,.45)">${e}</span><span class="text-[9px] font-black text-white drop-shadow">${l}</span></button>`).join('');
+const isText = c.mode === 'text';
+document.getElementById('camTextUI').classList.toggle('hidden', !isText);
+document.getElementById('camTabs').classList.toggle('hidden', isText);
+document.getElementById('camFxBtn').classList.toggle('invisible', isText);
+document.querySelectorAll('#camTop > div.flex-col > button').forEach((x, i) => x.classList.toggle('invisible', isText));
+document.getElementById('camL_timer').textContent = c.timer ? c.timer + 's' : 'Timer';
+document.getElementById('camL_beauty').textContent = ['Beauty off', 'Beauty', 'Beauty+'][c.beauty];
+document.getElementById('camT_flash').style.background = c.flash ? 'rgba(250,204,21,.8)' : 'rgba(0,0,0,.35)';
+const sh = document.getElementById('camShutIn'); if (sh) sh.className = `${c.mode === 'photo' || isText ? 'w-16 h-16 rounded-full bg-white' : 'w-16 h-16 rounded-full bg-red-500'} transition-all`;
+};
+window.TEXT_BGS = ['linear-gradient(160deg,#8b5cf6,#ec4899)', 'linear-gradient(160deg,#0ea5e9,#22d3ee)', 'linear-gradient(160deg,#f97316,#facc15)', 'linear-gradient(160deg,#10b981,#065f46)', 'linear-gradient(160deg,#111827,#374151)', 'linear-gradient(160deg,#ff007f,#7c3aed)', 'linear-gradient(160deg,#dc2626,#7f1d1d)'];
+window.camTextBg = (i) => { window.cam.textBg = i; window.camRenderUI(); };
+window.camTab = (t) => { window.cam.tab = t; window.camRenderUI(); };
+window.camFilter = (k) => { window.cam.filter = k; try { localStorage.setItem('sg_cam_filter', k); } catch (e) {} window.camRenderUI(); };
+window.camEffect = (k) => { window.cam.effect = k; window.cam.fx = []; window.camRenderUI(); };
+window.camMode = (k) => { const c = window.cam; if (c.rec) return; c.mode = k; if (k === 'text' && c.textBg === undefined) c.textBg = 0; window.camRenderUI(); if (k === 'text') setTimeout(() => document.getElementById('camText')?.focus(), 200); };
+window.camTool = async function(k) {
+const c = window.cam; if (!c) return;
+if (k === 'flip') { c.facing = c.facing === 'user' ? 'environment' : 'user'; await window.camStart(); }
+if (k === 'timer') c.timer = c.timer === 0 ? 3 : c.timer === 3 ? 10 : 0;
+if (k === 'beauty') c.beauty = (c.beauty + 1) % 3;
+if (k === 'flash') { c.flash = !c.flash; try { const t = c.stream && c.stream.getVideoTracks()[0]; if (t && (t.getCapabilities ? t.getCapabilities() : {}).torch) await t.applyConstraints({ advanced: [{ torch: c.flash }] }); } catch (e) {} }
+window.camRenderUI();
+};
+window.camStart = async function() {
+const c = window.cam; if (!c) return;
+if (c.stream) c.stream.getTracks().forEach(t => t.stop());
+try {
+c.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: c.facing, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: true });
+} catch (e) {
+try { c.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: c.facing }, audio: true }); }
+catch (e2) { try { c.stream = await navigator.mediaDevices.getUserMedia({ video: true }); } catch (e3) { showToast(e3 && e3.name === 'NotAllowedError' ? '⚠️ Allow the camera to use it (tap 🔒 next to the address).' : '📷 Camera is busy. Close other camera apps.'); return; } }
+}
+try { const t = c.stream.getVideoTracks()[0], cap = t.getCapabilities ? t.getCapabilities() : {}; if (cap.zoom) await t.applyConstraints({ advanced: [{ zoom: cap.zoom.min }] }); } catch (e) {}
+if (!c.v) { c.v = document.createElement('video'); c.v.muted = true; c.v.playsInline = true; c.v.setAttribute('playsinline', ''); }
+c.v.srcObject = c.stream; c.v.play().catch(() => {});
+};
+window.camLoop = function() {
+const c = window.cam; if (!c) return;
+const cv = document.getElementById('camCv'), bg = document.getElementById('camBg'); if (!cv) return;
+const ctx = cv.getContext('2d'), v = c.v;
+if (c.mode === 'text') {
+if (cv.width !== 720) { cv.width = 720; cv.height = 1280; }
+const g = window.TEXT_BGS[c.textBg || 0].match(/#[0-9a-f]{6}/gi) || ['#8b5cf6', '#ec4899'];
+const gr = ctx.createLinearGradient(0, 0, 720, 1280); gr.addColorStop(0, g[0]); gr.addColorStop(1, g[1] || g[0]); ctx.fillStyle = gr; ctx.fillRect(0, 0, 720, 1280);
+} else if (v && v.videoWidth) {
+const s = Math.min(1, 960 / Math.max(v.videoWidth, v.videoHeight)), w = Math.round(v.videoWidth * s), h = Math.round(v.videoHeight * s);
+if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+ctx.save(); if (c.facing === 'user') { ctx.translate(w, 0); ctx.scale(-1, 1); }
+ctx.filter = ((window.CAM_FILTERS.find(x => x[0] === c.filter) || [])[2]) || 'none'; ctx.drawImage(v, 0, 0, w, h);
+const soft = c.beauty === 0 ? 0 : (c.beauty === 1 ? 0.35 : 0.55) + (c.filter === 'glow' ? 0.1 : 0);
+if (soft) { ctx.filter = 'blur(3px) brightness(1.06)'; ctx.globalAlpha = soft; ctx.drawImage(v, 0, 0, w, h); ctx.globalAlpha = 1; }
+ctx.filter = 'none'; ctx.restore();
+window.camDrawEffect(ctx, w, h);
+}
+if (bg) { if (bg.width !== 64) { bg.width = 64; bg.height = 96; } bg.getContext('2d').drawImage(cv, 0, 0, 64, 96); }
+c.raf = requestAnimationFrame(window.camLoop);
+};
+window.camLogo = (() => { const i = new Image(); i.src = 'icon-192.png'; return i; })();
+window.camDrawEffect = function(ctx, w, h) {
+const c = window.cam, e = c.effect, fx = c.fx; if (e === 'none') return;
+const spawn = (n, make) => { for (let i = 0; i < n; i++) fx.push(make()); };
+const s = Math.max(w, h) / 960;
+if (e === 'hearts') { if (Math.random() < 0.25) spawn(1, () => ({ x: Math.random() * w, y: h + 20, vy: -(1.5 + Math.random() * 2) * s, ph: Math.random() * 6, sz: (24 + Math.random() * 26) * s, ch: ['💖', '💜', '💗', '❤️'][Math.floor(Math.random() * 4)] })); }
+if (e === 'sparkle') { if (Math.random() < 0.35) spawn(1, () => ({ x: Math.random() * w, y: Math.random() * h, life: 1, sz: (18 + Math.random() * 22) * s, ch: '✨' })); }
+if (e === 'confetti') { if (Math.random() < 0.6) spawn(2, () => ({ x: Math.random() * w, y: -10, vy: (2 + Math.random() * 3) * s, vx: (Math.random() - 0.5) * 2 * s, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.3, sz: (6 + Math.random() * 8) * s, col: ['#ff007f', '#22d3ee', '#facc15', '#8b5cf6', '#10b981'][Math.floor(Math.random() * 5)] })); }
+if (e === 'snow') { if (Math.random() < 0.5) spawn(1, () => ({ x: Math.random() * w, y: -10, vy: (1 + Math.random() * 1.5) * s, vx: (Math.random() - 0.5) * s, sz: (3 + Math.random() * 5) * s, snow: 1 })); }
+ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+for (let i = fx.length - 1; i >= 0; i--) {
+const p = fx[i];
+if (p.ch === '✨') { p.life -= 0.02; ctx.globalAlpha = Math.max(0, Math.sin(p.life * Math.PI)); ctx.font = `${p.sz}px system-ui`; ctx.fillText(p.ch, p.x, p.y); if (p.life <= 0) fx.splice(i, 1); continue; }
+if (p.ch) { p.y += p.vy; p.ph += 0.05; ctx.globalAlpha = Math.min(1, (p.y / h) * 2); ctx.font = `${p.sz}px system-ui`; ctx.fillText(p.ch, p.x + Math.sin(p.ph) * 14 * s, p.y); if (p.y < -40) fx.splice(i, 1); continue; }
+if (p.snow) { p.y += p.vy; p.x += p.vx; ctx.globalAlpha = 0.9; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x, p.y, p.sz, 0, Math.PI * 2); ctx.fill(); if (p.y > h + 10) fx.splice(i, 1); continue; }
+p.y += p.vy; p.x += p.vx; p.r += p.vr; ctx.globalAlpha = 1; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.col; ctx.fillRect(-p.sz / 2, -p.sz / 4, p.sz, p.sz / 2); ctx.restore(); if (p.y > h + 10) fx.splice(i, 1);
+}
+ctx.globalAlpha = 1;
+if (e === 'fire') { const t = Date.now() / 120; ctx.font = `${44 * s}px system-ui`; for (let x = 0; x <= w; x += 46 * s) { const k = 1 + 0.18 * Math.sin(t + x); ctx.save(); ctx.translate(x, h - 22 * s); ctx.scale(k, k); ctx.fillText('🔥', 0, 0); ctx.restore(); } const g = ctx.createLinearGradient(0, h, 0, h - 160 * s); g.addColorStop(0, 'rgba(255,90,0,.45)'); g.addColorStop(1, 'rgba(255,90,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, h - 160 * s, w, 160 * s); }
+if (e === 'neonframe') { const t = Date.now() / 400; ctx.lineWidth = 10 * s; ctx.shadowBlur = 25 * s; ctx.shadowColor = `hsl(${(t * 40) % 360},100%,60%)`; ctx.strokeStyle = `hsl(${(t * 40) % 360},100%,65%)`; ctx.strokeRect(14 * s, 14 * s, w - 28 * s, h - 28 * s); ctx.shadowBlur = 0; }
+if (e === 'sgframe') {
+ctx.lineWidth = 12 * s; const g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#22d3ee'); g.addColorStop(1, '#ff007f'); ctx.strokeStyle = g; ctx.strokeRect(6 * s, 6 * s, w - 12 * s, h - 12 * s);
+const bh = 64 * s; ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0, h - bh, w, bh);
+if (window.camLogo.complete && window.camLogo.naturalWidth) ctx.drawImage(window.camLogo, 14 * s, h - bh + 8 * s, bh - 16 * s, bh - 16 * s);
+ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.font = `900 ${22 * s}px system-ui`; ctx.fillText('SINLESS GG', 14 * s + bh, h - bh / 2 - 8 * s); ctx.font = `700 ${16 * s}px system-ui`; ctx.fillStyle = '#c4b5fd'; ctx.fillText('@' + window.hnd(window.me()), 14 * s + bh, h - bh / 2 + 14 * s);
+}
+ctx.restore();
+};
+window.camPickSound = function() { window._camSoundPick = true; window.openAudioSelector(); const pnl = document.getElementById('sgPanel'); if (pnl) pnl.style.zIndex = 370; };
+window.soundUse = (function(b) { return function(...a) { const r = b.apply(this, a); if (window._camSoundPick) { window._camSoundPick = false; window.camRenderSound(); const pnl = document.getElementById('sgPanel'); if (pnl) pnl.style.zIndex = ''; } return r; }; })(window.soundUse);
+window.closePanel = (function(b) { return function(...a) { const pnl = document.getElementById('sgPanel'); if (pnl && window._camSoundPick) { pnl.style.zIndex = ''; window._camSoundPick = false; } return b.apply(this, a); }; })(window.closePanel);
+window.camRenderSound = function() { const b = document.getElementById('camSound'); if (!b) return; const s = window.selectedAudioTrack; b.innerHTML = s ? `🎵 ${escapeHTML(s.title)} <span onclick="event.stopPropagation(); window.selectedAudioTrack=null; window.camRenderSound(); window.renderSoundLabel && window.renderSoundLabel()" class="ml-1 text-white/70">✕</span>` : '🎵 Add a sound'; };
+window.camShutter = async function() {
+const c = window.cam; if (!c) return;
+if (c.rec) return window.camStopRec();
+if (c.mode === 'text') return window.camTextNext();
+if (c.timer) { const box = document.getElementById('camCount'); box.classList.remove('hidden'); for (let n = c.timer; n > 0; n--) { box.textContent = n; await new Promise(r => setTimeout(r, 1000)); if (!window.cam) return; } box.classList.add('hidden'); }
+if (c.mode === 'photo') return window.camPhoto();
+window.camStartRec(+c.mode);
+};
+window.camPhoto = async function() {
+const c = window.cam, cv = document.getElementById('camCv');
+if (c.flash && c.facing === 'user') { const f = document.getElementById('camFlashOv'); f.classList.remove('hidden'); await new Promise(r => setTimeout(r, 250)); }
+const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92));
+document.getElementById('camFlashOv')?.classList.add('hidden');
+if (navigator.vibrate) try { navigator.vibrate(25); } catch (e) {}
+window.camShowPreview(new File([blob], `sinless-${Date.now()}.jpg`, { type: 'image/jpeg' }), 'image');
+};
+window.camMime = () => { const opts = ['video/mp4;codecs=avc1,mp4a', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']; return opts.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || ''; };
+window.camStartRec = function(secs) {
+const c = window.cam, cv = document.getElementById('camCv');
+if (!window.MediaRecorder || !cv.captureStream) { showToast('⚠️ Your browser can’t record video here. Use 🖼 to pick a video.'); return; }
+const out = cv.captureStream(30);
+const song = window.selectedAudioTrack;
+if (!song && c.stream) c.stream.getAudioTracks().forEach(t => out.addTrack(t));
+const mime = window.camMime();
+try { c.rec = new MediaRecorder(out, mime ? { mimeType: mime, videoBitsPerSecond: 2500000 } : undefined); } catch (e) { c.rec = new MediaRecorder(out); }
+c.chunks = []; c.rec.ondataavailable = (ev) => { if (ev.data && ev.data.size) c.chunks.push(ev.data); };
+c.rec.onstop = () => { const type = (c.rec && c.rec.mimeType) || mime || 'video/webm'; const blob = new Blob(c.chunks, { type }); c.rec = null; window.camRecUI(false); if (c.songEl) { c.songEl.pause(); } if (blob.size > 1000) window.camShowPreview(new File([blob], `sinless-${Date.now()}.${/mp4/.test(type) ? 'mp4' : 'webm'}`, { type: type.split(';')[0] }), 'video'); };
+if (song) { c.songEl = c.songEl || new Audio(); c.songEl.src = window.soundUrl(song); c.songEl.currentTime = 0; c.songEl.addEventListener('loadedmetadata', () => { try { c.songEl.currentTime = song.start || 0; } catch (e) {} }, { once: true }); c.songEl.play().catch(() => {}); }
+c.rec.start(500); c.recAt = Date.now(); c.recMax = secs * 1000; window.camRecUI(true);
+const ring = document.getElementById('camRingC');
+const tick = () => { if (!c.rec) return; const p = Math.min(1, (Date.now() - c.recAt) / c.recMax); if (ring) ring.style.strokeDashoffset = String(232.5 * (1 - p)); if (p >= 1) return window.camStopRec(); requestAnimationFrame(tick); };
+tick();
+};
+window.camStopRec = function() { const c = window.cam; if (c && c.rec && c.rec.state !== 'inactive') { if (Date.now() - c.recAt < 800) setTimeout(() => c.rec && c.rec.stop(), 800); else c.rec.stop(); } };
+window.camRecUI = function(on) {
+document.getElementById('camRing')?.classList.toggle('hidden', !on);
+const sh = document.getElementById('camShutIn'); if (sh) sh.className = on ? 'w-8 h-8 rounded-lg bg-red-500 transition-all' : 'w-16 h-16 rounded-full bg-red-500 transition-all';
+['camModes', 'camStrip', 'camTabs'].forEach(id => document.getElementById(id)?.classList.toggle('invisible', on));
+};
+window.camTextNext = async function() {
+const t = (document.getElementById('camText').value || '').trim(); if (!t) { showToast('Type something first ✍️'); return; }
+const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1920; const x = cv.getContext('2d');
+const g = window.TEXT_BGS[window.cam.textBg || 0].match(/#[0-9a-f]{6}/gi); const gr = x.createLinearGradient(0, 0, 1080, 1920); gr.addColorStop(0, g[0]); gr.addColorStop(1, g[1] || g[0]); x.fillStyle = gr; x.fillRect(0, 0, 1080, 1920);
+let size = t.length > 160 ? 58 : t.length > 80 ? 72 : 92; x.font = `900 ${size}px system-ui, sans-serif`; x.fillStyle = '#fff'; x.textAlign = 'center'; x.shadowColor = 'rgba(0,0,0,.3)'; x.shadowBlur = 12;
+const lines = []; t.split('\n').forEach(par => lines.push(...window.wrapLines(x, par, 920, 12)));
+const lh = size * 1.25, y0 = 960 - (lines.length * lh) / 2 + size * 0.8; lines.slice(0, 14).forEach((l, i) => x.fillText(l, 540, y0 + i * lh));
+x.shadowBlur = 0; x.font = '900 34px system-ui'; x.fillStyle = 'rgba(255,255,255,.8)'; x.fillText('SINLESS GG · @' + window.hnd(window.me()), 540, 1850);
+const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92));
+window.camShowPreview(new File([blob], `sinless-text-${Date.now()}.jpg`, { type: 'image/jpeg' }), 'image', t);
+};
+window.camShowPreview = function(file, kind, caption) {
+const c = window.cam; if (!c) return; c.file = file; c.kind = kind; c.caption = caption || '';
+const url = URL.createObjectURL(file), box = document.getElementById('camPreview'); box.classList.remove('hidden');
+box.innerHTML = `${kind === 'video' ? `<video src="${url}" autoplay loop playsinline class="absolute inset-0 w-full h-full object-contain" id="camPrevV"></video>` : `<img src="${url}" class="absolute inset-0 w-full h-full object-contain" alt="">`}
+<div class="absolute left-0 right-0 bottom-0 flex gap-3 p-4" style="padding-bottom:max(16px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.7))">
+<button onclick="window.camRetake()" class="flex-1 py-3.5 rounded-2xl bg-white/15 text-white font-black text-sm">↺ Retake</button>
+<button onclick="window.camNext()" class="flex-1 py-3.5 rounded-2xl text-white font-black text-sm" style="background:linear-gradient(135deg,#ff007f,#8b5cf6)">Next ➜</button></div>
+${kind === 'video' && window.selectedAudioTrack ? `<p class="absolute top-4 left-0 right-0 text-center text-white text-xs font-black drop-shadow">🎵 ${escapeHTML(window.selectedAudioTrack.title)} will play with this video</p>` : ''}`;
+const pv = document.getElementById('camPrevV'), s = window.selectedAudioTrack;
+if (pv && s) { pv.muted = true; window.playSound(s, 'cam'); pv.addEventListener('playing', () => { try { window.postAudio.currentTime = (s.start || 0) + pv.currentTime; } catch (e) {} }); }
+};
+window.camRetake = function() { const b = document.getElementById('camPreview'); if (b) { b.classList.add('hidden'); b.innerHTML = ''; } if (window._sndKey === 'cam') window.stopSound(); };
+window.camNext = function() {
+const c = window.cam; if (!c || !c.file) return;
+const file = c.file, caption = c.caption, song = window.selectedAudioTrack;
+window.closeCamera(true);
+window.openCreatePostModal();
+window.handleMediaUploadSelect({ files: [file] });
+if (song) { window.selectedAudioTrack = song; window.renderSoundLabel && window.renderSoundLabel(); }
+if (caption) { const ta = document.getElementById('postTextContent'); if (ta && !ta.value) ta.value = caption; }
+showToast('✍️ Add a caption, then Publish');
+};
+window.camFromGallery = function(input) { window.closeCamera(true); window.openCreatePostModal(); window.handleMediaUploadSelect(input); };
+window.closeCamera = function(keepSound) {
+const c = window.cam; if (c) { cancelAnimationFrame(c.raf); if (c.rec && c.rec.state !== 'inactive') { c.rec.onstop = null; c.rec.stop(); } if (c.stream) c.stream.getTracks().forEach(t => t.stop()); if (c.songEl) c.songEl.pause(); }
+if (window._sndKey === 'cam') window.stopSound();
+window.cam = null; const el = document.getElementById('sgCam'); if (el) { el.classList.add('hidden'); el.innerHTML = ''; }
+if (!keepSound) { /* keep the chosen song for the composer only when going forward */ }
+};
+(function camEntry() {
+const add = () => {
+const hub = document.querySelector('#universalCreateModal button[onclick*="openCreatePostModal"]');
+if (hub && !document.getElementById('hubCamBtn')) hub.insertAdjacentHTML('beforebegin', `<button id="hubCamBtn" onclick="closeUniversalCreateModal(); window.openCamera()" class="p-3 rounded-xl border border-magenta/50 flex items-center space-x-3 text-left transition" style="background:linear-gradient(135deg,rgba(255,0,127,.18),rgba(139,92,246,.18))"><div class="w-8 h-8 rounded flex items-center justify-center text-white shrink-0" style="background:linear-gradient(135deg,#ff007f,#8b5cf6)"><i class="fa-solid fa-camera"></i></div><div><h4 class="text-xs font-bold text-white">Camera</h4><p class="text-[9px] text-gray-300">Photo · 15s · 60s · Text, with filters, effects & sounds</p></div></button>`);
+const lbl = document.getElementById('selectedSoundLabel');
+if (lbl && !document.getElementById('composerCamBtn')) lbl.parentElement.insertAdjacentHTML('beforebegin', `<button id="composerCamBtn" type="button" onclick="window.closeCreatePostModal(); window.openCamera()" class="w-full py-2.5 rounded-xl text-white text-xs font-black" style="background:linear-gradient(135deg,#ff007f,#8b5cf6)"><i class="fa-solid fa-camera mr-1"></i> Open camera (filters, effects & sounds)</button>`);
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add();
+})();
+setInterval(() => {
+const k = window._sndKey, a = window.postAudio; if (!k || a.paused || !k.startsWith('p:')) return;
+const id = k.slice(2), card = document.querySelector(`#fypFeedContainer [data-post-id="${CSS.escape(id)}"]`), v = card && card.querySelector('video'), s = window._snd;
+if (v && !v.paused && s) { s._withVideo = true; if (Math.abs(a.currentTime - ((s.start || 0) + v.currentTime)) > 0.4) { try { a.currentTime = (s.start || 0) + v.currentTime; } catch (e) {} } }
+}, 1000);
+
+window.ED_STICKERS = ['🔥', '😂', '💯', '🏆', '⚽', '🎮', '👑', '😍', '💜', '🤯', '🙌', '👀', '🥶', '😈', '🎉', '✨', '🇬🇭', '🎬', '🍿', '⚡'];
+window.ED_GG = [['GG', 'gg'], ['SINLESS GG', 'gg'], ['W', 'win'], ['L', 'loss'], ['GOAT 🐐', 'gold'], ['CLUTCH', 'gold']];
+window.ED_COLORS = ['#ffffff', '#000000', '#ff007f', '#22d3ee', '#facc15', '#10b981', '#8b5cf6', '#f97316'];
+window.ed = null;
+window.openEditor = function(items, onDone) {
+items = (items || []).filter(Boolean);
+if (!items.length) return;
+const it = items[0];
+window.ed = { items, it, onDone, overlays: [], filter: 'none', trim: [0, 0], dur: 0 };
+let el = document.getElementById('sgEdit');
+if (!el) { el = document.createElement('div'); el.id = 'sgEdit'; el.className = 'fixed inset-0 bg-black select-none'; el.style.zIndex = 362; document.body.appendChild(el); }
+el.classList.remove('hidden');
+const url = it.url || URL.createObjectURL(it.file);
+el.innerHTML = `<div id="edStage" class="absolute inset-0">
+${it.type === 'video' ? `<video id="edMedia" src="${url}" autoplay loop playsinline class="absolute inset-0 w-full h-full object-contain"></video>` : `<img id="edMedia" src="${url}" class="absolute inset-0 w-full h-full object-contain" alt="">`}
+<div id="edLayer" class="absolute" style="touch-action:none"></div></div>
+<div class="absolute left-0 right-0 top-0 flex items-start justify-between p-3" style="padding-top:max(12px,env(safe-area-inset-top));z-index:3">
+<button onclick="window.closeEditor()" class="w-10 h-10 rounded-full text-white text-xl" style="background:rgba(0,0,0,.4)">✕</button>
+<button id="edSound" onclick="window.edPickSound()" class="max-w-[50%] px-4 py-2 rounded-full text-white text-xs font-black truncate" style="background:rgba(0,0,0,.45)">🎵 Add a sound</button>
+<div class="flex flex-col gap-3">
+${[['text', 'Aa', 'Text'], ['sticker', '😀', 'Stickers'], ['filter', '🎨', 'Filters']].concat(it.type === 'video' ? [['trim', '✂️', 'Trim']] : []).map(([k, ic, l]) => `<button onclick="window.edTool('${k}')" class="flex flex-col items-center text-white"><span class="w-11 h-11 rounded-full flex items-center justify-center text-lg font-black" style="background:rgba(0,0,0,.45)">${ic}</span><span class="text-[9px] font-black drop-shadow mt-0.5">${l}</span></button>`).join('')}
+</div></div>
+<div id="edTrash" class="hidden absolute left-1/2 bottom-28 w-16 h-16 -ml-8 rounded-full bg-red-600/80 text-white text-2xl flex items-center justify-center" style="z-index:4">🗑</div>
+<div id="edPanel" class="hidden absolute left-0 right-0 bottom-0 rounded-t-3xl p-4 space-y-3" style="z-index:5;background:rgba(10,14,28,.96);padding-bottom:max(16px,env(safe-area-inset-bottom))"></div>
+<div id="edBottom" class="absolute left-0 right-0 bottom-0 flex gap-3 p-4" style="z-index:3;padding-bottom:max(16px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.6))">
+<button onclick="window.closeEditor()" class="flex-1 py-3.5 rounded-2xl bg-white/15 text-white font-black text-sm">Cancel</button>
+<button onclick="window.edDone()" class="flex-1 py-3.5 rounded-2xl text-white font-black text-sm" style="background:linear-gradient(135deg,#ff007f,#8b5cf6)">Next ➜</button></div>
+<div id="edBusy" class="hidden absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-3 text-white" style="z-index:9"><div class="w-24 h-24 rounded-full flex items-center justify-center text-xl font-black" id="edPct" style="border:6px solid rgba(255,255,255,.2)">0%</div><p class="font-black">Processing…</p><p class="text-xs text-gray-300">Stay on this screen until it finishes</p></div>`;
+const m = document.getElementById('edMedia');
+const fit = () => window.edFitLayer();
+if (it.type === 'video') m.addEventListener('loadedmetadata', () => { window.ed.dur = m.duration || 0; window.ed.trim = [0, Math.min(m.duration || 0, 180)]; fit(); });
+else m.addEventListener('load', fit);
+window.addEventListener('resize', fit);
+if (it.type === 'video') m.addEventListener('timeupdate', () => { const e = window.ed; if (e && e.trim[1] && m.currentTime > e.trim[1]) m.currentTime = e.trim[0]; });
+window.edRenderSound();
+};
+window.edMediaRect = function() {
+const m = document.getElementById('edMedia'), st = document.getElementById('edStage'); if (!m || !st) return null;
+const W = st.clientWidth, H = st.clientHeight, nw = m.videoWidth || m.naturalWidth, nh = m.videoHeight || m.naturalHeight; if (!nw || !nh) return null;
+const s = Math.min(W / nw, H / nh), w = nw * s, h = nh * s; return { x: (W - w) / 2, y: (H - h) / 2, w, h, nw, nh };
+};
+window.edFitLayer = function() { const r = window.edMediaRect(), L = document.getElementById('edLayer'); if (!r || !L) return; Object.assign(L.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' }); window.edDrawOverlays(); };
+window.edOverlayStyle = function(o, W) {
+const fs = o.size * W;
+if (o.style === 'gg') return `font:900 ${fs}px system-ui;background:linear-gradient(135deg,#22d3ee,#a855f7,#ff007f);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:${Math.max(1, fs / 22)}px #fff`;
+if (o.style === 'win') return `font:900 ${fs}px system-ui;color:#10b981;-webkit-text-stroke:${Math.max(1, fs / 18)}px #fff`;
+if (o.style === 'loss') return `font:900 ${fs}px system-ui;color:#ef4444;-webkit-text-stroke:${Math.max(1, fs / 18)}px #fff`;
+if (o.style === 'gold') return `font:900 ${fs}px system-ui;color:#facc15;-webkit-text-stroke:${Math.max(1, fs / 22)}px #7c2d12`;
+if (o.kind === 'sticker') return `font-size:${fs}px;line-height:1`;
+return `font:800 ${fs}px system-ui;color:${o.color};${o.box ? `background:${o.color === '#ffffff' ? '#000' : '#fff'};color:${o.color === '#ffffff' ? '#fff' : o.color};padding:${fs * 0.15}px ${fs * 0.3}px;border-radius:${fs * 0.25}px;` : 'text-shadow:0 2px 6px rgba(0,0,0,.5);'}white-space:pre-wrap;text-align:center;max-width:${W * 0.9}px`;
+};
+window.edDrawOverlays = function() {
+const e = window.ed, L = document.getElementById('edLayer'), r = window.edMediaRect(); if (!e || !L || !r) return;
+L.innerHTML = e.overlays.map((o, i) => `<div data-ov="${i}" style="position:absolute;left:${o.x * r.w}px;top:${o.y * r.h}px;transform:translate(-50%,-50%);${window.edOverlayStyle(o, r.w)};touch-action:none;cursor:move">${escapeHTML(o.text)}</div>`).join('');
+L.querySelectorAll('[data-ov]').forEach(el => window.edBindDrag(el));
+};
+window.edBindDrag = function(el) {
+const i = +el.getAttribute('data-ov'), pts = new Map(); let start = null, moved = false;
+el.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); el.setPointerCapture(ev.pointerId); pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); const o = window.ed.overlays[i]; start = { o: { ...o }, pts: new Map(pts) }; moved = false; });
+el.addEventListener('pointermove', (ev) => {
+if (!pts.has(ev.pointerId) || !start) return; pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+const r = window.edMediaRect(), o = window.ed.overlays[i]; if (!r || !o) return;
+const a = [...pts.values()], s0 = [...start.pts.values()];
+if (a.length >= 2 && s0.length >= 2) { const d1 = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), d0 = Math.hypot(s0[0].x - s0[1].x, s0[0].y - s0[1].y) || 1; o.size = Math.max(0.03, Math.min(0.6, start.o.size * d1 / d0)); }
+else { const p0 = s0[0], p = a[0]; o.x = Math.max(0, Math.min(1, start.o.x + (p.x - p0.x) / r.w)); o.y = Math.max(0, Math.min(1, start.o.y + (p.y - p0.y) / r.h)); }
+moved = true; el.style.left = o.x * r.w + 'px'; el.style.top = o.y * r.h + 'px'; el.setAttribute('style', el.getAttribute('style').replace(/font(-size)?:[^;]*;?/, '')); el.style.cssText = `position:absolute;left:${o.x * r.w}px;top:${o.y * r.h}px;transform:translate(-50%,-50%);${window.edOverlayStyle(o, r.w)};touch-action:none`;
+const tr = document.getElementById('edTrash'); tr.classList.remove('hidden'); const tb = tr.getBoundingClientRect(); tr.style.transform = (ev.clientY > tb.top - 40 && Math.abs(ev.clientX - (tb.left + tb.width / 2)) < 60) ? 'scale(1.25)' : '';
+});
+const up = (ev) => {
+pts.delete(ev.pointerId); if (pts.size) { start = { o: { ...window.ed.overlays[i] }, pts: new Map(pts) }; return; }
+const tr = document.getElementById('edTrash'), tb = tr.getBoundingClientRect(); tr.classList.add('hidden'); tr.style.transform = '';
+if (moved && ev.clientY > tb.top - 40 && Math.abs(ev.clientX - (tb.left + tb.width / 2)) < 60) { window.ed.overlays.splice(i, 1); window.edDrawOverlays(); return; }
+if (!moved && window.ed.overlays[i] && window.ed.overlays[i].kind === 'text' && !window.ed.overlays[i].style) window.edTextPanel(i);
+start = null;
+};
+el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+};
+window.edPanel = function(html) { const p = document.getElementById('edPanel'); p.innerHTML = html; p.classList.remove('hidden'); document.getElementById('edBottom').classList.add('hidden'); };
+window.edClosePanel = function() { document.getElementById('edPanel')?.classList.add('hidden'); document.getElementById('edBottom')?.classList.remove('hidden'); };
+window.edTool = function(k) {
+if (k === 'text') return window.edTextPanel(-1);
+if (k === 'sticker') return window.edPanel(`<div class="flex justify-between items-center"><p class="text-white font-black text-sm">Stickers</p><button onclick="window.edClosePanel()" class="text-white">✕</button></div>
+<div class="grid grid-cols-3 gap-2">${window.ED_GG.map(([t, st], i) => `<button onclick="window.edAddSticker('${i}', true)" class="py-2 rounded-xl bg-white/5" style="${window.edOverlayStyle({ style: st, size: 0.06 }, 300)}">${escapeHTML(t)}</button>`).join('')}</div>
+<div class="grid grid-cols-8 gap-1">${window.ED_STICKERS.map(s => `<button onclick="window.edAddSticker('${s}')" class="text-3xl py-1">${s}</button>`).join('')}</div>`);
+if (k === 'filter') { const e = window.ed; return window.edPanel(`<div class="flex justify-between items-center"><p class="text-white font-black text-sm">Filters</p><button onclick="window.edClosePanel()" class="text-white font-black text-xs px-3 py-1 rounded-full bg-white/10">Done</button></div>
+<div class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none">${window.CAM_FILTERS.map(([fk, l, css]) => `<button onclick="window.edSetFilter('${fk}')" class="shrink-0 flex flex-col items-center gap-1"><span class="w-14 h-14 rounded-2xl border-2 ${e.filter === fk ? 'border-white' : 'border-transparent'}" style="background:linear-gradient(135deg,#f97316,#ec4899,#8b5cf6);filter:${css || 'none'}"></span><span class="text-[9px] font-black text-white">${l}</span></button>`).join('')}</div>`); }
+if (k === 'trim') { const e = window.ed, d = e.dur || 0; return window.edPanel(`<div class="flex justify-between items-center"><p class="text-white font-black text-sm">✂️ Trim <span id="edTrimLbl" class="text-gray-400 font-bold text-xs">${window.fmtDur(e.trim[0])} – ${window.fmtDur(e.trim[1])}</span></p><button onclick="window.edClosePanel()" class="text-white font-black text-xs px-3 py-1 rounded-full bg-white/10">Done</button></div>
+<label class="block text-[10px] text-gray-300 font-black">Start<input type="range" min="0" max="${d}" step="0.1" value="${e.trim[0]}" class="w-full accent-pink-500" oninput="window.edSetTrim(0, +this.value)"></label>
+<label class="block text-[10px] text-gray-300 font-black">End<input type="range" min="0" max="${d}" step="0.1" value="${e.trim[1]}" class="w-full accent-pink-500" oninput="window.edSetTrim(1, +this.value)"></label>`); }
+};
+window.edSetTrim = function(k, v) { const e = window.ed; e.trim[k] = v; if (e.trim[1] - e.trim[0] < 1) { if (k === 0) e.trim[0] = Math.max(0, e.trim[1] - 1); else e.trim[1] = Math.min(e.dur, e.trim[0] + 1); } const l = document.getElementById('edTrimLbl'); if (l) l.textContent = `${window.fmtDur(e.trim[0])} – ${window.fmtDur(e.trim[1])}`; const m = document.getElementById('edMedia'); try { m.currentTime = e.trim[k]; } catch (er) {} };
+window.edSetFilter = function(k) { window.ed.filter = k; const m = document.getElementById('edMedia'); if (m) m.style.filter = ((window.CAM_FILTERS.find(x => x[0] === k) || [])[2]) || 'none'; window.edTool('filter'); };
+window.edAddSticker = function(s, isGG) {
+const e = window.ed; if (isGG) { const [t, st] = window.ED_GG[+s]; e.overlays.push({ kind: 'sticker', text: t, style: st, size: 0.14, x: 0.5, y: 0.4 }); }
+else e.overlays.push({ kind: 'sticker', text: s, size: 0.16, x: 0.5, y: 0.45 });
+window.edClosePanel(); window.edDrawOverlays();
+};
+window.edTextPanel = function(i) {
+const e = window.ed, o = i >= 0 ? e.overlays[i] : { text: '', color: '#ffffff', box: false };
+window._edTxt = { i, color: o.color || '#ffffff', box: !!o.box };
+window.edPanel(`<div class="flex justify-between items-center"><button onclick="window._edTxt.box=!window._edTxt.box; this.textContent=window._edTxt.box?'▣ Box':'A Plain'" class="text-white font-black text-xs px-3 py-1 rounded-full bg-white/10">${o.box ? '▣ Box' : 'A Plain'}</button><button onclick="window.edTextSave()" class="text-slate-950 font-black text-xs px-4 py-1.5 rounded-full bg-white">Done</button></div>
+<textarea id="edTxtIn" rows="2" maxlength="120" class="w-full bg-transparent text-white text-2xl font-black text-center outline-none" placeholder="Type here…">${escapeHTML(o.text || '')}</textarea>
+<div class="flex justify-center gap-2">${window.ED_COLORS.map(c => `<button onclick="window._edTxt.color='${c}'; document.querySelectorAll('[data-col]').forEach(b=>b.style.outline=''); this.style.outline='3px solid #fff'" data-col class="w-8 h-8 rounded-full" style="background:${c};${c === (o.color || '#ffffff') ? 'outline:3px solid #fff' : ''}"></button>`).join('')}</div>`);
+setTimeout(() => document.getElementById('edTxtIn')?.focus(), 100);
+};
+window.edTextSave = function() {
+const e = window.ed, t = (document.getElementById('edTxtIn').value || '').trim(), s = window._edTxt;
+if (s.i >= 0) { if (!t) e.overlays.splice(s.i, 1); else Object.assign(e.overlays[s.i], { text: t, color: s.color, box: s.box }); }
+else if (t) e.overlays.push({ kind: 'text', text: t, color: s.color, box: s.box, size: 0.07, x: 0.5, y: 0.35 });
+window.edClosePanel(); window.edDrawOverlays();
+};
+window.edPickSound = function() { window._edSoundPick = true; window.openAudioSelector(); const pnl = document.getElementById('sgPanel'); if (pnl) pnl.style.zIndex = 370; };
+window.soundUse = (function(b) { return function(...a) { const r = b.apply(this, a); if (window._edSoundPick) { window._edSoundPick = false; window.edRenderSound(); const pnl = document.getElementById('sgPanel'); if (pnl) pnl.style.zIndex = ''; } return r; }; })(window.soundUse);
+window.edRenderSound = function() { const b = document.getElementById('edSound'); if (!b) return; const s = window.selectedAudioTrack; b.innerHTML = s ? `🎵 ${escapeHTML(s.title)} <span onclick="event.stopPropagation(); window.selectedAudioTrack=null; window.edRenderSound(); window.renderSoundLabel && window.renderSoundLabel()" class="ml-1 text-white/70">✕</span>` : '🎵 Add a sound'; };
+window.closeEditor = function() { const el = document.getElementById('sgEdit'); if (el) { el.querySelectorAll('video').forEach(v => { try { v.pause(); } catch (e) {} }); el.classList.add('hidden'); el.innerHTML = ''; } window.ed = null; };
+window.edPaintOverlays = function(ctx, W, H, overlays) {
+overlays.forEach(o => {
+const fs = o.size * W, x = o.x * W, y = o.y * H; ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+if (o.kind === 'sticker' && !o.style) { ctx.font = `${fs}px system-ui`; ctx.fillText(o.text, x, y); ctx.restore(); return; }
+ctx.font = `${o.style ? 900 : 800} ${fs}px system-ui, sans-serif`;
+const lines = String(o.text).split('\n'), lh = fs * 1.15, y0 = y - (lines.length - 1) * lh / 2;
+lines.forEach((ln, k) => {
+const ly = y0 + k * lh, tw = ctx.measureText(ln).width;
+if (o.box) { ctx.fillStyle = o.color === '#ffffff' ? '#000' : '#fff'; const px = fs * 0.3, py = fs * 0.15; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - tw / 2 - px, ly - fs / 2 - py, tw + px * 2, fs + py * 2, fs * 0.25) : ctx.rect(x - tw / 2 - px, ly - fs / 2 - py, tw + px * 2, fs + py * 2); ctx.fill(); }
+if (o.style === 'gg') { const g = ctx.createLinearGradient(x - tw / 2, 0, x + tw / 2, 0); g.addColorStop(0, '#22d3ee'); g.addColorStop(0.5, '#a855f7'); g.addColorStop(1, '#ff007f'); ctx.lineWidth = Math.max(2, fs / 11); ctx.strokeStyle = '#fff'; ctx.strokeText(ln, x, ly); ctx.fillStyle = g; ctx.fillText(ln, x, ly); }
+else if (o.style) { ctx.lineWidth = Math.max(2, fs / 9); ctx.strokeStyle = o.style === 'gold' ? '#7c2d12' : '#fff'; ctx.strokeText(ln, x, ly); ctx.fillStyle = o.style === 'win' ? '#10b981' : o.style === 'loss' ? '#ef4444' : '#facc15'; ctx.fillText(ln, x, ly); }
+else { if (!o.box) { ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = fs / 6; } ctx.fillStyle = o.box && o.color === '#ffffff' ? '#fff' : o.color; ctx.fillText(ln, x, ly); }
+});
+ctx.restore();
+});
+};
+window.edPaintFrame = function(ctx, src, W, H, filterKey) {
+const css = ((window.CAM_FILTERS.find(x => x[0] === filterKey) || [])[2]) || 'none';
+ctx.filter = css; ctx.drawImage(src, 0, 0, W, H); ctx.filter = 'none';
+if (filterKey === 'beauty' || filterKey === 'glow') { ctx.filter = 'blur(3px) brightness(1.06)'; ctx.globalAlpha = 0.35; ctx.drawImage(src, 0, 0, W, H); ctx.globalAlpha = 1; ctx.filter = 'none'; }
+};
+window.edDone = async function() {
+const e = window.ed; if (!e) return;
+const it = e.it, changed = e.overlays.length || e.filter !== 'none' || (it.type === 'video' && (e.trim[0] > 0.05 || (e.dur && e.trim[1] < e.dur - 0.05)));
+let file = it.file;
+if (changed) { try { file = it.type === 'video' ? await window.edRenderVideo(e) : await window.edRenderPhoto(e); } catch (er) { console.warn(er); showToast('⚠️ Couldn’t apply the edits. Posting the original.'); } }
+const items = [{ ...it, file, url: URL.createObjectURL(file) }, ...e.items.slice(1)], done = e.onDone;
+window.closeEditor();
+if (done) done(items);
+};
+window.edRenderPhoto = async function(e) {
+const img = document.getElementById('edMedia'), nw = img.naturalWidth, nh = img.naturalHeight, s = Math.min(1, 1920 / Math.max(nw, nh)), W = Math.round(nw * s), H = Math.round(nh * s);
+const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
+window.edPaintFrame(ctx, img, W, H, e.filter); window.edPaintOverlays(ctx, W, H, e.overlays);
+const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92));
+return new File([blob], `sinless-${Date.now()}.jpg`, { type: 'image/jpeg' });
+};
+window.edRenderVideo = function(e) {
+return new Promise((resolve, reject) => {
+const busy = document.getElementById('edBusy'), pct = document.getElementById('edPct'); busy.classList.remove('hidden');
+const v = document.createElement('video'); v.src = URL.createObjectURL(e.it.file); v.playsInline = true; v.setAttribute('playsinline', '');
+v.onloadedmetadata = async () => {
+const s = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight)), W = Math.round(v.videoWidth * s / 2) * 2, H = Math.round(v.videoHeight * s / 2) * 2;
+const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d'), out = cv.captureStream(30);
+try { const AC = window.AudioContext || window.webkitAudioContext, ac = new AC(), src = ac.createMediaElementSource(v), dst = ac.createMediaStreamDestination(); src.connect(dst); dst.stream.getAudioTracks().forEach(t => out.addTrack(t)); v._ac = ac; } catch (er) { v.muted = true; }
+const mime = window.camMime(); let rec; try { rec = new MediaRecorder(out, mime ? { mimeType: mime, videoBitsPerSecond: 2500000 } : undefined); } catch (er) { rec = new MediaRecorder(out); }
+const chunks = []; rec.ondataavailable = (ev) => { if (ev.data && ev.data.size) chunks.push(ev.data); };
+rec.onstop = () => { busy.classList.add('hidden'); try { v._ac && v._ac.close(); } catch (er) {} const type = (rec.mimeType || mime || 'video/webm').split(';')[0]; resolve(new File([new Blob(chunks, { type })], `sinless-${Date.now()}.${/mp4/.test(type) ? 'mp4' : 'webm'}`, { type })); };
+const [t0, t1] = [e.trim[0], e.trim[1] || v.duration];
+v.currentTime = t0; await new Promise(r => { v.onseeked = r; setTimeout(r, 1500); });
+let stopped = false; const stop = () => { if (stopped) return; stopped = true; v.pause(); rec.stop(); };
+const draw = () => { if (stopped) return; window.edPaintFrame(ctx, v, W, H, e.filter); window.edPaintOverlays(ctx, W, H, e.overlays); pct.textContent = Math.min(99, Math.round(100 * (v.currentTime - t0) / Math.max(0.1, t1 - t0))) + '%'; if (v.currentTime >= t1 || v.ended) return stop(); if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(draw); else requestAnimationFrame(draw); };
+rec.start(500); await v.play().catch(reject); draw(); v.onended = stop;
+setTimeout(stop, (t1 - t0) * 1000 + 4000);
+};
+v.onerror = () => { busy.classList.add('hidden'); reject(new Error('video')); };
+});
+};
+window.camNext = (function(b) {
+return function() {
+const c = window.cam; if (!c || !c.file) return b();
+const file = c.file, kind = c.kind, caption = c.caption, song = window.selectedAudioTrack;
+window.closeCamera(true);
+window.openEditor([{ type: kind, file }], (items) => window.toComposer(items, { caption, song }));
+};
+})(window.camNext);
+window.toComposer = function(items, o = {}) {
+window.openCreatePostModal();
+window.handleMediaUploadSelect({ files: items.map(x => x.file) });
+(window.uploadedMediaBlobs || []).forEach((m, i) => { if (items[i] && items[i].coverAt) m.coverAt = items[i].coverAt; });
+if (o.song || window.selectedAudioTrack) { window.selectedAudioTrack = o.song || window.selectedAudioTrack; window.renderSoundLabel && window.renderSoundLabel(); }
+if (o.caption) { const ta = document.getElementById('postTextContent'); if (ta && !ta.value) ta.value = o.caption; }
+window.renderComposerExtras && window.renderComposerExtras();
+};
+window.camFromGallery = function(input) {
+const files = Array.from(input.files || []).slice(0, 10); if (!files.length) return;
+window.closeCamera(true);
+const items = files.map(f => ({ type: f.type.includes('video') ? 'video' : 'image', file: f }));
+if (items.length === 1) return window.openEditor(items, (out) => window.toComposer(out));
+window.openTemplates(items);
+};
+
+window.TPL_STYLES = [['smooth', '🌊', 'Smooth', 2.4], ['zoom', '🔍', 'Zoom', 2.0], ['beat', '⚡', 'Beat', 0.9], ['retro', '📼', 'Retro', 2.2], ['party', '🎉', 'Party', 1.2]];
+window.tpl = null;
+window.openTemplates = async function(items) {
+const imgs = items.filter(x => x.type === 'image');
+if (imgs.length < 2) { if (items.length) return window.openEditor(items, (out) => window.toComposer(out)); return; }
+let el = document.getElementById('sgTpl');
+if (!el) { el = document.createElement('div'); el.id = 'sgTpl'; el.className = 'fixed inset-0 bg-black select-none'; el.style.zIndex = 362; document.body.appendChild(el); }
+el.classList.remove('hidden');
+el.innerHTML = `<canvas id="tplCv" width="720" height="1280" class="absolute inset-0 w-full h-full" style="object-fit:contain"></canvas>
+<div class="absolute left-0 right-0 top-0 flex items-center justify-between p-3" style="padding-top:max(12px,env(safe-area-inset-top));z-index:3"><button onclick="window.closeTemplates()" class="w-10 h-10 rounded-full text-white text-xl" style="background:rgba(0,0,0,.4)">✕</button>
+<button id="tplSound" onclick="window.tplPickSound()" class="max-w-[60%] px-4 py-2 rounded-full text-white text-xs font-black truncate" style="background:rgba(0,0,0,.45)">🎵 Add a sound</button><span class="w-10"></span></div>
+<div class="absolute left-0 right-0 bottom-0 p-4 space-y-3" style="z-index:3;padding-bottom:max(16px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.75))">
+<p class="text-white text-sm font-black text-center">Pick a template · ${imgs.length} photos</p>
+<div id="tplStyles" class="flex gap-2 justify-center"></div>
+<div class="flex gap-3"><button onclick="const its = window.tpl ? window.tpl.items : []; window.closeTemplates(); window.toComposer(its)" class="flex-1 py-3.5 rounded-2xl bg-white/15 text-white font-black text-sm">Post as photos</button>
+<button onclick="window.tplMake()" class="flex-1 py-3.5 rounded-2xl text-white font-black text-sm" style="background:linear-gradient(135deg,#ff007f,#8b5cf6)">Make video ➜</button></div></div>
+<div id="tplBusy" class="hidden absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-3 text-white" style="z-index:9"><div id="tplPct" class="w-24 h-24 rounded-full flex items-center justify-center text-xl font-black" style="border:6px solid rgba(255,255,255,.2)">0%</div><p class="font-black">Making your video…</p><p class="text-xs text-gray-300">Stay on this screen until it finishes</p></div>`;
+const bitmaps = [];
+for (const it of imgs) { try { bitmaps.push(window.createImageBitmap ? await createImageBitmap(it.file, { imageOrientation: 'from-image' }) : await window.loadImg(URL.createObjectURL(it.file))); } catch (e) {} }
+window.tpl = { items: imgs, bitmaps, style: 'smooth', t0: performance.now(), fx: [] };
+window.tplRenderStyles(); window.tplRenderSound(); window.tplLoop();
+};
+window.tplRenderStyles = function() { const t = window.tpl, b = document.getElementById('tplStyles'); if (!t || !b) return; b.innerHTML = window.TPL_STYLES.map(([k, e, l]) => `<button onclick="window.tpl.style='${k}'; window.tpl.t0=performance.now(); window.tplRenderStyles()" class="flex flex-col items-center gap-1"><span class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl border-2 ${t.style === k ? 'border-white' : 'border-transparent'}" style="background:rgba(255,255,255,.12)">${e}</span><span class="text-[10px] font-black text-white">${l}</span></button>`).join(''); };
+window.tplPickSound = function() { window._tplSoundPick = true; window.openAudioSelector(); const pnl = document.getElementById('sgPanel'); if (pnl) pnl.style.zIndex = 370; };
+window.soundUse = (function(b) { return function(...a) { const r = b.apply(this, a); if (window._tplSoundPick) { window._tplSoundPick = false; window.tplRenderSound(); const pnl = document.getElementById('sgPanel'); if (pnl) pnl.style.zIndex = ''; } return r; }; })(window.soundUse);
+window.tplRenderSound = function() { const b = document.getElementById('tplSound'); if (!b) return; const s = window.selectedAudioTrack; b.innerHTML = s ? `🎵 ${escapeHTML(s.title)}` : '🎵 Add a sound'; };
+window.tplDuration = (t) => { const st = window.TPL_STYLES.find(x => x[0] === t.style); return t.bitmaps.length * st[3]; };
+window.tplDraw = function(ctx, t, time) {
+const W = 720, H = 1280, st = window.TPL_STYLES.find(x => x[0] === t.style), per = st[3], n = t.bitmaps.length;
+const i = Math.min(n - 1, Math.floor(time / per)), local = (time - i * per) / per;
+const cover = (bm, zoom, alpha, dx = 0) => { if (!bm) return; const s = Math.max(W / bm.width, H / bm.height) * zoom, w = bm.width * s, h = bm.height * s; ctx.globalAlpha = alpha; ctx.drawImage(bm, (W - w) / 2 + dx, (H - h) / 2, w, h); ctx.globalAlpha = 1; };
+ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+if (t.style === 'retro') ctx.filter = 'sepia(.55) contrast(1.15) saturate(.8)';
+if (t.style === 'smooth' || t.style === 'retro') { cover(t.bitmaps[i], 1 + 0.06 * local, 1); if (local > 0.75 && t.bitmaps[i + 1]) cover(t.bitmaps[i + 1], 1, (local - 0.75) / 0.25); }
+else if (t.style === 'zoom') { cover(t.bitmaps[i], 1 + 0.25 * local, 1); if (local < 0.08) { ctx.fillStyle = `rgba(255,255,255,${1 - local / 0.08})`; ctx.fillRect(0, 0, W, H); } }
+else if (t.style === 'beat') { const pop = local < 0.15 ? 1.12 - 0.8 * local : 1; cover(t.bitmaps[i], pop, 1, local < 0.1 ? (Math.random() - 0.5) * 20 : 0); }
+else { cover(t.bitmaps[i], 1.05 + 0.05 * Math.sin(local * Math.PI), 1); ctx.fillStyle = `hsla(${(time * 120) % 360},90%,55%,.18)`; ctx.fillRect(0, 0, W, H);
+if (Math.random() < 0.7) t.fx.push({ x: Math.random() * W, y: -10, vy: 4 + Math.random() * 5, r: Math.random() * 6, c: ['#ff007f', '#22d3ee', '#facc15', '#8b5cf6'][Math.floor(Math.random() * 4)] });
+t.fx = t.fx.filter(p => (p.y += p.vy) < H + 10); t.fx.forEach(p => { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r += 0.1); ctx.fillStyle = p.c; ctx.fillRect(-6, -3, 12, 6); ctx.restore(); }); }
+ctx.filter = 'none';
+if (t.style === 'retro') { for (let k = 0; k < 220; k++) { ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.12})`; ctx.fillRect(Math.random() * W, Math.random() * H, 2, 2); } const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H); }
+ctx.font = '900 26px system-ui'; ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillText('SINLESS GG', W - 24, H - 30);
+};
+window.tplLoop = function() {
+const t = window.tpl, cv = document.getElementById('tplCv'); if (!t || !cv || t.recording) return;
+const dur = window.tplDuration(t), time = ((performance.now() - t.t0) / 1000) % dur;
+window.tplDraw(cv.getContext('2d'), t, time);
+t.raf = requestAnimationFrame(window.tplLoop);
+};
+window.tplMake = function() {
+const t = window.tpl, cv = document.getElementById('tplCv'); if (!t || !cv) return;
+if (!window.MediaRecorder || !cv.captureStream) { showToast('⚠️ Your browser can’t make videos here. Posting as photos.'); window.closeTemplates(); return window.toComposer(t.items); }
+t.recording = true; cancelAnimationFrame(t.raf);
+const busy = document.getElementById('tplBusy'), pct = document.getElementById('tplPct'); busy.classList.remove('hidden');
+const out = cv.captureStream(30), mime = window.camMime(); let rec; try { rec = new MediaRecorder(out, mime ? { mimeType: mime, videoBitsPerSecond: 2500000 } : undefined); } catch (e) { rec = new MediaRecorder(out); }
+const chunks = [], dur = window.tplDuration(t), ctx = cv.getContext('2d'); rec.ondataavailable = (ev) => { if (ev.data && ev.data.size) chunks.push(ev.data); };
+rec.onstop = () => { const type = (rec.mimeType || mime || 'video/webm').split(';')[0]; const f = new File([new Blob(chunks, { type })], `sinless-template-${Date.now()}.${/mp4/.test(type) ? 'mp4' : 'webm'}`, { type }); const song = window.selectedAudioTrack; window.closeTemplates(); window.toComposer([{ type: 'video', file: f }], { song }); };
+t.fx = []; const start = performance.now(); rec.start(500);
+const step = () => { const time = (performance.now() - start) / 1000; if (time >= dur) { rec.stop(); return; } window.tplDraw(ctx, t, time); pct.textContent = Math.round(100 * time / dur) + '%'; requestAnimationFrame(step); };
+step();
+};
+window.closeTemplates = function() { const t = window.tpl; if (t) cancelAnimationFrame(t.raf); window.tpl = null; const el = document.getElementById('sgTpl'); if (el) { el.classList.add('hidden'); el.innerHTML = ''; } };
+
+window.postOpts = { commentsOff: false, noDownload: false };
+window.postExtras = () => { const o = {}; if (window.postOpts.commentsOff) o.commentsOff = true; if (window.postOpts.noDownload) o.noDownload = true; return o; };
+window.resetPostExtras = () => { window.postOpts = { commentsOff: false, noDownload: false }; setTimeout(() => window.renderComposerExtras && window.renderComposerExtras(), 50); };
+window.popularTags = function() {
+const c = {}; (window.fypposts || []).forEach(p => ((p.caption || '').match(/#[A-Za-z0-9_]{2,30}/g) || []).forEach(t => { const k = t.toLowerCase(); c[k] = c[k] || [t, 0]; c[k][1]++; }));
+const top = Object.values(c).sort((a, b) => b[1] - a[1]).map(x => x[0]).slice(0, 12);
+return [...new Set([...top, '#SinlessGG', '#FCMobile', '#eFootball', '#Ghana', '#Football', '#Gaming', '#Afrobeats', '#Anime', '#Movies', '#GG'])].slice(0, 18);
+};
+window.insertAtCaret = function(txt) {
+const ta = document.getElementById('postTextContent'); if (!ta) return; const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s;
+const pre = ta.value.slice(0, s), sp = pre && !/\s$/.test(pre) ? ' ' : '';
+ta.value = pre + sp + txt + ta.value.slice(e); const pos = (pre + sp + txt).length; ta.focus(); try { ta.setSelectionRange(pos, pos); } catch (er) {} ta.dispatchEvent(new Event('input', { bubbles: true }));
+};
+window.renderComposerExtras = function() {
+const lbl = document.getElementById('selectedSoundLabel'); if (!lbl) return;
+let box = document.getElementById('composerExtras');
+if (!box) { lbl.parentElement.insertAdjacentHTML('afterend', `<div id="composerExtras" class="space-y-2"></div>`); box = document.getElementById('composerExtras'); }
+const m = window.uploadedMediaBlobs || [], o = window.postOpts, hasVid = m.some(x => x.type === 'video'), imgs = m.filter(x => x.type === 'image').length;
+const chip = (on, label, act) => `<button type="button" onclick="${act}" class="px-3 py-2 rounded-xl text-[11px] font-black border ${on ? 'bg-gg-900 border-white/15 text-gray-200' : 'bg-red-500/15 border-red-400/50 text-red-200'}">${label}</button>`;
+box.innerHTML = `<div class="flex flex-wrap gap-2">
+<button type="button" onclick="window.showTagChips()" class="px-3 py-2 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-[11px] font-black"># Hashtags</button>
+<button type="button" onclick="window.insertAtCaret('@')" class="px-3 py-2 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-[11px] font-black">@ Mention</button>
+${m.length === 1 ? `<button type="button" onclick="window.editComposerMedia()" class="px-3 py-2 rounded-xl bg-gg-900 border border-magenta/40 text-pink-200 text-[11px] font-black">✏️ Edit</button>` : ''}
+${imgs >= 2 ? `<button type="button" onclick="window.openTemplates(window.uploadedMediaBlobs.map(x=>({type:x.type,file:x.file})))" class="px-3 py-2 rounded-xl bg-gg-900 border border-magenta/40 text-pink-200 text-[11px] font-black">🎞️ Make a video</button>` : ''}
+${hasVid ? `<button type="button" onclick="window.chooseCover()" class="px-3 py-2 rounded-xl bg-gg-900 border border-amber-400/40 text-amber-200 text-[11px] font-black">🖼 Cover${m.find(x => x.type === 'video').coverAt ? ' ✓' : ''}</button>` : ''}
+</div>
+<div id="tagChips" class="hidden flex flex-wrap gap-1.5"></div>
+<div class="flex flex-wrap gap-2">${chip(!o.commentsOff, o.commentsOff ? '💬 Comments: OFF' : '💬 Comments: ON', "window.postOpts.commentsOff=!window.postOpts.commentsOff; window.renderComposerExtras()")}${chip(!o.noDownload, o.noDownload ? '⬇️ Downloads: OFF' : '⬇️ Downloads: ON', "window.postOpts.noDownload=!window.postOpts.noDownload; window.renderComposerExtras()")}
+<button type="button" onclick="window.saveDraft()" class="px-3 py-2 rounded-xl bg-gg-900 border border-white/15 text-gray-200 text-[11px] font-black">💾 Save draft</button></div>`;
+};
+window.showTagChips = function() { const b = document.getElementById('tagChips'); if (!b) return; b.classList.toggle('hidden'); b.innerHTML = window.popularTags().map(t => `<button type="button" onclick="window.insertAtCaret('${t} ')" class="px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-200 text-[11px] font-bold">${escapeHTML(t)}</button>`).join(''); };
+window.handleMediaUploadSelect = (function(b) { return function(...a) { const r = b.apply(this, a); setTimeout(window.renderComposerExtras, 30); return r; }; })(window.handleMediaUploadSelect);
+window.openCreatePostModal = (function(b) { return function(...a) { const r = b.apply(this, a); setTimeout(() => { window.renderComposerExtras(); window.renderSoundLabel && window.renderSoundLabel(); }, 30); return r; }; })(window.openCreatePostModal);
+window.editComposerMedia = function() {
+const m = (window.uploadedMediaBlobs || [])[0]; if (!m || !m.file) return;
+window.closeCreatePostModal();
+window.openEditor([{ type: m.type, file: m.file }], (items) => window.toComposer(items));
+};
+window.chooseCover = function() {
+const m = (window.uploadedMediaBlobs || []).find(x => x.type === 'video'); if (!m) return;
+window.openPanel('🖼 Choose cover', `<video id="covV" src="${m.url}" muted playsinline class="w-full max-h-[55vh] rounded-2xl bg-black object-contain"></video>
+<input id="covR" type="range" min="0" max="1" step="0.05" value="${m.coverAt || 0}" class="w-full accent-pink-500" oninput="const v=document.getElementById('covV'); try{v.currentTime=+this.value}catch(e){}">
+<button onclick="window.saveCover()" class="w-full py-3 rounded-2xl text-white text-xs font-black uppercase" style="background:linear-gradient(135deg,#ff007f,#8b5cf6)">Use this frame</button>`);
+const v = document.getElementById('covV'); v.addEventListener('loadedmetadata', () => { const r = document.getElementById('covR'); r.max = String(Math.max(0.1, v.duration - 0.1)); try { v.currentTime = m.coverAt || 0; } catch (e) {} });
+const pnl = document.getElementById('sgPanel'); if (pnl) pnl.style.zIndex = 370;
+};
+window.saveCover = function() { const m = (window.uploadedMediaBlobs || []).find(x => x.type === 'video'), r = document.getElementById('covR'); if (m && r) m.coverAt = Math.round(+r.value * 10) / 10; const pnl = document.getElementById('sgPanel'); if (pnl) pnl.style.zIndex = ''; window.closePanel(); window.renderComposerExtras(); showToast('🖼 Cover set'); };
+window._coverIdx = { at: 0, map: {} };
+window.cldPoster = (function(b) {
+return function(url, width) {
+const r = b(url, width); if (!r) return r;
+const ix = window._coverIdx; if (Date.now() - ix.at > 3000) { ix.at = Date.now(); ix.map = {}; [...(window.fypposts || []), ...Object.values(window.postFetchCache || {}), ...(window.profilePostsList || [])].forEach(p => (p && p.mediaList || []).forEach(m => { if (m && m.coverAt && m.url) ix.map[m.url] = m.coverAt; })); }
+const t = ix.map[url]; return t ? r.replace('/video/upload/so_0,', `/video/upload/so_${t},`) : r;
+};
+})(window.cldPoster);
+window.openPostDetail = (function(b) {
+return function(id, ...a) {
+const r = b.call(this, id, ...a);
+setTimeout(() => { const p = window.findPost(id) || (window.postFetchCache || {})[id], inp = document.getElementById('postDetailReplyInput'); if (!inp) return; const off = !!(p && p.commentsOff); inp.disabled = off; inp.placeholder = off ? '💬 Comments are turned off for this post' : 'Post your reply…'; }, 300);
+return r;
+};
+})(window.openPostDetail);
+window.sendDetailReply = (function(b) { return function(...a) { const p = window.findPost(window.activeDetailPostId); if (p && p.commentsOff) { showToast('💬 Comments are turned off for this post'); return; } return b.apply(this, a); }; })(window.sendDetailReply);
+window.openClipComments = (function(b) {
+return function(c) {
+const r = b(c); const p = c && c.kind === 'post' && (window.findPost(c.id) || (window.postFetchCache || {})[c.id]);
+if (p && p.commentsOff) { const i = document.getElementById('sgCmtInput'); if (i) { i.disabled = true; i.placeholder = '💬 Comments are turned off'; } }
+return r;
+};
+})(window.openClipComments);
+window.sendClipComment = (function(b) { return function(...a) { const c = window._cmt, p = c && c.kind === 'post' && window.findPost(c.id); if (p && p.commentsOff) return; return b.apply(this, a); }; })(window.sendClipComment);
+window.openPostActions = (function(b) {
+return function(postId) {
+const p = window.findPost(postId) || (window.postFetchCache || {})[postId], mine = p && window.isMyPost && window.isMyPost(p);
+if (!p || !p.noDownload || mine) return b(postId);
+const orig = window.openActionSheet; window.openActionSheet = (title, items) => orig(title, items.filter(x => !/download/i.test(x.label || '')));
+try { return b(postId); } finally { window.openActionSheet = orig; }
+};
+})(window.openPostActions);
+window.downloadPostMedia = (function(b) { return function(id, ...a) { const p = window.findPost(id) || (window.postFetchCache || {})[id]; if (p && p.noDownload && !(window.isMyPost && window.isMyPost(p))) { showToast('⬇️ Downloads are turned off for this post'); return; } return b.call(this, id, ...a); }; })(window.downloadPostMedia);
+
+window.draftDB = () => new Promise((res, rej) => { const r = indexedDB.open('sg_drafts', 1); r.onupgradeneeded = () => r.result.createObjectStore('drafts', { keyPath: 'id' }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+window.draftOp = async (mode, fn) => { const db = await window.draftDB(); return new Promise((res, rej) => { const tx = db.transaction('drafts', mode), st = tx.objectStore('drafts'), q = fn(st); tx.oncomplete = () => res(q && q.result); tx.onerror = () => rej(tx.error); }); };
+window.saveDraft = async function() {
+const text = (document.getElementById('postTextContent').value || ''), m = window.uploadedMediaBlobs || [];
+if (!text.trim() && !m.length) { showToast('Nothing to save yet'); return; }
+const d = { id: 'd' + Date.now(), at: Date.now(), text, cat: (document.getElementById('postCategorySelect') || {}).value || '', audioTrack: window.selectedAudioTrack || null, opts: { ...window.postOpts }, media: m.filter(x => x.file).map(x => ({ type: x.type, blob: x.file, name: x.file.name || 'media', coverAt: x.coverAt || 0 })) };
+try { await window.draftOp('readwrite', st => st.put(d)); showToast('💾 Saved to Drafts (Post → Drafts)'); window.closeCreatePostModal(); try { document.getElementById('postTextContent').value = ''; } catch (e) {} window.uploadedMediaBlobs = []; window.selectedAudioTrack = null; }
+catch (e) { showToast('⚠️ Couldn’t save the draft (phone storage full?)'); }
+};
+window.listDrafts = async () => { try { const all = await window.draftOp('readonly', st => st.getAll()); return (all || []).sort((a, b) => b.at - a.at); } catch (e) { return []; } };
+window.openDrafts = async function() {
+const ds = await window.listDrafts();
+window.openPanel('💾 Drafts', ds.length ? `<div class="space-y-2">${ds.map(d => { const m = d.media[0]; const th = m ? URL.createObjectURL(m.blob) : ''; return `<div class="flex items-center gap-3 p-2 rounded-2xl bg-gg-900 border border-white/10">
+${m ? (m.type === 'video' ? `<video src="${th}" muted class="w-14 h-14 rounded-xl object-cover bg-black"></video>` : `<img src="${th}" class="w-14 h-14 rounded-xl object-cover" alt="">`) : `<div class="w-14 h-14 rounded-xl bg-gg-800 flex items-center justify-center text-xl">✍️</div>`}
+<button onclick="window.openDraft('${d.id}')" class="flex-1 min-w-0 text-left"><p class="text-xs font-bold text-white truncate">${escapeHTML(d.text || (d.media.length + ' item' + (d.media.length > 1 ? 's' : '')))}</p><p class="text-[10px] text-gray-400">${new Date(d.at).toLocaleString()}</p></button>
+<button onclick="window.deleteDraft('${d.id}')" class="w-9 h-9 rounded-xl bg-red-500/15 text-red-300"><i class="fa-solid fa-trash"></i></button></div>`; }).join('')}</div>` : `<div class="text-center py-10"><p class="text-4xl">💾</p><p class="text-sm font-bold text-white mt-2">No drafts</p><p class="text-xs text-gray-400">Tap 💾 Save draft on the post screen to finish later.</p></div>`);
+};
+window.openDraft = async function(id) {
+const ds = await window.listDrafts(), d = ds.find(x => x.id === id); if (!d) return;
+window.closePanel();
+const files = d.media.map(m => new File([m.blob], m.name, { type: m.blob.type || (m.type === 'video' ? 'video/mp4' : 'image/jpeg') }));
+window.postOpts = { commentsOff: false, noDownload: false, ...(d.opts || {}) };
+window.openCreatePostModal();
+if (files.length) window.handleMediaUploadSelect({ files });
+(window.uploadedMediaBlobs || []).forEach((m, i) => { if (d.media[i] && d.media[i].coverAt) m.coverAt = d.media[i].coverAt; });
+const ta = document.getElementById('postTextContent'); if (ta) ta.value = d.text || '';
+const cs = document.getElementById('postCategorySelect'); if (cs && d.cat) cs.value = d.cat;
+window.selectedAudioTrack = d.audioTrack || null; window.renderSoundLabel && window.renderSoundLabel();
+window._openDraftId = id; window.renderComposerExtras();
+};
+window.deleteDraft = async function(id) { try { await window.draftOp('readwrite', st => st.delete(id)); } catch (e) {} window.openDrafts(); };
+window.submitUniversalPost = (function(b) { return async function(...a) { const id = window._openDraftId; const r = await b.apply(this, a); if (id && !(window.uploadedMediaBlobs || []).length) { window._openDraftId = null; try { await window.draftOp('readwrite', st => st.delete(id)); } catch (e) {} } return r; }; })(window.submitUniversalPost);
+(function draftsEntry() {
+const add = async () => {
+const cam = document.getElementById('hubCamBtn'); if (!cam || document.getElementById('hubDraftsBtn')) return;
+cam.insertAdjacentHTML('afterend', `<button id="hubDraftsBtn" onclick="closeUniversalCreateModal(); window.openDrafts()" class="p-3 bg-gg-900 rounded-xl border border-white/15 flex items-center space-x-3 text-left"><div class="w-8 h-8 rounded bg-gg-800 flex items-center justify-center text-white shrink-0">💾</div><div><h4 class="text-xs font-bold text-white">Drafts <span id="hubDraftsN" class="text-gray-400"></span></h4><p class="text-[9px] text-gray-400">Finish what you started</p></div></button>`);
+};
+const tick = () => { add(); window.listDrafts().then(ds => { const n = document.getElementById('hubDraftsN'); if (n) n.textContent = ds.length ? `(${ds.length})` : ''; }); };
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(tick, 500)); else setTimeout(tick, 500);
+window.openUniversalCreateModal = (function(b) { return function(...a) { const r = b.apply(this, a); tick(); return r; }; })(window.openUniversalCreateModal);
+})();
