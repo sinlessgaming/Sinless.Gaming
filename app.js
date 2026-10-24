@@ -427,7 +427,7 @@ xhr.send(fd);
 
 window.prepareAndUpload = async function(file, onProgress, maxW = 2048, maxH = 2048) {
 const isVideo = file.type.includes('video');
-if (isVideo && file.size > 100 * 1024 * 1024) throw new Error('Video is over 100 MB. Please trim it.');
+if (isVideo && file.size > 60 * 1024 * 1024) throw new Error('Video is over 60 MB. Please trim it or record it in the app camera.');
 if (isVideo || file.type === 'image/gif') return window.uploadToCloudinary(file, onProgress);
 const shrunk = await window.compressImageSharp(file, maxW, maxH);
 return window.uploadToCloudinary(shrunk, onProgress);
@@ -19320,4 +19320,16 @@ setTimeout(() => {
 window.updateNotifBadge();
 }, 1200);
 };
+
+window.cldVideoOne = function(url, poster) {
+const [base, rest] = url.split('/upload/'), parts = rest.split('/');
+if (parts.length > 1 && /(^|,)(f_|q_|w_|c_|vc_|so_)/.test(parts[0])) parts.shift();
+return `${base}/upload/${poster ? 'f_auto,q_auto:good,c_limit,w_720' : 'f_auto:video,q_auto:good,vc_auto,c_limit,w_720'}/${parts.join('/')}`;
+};
+window.cldSized = (function(b) {
+return function(url, width, kind = 'image') {
+if (url && typeof url === 'string' && url.includes('res.cloudinary.com') && url.includes('/video/upload/')) return window.cldVideoOne(url, kind !== 'video');
+return b(url, width, kind);
+};
+})(window.cldSized);
 
