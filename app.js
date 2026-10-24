@@ -568,6 +568,7 @@ if (publishBtn) {
 publishBtn.disabled = true;
 publishBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Publishing...`;
 }
+window.postStatus && window.postStatus.start(picked[0], text);
 
 let mediaList = [];
 try {
@@ -576,12 +577,13 @@ const m = picked[i];
 if (!m.file) { mediaList.push({ type: m.type, url: m.url }); continue; }
 const uploaded = await window.prepareAndUpload(m.file, (pct) => {
 if (publishBtn) publishBtn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up mr-1"></i> Uploading ${i + 1}/${picked.length} · ${pct}%`;
+window.postStatus && window.postStatus.progress(Math.round(((i + pct / 100) / picked.length) * 92));
 });
 mediaList.push(m.coverAt ? { ...uploaded, coverAt: m.coverAt } : uploaded);
 }
 } catch (err) {
 console.error("Media upload failed:", err);
-showToast(`⚠️ Upload failed: ${err.message}`);
+if (window.postStatus) window.postStatus.fail(`Upload didn't finish: ${err.message}`); else showToast(`⚠️ Upload failed: ${err.message}`);
 if (publishBtn) {
 publishBtn.disabled = false;
 publishBtn.innerHTML = `🚀 Publish Post with Media`;
@@ -620,7 +622,7 @@ if(window.db && typeof addDoc === 'function' && typeof collection === 'function'
 const docRef = await window.savePostCloud(postPayload);
 postPayload.id = docRef.id;
 postPayload.docId = docRef.id;
-showToast("Published to Cloud Feed!");
+if (window.postStatus) window.postStatus.done(docRef.id); else showToast("✅ Posted");
 } else {
 await publishLocallyFallback(postPayload);
 }
@@ -629,7 +631,7 @@ resetPostForm();
 console.error("Firestore Error:", e);
 window.queuePostRetry && window.queuePostRetry(postPayload);
 await publishLocallyFallback(postPayload);
-showToast("⚠️ Your post is saved on this phone but hasn't reached everyone yet. We'll keep trying automatically.");
+if (window.postStatus) window.postStatus.queued(); else showToast("⚠️ Your post is saved on this phone but hasn't reached everyone yet. We'll keep trying automatically.");
 } finally {
 if (publishBtn) {
 publishBtn.disabled = false;
@@ -646,7 +648,6 @@ await savePostToIndexedDB(payload);
 if(window.renderFypFeed) window.renderFypFeed();
 if(window.renderLadder) window.renderLadder();
 resetPostForm();
-showToast("Published to Feed!");
 }
 
 function resetPostForm() {
@@ -4902,7 +4903,7 @@ window.openActionSheet(`@${window.hnd(p.user)}'s post`, [
 window.openUserActions = function(tag) {
 window.openActionSheet(`@${window.hnd(tag)}`, [
 { icon: 'fa-envelope', label: 'Send message', run: () => { window.closeUserProfileModal(); window.openDmModal(tag); } },
-{ icon: 'fa-link', label: 'Copy profile link', run: () => { window.activeShare = { link: `${location.origin}${location.pathname}#user=${tag}` }; window.copyShareLink(); } },
+{ icon: 'fa-link', label: 'Copy profile link', run: () => { window.activeShare = { link: window.seoLink ? window.seoLink('u', String(tag).replace('@', '')) : `${location.origin}${location.pathname}#user=${tag}` }; window.copyShareLink(); } },
 { icon: 'fa-ban', label: `Block @${window.hnd(tag)}`, danger: true, run: () => window.blockUser(tag) }
 ]);
 };
@@ -6675,7 +6676,7 @@ await window.updateSquadCloud(sq, { inviteCode: sq.inviteCode }, 'New invite cod
 };
 window.shareInviteCode = function() {
 const sq = window.activeSquadDetails;
-window.activeShare = { link: `${location.origin}${location.pathname}#squad=${sq.id}`, text: `Join my squad ${sq.name} [${sq.tag}] on Sinless GG 🎮${!sq.isPublic ? ` Invite code: ${sq.inviteCode}` : ''}` };
+window.activeShare = { link: sq.isPublic !== false && window.seoLink ? window.seoLink('s', sq.id) : `${location.origin}${location.pathname}#squad=${sq.id}`, text: `Join my squad ${sq.name} [${sq.tag}] on Sinless GG 🎮${!sq.isPublic ? ` Invite code: ${sq.inviteCode}` : ''}` };
 if (navigator.share) navigator.share({ title: sq.name, text: window.activeShare.text, url: window.activeShare.link }).catch(() => {});
 else window.copyShareLink();
 };
@@ -7484,7 +7485,11 @@ const every = n < 8 ? 2 : n < 20 ? 3 : n < 40 ? 5 : n < 80 ? 8 : 12;
 const maxX = (n < 8 ? 40 : n < 20 ? 30 : n < 40 ? 12 : n < 80 ? 8 : 6) + (window.extraBoost || 0);
 let k = 0;
 const make = () => { const x = extras[k++], d = document.createElement('div'); d.setAttribute('data-news-card', '1');
-if (x.type === 'video') { d.setAttribute('data-vid-card', '1'); d.innerHTML = window.feedVideoCardHtml(x.v); } else d.innerHTML = window.newsCardHtml(x.n, { inFeed: true, small: true });
+if (x.type === 'video') { d.setAttribute('data-vid-card', '1'); d.innerHTML = window.feedVideoCardHtml(x.v); }
+else if (x.type === 'news') d.innerHTML = window.newsCardHtml(x.n, { inFeed: true, small: !(window.feedRand && window.feedRand(x.n.title || '') > 0.75) });
+else { d.innerHTML = window.feedXHtml ? window.feedXHtml(x) : ''; d.setAttribute('data-xkey', x.type === 'special' ? 's:' + x.kind : 'row:' + k); }
+if (window.srcOf && (x.type === 'news' || x.type === 'video')) d.setAttribute('data-src', window.srcOf(x));
+d.setAttribute('data-xi', String(k - 1));
 return d; };
 if (!cards.length) {
 box.insertAdjacentHTML('beforeend', `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">Meanwhile · news & videos</p>`);
@@ -14043,7 +14048,7 @@ const v = s.querySelector('video[data-clip-video]'), yt = s.querySelector('[data
 if (v) { if (cur) { v.preload = 'auto'; v.muted = window.feedMuted; v.play().catch(() => {}); } else { if (!v.paused) v.pause(); if (k === i + 1) v.preload = 'auto'; } }
 if (yt) {
 const f = yt.querySelector('iframe');
-if (cur && !f) { const id = yt.getAttribute('data-clip-yt'); const fr = document.createElement('iframe'); fr.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=${window.feedMuted ? 1 : 0}&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&loop=1&playlist=${id}`; fr.className = 'absolute inset-0 w-full h-full border-0'; fr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; fr.setAttribute('data-clip-frame', '1'); yt.appendChild(fr); }
+if (cur && !f) { const id = yt.getAttribute('data-clip-yt'); const fr = document.createElement('iframe'); fr.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=0&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&loop=1&playlist=${id}`; fr.className = 'absolute inset-0 w-full h-full border-0'; fr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; fr.setAttribute('data-clip-frame', '1'); yt.appendChild(fr); }
 else if (!cur && f) f.remove();
 }
 });
@@ -16730,7 +16735,7 @@ showToast('✅ Picture saved. Post it on your WhatsApp Status!');
 window.statusCardForPost = function(id) {
 const p = window.findPost(id) || (window.postFetchCache || {})[id]; if (!p) return;
 const m = (p.mediaList || [])[0], img = m ? (m.type === 'video' ? window.cldPoster(m.url, 1000) : window.cldSized(m.url, 1000)) : '';
-window.shareStatusCard({ title: p.caption || 'Check this out on Sinless GG', by: '— ' + window.dnText(p.user), img, url: `https://sinlessgg.com/#post=${id}` });
+window.shareStatusCard({ title: p.caption || 'Check this out on Sinless GG', by: '— ' + window.dnText(p.user), img, url: window.postLink(id) });
 };
 window.showGameOverlay = (function(b) {
 return function(kind, d = {}) {
@@ -20074,3 +20079,558 @@ window.afterAuthChange = (function(b) { return async function(u) { const r = awa
 window.addEventListener('online', () => setTimeout(() => window.flushPostQueue(), 3000));
 setInterval(() => window.flushPostQueue(), 120000);
 
+window.seenXAt = (() => { try { return JSON.parse(localStorage.getItem('sg_seen_x_at') || '{}'); } catch (e) { return {}; } })();
+window.markExtraSeen = (function(b) {
+return function(k) {
+if (k && !/^(s:|row:)/.test(k)) { window.seenXAt[k] = Date.now(); clearTimeout(window._sxT); window._sxT = setTimeout(() => { const e = Object.entries(window.seenXAt).sort((a, c) => c[1] - a[1]).slice(0, 2500); window.seenXAt = Object.fromEntries(e); try { localStorage.setItem('sg_seen_x_at', JSON.stringify(window.seenXAt)); } catch (er) {} }, 800); }
+return b(k);
+};
+})(window.markExtraSeen);
+window.xSeenRecently = (k) => { const t = window.seenXAt[k]; return !!t && Date.now() - t < 3 * 864e5; };
+window.seenExtras = new Set(Object.keys(window.seenXAt).filter(window.xSeenRecently));
+try { localStorage.setItem('sg_seen_extras', JSON.stringify([...window.seenExtras])); } catch (e) {}
+if (window.feedMix) window.feedMix.seenX = new Set(window.seenExtras);
+window.markExtraSeen = (function(b) { return function(k) { if (k && window.seenExtras.has(k) && !window.xSeenRecently(k)) window.seenExtras.delete(k); return b(k); }; })(window.markExtraSeen);
+window.newFeedMix = (function(b) { return function(...a) { window.seenExtras = new Set([...window.seenExtras].filter(k => window.xSeenRecently(k) || !window.seenXAt[k])); return b.apply(this, a); }; })(window.newFeedMix);
+window.hiddenSrc = (() => { try { return new Set(JSON.parse(localStorage.getItem('sg_hidden_src') || '[]')); } catch (e) { return new Set(); } })();
+window.srcOf = (x) => x.type === 'news' ? 'n:' + String((x.n && x.n.source) || '').toLowerCase() : 'c:' + String((x.v && x.v.ch && (x.v.ch.id || x.v.ch.name)) || '').toLowerCase();
+window.hideSource = function(src, btn) {
+if (!src) return; window.hiddenSrc.add(src);
+try { localStorage.setItem('sg_hidden_src', JSON.stringify([...window.hiddenSrc].slice(-300))); } catch (e) {}
+document.querySelectorAll(`#fypFeedContainer [data-src="${CSS.escape(src)}"]`).forEach(el => el.remove());
+showToast(`🙈 Got it. You won't see ${src.startsWith('n:') ? 'news from ' + src.slice(2) : 'this channel'} again.`);
+};
+window.feedRand = (k) => { let h = ((window.feedMix && window.feedMix.seed) || 7) | 0; for (const ch of String(k)) h = Math.imul(h ^ ch.charCodeAt(0), 2654435761); h ^= h >>> 16; h = Math.imul(h, 2246822507); h ^= h >>> 13; h = Math.imul(h, 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+window.feedExtras = (function(b) {
+return function(nc) {
+if (nc) return b(nc);
+b(null);                                   // keeps the old bookkeeping (resets the video list, loads videos)
+window.feedVidReg = [];
+const t = (window.taste && window.taste.news) || {}, ck = (window.clipTaste && window.clipTaste.k) || {};
+const fresh = (d) => Math.max(0, 2 - (Date.now() - (d || 0)) / (36 * 3600e3));
+const ok = (x, key) => !window.hiddenSrc.has(window.srcOf(x)) && !window.xSeenRecently(key);
+const news = (window.newsForYou() || []).map(n => ({ type: 'news', n })).filter(x => ok(x, 'n:' + String(x.n.title || '').trim().toLowerCase().slice(0, 80)))
+.map(x => ({ x, s: 1 + (t[x.n.cat] || 0) / 10 + fresh(x.n.date) + window.feedRand(x.n.title) * 1.6 }));
+const seenV = new Set();
+const vidsRaw = [...(window.videosForFeed(null) || []), ...(window.shortsPool || [])].filter(v => v && v.vid && !seenV.has(v.vid) && seenV.add(v.vid));
+const vids = vidsRaw.map(v => ({ type: 'video', v })).filter(x => ok(x, 'v:' + x.v.vid))
+.map(x => ({ x, s: 1 + (t[x.v.cat] || 0) / 10 + (ck[x.v.cat] || 0) / 5 + fresh(x.v.date) + (x.v.short && window._newUser ? 0.6 : 0) + window.feedRand(x.v.vid) * 1.6 }));
+news.sort((a, c) => c.s - a.s); vids.sort((a, c) => c.s - a.s);
+const shortsLeft = () => vids.filter(o => o.x.v.short);
+const out = [], recent = [];
+let last = '', run = 0, nNews = 0, nVid = 0, lastRow = -9;
+const rowNow = (tag, n) => out.length - lastRow >= 3 && window.feedRand(tag + n) < 0.3;
+const takeHead = (L) => { let i = L.findIndex(o => !recent.includes(window.srcOf(o.x))); if (i < 0) i = 0; return L.splice(i, 1)[0]; };
+const push = (x) => { out.push(x); if (x.type === 'news' || x.type === 'video') { recent.push(window.srcOf(x)); if (recent.length > 7) recent.shift(); } };
+while ((news.length || vids.length) && out.length < 60) {
+let pickNews = news.length && (!vids.length || news[0].s >= vids[0].s);
+if ((run >= 2 || (run === 1 && window.feedRand('sw' + out.length) < 0.45)) && last === (pickNews ? 'news' : 'video') && (pickNews ? vids.length : news.length)) pickNews = !pickNews;   // variety: never 3 of a kind in a row
+if (pickNews) {
+nNews++;
+if (news.length >= 5 && rowNow('nr', nNews)) { lastRow = out.length; const list = []; while (list.length < 5 && news.length) list.push(takeHead(news).x.n); push({ type: 'newsrow', list }); }
+else push(takeHead(news).x);
+run = last === 'news' ? run + 1 : 1; last = 'news';
+} else {
+nVid++;
+const sl = shortsLeft();
+if (sl.length >= 5 && rowNow('vr', nVid)) { lastRow = out.length; const list = sl.slice(0, 8).map(o => o.x.v); list.forEach(v => { const i = vids.findIndex(o => o.x.v === v); if (i >= 0) vids.splice(i, 1); }); push({ type: 'cliprow', list }); }
+else push(takeHead(vids).x);
+run = last === 'video' ? run + 1 : 1; last = 'video';
+}
+}
+const specials = window.seededShuffle(['live', 'people', 'squads', 'challenge', 'tags'], (window.feedMix && window.feedMix.seed) || 1).filter(k => window.feedSpecialOk(k));
+let pos = 2 + Math.floor(window.feedRand('sp0') * 3);
+specials.forEach((k, i) => { if (pos <= out.length) { out.splice(pos, 0, { type: 'special', kind: k }); pos += 4 + Math.floor(window.feedRand('sp' + i) * 4); } });
+return out;
+};
+})(window.feedExtras);
+window.feedSpecialOk = function(k) {
+if (k === 'live') return (window.livesList || []).length > 0;
+if (k === 'people') return window.isSignedIn() && window.peopleToFollow().length >= 3;
+if (k === 'squads') return window.squadsToJoin().length >= 2;
+if (k === 'tags') return window.popularTags && window.popularTags().length >= 5;
+return true;
+};
+window.peopleToFollow = function() {
+const me = window.isSignedIn() ? window.meLower() : '';
+return Object.values(window.allProfilesMap || {}).filter(p => p && p.gamertag && p.gamertag.toLowerCase() !== me && !(window.amFollowing && window.amFollowing(p.gamertag)) && !window.isBlocked(p.gamertag) && !p.deleted)
+.sort((a, b) => (b.verified ? 1 : 0) - (a.verified ? 1 : 0) || (b.xp || 0) - (a.xp || 0)).slice(0, 10);
+};
+window.squadsToJoin = () => (window.clansData || []).filter(s => s && s.isPublic !== false && !s.isOfficial && !(window.isSquadMember && window.isSquadMember(s))).sort((a, b) => ((b.members || []).length) - ((a.members || []).length)).slice(0, 8);
+window.feedXHtml = function(x) {
+const shell = (title, sub, inner) => `<div class="glass-panel rounded-2xl p-3 border border-white/10 space-y-2"><div class="flex items-center justify-between"><p class="text-xs font-black text-white">${title}</p>${sub || ''}</div>${inner}</div>`;
+const row = (inner) => `<div class="flex gap-2.5 overflow-x-auto scrollbar-none pb-1 snap-x">${inner}</div>`;
+if (x.type === 'newsrow') return shell('📰 Top stories', `<button onclick="window.switchView('news')" class="text-[10px] font-black text-cyan-300">See all ›</button>`, row(x.list.map(n => `<button onclick="window.openNews(${window.newsRegister(n)})" class="shrink-0 w-56 snap-start text-left rounded-xl overflow-hidden bg-gg-900 border border-white/5">
+${n.img ? `<img src="${escapeHTML(n.img)}" alt="" loading="lazy" class="w-full h-28 object-cover bg-gg-800" onerror="this.style.display='none'">` : '<div class="w-full h-28 bg-gradient-to-br from-cyan-900 to-purple-900 flex items-center justify-center text-3xl">📰</div>'}
+<div class="p-2.5"><p class="text-xs font-black text-white leading-snug line-clamp-3">${escapeHTML(n.title)}</p><p class="text-[10px] text-gray-500 mt-1">${escapeHTML(n.source || '')} · ${window.timeAgo(n.date)}</p></div></button>`).join('')));
+if (x.type === 'cliprow') return shell('▶ Clips for you', `<button onclick="window.openClips()" class="text-[10px] font-black text-magenta">Watch all ›</button>`, row(x.list.map(v => { window.feedVidReg.push(v); const i = window.feedVidReg.length - 1;
+return `<button onclick="window.playFeedVideo(${i})" class="shrink-0 w-28 snap-start relative rounded-xl overflow-hidden bg-black" style="aspect-ratio:9/16"><img src="https://i.ytimg.com/vi/${escapeHTML(v.vid)}/hqdefault.jpg" alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover"><span class="absolute inset-x-0 bottom-0 p-1.5 text-[9px] font-black text-white text-left leading-tight line-clamp-3" style="background:linear-gradient(transparent,rgba(0,0,0,.85))">${escapeHTML(v.title || '')}</span><span class="absolute top-1.5 left-1.5 text-white text-xs drop-shadow">▶</span></button>`; }).join('')));
+if (x.type !== 'special') return '';
+if (x.kind === 'live') { const L = (window.livesList || []).slice(0, 8);
+return shell('🔴 Live now', '', row(L.map(l => `<button onclick="window.openLiveRoom('${escapeHTML(l.id)}')" class="shrink-0 w-36 snap-start text-left rounded-xl overflow-hidden bg-gg-900 border border-red-500/40"><div class="h-20 bg-gradient-to-br from-red-700 to-magenta flex items-center justify-center text-3xl relative">🎥<span class="absolute top-1.5 left-1.5 text-[9px] font-black bg-red-600 text-white px-1.5 rounded">LIVE</span></div><div class="p-2"><p class="text-[11px] font-black text-white truncate">${escapeHTML(l.title || 'Live')}</p><p class="text-[10px] text-gray-400 truncate">${escapeHTML(window.dnText(l.host || l.user || ''))}</p></div></button>`).join(''))); }
+if (x.kind === 'people') return shell('👥 People to follow', '', row(window.peopleToFollow().map(p => `<div class="shrink-0 w-32 snap-start rounded-xl bg-gg-900 border border-white/5 p-2.5 text-center space-y-1.5"><button onclick="window.openUserProfileModal('${escapeHTML(p.gamertag)}')" class="block mx-auto">${window.avatarHtml(p.gamertag, 'w-14 h-14', 'rounded-full', 'text-sm').replace(/onclick="[^"]*"/, '')}</button><p class="text-[11px] font-black text-white truncate">${escapeHTML(window.dnText(p.gamertag))}</p><button onclick="window.toggleFollowUser('${escapeHTML(p.gamertag)}'); this.textContent='✓ Following'; this.className='w-full py-1.5 rounded-lg bg-gg-800 text-gray-300 text-[10px] font-black'" class="w-full py-1.5 rounded-lg bg-cyan-400 text-slate-950 text-[10px] font-black">Follow</button></div>`).join('')));
+if (x.kind === 'squads') return shell('🛡️ Squads to join', `<button onclick="window.switchView('clans')" class="text-[10px] font-black text-emerald-300">All squads ›</button>`, row(window.squadsToJoin().map(s => `<button onclick="window.switchView('clans'); window.openSquadDetailsModal('${escapeHTML(s.id)}')" class="shrink-0 w-40 snap-start text-left rounded-xl bg-gg-900 border border-emerald-500/30 p-2.5 space-y-1"><span class="inline-flex w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-300 items-center justify-center text-sm font-black">${escapeHTML((s.tag || s.name || '?').slice(0, 4))}</span><p class="text-xs font-black text-white truncate">${escapeHTML(s.name)}</p><p class="text-[10px] text-gray-400">${escapeHTML(s.game || '')} · ${(s.members || []).length} members</p></button>`).join('')));
+if (x.kind === 'tags') return shell('🔥 Trending tags', '', `<div class="flex flex-wrap gap-1.5">${window.popularTags().slice(0, 12).map(tg => `<button onclick="window.openSearch(); setTimeout(()=>{ const i=document.getElementById('sgSearchInput'); if(i){ i.value='${escapeHTML(tg)}'; window.runSearch(); } }, 120)" class="px-2.5 py-1 rounded-full bg-gg-900 border border-magenta/30 text-magenta text-[11px] font-black">${escapeHTML(tg)}</button>`).join('')}</div>`);
+if (x.kind === 'challenge') {
+const games = ['dribble', 'keeper', 'penalty', 'tower', 'snakes', 'ludo'].filter(g => window.GAMES[g]);
+let best = null; games.forEach(g => { const c = window._boardCache[`${g}_${window.weekKey(Date.now())}`]; const top = c && c.rows && c.rows.find(r => r.uid !== (window.uidNow && window.uidNow())); if (top && (!best || window.feedRand(g) > 0.4)) best = { g, top }; });
+const g = best ? best.g : games[Math.floor(window.feedRand('g') * games.length)], info = window.GAMES[g] || {};
+return `<div class="rounded-2xl p-3.5 flex items-center gap-3" style="background:linear-gradient(135deg,rgba(16,185,129,.22),rgba(6,182,212,.18));border:1px solid rgba(16,185,129,.45)"><span class="text-4xl">${info.emoji || '🎮'}</span><div class="flex-1 min-w-0"><p class="text-sm font-black text-white">${best ? `Beat @${escapeHTML(window.hnd(best.top.user || ''))}'s ${best.top.score}${g === 'ludo' || g === 'snakes' ? ' wins' : ''} in ${escapeHTML(info.name || '')}` : `Play ${escapeHTML(info.name || 'a game')} now`}</p><p class="text-[11px] text-emerald-200">Weekly leaderboard · keeps your 🔥 gaming streak</p></div><button onclick="window.switchView('play'); setTimeout(()=>window.openGame('${g}'), 200)" class="shrink-0 px-3.5 py-2 rounded-xl bg-emerald-400 text-slate-950 text-xs font-black">Play</button></div>`;
+}
+return '';
+};
+setTimeout(() => { ['dribble', 'penalty', 'tower'].forEach(g => window.loadGameBoard && window.loadGameBoard(g).catch(() => {})); }, 9000);
+window.renderFypFeed = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+document.querySelectorAll('#fypFeedContainer > [data-news-card][data-src]:not([data-hidebtn])').forEach(el => {
+el.setAttribute('data-hidebtn', '1'); const src = el.getAttribute('data-src'); if (!src || src === 'n:' || src === 'c:') return;
+const host = el.firstElementChild; if (!host) return; if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+host.insertAdjacentHTML('beforeend', `<button onclick="event.stopPropagation(); window.hideSource(this.closest('[data-src]').getAttribute('data-src'))" title="Not interested" class="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-black/55 text-white text-xs">🙈</button>`);
+});
+return r;
+};
+})(window.renderFypFeed);
+window.mixFeedDom = (function(b) {
+return function() {
+const r = b();
+const box = document.getElementById('fypFeedContainer');
+if (!box || window.feedMode === 'following' || (window.activeCategoryFilter || 'ALL') === 'LIVE STREAM' || window._mixing) return r;
+const kids = [...box.children], posts = kids.filter(el => !el.hasAttribute('data-news-card') && (el.hasAttribute('data-post-id') || el.querySelector('[data-post-id]')));
+const xs = kids.filter(el => el.hasAttribute('data-news-card')).sort((a, c) => (+a.getAttribute('data-xi') || 0) - (+c.getAttribute('data-xi') || 0));
+if (!posts.length || !xs.length) return r;
+const key = posts.map(p => p.getAttribute('data-post-id') || '').join(',').slice(0, 300) + '|' + xs.length;
+const seq = []; let xi = 0, gap = 1 + Math.floor(window.feedRand('g0') * 3), since = 0;
+posts.forEach((p, i) => { seq.push(p); since++; if (since >= gap && xi < xs.length) { seq.push(xs[xi++]); since = 0; gap = 1 + Math.floor(window.feedRand('g' + i) * (posts.length > 30 ? 5 : 3)); } });
+while (xi < xs.length) seq.push(xs[xi++]);
+const want = [...seq]; kids.forEach((el, i) => { if (!seq.includes(el)) want.splice(Math.min(i, want.length), 0, el); });
+const cur = [...box.children];
+if (want.length === cur.length && want.every((el, i) => el === cur[i])) return r;
+window._mixing = true;
+try { const mv = typeof box.moveBefore === 'function'; want.forEach(el => { try { mv ? box.moveBefore(el, null) : box.appendChild(el); } catch (e) { box.appendChild(el); } }); }
+finally { window._mixing = false; }
+window._mixKey = key;
+const strip = box.querySelector(':scope > [data-tourn-strip]'); if (strip && box.children[2] && box.firstElementChild === strip) box.children[2].after(strip);
+return r;
+};
+})(window.mixFeedDom);
+window.newFeedMix = (function(b) { return function(...a) { window._mixKey = null; return b.apply(this, a); }; })(window.newFeedMix);
+
+window.clipActivate = (function(b) {
+return function(i) {
+const r = b(i);
+const s = document.querySelector(`#sgClipsScroll [data-clip="${i}"]`), btn = document.getElementById('sgClipsMute');
+if (btn) btn.style.display = s && s.querySelector('video[data-clip-video]') && !s.querySelector('[data-clip-yt]') ? '' : 'none';
+return r;
+};
+})(window.clipActivate);
+window.openClips = (function(b) { return function(...a) { const r = b.apply(this, a); const btn = document.getElementById('sgClipsMute'); if (btn) btn.style.display = 'none'; return r; }; })(window.openClips);
+
+window.SG_MEDIA = { photos: ['cloudinary', 'imagekit', 'b2'], videos: ['cloudinary', 'imagekit', 'b2'], ikPublic: '', ikEndpoint: '', b2Proxy: true };
+window.loadMediaCfg = async function(force) {
+if (!force && window._mediaCfgAt && Date.now() - window._mediaCfgAt < 30 * 60000) return window.SG_MEDIA;
+try { const s = await getDoc(doc(window.db, 'config', 'media')); if (s.exists()) { const d = s.data(); const ok = (a) => Array.isArray(a) && a.length ? a.filter(h => ['cloudinary', 'imagekit', 'b2'].includes(h)) : null;
+window.SG_MEDIA = { photos: ok(d.photos) || window.SG_MEDIA.photos, videos: ok(d.videos) || window.SG_MEDIA.videos, ikPublic: d.ikPublic || '', ikEndpoint: String(d.ikEndpoint || '').replace(/\/$/, ''), b2Proxy: d.b2Proxy !== false }; } } catch (e) {}
+window._mediaCfgAt = Date.now();
+return window.SG_MEDIA;
+};
+setTimeout(() => { window.loadMediaCfg(); window.loadPushCfg && window.loadPushCfg(); }, 2500);
+window._mediaDown = {};                                   // host → time it last failed (skipped for 20 min)
+window.mediaIdToken = async () => { try { return window.currentUser ? await window.currentUser.getIdToken() : ''; } catch (e) { return ''; } };
+window.xhrUpload = function(urlTo, body, headers, onProgress) {
+return new Promise((resolve, reject) => {
+const x = new XMLHttpRequest(); x.open('POST', urlTo);
+Object.entries(headers || {}).forEach(([k, v]) => x.setRequestHeader(k, v));
+x.upload.onprogress = (e) => { if (e.lengthComputable && onProgress) onProgress(Math.round(e.loaded / e.total * 100)); };
+x.onload = () => { let d = {}; try { d = JSON.parse(x.responseText); } catch (e) {} if (x.status >= 200 && x.status < 300) resolve(d); else reject(new Error((d.error && (d.error.message || d.error)) || d.message || `Upload failed (${x.status})`)); };
+x.onerror = () => reject(new Error('No internet connection'));
+x.send(body);
+});
+};
+window.toBlob = async (f) => (typeof f === 'string' ? await (await fetch(f)).blob() : f);
+window.mediaExt = (b) => { const t = (b && b.type) || ''; const m = t.split('/')[1] || 'bin'; return ({ jpeg: 'jpg', quicktime: 'mov', 'x-matroska': 'mkv', 'svg+xml': 'svg' })[m] || m.replace(/[^a-z0-9]/g, '').slice(0, 5) || 'bin'; };
+window.MEDIA_HOSTS = {
+cloudinary: (f, onP) => window._cldUploadRaw(f, onP),
+imagekit: async (f, onP) => {
+const cfg = window.SG_MEDIA, push = await window.loadPushCfg();
+if (!cfg.ikPublic || !push.url) throw new Error('ImageKit not set up');
+const blob = await window.toBlob(f);
+if (blob.size > 25 * 1024 * 1024) throw new Error('too big for ImageKit free');
+const tok = await window.mediaIdToken(); if (!tok) throw new Error('sign in');
+const a = await (await fetch(push.url + '/ik-auth', { method: 'POST', headers: { Authorization: 'Bearer ' + tok } })).json();
+if (!a.ok) throw new Error(a.error || 'ImageKit auth failed');
+const fd = new FormData();
+fd.append('file', blob, 'sg.' + window.mediaExt(blob)); fd.append('fileName', 'sg_' + Date.now() + '.' + window.mediaExt(blob));
+fd.append('publicKey', cfg.ikPublic); fd.append('signature', a.signature); fd.append('expire', String(a.expire)); fd.append('token', a.token);
+fd.append('folder', '/sinlessgg'); fd.append('useUniqueFileName', 'true');
+const d = await window.xhrUpload('https://upload.imagekit.io/api/v1/files/upload', fd, {}, onP);
+if (!d.url) throw new Error('ImageKit upload failed');
+return { url: d.url, type: /^video\//.test(blob.type) ? 'video' : 'image' };
+},
+b2: async (f, onP) => {
+const push = await window.loadPushCfg(); if (!push.url) throw new Error('B2 not set up');
+const blob = await window.toBlob(f), tok = await window.mediaIdToken(); if (!tok) throw new Error('sign in');
+const d = await window.xhrUpload(push.url + '/b2-upload', blob, { Authorization: 'Bearer ' + tok, 'Content-Type': blob.type || 'application/octet-stream', 'X-File-Ext': window.mediaExt(blob) }, onP);
+if (!d.url) throw new Error(d.error || 'B2 upload failed');
+return { url: d.url, type: /^video\//.test(blob.type) ? 'video' : 'image' };
+}
+};
+window.videoPosterBlob = function(file, at) {
+return new Promise((resolve) => {
+if (!file || typeof file === 'string') return resolve(null);
+const v = document.createElement('video'), u = URL.createObjectURL(file); let done = false;
+const fin = (b) => { if (done) return; done = true; URL.revokeObjectURL(u); resolve(b); };
+v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = u;
+v.onloadeddata = () => { try { v.currentTime = Math.min(at || 0.3, Math.max(0, (v.duration || 1) - 0.1)); } catch (e) { fin(null); } };
+v.onseeked = () => { try { const s = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight, 1)), c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * s); c.height = Math.round(v.videoHeight * s); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); c.toBlob(b => fin(b), 'image/webp', 0.8); } catch (e) { fin(null); } };
+v.onerror = () => fin(null); setTimeout(() => fin(null), 8000);
+});
+};
+window._cldUploadRaw = window._cldUploadRaw || window.uploadToCloudinary;
+window.uploadToCloudinary = async function(fileOrDataUrl, onProgress) {
+const cfg = await window.loadMediaCfg();
+const isVid = typeof fileOrDataUrl !== 'string' && /^video\//.test(fileOrDataUrl.type || '');
+const order = [...(isVid ? cfg.videos : cfg.photos)];
+const tryOrder = [...order.filter(h => !(Date.now() - (window._mediaDown[h] || 0) < 20 * 60000)), ...order.filter(h => Date.now() - (window._mediaDown[h] || 0) < 20 * 60000)];
+let lastErr = null;
+for (const h of tryOrder) {
+try {
+const r = await window.MEDIA_HOSTS[h](fileOrDataUrl, onProgress);
+delete window._mediaDown[h];
+if (r.type === 'video' && h !== 'cloudinary') {
+try { const pb = await window.videoPosterBlob(fileOrDataUrl, (window.uploadedMediaBlobs || []).find(m => m.file === fileOrDataUrl)?.coverAt); if (pb) { const p = await window.MEDIA_HOSTS[h](pb); if (p && p.url) r.url += '#p=' + encodeURIComponent(p.url); } } catch (e) {}
+}
+return r;
+} catch (e) {
+lastErr = e;
+if (/No internet/i.test(e.message || '') && !navigator.onLine) break;     // phone is offline: no point trying the others
+if (!/not set up|too big|sign in/i.test(e.message || '')) window._mediaDown[h] = Date.now();
+}
+}
+throw lastErr || new Error('Upload failed');
+};
+window.mediaPosterOf = (url) => { const m = String(url || '').match(/#p=([^#]+)$/); if (!m) return ''; try { return decodeURIComponent(m[1]); } catch (e) { return ''; } };
+window.b2View = function(u) {
+const push = window.SG_PUSH || {};
+if (!window.SG_MEDIA.b2Proxy || !push.url) return u;
+const m = u.match(/^https:\/\/f\d+\.backblazeb2\.com\/file\/[^/]+\/(.+)$/); return m ? push.url + '/f/' + m[1] : u;
+};
+window.cldSized = (function(b) {
+return function(url, width, kind = 'image') {
+if (typeof url === 'string' && url.includes('#p=') && kind !== 'video') return window.cldSized(window.mediaPosterOf(url), width, 'image');
+if (typeof url === 'string' && /ik\.imagekit\.io\//.test(url)) { const clean = url.split('#')[0]; return kind === 'video' || /\?tr=/.test(clean) ? clean : `${clean}?tr=w-${Math.min(1080, width || 720)},q-80`; }
+if (typeof url === 'string' && /backblazeb2\.com\/file\//.test(url)) return window.b2View(url.split('#')[0]);
+return b(url, width, kind);
+};
+})(window.cldSized);
+window.cldPoster = (function(b) {
+return function(url, width) {
+if (typeof url === 'string' && url.includes('#p=')) return window.cldSized(window.mediaPosterOf(url), width || 720, 'image');
+return b(url, width);
+};
+})(window.cldPoster);
+
+window.renderAdminPush = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a);
+const box = document.getElementById('adminBody'); if (!box) return r;
+const cfg = await window.loadMediaCfg(true), push = window.SG_PUSH || {};
+const f = 'w-full bg-gg-900 border border-emerald-500/30 rounded-xl px-3 py-2.5 text-xs text-white';
+const names = { cloudinary: 'Cloudinary', imagekit: 'ImageKit', b2: 'Backblaze B2' };
+const sel = (id, list) => `<div class="flex gap-1.5">${[0, 1, 2].map(i => `<select id="${id}${i}" class="${f}">${['cloudinary', 'imagekit', 'b2', ''].map(h => `<option value="${h}" ${list[i] === h || (!list[i] && !h) ? 'selected' : ''}>${h ? (i + 1) + '. ' + names[h] : '—'}</option>`).join('')}</select>`).join('')}</div>`;
+box.insertAdjacentHTML('beforeend', `<div class="glass-panel rounded-2xl p-3.5 border border-emerald-500/25 space-y-2">
+<p class="text-sm font-black text-white">📦 Storage for photos & videos</p>
+<p class="text-[11px] text-gray-400">Uploads try the 1st place, and if it's full or down, the next. Follow STORAGE-SETUP-GUIDE.txt. Secret keys go only into Cloudflare, never here.</p>
+<p class="text-[10px] text-gray-400 font-bold">Photos go to</p>${sel('amP', cfg.photos)}
+<p class="text-[10px] text-gray-400 font-bold">Videos go to</p>${sel('amV', cfg.videos)}
+<label class="block text-[10px] text-gray-400 font-bold">ImageKit public key<input id="amIkPub" value="${escapeHTML(cfg.ikPublic)}" placeholder="public_…" class="${f} mt-1"></label>
+<label class="block text-[10px] text-gray-400 font-bold">ImageKit URL endpoint<input id="amIkEnd" value="${escapeHTML(cfg.ikEndpoint)}" placeholder="https://ik.imagekit.io/yourid" class="${f} mt-1"></label>
+<label class="flex items-center gap-2 text-[11px] text-gray-300"><input id="amB2Proxy" type="checkbox" ${cfg.b2Proxy ? 'checked' : ''}> Show B2 files through the Cloudflare helper (free & faster, recommended)</label>
+<p class="text-[11px] text-gray-400">Helper storage status: <b id="amStatus" class="text-white">…</b></p>
+<button onclick="window.saveAdminMedia()" class="w-full py-2.5 rounded-xl bg-emerald-400 text-slate-950 text-xs font-black uppercase">Save storage</button></div>`);
+const st = document.getElementById('amStatus');
+if (push.url) fetch(push.url + '/media/health').then(x => x.json()).then(j => { st.innerText = `ImageKit ${j.imagekit ? '✅' : '— not set'} · B2 ${j.b2 ? '✅' : '— not set'}`; }).catch(() => { st.innerText = '⚠️ helper needs the new worker.js'; });
+else st.innerText = 'set the helper address above first';
+return r;
+};
+})(window.renderAdminPush);
+window.saveAdminMedia = async function() {
+const g = (id) => (document.getElementById(id) || {}).value || '';
+const list = (p) => [...new Set([0, 1, 2].map(i => g(p + i)).filter(Boolean))];
+const photos = list('amP'), videos = list('amV'), ikPublic = g('amIkPub').trim(), ikEndpoint = g('amIkEnd').trim().replace(/\/$/, '');
+if (!photos.length || !videos.length) { showToast('Pick at least one place for photos and for videos'); return; }
+if (ikEndpoint && !/^https:\/\/ik\.imagekit\.io\/[\w-]+$/.test(ikEndpoint)) { showToast('The ImageKit URL looks like https://ik.imagekit.io/yourid'); return; }
+if (/^private_/i.test(ikPublic)) { showToast('⛔ That is the PRIVATE key. Never paste it here. It goes only into Cloudflare.'); return; }
+try { await setDoc(doc(window.db, 'config', 'media'), { photos, videos, ikPublic, ikEndpoint, b2Proxy: !!document.getElementById('amB2Proxy')?.checked }); window._mediaCfgAt = 0; showToast('✅ Storage saved for everyone'); }
+catch (e) { showToast('⚠️ Couldn’t save. Did you paste the new Firebase rules?'); }
+};
+
+(function islandStyle() {
+if (document.getElementById('sgIslandCss')) return;
+const st = document.createElement('style'); st.id = 'sgIslandCss';
+st.textContent = `
+#sgIsland{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);z-index:2147483000;width:min(92vw,420px);transform:translate(-50%,-140%) scale(.92);opacity:0;pointer-events:none;transition:transform .55s cubic-bezier(.2,1.35,.35,1),opacity .3s ease;touch-action:none}
+#sgIsland.on{transform:translate(-50%,0) scale(1);opacity:1;pointer-events:auto}
+#sgIsland .isl{position:relative;display:flex;align-items:center;gap:12px;padding:10px 14px 12px 10px;border-radius:22px;color:#fff;overflow:hidden;
+background:linear-gradient(rgba(14,16,28,.86),rgba(14,16,28,.86)) padding-box,linear-gradient(120deg,var(--a),var(--b)) border-box;border:1.5px solid transparent;
+-webkit-backdrop-filter:blur(18px) saturate(1.6);backdrop-filter:blur(18px) saturate(1.6);box-shadow:0 18px 40px -12px rgba(0,0,0,.65),0 0 28px -8px var(--a)}
+#sgIsland .ico{flex:none;width:38px;height:38px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:19px;background:linear-gradient(135deg,var(--a),var(--b));box-shadow:0 6px 16px -6px var(--a)}
+#sgIsland .ico.pop{animation:islPop .5s cubic-bezier(.2,1.6,.4,1)}
+#sgIsland .txt{flex:1;min-width:0;font:700 13px/1.35 system-ui,-apple-system,'Segoe UI',sans-serif;letter-spacing:.1px}
+#sgIsland .sub{display:block;font-weight:500;font-size:11.5px;color:rgba(255,255,255,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+#sgIsland .bar{position:absolute;left:14px;right:14px;bottom:5px;height:2.5px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden}
+#sgIsland .bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--a),var(--b));transform-origin:left;animation:islBar var(--d) linear forwards}
+#sgIsland .thumb{flex:none;width:42px;height:42px;border-radius:13px;object-fit:cover;background:#1b1f33;box-shadow:0 0 0 2px rgba(255,255,255,.08)}
+#sgIsland .ring{flex:none;width:38px;height:38px;position:relative}
+#sgIsland .ring svg{width:38px;height:38px;transform:rotate(-90deg)}
+#sgIsland .ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:800 10px system-ui;color:#fff}
+#sgIsland .act{flex:none;padding:8px 14px;border-radius:999px;font:800 12px system-ui;color:#0b0d16;background:linear-gradient(135deg,#fff,#dfe7ff);border:0}
+#sgIsland .shine{position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.14) 50%,transparent 65%);transform:translateX(-100%);animation:islShine 1.6s ease-in-out infinite;pointer-events:none}
+@keyframes islBar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@keyframes islPop{0%{transform:scale(.4)}100%{transform:scale(1)}}
+@keyframes islShine{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){#sgIsland{transition:opacity .2s}#sgIsland .shine{display:none}}`;
+(document.head || document.documentElement).appendChild(st);
+})();
+window.ISLAND_TONES = {
+ok: ['#10b981', '#22d3ee'], warn: ['#f59e0b', '#ef4444'], bad: ['#ef4444', '#d946ef'], info: ['#d946ef', '#22d3ee']
+};
+window.islandEl = function() {
+let el = document.getElementById('sgIsland');
+if (!el) {
+el = document.createElement('div'); el.id = 'sgIsland'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el);
+let y0 = null;
+el.addEventListener('pointerdown', e => { y0 = e.clientY; });
+el.addEventListener('pointerup', e => { if (e.target.closest('.act')) return; if (y0 !== null && (y0 - e.clientY > 18 || Math.abs(y0 - e.clientY) < 6) && !el._sticky) window.islandHide(); y0 = null; });
+}
+return el;
+};
+window.islandHide = function() { const el = document.getElementById('sgIsland'); if (!el) return; clearTimeout(el._t); el.classList.remove('on'); el._sticky = false; };
+window.islandShow = function(html, tone, ms, sticky) {
+const el = window.islandEl(), [a, b] = window.ISLAND_TONES[tone] || window.ISLAND_TONES.info;
+clearTimeout(el._t);
+const swap = () => {
+el.style.setProperty('--a', a); el.style.setProperty('--b', b); el.style.setProperty('--d', (ms || 3000) + 'ms');
+el.innerHTML = `<div class="isl">${html}${sticky ? '' : '<span class="bar"><i></i></span>'}</div>`;
+el._sticky = !!sticky;
+requestAnimationFrame(() => el.classList.add('on'));
+if (!sticky) el._t = setTimeout(window.islandHide, ms || 3000);
+};
+if (el.classList.contains('on') && !el._keep) { el.classList.remove('on'); setTimeout(swap, 180); } else swap();
+};
+window.toneOf = function(msg, emo) {
+if (/^(⚠️|⛔|❌|🚫|😕|🔒)/.test(emo) || /^(couldn|can't|can’t|failed|error|no internet|please sign)/i.test(msg)) return /⛔|❌|🚫/.test(emo) ? 'bad' : 'warn';
+if (/^(✅|🎉|🏆|💖|✨|🔥|🥳|👏|💾|📌|🎯)/.test(emo)) return 'ok';
+return 'info';
+};
+window.showToast = function(msg) {
+msg = String(msg == null ? '' : msg);
+const m = msg.match(/^\s*((?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍(?:\p{Extended_Pictographic})|\p{Emoji_Modifier}|\p{Regional_Indicator})*)\s*/u);
+const emo = m ? m[1] : '', text = m ? msg.slice(m[0].length) : msg;
+const tone = window.toneOf(text, emo);
+const icon = emo || (tone === 'warn' ? '⚠️' : '✨');
+const ms = Math.min(6500, 2400 + text.length * 38);
+window.islandShow(`<span class="ico pop">${escapeHTML(icon)}</span><span class="txt">${escapeHTML(text)}</span>`, tone, ms);
+const old = document.getElementById('toastBanner'); if (old) old.style.display = 'none';
+};
+
+window.postStatus = {
+thumb: '', cap: '',
+start(m, caption) {
+this.cap = String(caption || '').slice(0, 60); this.thumb = '';
+if (m && m.url) this.thumb = m.type === 'video' ? `<video src="${escapeHTML(m.url)}#t=0.3" muted playsinline preload="metadata" class="thumb"></video>` : `<img src="${escapeHTML(m.url)}" alt="" class="thumb">`;
+if (!this.thumb) this.thumb = `<span class="ico">✍️</span>`;
+document.getElementById('createPostModal')?.classList.add('hidden');      // back to the feed while it posts
+this.progress(m ? 3 : 60);
+},
+progress(p) {
+p = Math.max(0, Math.min(100, p | 0)); const C = 2 * Math.PI * 15;
+const el = window.islandEl(); el._keep = true;
+const ring = el.querySelector('.ring circle.v');
+if (ring && el.classList.contains('on')) { ring.style.strokeDashoffset = String(C * (1 - p / 100)); el.querySelector('.ring b').textContent = p + '%'; return; }
+window.islandShow(`${this.thumb}<span class="txt">Posting…<span class="sub">${escapeHTML(this.cap || 'Sharing with everyone')}</span></span>
+<span class="ring"><svg viewBox="0 0 38 38"><circle cx="19" cy="19" r="15" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="3.5"/><circle class="v" cx="19" cy="19" r="15" fill="none" stroke="url(#sgRingG)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - p / 100)}" style="transition:stroke-dashoffset .35s ease"/><defs><linearGradient id="sgRingG"><stop offset="0" stop-color="#d946ef"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs></svg><b>${p}%</b></span><span class="shine"></span>`, 'info', 0, true);
+},
+done(id) {
+const el = window.islandEl(); el._keep = true;
+window.islandShow(`${this.thumb}<span class="txt">Posted<span class="sub">It's live for everyone ✨</span></span><span class="ico pop" style="width:30px;height:30px;border-radius:999px;font-size:14px">✓</span><button class="act" onclick="window.viewMyPost('${escapeHTML(String(id || ''))}')">View</button>`, 'ok', 4500);
+el._keep = false;
+try { navigator.vibrate && navigator.vibrate(12); } catch (e) {}
+},
+queued() {
+const el = window.islandEl(); el._keep = true;
+window.islandShow(`${this.thumb}<span class="txt">Saved, sending soon<span class="sub">Your connection dropped. It posts by itself.</span></span>`, 'warn', 5500); el._keep = false;
+},
+fail(msg) {
+const el = window.islandEl(); el._keep = true;
+window.islandShow(`<span class="ico pop">⚠️</span><span class="txt">Not posted yet<span class="sub">${escapeHTML(msg || 'Something went wrong')}</span></span><button class="act" onclick="window.islandHide(); document.getElementById('createPostModal')?.classList.remove('hidden')">Retry</button>`, 'warn', 9000); el._keep = false;
+}
+};
+window.viewMyPost = function(id) {
+window.islandHide();
+window.switchView && window.switchView('fyp');
+let n = 0; const find = () => { const el = id && document.querySelector(`#fypFeedContainer [data-post-id="${CSS.escape(id)}"]`);
+if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.animate && el.animate([{ boxShadow: '0 0 0 3px rgba(217,70,239,.9)' }, { boxShadow: '0 0 0 0 rgba(217,70,239,0)' }], { duration: 1600 }); }
+else if (++n < 8) setTimeout(find, 400); else window.scrollTo({ top: 0, behavior: 'smooth' }); };
+setTimeout(find, 250);
+};
+
+window.boardGames = () => Object.keys(window.GAMES).filter(g => g !== 'keepy' && g !== 'all');
+window.loadGameBoard = (function(b) {
+return async function(game, force) {
+if (game !== 'all') return b(game, force);
+const key = `all_${window.weekKey(Date.now())}`, c = window._boardCache[key];
+if (!force && c && Date.now() - c.at < 90000) return c.rows;
+const per = await Promise.all(window.boardGames().map(g => b(g, force).then(rows => [g, rows]).catch(() => [g, []])));
+const tot = {};
+per.forEach(([g, rows]) => {
+const top = Math.max(0, ...rows.map(r => +r.score || 0)); if (!top) return;
+rows.forEach(r => { if (!r.uid || !(+r.score > 0)) return; const t = tot[r.uid] = tot[r.uid] || { uid: r.uid, user: r.user, pts: 0, games: [] }; t.pts += Math.round((+r.score / top) * 100); t.games.push(g); if (r.user) t.user = r.user; });
+});
+const rows = Object.values(tot).sort((x, y) => y.pts - x.pts || y.games.length - x.games.length)
+.map(t => ({ uid: t.uid, user: t.user, pts: t.pts, games: t.games, score: `${t.pts} <span class="text-[9px] text-gray-400 font-bold">pts · ${t.games.map(g => (window.GAMES[g] || {}).emoji || '').join('')}</span>` }));
+window._boardCache[key] = { at: Date.now(), rows };
+return rows;
+};
+})(window.loadGameBoard);
+if (!window._allBoardSet) { window._allBoardSet = true; window.arcadeBoard = 'all'; }
+window.renderArcade = (function(b) {
+return async function(...a) {
+const box = document.getElementById('playBody');
+const p = b.apply(this, a);
+const fixChips = () => {
+const body = document.getElementById('arcadeBoardBody'); if (!body) return;
+const panel = body.parentElement, chips = panel.querySelector('.flex.gap-1'); if (!chips || chips.querySelector('[data-allchip]')) return;
+chips.classList.add('overflow-x-auto', 'scrollbar-none'); chips.style.maxWidth = '68%';
+chips.querySelectorAll('button').forEach(x => x.classList.add('shrink-0'));
+chips.insertAdjacentHTML('afterbegin', `<button data-allchip onclick="window.arcadeBoard='all'; window.renderArcade()" class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-black ${window.arcadeBoard === 'all' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950' : 'bg-gg-900 text-amber-300'}">🏆 All games</button>`);
+};
+fixChips();
+const r = await p; fixChips();
+const body = document.getElementById('arcadeBoardBody'); if (!body || !box) return r;
+if (window.arcadeBoard === 'all') {
+const rows = await window.loadGameBoard('all'), top = rows[0];
+body.insertAdjacentHTML('afterbegin', top ? `<div class="mx-3 mb-2 rounded-2xl p-3 flex items-center gap-3" style="background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(249,115,22,.18));border:1px solid rgba(251,191,36,.5)">
+<div class="shrink-0">${window.avatarHtml(top.user, 'w-12 h-12', 'rounded-2xl', 'text-xs')}</div>
+<div class="flex-1 min-w-0"><p class="text-[10px] font-black text-amber-300 uppercase tracking-wider">👑 Game King this week</p><p class="text-sm font-black text-white truncate">${window.dn(top.user)}</p><p class="text-[10px] text-gray-300">${top.pts} pts across ${top.games.length} game${top.games.length > 1 ? 's' : ''}</p></div></div>` : '');
+body.insertAdjacentHTML('beforeend', `<p class="text-[10px] text-gray-400 text-center px-4 pt-1">Each game gives up to 100 pts (your best ÷ the week's top score). Play more games to climb. Every game also earns ⭐ Top Rank points.</p>`);
+const mine = rows.findIndex(x => x.uid === window.uidNow());
+if (mine > 24) body.insertAdjacentHTML('beforeend', `<p class="text-[11px] text-amber-300 font-black text-center pt-1">You: #${mine + 1} · ${rows[mine].pts} pts</p>`);
+}
+return r;
+};
+})(window.renderArcade);
+
+window.SEO_KIND = { p: 'posts', t: 'tournaments', u: 'profiles', s: 'squads' };
+window.seoParam = () => { const q = new URLSearchParams(location.search); for (const k of ['p', 't', 'u', 's']) { const v = q.get(k); if (v && /^[A-Za-z0-9_\-]{2,60}$/.test(v)) return [k, v]; } return null; };
+window.seoLink = (k, id) => `https://sinlessgg.com/?${k}=${encodeURIComponent(id)}`;
+window.postLink = (id) => String(id || '').startsWith('local_') ? `${location.origin}${location.pathname}#post=${id}` : window.seoLink('p', id);
+window.fsPublicGet = async function(coll, id) {
+try {
+const r = await fetch(`https://firestore.googleapis.com/v1/projects/sinlessgg/databases/(default)/documents/${coll}/${encodeURIComponent(id)}`);
+if (!r.ok) return null; const j = await r.json();
+const dec = (v) => !v ? null : 'stringValue' in v ? v.stringValue : 'integerValue' in v ? +v.integerValue : 'doubleValue' in v ? v.doubleValue : 'booleanValue' in v ? v.booleanValue : 'timestampValue' in v ? Date.parse(v.timestampValue) : 'arrayValue' in v ? (v.arrayValue.values || []).map(dec) : 'mapValue' in v ? Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, dec(x)])) : null;
+return window.sgClean(Object.fromEntries(Object.entries(j.fields || {}).map(([k, x]) => [k, dec(x)])));
+} catch (e) { return null; }
+};
+window.setMeta = function(title, desc, img, url, ld) {
+document.title = title;
+const set = (sel, attr, val, make) => { let el = document.head.querySelector(sel); if (!el && make) { el = document.createElement(make[0]); Object.entries(make[1]).forEach(([a, v]) => el.setAttribute(a, v)); document.head.appendChild(el); } if (el) el.setAttribute(attr, val); };
+set('meta[name="description"]', 'content', desc, ['meta', { name: 'description' }]);
+set('link[rel="canonical"]', 'href', url, ['link', { rel: 'canonical' }]);
+set('meta[property="og:url"]', 'content', url, ['meta', { property: 'og:url' }]);
+set('meta[property="og:title"]', 'content', title, ['meta', { property: 'og:title' }]);
+set('meta[property="og:description"]', 'content', desc, ['meta', { property: 'og:description' }]);
+if (img) set('meta[property="og:image"]', 'content', img, ['meta', { property: 'og:image' }]);
+let s = document.getElementById('sgLd'); if (!s) { s = document.createElement('script'); s.type = 'application/ld+json'; s.id = 'sgLd'; document.head.appendChild(s); }
+s.textContent = JSON.stringify(ld || {});
+};
+window.seoText = (s, n) => String(s || '').replace(/[‹›”’ˋ]/g, m => ({ '‹': '<', '›': '>', '”': '"', '’': "'", 'ˋ': '`' })[m]).replace(/\s+/g, ' ').trim().slice(0, n || 160);
+window.seoHidden = async function(d, kind) {
+const tag = kind === 'profiles' ? d.gamertag : d.user || d.host;
+if (d.deleted || d.noIndex) return true;
+if (tag) { const pr = kind === 'profiles' ? d : await window.fsPublicGet('profiles', String(tag).toLowerCase()); if (pr && (pr.noIndex || pr.deleted)) return true; }
+if (kind === 'tournaments' && d.squadId) { const sq = await window.fsPublicGet('squads', d.squadId); if (sq && sq.isPublic === false) return true; }
+if (kind === 'squads' && d.isPublic === false) return true;
+return false;
+};
+window.seoRender = async function() {
+const sp = window.seoParam(); if (!sp) return;
+const [k, id] = sp, coll = window.SEO_KIND[k], url = window.seoLink(k, id);
+const d = await window.fsPublicGet(coll, k === 'u' ? id.toLowerCase() : id);
+if (!d || await window.seoHidden(d, coll)) { const m = document.createElement('meta'); m.name = 'robots'; m.content = 'noindex'; document.head.appendChild(m); return; }
+const S = window.seoText, firstImg = (d.mediaList || []).map(m => m && m.type === 'video' ? window.cldPoster(m.url, 1000) : window.cldSized(m && m.url, 1000)).find(Boolean) || '';
+let title, desc, img = '', h, body, ld, more = '';
+if (k === 'p') {
+const who = window.dnText(d.user);
+title = `${S(d.caption, 60) || (firstImg ? 'Photo' : 'Post')} · ${who} (@${window.hnd(d.user)}) | SINLESS GG`; desc = S(d.caption) || `${who} shared a ${d.game || 'gaming'} post on SINLESS GG.`; img = firstImg;
+h = `${who} on SINLESS GG`; body = S(d.caption, 2000); more = `${d.game ? `🎮 ${escapeHTML(d.game)} · ` : ''}${d.ggsCount || 0} GGs · ${d.commentsCount || 0} comments`;
+ld = { '@context': 'https://schema.org', '@type': 'SocialMediaPosting', headline: S(d.caption, 100) || h, articleBody: S(d.caption, 2000), url, datePublished: d.createdAt ? new Date(d.createdAt).toISOString() : undefined, image: img || undefined, author: { '@type': 'Person', name: who, url: window.seoLink('u', d.user) }, interactionStatistic: [{ '@type': 'InteractionCounter', interactionType: 'https://schema.org/LikeAction', userInteractionCount: d.ggsCount || 0 }, { '@type': 'InteractionCounter', interactionType: 'https://schema.org/CommentAction', userInteractionCount: d.commentsCount || 0 }] };
+} else if (k === 't') {
+const n = (d.players || []).filter(x => x && x !== 'Open Spot').length;
+title = `${S(d.title, 70)} · ${d.game || 'Gaming'} tournament | SINLESS GG`; desc = `${S(d.title, 80)}: a ${d.format === 'LEAGUE' ? 'league' : 'tournament'} for ${d.game || 'gamers'} on SINLESS GG. ${n}/${d.maxPlayers || n} players${d.champion ? ` · Champion: ${window.dnText(d.champion)}` : ''}. Join, follow the table and results.`;
+img = d.banner || d.logo || ''; h = S(d.title, 100); body = desc; more = `Hosted by ${escapeHTML(window.dnText(d.host || ''))}`;
+ld = { '@context': 'https://schema.org', '@type': 'SportsEvent', name: S(d.title, 100), description: desc, url, sport: d.game || 'Esports', eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode', location: { '@type': 'VirtualLocation', url }, organizer: { '@type': 'Person', name: window.dnText(d.host || ''), url: window.seoLink('u', d.host || '') }, startDate: d.createdAt ? new Date(d.createdAt).toISOString() : undefined, image: img || undefined };
+} else if (k === 'u') {
+const who = d.displayName || d.gamertag;
+title = `${who} (@${window.hnd(d.gamertag)}) | SINLESS GG`; desc = S(d.bio) || `${who} is on SINLESS GG: gaming clips, tournaments, squads and more.`; img = d.pfp || ''; h = who; body = S(d.bio, 600); more = `${d.xp || 0} points`;
+ld = { '@context': 'https://schema.org', '@type': 'ProfilePage', url, mainEntity: { '@type': 'Person', name: who, alternateName: '@' + window.hnd(d.gamertag), description: S(d.bio, 300) || undefined, image: img || undefined } };
+} else {
+title = `${S(d.name, 60)} [${S(d.tag, 6)}] · ${d.game || 'Gaming'} squad | SINLESS GG`; desc = S(d.bio || d.description) || `${S(d.name, 60)} is a ${d.game || 'gaming'} squad on SINLESS GG with ${(d.members || []).length} members. Join the squad and play in their tournaments.`;
+img = d.logo || ''; h = S(d.name, 80); body = desc; more = `${(d.members || []).length} members`;
+ld = { '@context': 'https://schema.org', '@type': 'SportsTeam', name: S(d.name, 80), sport: d.game || 'Esports', url, description: desc, logo: img || undefined, memberOf: { '@type': 'Organization', name: 'SINLESS GG', url: 'https://sinlessgg.com/' } };
+}
+window.setMeta(title, desc.slice(0, 160), img, url, ld);
+const box = document.getElementById('fypFeedContainer') || document.querySelector('main') || document.body;
+if (!document.getElementById('sgSeoCard')) box.insertAdjacentHTML('beforebegin', `<article id="sgSeoCard" class="glass-panel rounded-2xl p-3.5 border border-magenta/30 mb-3 mx-auto max-w-xl space-y-2">
+<div class="flex items-center justify-between"><p class="text-[10px] font-black text-magenta uppercase tracking-wider">${{ p: 'Post', t: 'Tournament', u: 'Gamer', s: 'Squad' }[k]} on SINLESS GG</p><button onclick="document.getElementById('sgSeoCard').remove()" aria-label="Close" class="text-gray-500 text-sm">✕</button></div>
+<h1 class="text-base font-black text-white leading-snug">${escapeHTML(h)}</h1>
+${img && k !== 'u' ? `<img src="${escapeHTML(img)}" alt="${escapeHTML(S(h, 100))}" class="w-full max-h-72 object-cover rounded-xl bg-gg-900" loading="eager">` : ''}
+${body && body !== h ? `<p class="text-sm text-gray-200 whitespace-pre-line">${escapeHTML(body)}</p>` : ''}
+<p class="text-[11px] text-gray-400">${more}</p>
+<button onclick="window.seoOpen()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-magenta to-cyan-500 text-white text-xs font-black uppercase">Open</button></article>`);
+window.seoOpen = () => { document.getElementById('sgSeoCard')?.remove(); window.seoOpenItem(k, id); };
+setTimeout(() => window.seoOpenItem(k, id), 1500);
+};
+window.seoOpenItem = function(k, id) {
+if (window._seoOpened === k + id) return; window._seoOpened = k + id;
+if (k === 'p') { try { history.replaceState(null, '', `?p=${id}#post=${id}`); } catch (e) {} window.linkPostOpened = null; window.openPostFromLink && window.openPostFromLink(); }
+else if (k === 'u') window.openUserProfileModal && window.openUserProfileModal(id);
+else if (k === 's') window.openSquadById && window.openSquadById(id);
+else if (k === 't') { let n = 0; const go = () => { if ((window.tournamentsList || []).some(t => t.id === id)) { window.switchView('tournaments'); window.openTournamentById(id); } else if (++n < 12) setTimeout(go, 800); }; go(); }
+};
+setTimeout(window.seoRender, 0);
+window.tournLink = (id) => window.seoLink('t', id);
+window.profileLink = (tag) => window.seoLink('u', String(tag || '').replace('@', ''));
+window.squadLink = (id) => window.seoLink('s', id);
+window.openEditProfileModal = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+const row = document.getElementById('editHandleRow');
+if (row && !document.getElementById('editSeoRow')) {
+const p = window.profileFor(window.me()) || {};
+row.insertAdjacentHTML('afterend', `<label id="editSeoRow" class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-gg-950 border border-white/10 mt-2">
+<span class="min-w-0"><span class="block text-xs font-black text-white">🔎 Show me on Google</span><span class="block text-[10px] text-gray-500">Your public profile and posts can appear in web search</span></span>
+<input type="checkbox" ${p.noIndex ? '' : 'checked'} onchange="window.setNoIndex(!this.checked)" class="w-5 h-5 accent-cyan-400"></label>`);
+}
+return r;
+};
+})(window.openEditProfileModal);
+window.setNoIndex = async function(off) {
+if (!window.isSignedIn()) return;
+try { await setDoc(doc(window.db, 'profiles', window.meLower()), { noIndex: !!off }, { merge: true }); const p = window.profileFor(window.me()); if (p) p.noIndex = !!off; showToast(off ? '🙈 You won’t be listed on Google (it can take a few weeks to disappear)' : '✅ Your public profile can show on Google'); }
+catch (e) { showToast('⚠️ Couldn’t save that.'); }
+};
+window.renderAdminPush = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a), box = document.getElementById('adminBody'), push = window.SG_PUSH || {};
+if (!box || box.querySelector('[data-seoadm]')) return r;
+const line = push.url ? `Sitemap: ${push.url}/sitemap.xml` : '';
+box.insertAdjacentHTML('beforeend', `<div data-seoadm class="glass-panel rounded-2xl p-3.5 border border-cyan-500/25 space-y-2">
+<p class="text-sm font-black text-white">🔎 Show everything on Google</p>
+${line ? `<p class="text-[11px] text-gray-400">Add this line at the bottom of <b class="text-white">robots.txt</b> on GitHub (keep the line that's already there):</p>
+<div class="flex gap-2"><code class="flex-1 min-w-0 truncate bg-gg-950 border border-white/10 rounded-lg px-2 py-2 text-[10px] text-cyan-300">${escapeHTML(line)}</code><button onclick="navigator.clipboard && navigator.clipboard.writeText('${escapeHTML(line)}').then(()=>showToast('✅ Copied'))" class="shrink-0 px-3 rounded-lg bg-cyan-400 text-slate-950 text-[10px] font-black">Copy</button></div>
+<a href="${escapeHTML(push.url)}/sitemap.xml" target="_blank" rel="noopener" class="block text-[11px] text-cyan-300 underline">Preview the list of pages</a>` : '<p class="text-[11px] text-gray-400">Set the helper address above first.</p>'}</div>`);
+return r;
+};
+})(window.renderAdminPush);

@@ -6,6 +6,12 @@
 // It needs ONE secret, added in Cloudflare (never share it with anyone):
 //   FIREBASE_SERVICE_ACCOUNT = the whole JSON file you download from
 //   Firebase → Project settings → Service accounts → Generate new private key
+//
+// 📦 Extra free storage (optional, see STORAGE-SETUP-GUIDE.txt). Secrets, added in Cloudflare only:
+//   IMAGEKIT_PRIVATE_KEY                     (ImageKit → Developer options)
+//   B2_KEY_ID, B2_APP_KEY                    (Backblaze → Application Keys)
+//   B2_BUCKET_ID, B2_BUCKET_NAME             (Backblaze → Buckets)
+// Only people signed in to Sinless GG can upload (their Firebase sign-in is checked here).
 // =====================================================================
 
 const ALLOWED_ORIGINS = ['https://sinlessgg.com', 'https://www.sinlessgg.com', 'https://sinlessgaming.github.io'];
@@ -18,7 +24,7 @@ export default {
     const cors = {
       'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
       'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-File-Ext',
       'Vary': 'Origin'
     };
     if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
@@ -51,6 +57,52 @@ export default {
       if (!/^[A-Za-z0-9]{10,40}$/.test(id)) return json({ ok: false, error: 'bad id' }, 400);
       ctx.waitUntil(sendForNotification(env, id).catch(() => {}));
       return json({ ok: true });
+    }
+    // ---------- 🔎 sitemap for Google: every public post, tournament, profile and squad ----------
+    if (url.pathname === '/sitemap.xml') {
+      if (!env.FIREBASE_SERVICE_ACCOUNT) return new Response('not set up', { status: 503 });
+      const cache = caches.default, key = new Request('https://sitemap.cache/sinlessgg.xml');
+      let hit = await cache.match(key); if (hit) return hit;
+      const xml = await buildSitemap(env);
+      const res = new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=21600' } });
+      ctx.waitUntil(cache.put(key, res.clone()));
+      return res;
+    }
+    // ---------- 📦 extra free storage ----------
+    if (url.pathname === '/media/health') return json({ ok: true, imagekit: !!env.IMAGEKIT_PRIVATE_KEY, b2: !!(env.B2_KEY_ID && env.B2_APP_KEY && env.B2_BUCKET_ID && env.B2_BUCKET_NAME) });
+    if (url.pathname === '/ik-auth' && req.method === 'POST') {
+      if (!env.IMAGEKIT_PRIVATE_KEY) return json({ ok: false, error: 'not set up' }, 503);
+      const uid = await firebaseUid(req, env); if (!uid) return json({ ok: false, error: 'sign in' }, 401);
+      const token = crypto.randomUUID(), expire = Math.floor(Date.now() / 1000) + 600;
+      return json({ ok: true, token, expire, signature: await hmacSha1Hex(env.IMAGEKIT_PRIVATE_KEY, token + expire) });
+    }
+    if (url.pathname === '/b2-upload' && req.method === 'POST') {
+      if (!(env.B2_KEY_ID && env.B2_APP_KEY && env.B2_BUCKET_ID && env.B2_BUCKET_NAME)) return json({ ok: false, error: 'not set up' }, 503);
+      const uid = await firebaseUid(req, env); if (!uid) return json({ ok: false, error: 'sign in' }, 401);
+      const type = (req.headers.get('Content-Type') || '').toLowerCase();
+      if (!/^(image|video|audio)\/[\w.+-]+$/.test(type)) return json({ ok: false, error: 'photos, videos and audio only' }, 415);
+      const len = +req.headers.get('Content-Length') || 0;
+      if (len > 62 * 1024 * 1024) return json({ ok: false, error: 'file too big (60 MB max)' }, 413);
+      const body = await req.arrayBuffer();
+      if (!body.byteLength || body.byteLength > 62 * 1024 * 1024) return json({ ok: false, error: 'bad file size' }, 413);
+      const ext = String(req.headers.get('X-File-Ext') || 'bin').replace(/[^a-z0-9]/gi, '').slice(0, 5).toLowerCase() || 'bin';
+      const name = `sinlessgg/${uid.slice(0, 10)}/${Date.now()}_${crypto.randomUUID().slice(0, 8)}.${ext}`;
+      try { return json({ ok: true, url: await b2Upload(env, name, type, body) }); }
+      catch (e) { return json({ ok: false, error: 'B2: ' + (e.message || 'upload failed') }, 502); }
+    }
+    // B2 files shown through Cloudflare (free traffic between Backblaze and Cloudflare, cached near the viewer)
+    if (url.pathname.startsWith('/f/') && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (!env.B2_BUCKET_NAME) return new Response('not set up', { status: 404 });
+      const path = url.pathname.slice(3);
+      if (!/^sinlessgg\/[\w/.-]+$/.test(path) || path.includes('..')) return new Response('not found', { status: 404 });
+      const a = await b2Auth(env);
+      const h = {}; const range = req.headers.get('Range'); if (range) h.Range = range;
+      const r = await fetch(`${a.downloadUrl}/file/${env.B2_BUCKET_NAME}/${path}`, { method: req.method, headers: h, cf: { cacheEverything: true, cacheTtl: 2592000 } });
+      const out = new Response(r.body, r);
+      out.headers.set('Access-Control-Allow-Origin', '*');
+      out.headers.set('Cache-Control', 'public, max-age=2592000, immutable');
+      out.headers.set('X-Content-Type-Options', 'nosniff');
+      return out;
     }
     return json({ ok: false, error: 'not found' }, 404);
   },
@@ -254,4 +306,81 @@ async function sendStreakReminders(env, list) {
     const n = Number(it.n) || 1;
     await pushToUser(env, it.uid, '🔥 Keep your gaming streak!', n > 1 ? `Your ${n}-day gaming streak ends tonight. Play one quick game to keep it!` : 'You played yesterday. Play a quick game today and start a streak!', SITE + '#play', `gstreak-${day}`);
   }
+}
+
+
+// ---------------- 📦 storage helpers ----------------
+function b64urlDecode(x) { x = x.replace(/-/g, '+').replace(/_/g, '/'); while (x.length % 4) x += '='; return Uint8Array.from(atob(x), c => c.charCodeAt(0)); }
+let gKeys = null, gKeysAt = 0;
+// checks the person's Firebase sign-in (an ID token from the app) and returns their uid, or null
+async function firebaseUid(req, env) {
+  try {
+    const m = (req.headers.get('Authorization') || '').match(/^Bearer ([\w-]+\.[\w-]+\.[\w-]+)$/); if (!m) return null;
+    const [h, p, s] = m[1].split('.');
+    const head = JSON.parse(new TextDecoder().decode(b64urlDecode(h))), pay = JSON.parse(new TextDecoder().decode(b64urlDecode(p)));
+    const pid = env.FIREBASE_PROJECT_ID || 'sinlessgg', now = Date.now() / 1000;
+    if (head.alg !== 'RS256' || pay.aud !== pid || pay.iss !== `https://securetoken.google.com/${pid}` || !pay.sub || pay.exp < now || pay.iat > now + 300) return null;
+    if (!gKeys || Date.now() - gKeysAt > 3600e3) { gKeys = (await (await fetch('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com')).json()).keys || []; gKeysAt = Date.now(); }
+    const jwk = gKeys.find(k => k.kid === head.kid); if (!jwk) return null;
+    const key = await crypto.subtle.importKey('jwk', { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: 'RS256', ext: true }, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlDecode(s), new TextEncoder().encode(h + '.' + p));
+    return ok ? pay.sub : null;
+  } catch (e) { return null; }
+}
+async function hmacSha1Hex(secret, msg) {
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  return [...new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(msg)))].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+let b2A = null, b2AAt = 0, b2Up = null;
+async function b2Auth(env, force) {
+  if (!force && b2A && Date.now() - b2AAt < 20 * 3600e3) return b2A;
+  const r = await fetch('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', { headers: { Authorization: 'Basic ' + btoa(env.B2_KEY_ID + ':' + env.B2_APP_KEY) } });
+  const j = await r.json(); if (!r.ok) throw new Error(j.message || 'B2 sign-in failed');
+  const st = (j.apiInfo && j.apiInfo.storageApi) || j;
+  b2A = { apiUrl: st.apiUrl, downloadUrl: st.downloadUrl, token: j.authorizationToken }; b2AAt = Date.now(); b2Up = null;
+  return b2A;
+}
+async function b2UploadTarget(env, force) {
+  if (!force && b2Up) return b2Up;
+  const a = await b2Auth(env);
+  const r = await fetch(a.apiUrl + '/b2api/v3/b2_get_upload_url?bucketId=' + encodeURIComponent(env.B2_BUCKET_ID), { headers: { Authorization: a.token } });
+  const j = await r.json();
+  if (r.status === 401) { await b2Auth(env, true); return b2UploadTarget(env, true); }
+  if (!r.ok) throw new Error(j.message || 'no upload address');
+  b2Up = { url: j.uploadUrl, token: j.authorizationToken };
+  return b2Up;
+}
+async function b2Upload(env, name, type, body) {
+  for (let i = 0; i < 3; i++) {
+    const t = await b2UploadTarget(env, i > 0);
+    const r = await fetch(t.url, { method: 'POST', body, headers: { Authorization: t.token, 'X-Bz-File-Name': name.split('/').map(encodeURIComponent).join('/'), 'Content-Type': type, 'X-Bz-Content-Sha1': 'do_not_verify' } });
+    if (r.ok) { const a = await b2Auth(env); return `${a.downloadUrl}/file/${env.B2_BUCKET_NAME}/${name}`; }
+    b2Up = null;
+    if (r.status !== 401 && r.status !== 503 && r.status !== 408) { let m = ''; try { m = (await r.json()).message; } catch (e) {} throw new Error(m || 'upload failed ' + r.status); }
+  }
+  throw new Error('B2 is busy, try again');
+}
+
+
+// ---------------- 🔎 sitemap ----------------
+async function buildSitemap(env) {
+  const q = (coll, order, n) => runQuery(env, { from: [{ collectionId: coll }], ...(order ? { orderBy: [{ field: { fieldPath: order }, direction: 'DESCENDING' }] } : {}), limit: n }).catch(() => []);
+  const [posts, tourns, profiles, squads, adm] = await Promise.all([q('posts', 'createdAt', 2000), q('tournaments', 'createdAt', 500), q('profiles', null, 3000), q('squads', null, 500), getDocument(env, 'config/admins').catch(() => null)]);
+  const hideUids = new Set((adm && adm.uids) || []);
+  const hideTags = new Set(profiles.filter(p => p.noIndex || p.deleted || hideUids.has(p.uid)).map(p => String(p.gamertag || p.id).toLowerCase()));
+  const privSquads = new Set(squads.filter(s => s.isPublic === false).map(s => s.id));
+  const ok = (tag, uid) => !hideTags.has(String(tag || '').toLowerCase()) && !hideUids.has(uid);
+  const iso = (t) => { const d = new Date(typeof t === 'number' ? t : Date.parse(t || '')); return isNaN(d) ? '' : d.toISOString(); };
+  const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const urls = [['https://sinlessgg.com/', '', 'daily', '1.0']];
+  posts.filter(p => !p.repostOf && (p.caption || (p.mediaList || []).length) && ok(p.user, p.uid) && !p.hidden && !(p.reportsCount >= 3))
+    .forEach(p => urls.push([`https://sinlessgg.com/?p=${encodeURIComponent(p.id)}`, iso(p.createdAt), 'weekly', '0.6']));
+  tourns.filter(t => !(t.squadId && privSquads.has(t.squadId)) && ok(t.host, t.hostUid) && !t.deleted)
+    .forEach(t => urls.push([`https://sinlessgg.com/?t=${encodeURIComponent(t.id)}`, iso(t.updatedAt || t.createdAt), 'daily', '0.8']));
+  profiles.filter(p => p.gamertag && ok(p.gamertag, p.uid))
+    .forEach(p => urls.push([`https://sinlessgg.com/?u=${encodeURIComponent(String(p.gamertag).replace('@', ''))}`, iso(p.lastSeen), 'weekly', '0.5']));
+  squads.filter(s => s.isPublic !== false && !s.isOfficial)
+    .forEach(s => urls.push([`https://sinlessgg.com/?s=${encodeURIComponent(s.id)}`, iso(s.createdAt), 'weekly', '0.5']));
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    urls.slice(0, 45000).map(([loc, lm, cf, pr]) => `  <url><loc>${esc(loc)}</loc>${lm ? `<lastmod>${lm}</lastmod>` : ''}<changefreq>${cf}</changefreq><priority>${pr}</priority></url>`).join('\n') + '\n</urlset>\n';
 }
