@@ -2557,6 +2557,7 @@ if (!window.tournamentsList || window.tournamentsList.length === 0) {
 return `<div class="glass-panel p-4 rounded-2xl text-center text-xs text-gray-400">No active tournaments. Create one now!</div>`;
 }
 
+if (window.tourBrowseOn && window.tourBrowseOn()) return window.tournBrowserHtml();
 let selectorHtml = `<div class="flex items-center space-x-2 overflow-x-auto scrollbar-none pb-2">`;
 window.tournamentsList.forEach(t => {
 const isActive = window.activeTournament && window.activeTournament.id === t.id;
@@ -2672,7 +2673,7 @@ bodyHtml += `<button onclick="window.addLeagueMatch('${current.id}')" class="w-f
 }
 
 bodyHtml += `</div></div>`;
-return selectorHtml + bodyHtml;
+return (window.tourScopeSquad || !window.tournBackBar ? selectorHtml : window.tournBackBar()) + bodyHtml;
 }
 
 bodyHtml += `
@@ -2785,7 +2786,7 @@ bodyHtml += `</div></div>`;
 }
 
 bodyHtml += `</div></div>`;
-return selectorHtml + bodyHtml;
+return (window.tourScopeSquad || !window.tournBackBar ? selectorHtml : window.tournBackBar()) + bodyHtml;
 }
 
 function renderBracketMatchCardHex(m, tournId, isHost, theme = 'red') {
@@ -11041,7 +11042,7 @@ return;
 const pl = g.cur();
 if (!pl.human && (g.phase === 'roll' || g.phase === 'move')) {
 g.aiT -= dt;
-if (g.aiT <= 0) { if (g.phase === 'roll') g.roll(); else g.move(g.aiPick()); g.aiT = 0.55; }
+if (g.aiT <= 0) { if (g.phase === 'roll') g.roll(); else if (g.aiMove) g.aiMove(); else g.move(g.aiPick()); g.aiT = 0.55; }
 }
 };
 g.draw = function() {
@@ -13165,7 +13166,7 @@ Object.values(window.allProfilesMap || {}).forEach(p => { if (p && p.gamertag) p
 const P = !q ? [] : Object.values(people).filter(p => !window.isBlocked(p.gamertag) && has(p.gamertag, p.displayName, p.handle))
 .sort((a, b) => (b.verified ? 1 : 0) - (a.verified ? 1 : 0) || (a.gamertag.toLowerCase().startsWith(q) ? 0 : 1) - (b.gamertag.toLowerCase().startsWith(q) ? 0 : 1)).slice(0, 20);
 const S = !q ? [] : (window.clansData || []).filter(s => has(s.name, s.tag, s.game)).slice(0, 15);
-const T = !q ? [] : (window.tournamentsList || []).filter(t => has(t.title, t.game, t.compName, t.hostOrg)).slice(0, 15);
+const T = !q ? [] : (window.tournamentsList || []).filter(t => has(t.title, t.game, t.compName, t.hostOrg) && !(window.isPrivateTourn && window.isPrivateTourn(t))).slice(0, 15);
 const Po = !q ? [] : (window.fypposts || []).filter(p => !p.repostOf && has(p.caption, p.user, p.game)).slice(0, 20);
 const tabs = [['all', 'All'], ['people', `People ${P.length || ''}`], ['squads', `Squads ${S.length || ''}`], ['tourn', `Tournaments ${T.length || ''}`], ['posts', `Posts ${Po.length || ''}`]];
 tabsBox.innerHTML = tabs.map(([k, l]) => `<button onclick="window.searchTab='${k}'; window.runSearch()" class="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black ${window.searchTab === k ? 'bg-cyan-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-white/10'}">${l}</button>`).join('');
@@ -13998,7 +13999,7 @@ if (c.kind === 'post') {
 const p = c.p, on = (p.ggsBy || []).includes(window.uidNow && window.uidNow());
 return `<section data-clip="${i}" class="relative w-full shrink-0 snap-start bg-black flex items-center justify-center" style="height:100dvh">
 <video data-clip-video src="${window.cldSized(c.url, 720, 'video')}" poster="${window.cldPoster ? window.cldPoster(c.url) : ''}" class="w-full h-full object-contain" playsinline loop muted preload="none" onclick="window.clipTap(this)"></video>
-<div class="absolute right-3 bottom-28 flex flex-col gap-4">${side(on ? '💙' : '👍', window.formatCount(p.ggsCount || 0), `window.clipGG('${c.id}', this)`)}${side('💬', window.formatCount(p.commentsCount || 0), `window.closeClips(); window.openPostDetail('${c.id}', true)`)}${side('↗️', 'Share', `window.sharePost && window.sharePost('${c.id}')`)}</div>
+<div class="absolute right-3 bottom-28 flex flex-col gap-4">${side(on ? '💖' : '👍', window.formatCount(p.ggsCount || 0), `window.clipGG('${c.id}', this)`)}${side('💬', window.formatCount(p.commentsCount || 0), `window.closeClips(); window.openPostDetail('${c.id}', true)`)}${side('↗️', 'Share', `window.sharePost && window.sharePost('${c.id}')`)}</div>
 <div class="absolute left-3 right-20 bottom-8 text-white space-y-1"><p class="text-sm font-black drop-shadow">${window.dn(p.user)} <span class="text-[11px] text-gray-300">@${escapeHTML(window.hnd(p.user))}</span></p>${p.caption ? `<p class="text-xs leading-snug line-clamp-3 drop-shadow">${escapeHTML(p.caption)}</p>` : ''}</div></section>`;
 }
 const v = c.v;
@@ -14062,7 +14063,7 @@ if (window.needSignIn('give GGs')) return;
 await window.toggleGGPost(id);
 const p = window.findPost(id); if (!p || !btn) return;
 const on = (p.ggsBy || []).includes(window.uidNow());
-btn.querySelector('span').textContent = on ? '💙' : '👍'; btn.querySelectorAll('span')[1].textContent = window.formatCount(p.ggsCount || 0);
+btn.querySelector('span').textContent = on ? '💖' : '👍'; btn.querySelectorAll('span')[1].textContent = window.formatCount(p.ggsCount || 0);
 };
 window.shareClipVideo = async function(vid) { const url = `https://www.youtube.com/watch?v=${vid}`; try { if (navigator.share) { await navigator.share({ title: 'Watch on Sinless GG', url }); return; } } catch (e) { return; } window.copyText && window.copyText(url); };
 window.closeClips = function() {
@@ -14280,16 +14281,18 @@ const q = g.olQueue || [];
 while (q.length && q[0].n < g.olApplied) q.shift();
 const a = q[0];
 if (a && a.n === g.olApplied && !g.anim && g.rolling <= 0) {
-if (a.t === 'roll' && g.phase === 'roll') { q.shift(); g.olApplied++; g.olWaiting = false; g.turn = a.turn; g.phase = 'rolling'; g.rolling = 0.5; g.dice = a.v; }
-else if (a.t === 'move' && g.phase === 'move') { q.shift(); g.olApplied++; g.olWaiting = false; if (g.movable.includes(a.ti)) g.move(a.ti); }
+if (a.t === 'roll' && g.phase === 'roll') { q.shift(); g.olApplied++; g.olWaiting = false; g.turn = a.turn; window.olAwayClear && window.olAwayClear(g, a); g.phase = 'rolling'; g.rolling = 0.5; g.dice = a.v; }
+else if (a.t === 'move' && g.phase === 'move') { q.shift(); g.olApplied++; g.olWaiting = false; window.olAwayClear && window.olAwayClear(g, a); if (a.back) g.move(a.ti, true); else if (g.movable.includes(a.ti)) g.move(a.ti); }
 }
-const keeper = g.players.filter(p => !p.ai).map(p => p.uid).find(u => !(g.olLeft || []).includes(u));
+const keeper = window.olKeeper ? window.olKeeper(g) : g.players.filter(p => !p.ai).map(p => p.uid).find(u => !(g.olLeft || []).includes(u));
 const key = g.turn + ':' + g.phase;
 if (g.olKey !== key) { g.olKey = key; g.olKeyAt = Date.now(); }
-const p = g.cur(), gone = (g.olLeft || []).includes(p.uid) || p.ai, wait = p.ai ? 900 : gone ? 1500 : 25000;
-if ((keeper === window.uidNow() || Date.now() - g.olKeyAt > 45000) && p.uid !== window.uidNow() && !g.olWaiting && !q.length && Date.now() - g.olKeyAt > wait && (g.phase === 'roll' || (g.phase === 'move' && !g.autoMove))) {
+if (g._catchUp) return;
+const p = g.cur(), gone = (g.olLeft || []).includes(p.uid) || p.ai, wait = p.ai ? 900 : gone ? 1500 : 10000;
+if ((keeper === window.uidNow() || Date.now() - g.olKeyAt > 20000) && p.uid !== window.uidNow() && !g.olWaiting && !q.length && Date.now() - g.olKeyAt > wait && (g.phase === 'roll' || (g.phase === 'move' && !g.autoMove))) {
 g.olKeyAt = Date.now();
-if (g.phase === 'roll') window.olLudoAct({ t: 'roll', v: 1 + Math.floor(Math.random() * 6) }); else window.olLudoAct({ t: 'move', ti: g.aiPick() });
+if (!p.ai && window.olAwayMark && window.olAwayMark(g, p)) return;
+if (g.phase === 'roll') window.olLudoAct({ t: 'roll', v: 1 + Math.floor(Math.random() * 6) }); else window.olLudoAct(g.aiChoice ? { t: 'move', ...g.aiChoice() } : { t: 'move', ti: g.aiPick() });
 }
 };
 window._baseSetGameScore29 = window._baseSetGameScore29 || window.setGameScore;
@@ -14321,7 +14324,7 @@ clearInterval(g._olWaitI); g._olWaitI = setInterval(() => { if (window.game !== 
 window.olDuelResult = function() {
 const g = window.game, r = window.olRoom; if (!g || !r || g.olFinal === null || g.olFinal === undefined) return;
 const opp = g.olOpp || {}, theirs = (r.finals || {})[opp.uid], live = (r.scores || {})[opp.uid] || 0;
-const gaveUp = (r.left || []).includes(opp.uid) || (theirs === undefined && g.olDoneAt && Date.now() - g.olDoneAt > 150000);
+const gaveUp = (r.left || []).includes(opp.uid) || (theirs === undefined && g.olDoneAt && (window.oppQuietMs ? window.oppQuietMs(g, live) > 60000 : Date.now() - g.olDoneAt > 150000));
 const ov = document.getElementById('gameOverlay');
 if (theirs === undefined && !gaveUp) {
 ov.innerHTML = `<div class="text-center bg-black/80 rounded-3xl px-7 py-6 border border-white/10 w-full max-w-[300px]"><p class="text-xs text-gray-300 font-black uppercase">Your score</p><p class="text-6xl font-black text-white">${g.olFinal}</p>
@@ -15005,7 +15008,7 @@ const p = c.p, on = (p.ggsBy || []).includes(window.uidNow && window.uidNow());
 const side = (icon, label, act) => `<button onclick="event.stopPropagation(); ${act}" class="flex flex-col items-center gap-1 text-white"><span class="w-11 h-11 rounded-full bg-black/45 flex items-center justify-center text-lg">${icon}</span><span class="text-[10px] font-black drop-shadow">${label}</span></button>`;
 return `<section data-clip="${i}" class="relative w-full shrink-0 snap-start bg-black flex items-center justify-center" style="height:100dvh">
 ${c.url ? `<img src="${window.cldSized(c.url, 1080)}" alt="" class="w-full h-full object-contain" loading="lazy">` : `<div class="w-full h-full flex items-center pl-6 pr-20 py-24 overflow-y-auto" style="background:linear-gradient(160deg,#0b1f3a,#2a0a24)"><p class="${(p.caption || '').length > 220 ? 'text-base' : 'text-xl'} font-black text-white leading-snug whitespace-pre-wrap break-words">${escapeHTML((p.caption || '').slice(0, 900))}</p></div>`}
-<div class="absolute right-3 bottom-28 z-10 flex flex-col gap-4">${side(on ? '💙' : '👍', window.formatCount(p.ggsCount || 0), `window.clipGG('${c.id}', this)`)}${side('💬', window.formatCount(p.commentsCount || 0), `window.closeClips(); window.openPostDetail('${c.id}', true)`)}${side('👥', 'GGs', `window.openWhoGG('${c.id}')`)}${side('↗️', 'Share', `window.sharePost && window.sharePost('${c.id}')`)}</div>
+<div class="absolute right-3 bottom-28 z-10 flex flex-col gap-4">${side(on ? '💖' : '👍', window.formatCount(p.ggsCount || 0), `window.clipGG('${c.id}', this)`)}${side('💬', window.formatCount(p.commentsCount || 0), `window.closeClips(); window.openPostDetail('${c.id}', true)`)}${side('👥', 'GGs', `window.openWhoGG('${c.id}')`)}${side('↗️', 'Share', `window.sharePost && window.sharePost('${c.id}')`)}</div>
 <div class="absolute left-3 right-20 bottom-8 text-white space-y-1"><p class="text-sm font-black drop-shadow">${window.dn(p.user)} <span class="text-[11px] text-gray-300">@${escapeHTML(window.hnd(p.user))}</span></p>${c.url && p.caption ? `<p class="text-xs leading-snug line-clamp-4 drop-shadow">${escapeHTML(p.caption)}</p>` : ''}<p class="text-[10px] text-gray-300">👁 ${window.formatCount(p.viewsCount || 0)} · ${window.timeAgo(window.postTimeValue(p))}</p></div></section>`;
 };
 })(window.clipSlideHtml);
@@ -15540,7 +15543,7 @@ const p = c.p, e = c.e, on = (p.ggsBy || []).includes(window.uidNow && window.ui
 const inner = e.kind === 'yt' ? `<div data-clip-yt="${escapeHTML(e.id)}" class="relative h-full max-w-full bg-black" style="aspect-ratio:9/16"><img src="https://i.ytimg.com/vi/${escapeHTML(e.id)}/hqdefault.jpg" alt="" class="absolute inset-0 w-full h-full object-cover"></div>`
 : `<div data-clip-embed="${escapeHTML(e.src)}" class="relative w-full max-w-[420px] bg-black" style="height:min(${e.h}px,88dvh)"><p class="absolute inset-0 flex items-center justify-center text-gray-400 text-xs">Loading ${escapeHTML(e.name)}…</p></div>`;
 return `<section data-clip="${i}" class="relative w-full shrink-0 snap-start bg-black flex items-center justify-center" style="height:100dvh">${inner}
-<div class="absolute right-3 bottom-28 z-10 flex flex-col gap-4">${side(on ? '💙' : '👍', window.formatCount(p.ggsCount || 0), `window.clipGG('${c.id}', this)`)}${side('💬', window.formatCount(p.commentsCount || 0), `window.closeClips(); window.openPostDetail('${c.id}', true)`)}${side('↗️', 'Share', `window.sharePost && window.sharePost('${c.id}')`)}</div>
+<div class="absolute right-3 bottom-28 z-10 flex flex-col gap-4">${side(on ? '💖' : '👍', window.formatCount(p.ggsCount || 0), `window.clipGG('${c.id}', this)`)}${side('💬', window.formatCount(p.commentsCount || 0), `window.closeClips(); window.openPostDetail('${c.id}', true)`)}${side('↗️', 'Share', `window.sharePost && window.sharePost('${c.id}')`)}</div>
 <div class="absolute left-3 right-20 bottom-8 z-10 text-white space-y-1"><p class="text-sm font-black drop-shadow">${window.dn(p.user)} <span class="text-[10px] text-gray-300">shared from ${escapeHTML(e.name)}</span></p></div></section>`;
 }
 return b(c, i);
@@ -16628,7 +16631,7 @@ document.head.appendChild(s);
 })();
 window.ggBurst = function(x, y, size) {
 const el = document.createElement('div'); el.className = 'sg-gg'; el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.setProperty('--gs', (size || 88) + 'px');
-const bits = ['⚡', '🔥', '✨', '💥', '⭐', '⚡', '✨', '🔥', '💜', '💙'];
+const bits = ['⚡', '🔥', '✨', '💥', '⭐', '⚡', '✨', '🔥', '💜', '💖'];
 el.innerHTML = '<b>GG</b>' + bits.map(b => `<i>${b}</i>`).join('');
 document.body.appendChild(el);
 requestAnimationFrame(() => el.querySelectorAll('i').forEach((p, k) => { const a = (k / bits.length) * Math.PI * 2 + Math.random() * 0.5, d = (size || 88) * (0.9 + Math.random() * 0.8); p.style.transform = `translate(calc(-50% + ${Math.cos(a) * d}px), calc(-50% + ${Math.sin(a) * d}px)) scale(${0.7 + Math.random() * 0.7})`; p.style.opacity = '0'; }));
@@ -19332,4 +19335,706 @@ if (url && typeof url === 'string' && url.includes('res.cloudinary.com') && url.
 return b(url, width, kind);
 };
 })(window.cldSized);
+
+
+window.ytMount = (function(b) { return function(stage) { const r = b(stage); stage && stage.querySelectorAll && stage.querySelectorAll('.yt-sound-hint').forEach(x => x.remove()); return r; }; })(window.ytMount);
+new MutationObserver(() => { document.querySelectorAll('#fypFeedContainer .yt-sound-hint').forEach(x => x.remove()); }).observe(document.documentElement, { childList: true, subtree: true });
+
+(function noLobbies() {
+const kill = () => { document.getElementById('nav-chat')?.remove(); document.querySelectorAll('[onclick*="switchView(\'chat\')"]').forEach(b => b.remove()); };
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', kill); else kill();
+setTimeout(kill, 2000); setTimeout(kill, 6000);
+})();
+window.listenToLobby = function() {};
+window.switchView = (function(b) { return function(v, ...a) { if (v === 'chat') v = 'fyp'; if (v === 'tournaments') window.tourBrowse = true; return b.call(this, v, ...a); }; })(window.switchView);
+
+(function moreChannels() {
+const addCat = (c, at) => { if (!window.WATCH_CATS.some(x => x.id === c.id)) window.WATCH_CATS.splice(at === undefined ? window.WATCH_CATS.length : at, 0, c); };
+addCat({ id: 'asian', label: '🇰🇷 K-Drama & Asian' }, 4); addCat({ id: 'nolly', label: '🎞️ Nollywood' }, 5);
+const more = [
+{ id: 'UCEmig2PwKGUmaQ9xzFWJ_xA', name: 'Mystery Recapped', cat: 'recaps' }, { id: 'UCRRwNUcPPwyE9d61IuXUUHw', name: 'Movie Recapped', cat: 'recaps' },
+{ id: 'UCZJRW35Wi_ZiOMyk5VlU34A', name: 'Film Story Recapped', cat: 'recaps' }, { id: 'UCM43IAWP6no_SKM6s63q78g', name: 'Recap King', cat: 'recaps' },
+{ id: 'UC0ALMNzS9q7YXZ3rkI6Amhg', name: 'N Recaps', cat: 'recaps' }, { id: 'UCYyC6ne5e6R37qm0AVe1MMg', name: 'Movie Story', cat: 'recaps' },
+{ id: 'UCAzzAsXz3y8j9_PRredjLNQ', name: 'Recap-kun (anime)', cat: 'anime' },
+{ id: 'UCQmZ9BIYOBSkxL-eqqg5z-g', name: 'Mark Angel Comedy', cat: 'fun' },
+{ id: 'UC5BMQOsAB8hKUyHu9KI6yig', name: 'KBS WORLD TV', cat: 'asian' }, { id: 'UCUhpu5MJQ_bjPkXO00jyxsw', name: 'iQIYI', cat: 'asian' },
+{ id: 'UCOKPJ3J2fUKAbvwSSpWeo6A', name: 'iQIYI Fantasy', cat: 'asian' }, { id: 'UC1hwUPyQe5uFYtkmVv-hIig', name: 'WeTV Short Dramas', cat: 'asian' },
+{ id: 'UC3PKcYXUAhao3p4kuNS4_9w', name: 'WeTV Classic Dramas', cat: 'asian' },
+{ id: 'UCVVs7iCZgDTBi7nPs4m4ksg', name: 'Uduak Isong TV', cat: 'nolly' },
+{ id: 'UC5TTTQ_I_qUorGuixKGLiiQ', name: 'Afro Generals', cat: 'dance' }, { id: 'UCSWAzxal9yd3RH15d0a9nNw', name: 'Mzansi Fresh Dancers', cat: 'dance' },
+{ id: 'UCZHM3TvteNgHWCBKFkiKOQw', name: 'Ezase Afro', cat: 'dance' },
+{ id: 'UCDK7jNQhLIYAiYqe-lWpZVQ', name: 'EA SPORTS FC MOBILE', cat: 'gaming' }
+];
+more.forEach(c => { if (!window.EXTRA_CHANNELS.some(x => x.id === c.id)) window.EXTRA_CHANNELS.push(c); if (!window.WATCH_DEFAULT.some(x => x.id === c.id)) window.WATCH_DEFAULT.push(c); if (['recaps', 'fun', 'dance', 'asian', 'nolly'].includes(c.cat) && !window.FUN_CHANNELS.some(x => x.id === c.id)) window.FUN_CHANNELS.push(c); });
+})();
+window.HANDLE_CHANNELS = [
+{ h: 'ogasabinus', name: 'Sabinus', cat: 'fun' }, { h: 'taaooma', name: 'Taaooma', cat: 'fun' }, { h: 'brodashaggi', name: 'Brodashaggi', cat: 'fun' },
+{ h: 'markangeltv', name: 'Mark Angel TV', cat: 'fun' }, { h: 'kiekie', name: 'Kiekie', cat: 'fun' },
+{ h: 'tvndrama_official', name: 'tvN DRAMA', cat: 'asian' }, { h: 'netflixkorea', name: 'Netflix Korea', cat: 'asian' }, { h: 'ibakatv1', name: 'IbakaTV', cat: 'nolly' },
+{ h: '1milliondance', name: '1MILLION', cat: 'dance' }
+];
+window.ytIdCache = (() => { try { return JSON.parse(localStorage.getItem('sg_ythandles') || '{}'); } catch (e) { return {}; } })();
+window.resolveYtHandle = async function(h) {
+h = String(h || '').replace(/^@/, '').trim(); if (!h) return null;
+const k = h.toLowerCase(), c = window.ytIdCache[k];
+if (c && (c.id || Date.now() - c.at < 7 * 864e5)) return c.id || null;
+let id = null;
+const url = `https://www.youtube.com/@${encodeURIComponent(h)}`;
+for (const relay of ['https://api.allorigins.win/raw?url=', 'https://api.codetabs.com/v1/proxy?quest=']) {
+try {
+const r = await window.fetchTimeout(relay + encodeURIComponent(url), 15000); const t = await r.text();
+const m = t.match(/"externalId":"(UC[\w-]{22})"/) || t.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/channel\/(UC[\w-]{22})"/) || t.match(/"browseId":"(UC[\w-]{22})"/);
+if (m) { id = m[1]; break; }
+} catch (e) {}
+}
+window.ytIdCache[k] = { id, at: Date.now() };
+try { localStorage.setItem('sg_ythandles', JSON.stringify(window.ytIdCache)); } catch (e) {}
+return id;
+};
+window.addHandleChannels = async function() {
+for (const c of window.HANDLE_CHANNELS) {
+const id = await window.resolveYtHandle(c.h); if (!id) continue;
+const ch = { id, name: c.name, cat: c.cat };
+[window.EXTRA_CHANNELS, window.WATCH_DEFAULT, window.FUN_CHANNELS].forEach(L => { if (!L.some(x => x.id === id)) L.push(ch); });
+const W = window.watchCfg && window.watchCfg.channels; if (W && !W.some(x => x.id === id)) W.push(ch);
+}
+};
+setTimeout(() => window.addHandleChannels(), window.slowNet && window.slowNet() ? 40000 : 12000);
+window.adminAddWatchChannel = (function(b) {
+return async function() {
+const inp = document.getElementById('awId'), v = (inp && inp.value || '').trim();
+if (inp && !/UC[\w-]{22}/.test(v)) { const h = (v.match(/@([\w.\-]+)/) || [])[1] || (/^[\w.\-]+$/.test(v) ? v : ''); if (h) { showToast('🔎 Looking up @' + h + '…'); const id = await window.resolveYtHandle(h); if (!id) { showToast('❌ Couldn’t find that channel. Paste its UC… ID instead.'); return; } inp.value = id; } }
+return b.apply(this, arguments);
+};
+})(window.adminAddWatchChannel);
+
+window.closeClips = (function(b) { return function(...a) { window._clipsClosedAt = Date.now(); return b.apply(this, a); }; })(window.closeClips);
+window.vidToClip = (v) => ({ kind: 'short', id: v.vid, v: { ...v, short: !!v.short, ch: v.ch || { name: 'YouTube' }, cat: v.cat || 'other' } });
+window.playHighlight = (function(b) {
+return function(i) {
+const v = (window.hlRegistry || [])[i];
+if (!v || !v.vid || window._hlDirect || Date.now() - (window._clipsClosedAt || 0) < 800) { window._hlDirect = false; return b(i); }
+return window.openClipsAt(window.vidToClip(v));
+};
+})(window.playHighlight);
+window.playFeedVideo = (function(b) { return function(i) { const v = (window.feedVidReg || [])[i]; if (v && v.vid) return window.openClipsAt(window.vidToClip(v)); return b(i); }; })(window.playFeedVideo);
+window.ytPlayPause = (function(b) {
+return function(stage) {
+const vid = stage.getAttribute('data-yt-auto');
+if (vid && stage.closest('#fypFeedContainer')) {
+const card = stage.closest('[data-post-id]'), p = card && window.findPost(card.getAttribute('data-post-id'));
+const v = (window.feedVidReg || []).find(x => x && x.vid === vid) || { vid, title: p ? (p.caption || '') : '', ch: { name: p ? window.dnText(p.user) : 'YouTube' }, cat: p ? (p.game || '').toLowerCase() : 'other' };
+window.ytUnmount && window.ytUnmount(stage);
+return window.openClipsAt(window.vidToClip(v));
+}
+return b(stage);
+};
+})(window.ytPlayPause);
+window.clipSlideHtml = (function(b) { return function(c, i) { let h = b(c, i); if (c && c.kind === 'short' && c.v && c.v.short === false) h = h.replace('· SHORTS', '· VIDEO'); return h; }; })(window.clipSlideHtml);
+document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('#sgClipsScroll button[onclick*="playHighlight("]'); if (b) window._hlDirect = true; }, true);
+
+window.isNewUser = () => { try { const t = +localStorage.getItem('sg_first_seen') || 0; if (!t) { localStorage.setItem('sg_first_seen', Date.now()); return true; } return Date.now() - t < 3 * 864e5; } catch (e) { return false; } };
+window._newUser = window.isNewUser();
+window.shortsChannels = (function(b) {
+return function() {
+if (!window._newUser) return b();
+const all = (window.watchCfg.channels || window.WATCH_DEFAULT).filter(c => c.cat !== 'books' && c.cat !== 'classics');
+const fun = all.filter(c => ['fun', 'dance', 'magic', 'recaps', 'movies', 'asian'].includes(c.cat)), rest = all.filter(c => !fun.includes(c));
+return [...window.seededShuffle(fun, Date.now() % 1e6).slice(0, 14), ...window.seededShuffle(rest, Date.now() % 1e5).slice(0, 6)];
+};
+})(window.shortsChannels);
+window.renderFypFeed = (function(b) {
+return function(...a) {
+const r = b.apply(this, a), box = document.getElementById('fypFeedContainer');
+if (box && (window._newUser || !window.clipsOpenedOnce()) && !box.querySelector('[data-clipsbanner]') && box.children.length > 2) {
+const el = document.createElement('button'); el.setAttribute('data-clipsbanner', '1');
+el.className = 'w-full rounded-2xl p-3.5 flex items-center gap-3 text-left'; el.style.cssText = 'background:linear-gradient(135deg,#ff007f,#8b5cf6 60%,#06b6d4);box-shadow:0 8px 28px rgba(255,0,127,.25)';
+el.onclick = () => { try { localStorage.setItem('sg_clips_once', '1'); } catch (e) {} el.remove(); window.openClips(); };
+el.innerHTML = `<span class="w-12 h-12 rounded-2xl bg-black/25 flex items-center justify-center text-2xl shrink-0">▶</span><div class="min-w-0"><p class="text-sm font-black text-white">Watch Clips</p><p class="text-[11px] text-white/85">Comedy, dance, movie recaps, K-drama, football & games. Swipe up for more 🔥</p></div>`;
+box.insertBefore(el, box.children[1] || null);
+}
+return r;
+};
+})(window.renderFypFeed);
+window.clipsOpenedOnce = () => { try { return !!localStorage.getItem('sg_clips_once'); } catch (e) { return true; } };
+window.openClips = (function(b) { return function(...a) { try { localStorage.setItem('sg_clips_once', '1'); } catch (e) {} document.querySelector('[data-clipsbanner]')?.remove(); return b.apply(this, a); }; })(window.openClips);
+
+window.dmDirect = async function(toUid, toTag, text, quote) {
+if (!window.isSignedIn() || !toUid || toUid === window.uidNow()) return;
+const uid = window.uidNow(), threadId = window.threadIdFor(uid, toUid);
+await setDoc(doc(window.db, 'dms', threadId), { participants: [uid, toUid].sort(), names: { [uid]: window.me(), [toUid]: toTag }, lastText: text.slice(0, 80), lastFrom: uid, lastAt: serverTimestamp() }, { merge: true });
+await addDoc(collection(window.db, 'dms', threadId, 'messages'), window.cleanForCloud({ fromUid: uid, fromUser: window.me(), text, isImage: false, ...(quote ? { replyTo: quote } : {}), createdAt: serverTimestamp() }));
+};
+window.sendStoryReply = async function(quick) {
+const st = window.storyViewer.list[window.storyViewer.index]; if (!st) return;
+const text = (quick || document.getElementById('storyReplyIn')?.value || '').trim().slice(0, 300); if (!text) return;
+window.closeStoryReply(false);
+try {
+await addDoc(collection(window.db, 'stories', st.id, 'replies'), { uid: window.uidNow(), user: window.me(), ownerUid: st.uid, text, at: Date.now() });
+await window.dmDirect(st.uid, st.user, text, { id: '', from: st.user, fromUid: st.uid, text: `📸 Story${st.caption ? ': ' + String(st.caption).slice(0, 60) : ''}` }).catch(() => {});
+if (st.uid) window.notify(st.uid, 'dm', { text: `replied to your story: ${text.slice(0, 60)}` });
+showToast(quick ? `${quick} sent` : '💬 Reply sent. It’s also in your chat with ' + window.dnText(st.user));
+} catch (e) { showToast("⚠️ Couldn't send. The story may have ended."); }
+window.showStory();
+};
+window.answerStoryReply = async function(id, input) {
+const text = (input.value || '').trim().slice(0, 300); if (!text) return;
+try {
+await addDoc(collection(window.db, 'stories', id, 'replies'), { uid: window.uidNow(), user: window.me(), ownerUid: window.uidNow(), toUid: input.dataset.sr, toUser: input.dataset.su, text, at: Date.now() });
+await window.dmDirect(input.dataset.sr, input.dataset.su, text, { id: '', from: window.me(), fromUid: window.uidNow(), text: '📸 My story' }).catch(() => {});
+window.notify(input.dataset.sr, 'dm', { text: text.slice(0, 60) });
+window.openStoryReplies(id);
+} catch (e) { showToast("⚠️ Couldn't send. The story may have ended."); }
+};
+
+window.loadMusic = (function(b) {
+return async function(genre) {
+if (!String(genre || '').startsWith('q:')) return b(genre);
+const q = genre.slice(2), c = window.musicCache[genre]; if (c && Date.now() - c.at < 30 * 60000) return c.list;
+let list = [];
+try { const r = await window.fetchTimeout(`${window.AUDIUS}/tracks/search?app_name=SinlessGG&limit=40&query=${encodeURIComponent(q)}`, 12000); const j = await r.json(); list = (j.data || []).filter(t => t && t.id && t.is_streamable !== false); } catch (e) {}
+list = list.map(t => ({ id: t.id, title: String(t.title || '').slice(0, 120), artist: (t.user && t.user.name) || '', handle: (t.user && t.user.handle) || '', art: (t.artwork && (t.artwork['480x480'] || t.artwork['150x150'])) || '', genre: t.genre || '', dur: t.duration || 0 }));
+window.musicCache[genre] = { at: Date.now(), list };
+return list;
+};
+})(window.loadMusic);
+window.renderMusic = (function(b) {
+return async function(body) {
+const p = b(body);
+const head = body.querySelector('.glass-panel'); const g = window.musicGenre || '';
+if (head && !head.querySelector('[data-msearch]')) head.insertAdjacentHTML('beforeend', `<form data-msearch onsubmit="event.preventDefault(); window.musicSearch(this.q.value)" class="flex gap-2"><input name="q" value="${escapeHTML(g.startsWith('q:') ? g.slice(2) : '')}" placeholder="🔎 Search songs or artists" class="flex-1 min-w-0 bg-gg-950 border border-magenta/40 rounded-full px-4 py-2.5 text-xs text-white focus:outline-none"><button class="px-4 rounded-full bg-magenta text-white text-[11px] font-black">Search</button></form>${g.startsWith('q:') ? `<p class="text-[11px] text-gray-300">Results for <b class="text-white">“${escapeHTML(g.slice(2))}”</b> · <button type="button" onclick="window.musicGenre='foryou'; window.renderWatch()" class="text-magenta font-black">clear</button></p>` : ''}`);
+return p;
+};
+})(window.renderMusic);
+window.musicSearch = function(q) { q = String(q || '').trim(); if (!q) return; window.musicGenre = 'q:' + q.slice(0, 60); window.watchCat = 'music'; window.renderWatch(); };
+window.playMusicFromSearch = function(i) { window.musicQueue = window._searchSongs || []; window.closeSearch && window.closeSearch(); window.closePanel && window.closePanel(); window.playMusicAt(i); };
+
+window.webSearch = (function(b) {
+return async function(q) {
+const r = await b(q);
+const box = document.querySelector('#sgSearchResults [data-web]'); if (!box || box.querySelector('[data-songs]')) return r;
+const ql = q.toLowerCase(), words = ql.split(/\s+/).filter(w => w.length > 2), hit = (t) => words.length && words.every(w => (t || '').toLowerCase().includes(w));
+const pools = [...(window.shortsPool || []), ...Object.values(window.watchVids || {}).flatMap(x => (x && x.list) || [])];
+const seen = new Set(), vids = pools.filter(v => v && v.vid && hit(v.title + ' ' + ((v.ch && v.ch.name) || '')) && !seen.has(v.vid) && seen.add(v.vid)).slice(0, 8);
+const sec = document.createElement('div'); sec.setAttribute('data-songs', '1'); sec.className = 'space-y-2';
+sec.innerHTML = `${vids.length ? `<p class="text-[10px] font-black text-gray-400 uppercase pt-1">▶ Watch here</p><div class="grid grid-cols-2 gap-2">${vids.map(v => { window.feedVidReg = window.feedVidReg || []; window.feedVidReg.push(v); const i = window.feedVidReg.length - 1;
+return `<button onclick="window.closePanel(); window.playFeedVideo(${i})" class="text-left"><div class="relative rounded-xl overflow-hidden bg-gg-900" style="aspect-ratio:16/10"><img src="https://i.ytimg.com/vi/${escapeHTML(v.vid)}/mqdefault.jpg" alt="" loading="lazy" class="w-full h-full object-cover"><span class="absolute inset-0 flex items-center justify-center text-white text-2xl drop-shadow">▶</span></div><p class="text-[10px] font-bold text-white line-clamp-2 mt-1 leading-tight">${escapeHTML(v.title || '')}</p></button>`; }).join('')}</div>` : ''}
+<p class="text-[10px] font-black text-gray-400 uppercase pt-1">🎵 Songs</p><div data-songlist class="text-[11px] text-gray-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Searching music…</div>`;
+box.insertBefore(sec, box.firstChild);
+const list = await window.loadMusic('q:' + q.slice(0, 60)).catch(() => []);
+const el = sec.querySelector('[data-songlist]'); if (!el) return r;
+window._searchSongs = list.slice(0, 6);
+el.outerHTML = window._searchSongs.length ? window._searchSongs.map((t, i) => `<button onclick="window.playMusicFromSearch(${i})" class="w-full flex items-center gap-3 p-2 rounded-xl bg-gg-900 border border-white/5 text-left"><img src="${escapeHTML(t.art)}" alt="" class="w-10 h-10 rounded-lg object-cover bg-gg-800 shrink-0" loading="lazy" onerror="this.style.visibility='hidden'"><div class="flex-1 min-w-0"><p class="text-xs font-black text-white truncate">${escapeHTML(t.title)}</p><p class="text-[10px] text-gray-400 truncate">${escapeHTML(t.artist)}</p></div><span class="w-8 h-8 rounded-full bg-magenta text-white flex items-center justify-center shrink-0">▶</span></button>`).join('') : '<p class="text-[10px] text-gray-500">No songs found.</p>';
+return r;
+};
+})(window.webSearch);
+
+window.isPrivateTourn = (t) => { const sq = t && t.squadId && (window.clansData || []).find(c => c.id === t.squadId); return !!(sq && sq.isPublic === false); };
+window.tournStatus = (t) => t.status === 'finished' ? 'done' : (window.spotsLeft && window.spotsLeft(t) > 0 && !window.tourHasResults(t)) ? 'open' : 'live';
+window.tourBrowse = true; window.tourFilter = 'all'; window.tourQuery = '';
+window.tourBrowseOn = () => !window.tourScopeSquad && window.tourBrowse !== false;
+window.openTournamentById = (function(b) { return function(id) { window.tourBrowse = false; return b(id); }; })(window.openTournamentById);
+window.switchActiveTournament = (function(b) { return function(id) { window.tourBrowse = false; return b(id); }; })(window.switchActiveTournament);
+window.tournBrowserHtml = function() {
+const me = window.isSignedIn() ? window.meLower() : '';
+const all = (window.tournamentsList || []).filter(t => !window.isPrivateTourn(t) && t.compKind !== 'tiebreak');
+const q = (window.tourQuery || '').toLowerCase();
+const rank = { open: 0, live: 1, done: 2 };
+const list = all.filter(t => { const s = window.tournStatus(t); if (window.tourFilter === 'mine') return (t.players || []).some(p => (p || '').toLowerCase() === me) || window.tagEq(t.host, me); return window.tourFilter === 'all' || window.tourFilter === s; })
+.filter(t => !q || [t.title, t.game, t.host, t.hostOrg, t.compName].some(x => (x || '').toLowerCase().includes(q)))
+.sort((a, b) => rank[window.tournStatus(a)] - rank[window.tournStatus(b)] || (window.postTimeValue(b) || b.startAt || 0) - (window.postTimeValue(a) || a.startAt || 0));
+const cnt = (s) => all.filter(t => window.tournStatus(t) === s).length;
+const chip = (k, l) => `<button onclick="window.tourFilter='${k}'; window.renderTournamentsTabDedicated()" class="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black ${window.tourFilter === k ? 'bg-amber-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-white/10'}">${l}</button>`;
+const S = { open: ['🟢 OPEN', '#10b981'], live: ['🔴 LIVE', '#ef4444'], done: ['🏁 FINISHED', '#64748b'] };
+const card = (t) => { const s = window.tournStatus(t), [sl, sc] = S[s], left = window.spotsLeft ? window.spotsLeft(t) : 0, joined = (t.players || []).some(p => (p || '').toLowerCase() === me), sq = window.squadOf && window.squadOf(t);
+const fmt = t.format === 'LEAGUE' ? '📊 League' : t.format === 'KNOCKOUT' ? '⚡ Knockout' : t.format === 'WORLD_CUP' ? '🌍 World Cup' : '🏆 Swiss';
+return `<div data-tcard onclick="window.openTournamentById('${t.id}')" class="rounded-2xl p-3.5 cursor-pointer active:scale-[0.99] transition space-y-2" style="background:linear-gradient(160deg,rgba(15,29,54,.95),rgba(7,15,30,.95));border:1px solid ${sc}55;box-shadow:inset 3px 0 0 ${sc}">
+<div class="flex items-start justify-between gap-2"><div class="min-w-0"><p class="text-[9px] font-black uppercase tracking-wider" style="color:${sc}">${sl}${s === 'open' ? ` · ${left} spot${left === 1 ? '' : 's'} left` : ''}</p>
+<p class="text-sm font-black text-white leading-snug line-clamp-2">${escapeHTML(t.title)}</p></div>
+<span class="shrink-0 text-2xl">${t.compKind === 'cup' ? '🏆' : t.compKind === 'league' ? (['🥇', '🥈', '🥉'][(t.tier || 1) - 1] || '🏅') : '🎮'}</span></div>
+<div class="flex flex-wrap gap-1.5 text-[10px] font-bold">
+<span class="px-2 py-0.5 rounded-md bg-white/5 text-gray-300">${escapeHTML(t.game || '')}</span><span class="px-2 py-0.5 rounded-md bg-white/5 text-gray-300">${fmt}</span>
+<span class="px-2 py-0.5 rounded-md bg-white/5 text-gray-300">👥 ${window.realPlayers(t).length}/${t.maxPlayers || '?'}</span>
+${t.startAt ? `<span class="px-2 py-0.5 rounded-md bg-white/5 text-gray-300">📅 ${window.fmtDay(t.startAt, { day: 'numeric', month: 'short' })}${t.endAt ? ' – ' + window.fmtDay(t.endAt, { day: 'numeric', month: 'short' }) : ''}</span>` : ''}
+${sq ? `<span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300">🛡️ ${escapeHTML(sq.name)}</span>` : ''}
+${t.champion ? `<span class="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300">👑 ${escapeHTML(window.dnText(t.champion))}</span>` : ''}</div>
+<div class="flex items-center justify-between gap-2"><p class="text-[10px] text-gray-400 truncate">🎙️ ${escapeHTML(window.dnText(t.host || ''))}${t.hostOrg ? ` · ${escapeHTML(t.hostOrg)}${t.season ? ' S' + t.season : ''}` : ''}${t.prizePool && t.prizePool !== 'Bragging Rights' ? ` · 🏆 ${escapeHTML(t.prizePool)}` : ''}</p>
+${s === 'open' && !joined ? `<button onclick="event.stopPropagation(); window.joinActiveTournament('${t.id}')" class="shrink-0 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 text-[10px] font-black uppercase">Register</button>` : joined ? '<span class="shrink-0 text-[10px] font-black text-cyan-300">✓ You’re in</span>' : '<span class="shrink-0 text-[10px] font-black text-gray-500">View ›</span>'}</div></div>`; };
+return `<div class="space-y-2.5">
+<input value="${escapeHTML(window.tourQuery || '')}" oninput="window.tourQuery=this.value; clearTimeout(window._tqT); window._tqT=setTimeout(()=>{ const p=this.selectionStart; window.renderTournamentsTabDedicated(); const i=document.querySelector('[data-tq]'); if(i){ i.focus(); try{ i.setSelectionRange(p,p);}catch(e){} } },250)" data-tq placeholder="🔎 Find a tournament, game or host" class="w-full bg-gg-900 border border-amber-500/30 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none">
+<div class="flex gap-1.5 overflow-x-auto scrollbar-none">${chip('all', `All ${all.length}`)}${chip('open', `🟢 Open ${cnt('open')}`)}${chip('live', `🔴 Live ${cnt('live')}`)}${chip('done', `🏁 Finished ${cnt('done')}`)}${window.isSignedIn() ? chip('mine', '⭐ Mine') : ''}</div>
+${list.length ? list.map(card).join('') : `<div class="rounded-2xl p-8 text-center bg-gg-900/60 border border-white/5"><p class="text-3xl mb-1">🏆</p><p class="text-xs text-gray-400">No tournaments here yet. Host one with <b class="text-amber-300">+ Host Tournament</b>.</p></div>`}
+</div>`;
+};
+window.tournBackBar = () => window.tourScopeSquad ? '' : `<button onclick="window.tourBrowse=true; window.renderTournamentsTabDedicated(); window.scrollTo({top:0})" class="w-full text-left px-3.5 py-2.5 mb-2 rounded-2xl bg-gg-900 border border-amber-500/30 text-xs font-black text-amber-300">← All tournaments</button>`;
+
+window.dayKeyUTC = (ms) => new Date(ms).toISOString().slice(0, 10);
+window.gStreak = () => { try { return JSON.parse(localStorage.getItem('sg_gstreak') || '{"day":"","n":0,"best":0}'); } catch (e) { return { day: '', n: 0, best: 0 }; } };
+window.gStreakNow = () => { const s = window.gStreak(), t = window.dayKeyUTC(Date.now()), y = window.dayKeyUTC(Date.now() - 864e5); return (s.day === t || s.day === y) ? s.n : 0; };
+window.GSTREAK_BONUS = { 3: 20, 7: 60, 14: 120, 30: 300, 60: 500, 100: 1000 };
+window.gameStreakTick = function() {
+const s = window.gStreak(), t = window.dayKeyUTC(Date.now()), y = window.dayKeyUTC(Date.now() - 864e5);
+if (s.day === t) return;
+s.n = s.day === y ? s.n + 1 : 1; s.day = t; s.best = Math.max(s.best || 0, s.n);
+try { localStorage.setItem('sg_gstreak', JSON.stringify(s)); } catch (e) {}
+const bonus = window.GSTREAK_BONUS[s.n];
+setTimeout(() => showToast(bonus ? `🔥 ${s.n}-day gaming streak! +${bonus} points` : s.n > 1 ? `🔥 Gaming streak: ${s.n} days! Come back tomorrow` : '🔥 Gaming streak started! Play every day to grow it'), 1200);
+if (bonus && window.addXP) window.addXP(bonus, 'challenge');
+if (window.isSignedIn()) setDoc(doc(window.db, 'users', window.uidNow()), { gameDay: t, gameStreak: s.n, gameBest: s.best, gameTag: window.me() }, { merge: true }).catch(() => {});
+};
+window.submitGameScore = (function(b) { return async function(...a) { window.gameStreakTick(); return b.apply(this, a); }; })(window.submitGameScore);
+window.ludoGameOver = (function(b) { return async function(...a) { window.gameStreakTick(); return b.apply(this, a); }; })(window.ludoGameOver);
+window.olDuelResult = (function(b) { return function(...a) { const g = window.game; if (g && g.olFinal !== null && g.olFinal !== undefined) window.gameStreakTick(); return b.apply(this, a); }; })(window.olDuelResult);
+window.renderArcade = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a), box = document.getElementById('playBody'); if (!box) return r;
+box.querySelector('[data-gstreak]')?.remove();
+const n = window.gStreakNow(), today = window.gStreak().day === window.dayKeyUTC(Date.now()), best = window.gStreak().best || 0;
+const next = Object.keys(window.GSTREAK_BONUS).map(Number).find(k => k > n);
+box.insertAdjacentHTML('afterbegin', `<div data-gstreak class="rounded-2xl p-3.5 flex items-center gap-3" style="background:linear-gradient(135deg,rgba(249,115,22,.22),rgba(255,0,127,.18));border:1px solid rgba(249,115,22,.45)">
+<span class="text-4xl ${n ? '' : 'grayscale opacity-60'}">🔥</span><div class="flex-1 min-w-0"><p class="text-sm font-black text-white">${n ? `${n}-day gaming streak` : 'Start a gaming streak'}</p>
+<p class="text-[11px] ${today ? 'text-emerald-300' : 'text-amber-200'} font-bold">${today ? '✅ Played today. See you tomorrow!' : n ? '⏳ Play any game today to keep it!' : 'Play any game today, then come back every day.'}</p>
+<p class="text-[10px] text-gray-300">${next ? `Day ${next}: +${window.GSTREAK_BONUS[next]} points` : ''}${best ? ` · best ${best}` : ''}</p></div>
+${'Notification' in window && Notification.permission !== 'granted' ? `<button onclick="window.setupPushNotifications && window.setupPushNotifications()" class="shrink-0 px-3 py-2 rounded-xl bg-white/15 text-white text-[10px] font-black">🔔 Remind me</button>` : ''}</div>`);
+return r;
+};
+})(window.renderArcade);
+setTimeout(() => {
+const n = window.gStreakNow(), s = window.gStreak(), t = window.dayKeyUTC(Date.now());
+if (!n || s.day === t || new Date().getUTCHours() < 16) return;
+try { if (localStorage.getItem('sg_gs_nudge') === t) return; localStorage.setItem('sg_gs_nudge', t); } catch (e) {}
+showToast(`🔥 Your ${n}-day gaming streak ends tonight! Play a quick game in 🎮 Play`);
+}, 15000);
+
+window.olCreate = (function(b) {
+return async function(game, isPublic) {
+const r = await b(game, isPublic);
+if (isPublic && window.olRoom && window.olRoom.hostUid === window.uidNow()) window.pingPlayers(game, window.olRoom.id);
+else if (isPublic) setTimeout(() => { if (window.olRoom && window.olRoom.hostUid === window.uidNow() && window.olRoom.status === 'waiting') window.pingPlayers(game, window.olRoom.id); }, 2500);
+return r;
+};
+})(window.olCreate);
+window.pingPlayers = async function(game, code) {
+const k = 'sg_qm_ping_' + game; try { if (Date.now() - (+localStorage.getItem(k) || 0) < 10 * 60000) return; localStorage.setItem(k, Date.now()); } catch (e) {}
+const wk = window.weekKey(Date.now()), prev = window.weekKey(Date.now() - 7 * 864e5), uids = new Set();
+for (const w of [wk, prev]) {
+try { const s = await getDocs(query(collection(window.db, 'gameScores'), where('gw', '==', `${game}_${w}`), limit(40))); s.forEach(d => { const x = d.data(); if (x.uid && x.uid !== window.uidNow()) uids.add(x.uid); }); } catch (e) {}
+if (uids.size >= 8) break;
+}
+const name = (window.GAMES[game] || {}).name || 'a game', emo = (window.GAMES[game] || {}).emoji || '🎮';
+window.shuffleArr([...uids]).slice(0, 8).forEach(u => window.notify(u, 'game', { postId: 'game:' + code, text: `${emo} wants to play ${name} now! Tap to join` }));
+};
+window.openNotification = (function(b) { return function(id) { const n = (window.notifList || []).find(x => x.id === id); const m = n && String(n.postId || '').match(/^game:([A-Z0-9]{5})$/); if (m) { window.closeNotifications(); window.switchView('play'); setTimeout(() => window.olJoin(m[1]), 300); return; } return b(id); }; })(window.openNotification);
+window.notifIcon = (function(b) { return function(type) { return type === 'game' ? 'fa-gamepad text-emerald-400' : b(type); }; })(window.notifIcon);
+(function gameHash() { const go = () => { const m = (location.hash || '').match(/post=game:([A-Z0-9]{5})/i); if (!m) return; if (!window.isSignedIn()) return setTimeout(go, 1500); history.replaceState(null, '', location.pathname + location.search); window.switchView('play'); setTimeout(() => window.olJoin(m[1].toUpperCase()), 400); }; window.addEventListener('hashchange', go); setTimeout(go, 2600); })();
+
+window.GAMES.tower = { name: 'Tower King', emoji: '👑', desc: 'Drag to aim, let go to fire. You only get a few shots, so make each one count! Knock everything off the platform.', color: 'from-orange-400 to-pink-500' };
+window.TOWER_THINGS = [['ball', null], ['tyre', '#1f2937'], ['barrel', '#b45309'], ['crate', '#a16207'], ['melon', '#16a34a'], ['can', '#dc2626'], ['gem', '#8b5cf6']];
+window.towerLevel = (function(b) {
+return function(g) {
+b(g);
+const L = g.level, rnd = window.towerRand(L * 104729 + 7), kinds = window.TOWER_THINGS.slice(1);
+const main = kinds[Math.floor(rnd() * kinds.length)][0], second = kinds[Math.floor(rnd() * kinds.length)][0];
+g.bodies.forEach((x, k) => { if (x.type !== 'ball') return; const v = rnd(); x.thing = v < 0.5 ? main : v < 0.8 ? second : 'ball'; });
+g.balls = Math.min(5, 3 + (L >= 4 ? 1 : 0) + (L >= 8 ? 1 : 0)) + Math.min(1, g.carryOne || 0); g.carryOne = 0;
+};
+})(window.towerLevel);
+window.towerInit = (function(b) {
+return function(g) {
+b(g);
+const baseUpdate = g.update;
+g.update = (dt) => { const was = g.cleared; baseUpdate(dt); if (!was && g.cleared) { g.carryOne = g.balls > 0 ? 1 : 0; g.carry = 0; } };
+const drawBall = g.drawBall;
+g.drawBall = (ctx, bd) => {
+if (!bd.thing || bd.thing === 'ball' || bd.type !== 'ball') return drawBall(ctx, bd);
+const r = bd.r, t = bd.thing, col = (window.TOWER_THINGS.find(x => x[0] === t) || [])[1] || '#888';
+ctx.save(); ctx.translate(bd.x, bd.y); ctx.rotate(bd.rot);
+ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 3;
+if (t === 'tyre') { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = '#9ca3af'; ctx.beginPath(); ctx.arc(0, 0, r * 0.45, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#4b5563'; ctx.lineWidth = r * 0.12; for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7); ctx.lineTo(Math.cos(a) * r * 0.95, Math.sin(a) * r * 0.95); ctx.stroke(); } }
+else if (t === 'barrel') { const gr = ctx.createLinearGradient(-r, 0, r, 0); gr.addColorStop(0, '#78350f'); gr.addColorStop(0.5, '#d97706'); gr.addColorStop(1, '#78350f'); ctx.fillStyle = gr; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-r * 0.85, -r, r * 1.7, r * 2, r * 0.45) : ctx.rect(-r * 0.85, -r, r * 1.7, r * 2); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = '#374151'; [-0.55, 0.55].forEach(y => ctx.fillRect(-r * 0.86, y * r - r * 0.07, r * 1.72, r * 0.14)); }
+else if (t === 'crate') { ctx.fillStyle = col; ctx.fillRect(-r * 0.92, -r * 0.92, r * 1.84, r * 1.84); ctx.shadowBlur = 0; ctx.strokeStyle = '#713f12'; ctx.lineWidth = r * 0.14; ctx.strokeRect(-r * 0.85, -r * 0.85, r * 1.7, r * 1.7); ctx.beginPath(); ctx.moveTo(-r * 0.85, -r * 0.85); ctx.lineTo(r * 0.85, r * 0.85); ctx.moveTo(r * 0.85, -r * 0.85); ctx.lineTo(-r * 0.85, r * 0.85); ctx.stroke(); }
+else if (t === 'melon') { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; ctx.strokeStyle = '#14532d'; ctx.lineWidth = r * 0.13; for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.ellipse(0, 0, Math.abs(k) * r * 0.32 + 0.01, r * 0.98, 0, 0, Math.PI * 2); ctx.stroke(); } }
+else if (t === 'can') { const gr = ctx.createLinearGradient(-r, 0, r, 0); gr.addColorStop(0, '#7f1d1d'); gr.addColorStop(0.45, '#ef4444'); gr.addColorStop(1, '#7f1d1d'); ctx.fillStyle = gr; ctx.fillRect(-r * 0.7, -r, r * 1.4, r * 2); ctx.shadowBlur = 0; ctx.fillStyle = '#d1d5db'; ctx.fillRect(-r * 0.7, -r, r * 1.4, r * 0.22); ctx.fillRect(-r * 0.7, r * 0.78, r * 1.4, r * 0.22); ctx.fillStyle = '#fff'; ctx.font = `900 ${r * 0.55}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('GG', 0, 0); }
+else if (t === 'gem') { ctx.fillStyle = col; ctx.beginPath(); for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3 - Math.PI / 2; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); } ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(r * 0.5, 0); ctx.lineTo(0, r * 0.3); ctx.lineTo(-r * 0.5, 0); ctx.closePath(); ctx.fill(); }
+ctx.restore();
+};
+};
+})(window.towerInit);
+window.openGame = (function(b) { return function(id) { const r = b(id); if (id === 'tower') document.getElementById('gameTitle').innerText = '👑 Tower King'; return r; }; })(window.openGame);
+
+window.GAMES.snakes = { name: 'Snakes & Ladders', emoji: '🐍', desc: 'Roll, climb the ladders, dodge the snakes. First to 100 wins! Up to 10 players online.', color: 'from-emerald-400 to-lime-400' };
+window.OL_MAX.snakes = 10;
+window.SNL_LADDERS = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100 };
+window.SNL_SNAKES = { 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 };
+window.SNL_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7', '#ec4899', '#f97316', '#14b8a6', '#f8fafc', '#94a3b8'];
+window.snakesInit = function(g) {
+g.mode = g.mode || null; g.players = []; g.phase = 'menu'; g.turn = 0;
+g.layout = () => { const size = Math.min(g.W - 16, g.H - 150); g.cell = size / 10; g.ox = (g.W - size) / 2; g.oy = 10; };
+g.xy = (n) => { if (n <= 0) return [g.ox - g.cell * 0.2, g.oy + g.cell * 10 + g.cell * 0.15]; const k = n - 1, row = Math.floor(k / 10), col = row % 2 ? 9 - (k % 10) : k % 10; return [g.ox + (col + 0.5) * g.cell, g.oy + (9 - row + 0.5) * g.cell]; };
+g.reset = () => {
+g.layout();
+const m = g.mode || 'ai1', on = m === 'online' && g.olPlayers, mix = /^p(\d+)$/.exec(m);
+const n = on ? g.olPlayers.length : mix ? +mix[1] : 1 + (+m.slice(2) || 1);
+g.players = Array.from({ length: n }, (_, k) => ({ k, pos: 0, color: window.SNL_COLORS[k % 10], human: on ? true : mix ? true : k === 0, uid: on ? g.olPlayers[k].uid : null, tag: on ? g.olPlayers[k].tag : mix ? `Player ${k + 1}` : k === 0 ? 'You' : `AI ${k}`, ai: false }));
+g.turn = 0; g.phase = 'roll'; g.dice = null; g.rolling = 0; g.anim = null; g.slide = null; g.msg = ''; g.aiT = 0.8; g.winner = null; g.places = [];
+g.olApplied = 0; g.olQueue = g.olQueue && on ? g.olQueue : []; g.olWaiting = false;
+window.setGameScore(0); g.updateTop();
+};
+g.cur = () => g.players[g.turn];
+g.myTurn = () => g.mode === 'online' && g.cur() && g.cur().uid === window.uidNow();
+g.name = (p) => g.mode === 'online' ? (p.uid === window.uidNow() ? 'You' : '@' + window.hnd(p.tag || '')) : p.tag;
+g.updateTop = () => { const p = g.cur(); if (!p) return; document.getElementById('gameScoreTop').innerHTML = `<span style="color:${p.color}">● ${escapeHTML(g.name(p))}</span>`; };
+g.roll = (v) => { if (g.phase !== 'roll') return; g.phase = 'rolling'; g.rolling = 0.5; g.dice = v || 1 + Math.floor(Math.random() * 6); };
+g.afterRoll = () => {
+const p = g.cur(), d = g.dice, to = p.pos + d;
+if (to > 100) { g.msg = `${g.name(p)} needs exactly ${100 - p.pos}`; g.phase = 'wait'; setTimeout(() => g.next(false), 650); return; }
+g.phase = 'anim'; g.anim = { p, steps: Array.from({ length: d }, (_, k) => p.pos + k + 1), k: 0, t: 0 };
+};
+g.landed = () => {
+const p = g.cur(), up = window.SNL_LADDERS[p.pos], down = window.SNL_SNAKES[p.pos];
+if (up || down) { g.slide = { p, from: p.pos, to: up || down, t: 0 }; g.msg = up ? `🪜 ${g.name(p)} climbs to ${up}!` : `🐍 ${g.name(p)} slides to ${down}!`; if (navigator.vibrate) try { navigator.vibrate(up ? 20 : [30, 40, 30]); } catch (e) {} return; }
+g.done();
+};
+g.done = () => {
+const p = g.cur();
+if (p.pos === 100) { g.winner = p; g.phase = 'over'; window.setGameScore(1); setTimeout(() => window.snakesOver(p), 600); return; }
+g.next(g.dice === 6);
+};
+g.next = (again) => { if (!again) g.turn = (g.turn + 1) % g.players.length; else g.msg = (g.msg ? g.msg + ' · ' : '') + '🎲 6! Roll again'; g.phase = 'roll'; g.aiT = 0.8; g.turnAt = Date.now(); g.updateTop(); };
+g.tap = (x, y) => {
+const p = g.cur(); if (!p || g.phase !== 'roll') return;
+if (g.mode === 'online') { if (!g.myTurn() || g.olWaiting) return; window.olLudoAct({ t: 'roll', v: 1 + Math.floor(Math.random() * 6) }); return; }
+if (!p.human) return;
+g.roll();
+};
+g.update = (dt) => {
+if (g.mode === 'online') window.snakesTick(g);
+if (g.rolling > 0) { g.rolling -= dt; if (g.rolling <= 0) { g.rolling = 0; g.afterRoll(); } return; }
+if (g.anim) { g.anim.t += dt; if (g.anim.t > 0.14) { g.anim.t = 0; g.anim.p.pos = g.anim.steps[g.anim.k++]; if (g.anim.k >= g.anim.steps.length) { g.anim = null; g.landed(); } } return; }
+if (g.slide) { g.slide.t += dt / 0.7; if (g.slide.t >= 1) { g.slide.p.pos = g.slide.to; g.slide = null; g.done(); } return; }
+const p = g.cur();
+if (g.mode !== 'online' && p && !p.human && g.phase === 'roll') { g.aiT -= dt; if (g.aiT <= 0) g.roll(); }
+};
+g.draw = () => {
+const { ctx, W, H } = g; if (!W) return; g.layout(); const s = g.cell, ox = g.ox, oy = g.oy;
+ctx.fillStyle = '#02050b'; ctx.fillRect(0, 0, W, H);
+for (let n = 1; n <= 100; n++) { const [x, y] = g.xy(n), k = n - 1, row = Math.floor(k / 10), col = row % 2 ? 9 - (k % 10) : k % 10;
+ctx.fillStyle = (row + col) % 2 ? '#0f1d36' : '#13284a'; ctx.fillRect(x - s / 2, y - s / 2, s, s);
+ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.font = `800 ${Math.max(8, s * 0.24)}px system-ui`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(String(n), x - s / 2 + 2, y - s / 2 + 2); }
+{ const [x, y] = g.xy(100); ctx.font = `${s * 0.6}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🏆', x, y + 2); }
+const lg = window.towerLogo; if (lg && lg.complete && lg.naturalWidth) { ctx.globalAlpha = 0.1; ctx.drawImage(lg, ox + s * 2.5, oy + s * 2.5, s * 5, s * 5); ctx.globalAlpha = 1; }
+Object.entries(window.SNL_LADDERS).forEach(([a, b2]) => { const [x1, y1] = g.xy(+a), [x2, y2] = g.xy(b2), ang = Math.atan2(y2 - y1, x2 - x1), nx = -Math.sin(ang) * s * 0.17, ny = Math.cos(ang) * s * 0.17;
+ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = Math.max(2, s * 0.07); ctx.lineCap = 'round';
+[[nx, ny], [-nx, -ny]].forEach(([dx, dy]) => { ctx.beginPath(); ctx.moveTo(x1 + dx, y1 + dy); ctx.lineTo(x2 + dx, y2 + dy); ctx.stroke(); });
+const L = Math.hypot(x2 - x1, y2 - y1), steps = Math.max(2, Math.floor(L / (s * 0.35)));
+ctx.lineWidth = Math.max(1.5, s * 0.05); for (let k = 1; k < steps; k++) { const t = k / steps, cx = x1 + (x2 - x1) * t, cy = y1 + (y2 - y1) * t; ctx.beginPath(); ctx.moveTo(cx + nx, cy + ny); ctx.lineTo(cx - nx, cy - ny); ctx.stroke(); } });
+Object.entries(window.SNL_SNAKES).forEach(([a, b2], i) => { const [x1, y1] = g.xy(+a), [x2, y2] = g.xy(b2), col = ['#22c55e', '#e11d8f', '#06b6d4', '#a3e635', '#f97316'][i % 5];
+const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, nx = -(y2 - y1) * 0.25, ny = (x2 - x1) * 0.25;
+ctx.strokeStyle = col; ctx.lineWidth = Math.max(4, s * 0.2); ctx.lineCap = 'round';
+ctx.beginPath(); ctx.moveTo(x1, y1); ctx.bezierCurveTo(mx + nx, my + ny, mx - nx, my - ny, x2, y2); ctx.stroke();
+ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = Math.max(1, s * 0.05); ctx.setLineDash([s * 0.12, s * 0.12]); ctx.stroke(); ctx.setLineDash([]);
+ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x1, y1, s * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; [-1, 1].forEach(e => { ctx.beginPath(); ctx.arc(x1 + e * s * 0.07, y1 - s * 0.05, s * 0.045, 0, Math.PI * 2); ctx.fill(); }); });
+const at = {}; g.players.forEach(p => { let pos = p.pos; let xy = g.xy(pos);
+if (g.slide && g.slide.p === p) { const a = g.xy(g.slide.from), b2 = g.xy(g.slide.to), t = g.slide.t; xy = [a[0] + (b2[0] - a[0]) * t, a[1] + (b2[1] - a[1]) * t - Math.sin(Math.PI * t) * s * 0.4]; pos = 'm'; }
+const k = String(pos), n = (at[k] = (at[k] || 0) + 1) - 1, off = (n % 4 - 1.5) * s * 0.16, offy = Math.floor(n / 4) * s * 0.16;
+const x = xy[0] + (pos === 0 ? n * s * 0.32 : off), y = xy[1] + (pos === 0 ? 0 : offy), turn = p === g.cur() && g.phase !== 'over';
+if (turn) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(x, y, s * (0.26 + 0.04 * Math.sin(performance.now() / 130)), 0, Math.PI * 2); ctx.stroke(); }
+ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.arc(x + 1.5, y + 2, s * 0.2, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(x, y, s * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+ctx.fillStyle = p.color === '#f8fafc' ? '#111' : '#fff'; ctx.font = `900 ${s * 0.2}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String((p.tag || '?').replace('@', '')[0] || '?').toUpperCase(), x, y + 1); });
+const p = g.cur(); if (!p) return;
+const dy = oy + s * 10 + 30, dsz = 56;
+ctx.fillStyle = p.color; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(W / 2 - dsz / 2, dy, dsz, dsz, 14) : ctx.rect(W / 2 - dsz / 2, dy, dsz, dsz); ctx.fill();
+const face = g.rolling > 0 ? 1 + Math.floor(Math.random() * 6) : g.dice;
+ctx.fillStyle = p.color === '#f8fafc' ? '#111' : '#fff'; ctx.font = '900 30px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(face ? ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][face] : '🎲', W / 2, dy + dsz / 2 + 2);
+const mine = g.mode === 'online' ? g.myTurn() : p.human;
+ctx.font = '800 13px system-ui'; ctx.fillStyle = 'rgba(255,255,255,.9)';
+ctx.fillText(g.phase === 'over' ? '' : mine ? (g.mode === 'online' || g.mode === 'ai1' || /^ai/.test(g.mode) ? 'Your turn · tap to roll' : `${p.tag}'s turn · tap to roll`) : `${g.name(p)} is rolling…`, W / 2, dy + dsz + 16);
+if (g.msg) { ctx.fillStyle = '#fde047'; ctx.font = '800 12px system-ui'; ctx.fillText(g.msg, W / 2, dy + dsz + 34); }
+ctx.font = '800 11px system-ui'; ctx.textAlign = 'left'; const rows = [...g.players].sort((a, b2) => b2.pos - a.pos).slice(0, 10);
+rows.forEach((q, i) => { const col = i % 2, row = Math.floor(i / 2), x = 12 + col * (W / 2), y = dy + dsz + 52 + row * 15; if (y > H - 4) return; ctx.fillStyle = q.color; ctx.fillText('●', x, y); ctx.fillStyle = '#cbd5e1'; ctx.fillText(`${String(g.name(q)).slice(0, 12)} · ${q.pos}`, x + 12, y); });
+};
+};
+window.snakesTick = function(g) {
+const q = g.olQueue || [];
+while (q.length && q[0].n < g.olApplied) q.shift();
+const a = q[0];
+if (a && a.n === g.olApplied && g.phase === 'roll' && !g.anim && !g.slide && g.rolling <= 0) { q.shift(); g.olApplied++; g.olWaiting = false; if (typeof a.turn === 'number') g.turn = a.turn; window.olAwayClear(g, a); g.roll(a.v); }
+const keeper = window.olKeeper(g);
+const key = g.turn + ':' + g.phase; if (g.olKey !== key) { g.olKey = key; g.olKeyAt = Date.now(); }
+if (g._catchUp) return;
+const p = g.cur(); if (!p || g.phase !== 'roll') return;
+const gone = (g.olLeft || []).includes(p.uid), wait = gone ? 1500 : 10000;
+if ((keeper === window.uidNow() || Date.now() - g.olKeyAt > 20000) && p.uid !== window.uidNow() && !g.olWaiting && !q.length && Date.now() - g.olKeyAt > wait) { g.olKeyAt = Date.now(); if (window.olAwayMark(g, p)) return; window.olLudoAct({ t: 'roll', v: 1 + Math.floor(Math.random() * 6) }); }
+};
+window.snakesOver = async function(winner) {
+const g = window.game; if (!g) return; g.state = 'over';
+const youWon = g.mode === 'online' ? winner.uid === window.uidNow() : g.mode && /^ai/.test(g.mode) ? winner.k === 0 : false;
+const ranked = [...g.players].sort((a, b) => b.pos - a.pos);
+const ov = document.getElementById('gameOverlay');
+ov.innerHTML = `<div class="text-center bg-black/85 backdrop-blur-sm rounded-3xl px-6 py-5 border border-white/10 w-full max-w-[320px] space-y-2">
+<p class="text-5xl">${youWon ? '🏆' : '🎉'}</p><p class="text-xl font-black text-white">${youWon ? 'You win!' : escapeHTML(g.name(winner)) + ' wins!'}</p>
+<div class="space-y-1 text-left">${ranked.slice(0, 10).map((p, i) => `<div class="flex items-center justify-between px-2.5 py-1 rounded-lg bg-gg-900"><span class="text-xs font-black text-white"><span style="color:${p.color}">●</span> ${i + 1}. ${escapeHTML(g.name(p))}</span><span class="text-[10px] text-gray-400">${p.pos}</span></div>`).join('')}</div>
+<p id="gameRankLine" class="text-[11px] text-gray-300">${youWon && window.isSignedIn() ? '…' : ''}</p>
+<button id="snlAgain" class="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-lime-400 text-slate-950 font-black text-sm uppercase">↻ Play again</button>
+<button onclick="window.closeGame()" class="w-full py-2.5 rounded-xl bg-gg-900 border border-white/10 text-gray-300 text-xs font-black">Exit</button></div>`;
+document.getElementById('snlAgain').onclick = () => { if (g.online) { window.olStop(); g.online = false; g.mode = null; window.olQuick('snakes'); } else window.showGameOverlay('ready'); };
+window.gameStreakTick(); window.addXP && window.addXP(youWon ? 10 : 2, 'game'); window.bumpChallenge && window.bumpChallenge('game');
+const r = window.olRoom; if (g.online && r && r.hostUid === window.uidNow()) { try { updateDoc(doc(window.db, 'gameRooms', r.id), { status: 'done', lastAt: Date.now() }); } catch (e) {} if (r.net === 'rtdb' && window.rtdb) setTimeout(() => { try { window.rtdbApi.remove(window.rtdbApi.ref(window.rtdb, `games/${r.id}`)).catch(() => {}); } catch (e) {} }, 8000); }
+if (youWon && window.isSignedIn()) {
+const wk = window.weekKey(Date.now()), gw = `snakes_${wk}`, ref = doc(window.db, 'gameScores', `${gw}_${window.uidNow()}`);
+try { const cur = await getDoc(ref); const wins = (cur.exists() ? cur.data().score : 0) + 1; await setDoc(ref, { game: 'snakes', week: wk, gw, uid: window.uidNow(), user: window.me(), score: wins, at: serverTimestamp() }); delete window._boardCache[gw];
+const el = document.getElementById('gameRankLine'); if (el) el.textContent = `🏆 ${wins} win${wins === 1 ? '' : 's'} this week`; } catch (e) {}
+}
+};
+window.startSnakes = function(mode) { const g = window.game; if (!g) return; g.mode = mode; window.startGame(); };
+window.showGameOverlay = (function(b) {
+return function(kind, d = {}) {
+const g = window.game;
+if (!g || g.id !== 'snakes' || kind !== 'ready') return b(kind, d);
+g.state = 'ready';
+const btn = (m, l, sub) => `<button onclick="window.startSnakes('${m}')" class="w-full py-2.5 rounded-2xl bg-gg-900 border border-emerald-400/40 text-left px-4"><p class="text-sm font-black text-white">${l}</p><p class="text-[10px] text-gray-400">${sub}</p></button>`;
+document.getElementById('gameOverlay').innerHTML = `<div onclick="event.stopPropagation()" class="text-center bg-black/85 backdrop-blur-sm rounded-3xl px-5 py-4 border border-white/10 w-full max-w-[330px] space-y-2 max-h-[90%] overflow-y-auto">
+<p class="text-5xl">🐍</p><p class="text-xl font-black text-white">Snakes & Ladders</p>
+${btn('ai1', '🤖 You vs 1 AI', 'Quick game')}${btn('ai3', '🤖🤖🤖 You vs 3 AI', '4 players')}
+<div class="flex gap-1.5">${[2, 4, 6].map(n => `<button onclick="window.startSnakes('p${n}')" class="flex-1 py-2 rounded-xl bg-gg-900 border border-white/15 text-[11px] font-black text-white">👥 ${n} on 1 phone</button>`).join('')}</div>
+${window.olMenuHtml('snakes')}</div>`;
+};
+})(window.showGameOverlay);
+window.startGame = (function(b) { return function() { const g = window.game; if (g && g.id === 'snakes' && !g.mode) return; return b(); }; })(window.startGame);
+window.openGame = (function(b) {
+return function(id) {
+if (id !== 'snakes') return b(id);
+const saved = window.keepyInit, savedInfo = window.GAMES.keepy;
+window.keepyInit = window.snakesInit; window.GAMES.keepy = window.GAMES.snakes;
+try { window._baseOpenGame21('keepy'); } finally { window.keepyInit = saved; if (savedInfo) window.GAMES.keepy = savedInfo; else delete window.GAMES.keepy; }
+window.game.id = 'snakes';
+document.getElementById('gameTitle').innerText = '🐍 Snakes & Ladders';
+window.showGameOverlay('ready');
+};
+})(window.openGame);
+window.olBegin = (function(b) {
+return function(r) {
+const g = window.game;
+if (!g || r.game !== 'snakes' || g.id !== 'snakes') return b(r);
+g.online = true; g.olRoomId = r.id; g.olPlayers = (r.players || []).slice(0, 10); g.mode = 'online';
+window.startGame(); g.olApplied = 0; g.olLeft = r.left || [];
+if (r.net === 'rtdb') window.olRtListen(r.id, g); else g.olQueue = (r.actions || []).slice().sort((a, b2) => a.n - b2.n);
+showToast(`🐍 Online Snakes & Ladders with ${g.olPlayers.length} players. Good luck!`);
+};
+})(window.olBegin);
+window.olOnUpdate = (function(b) {
+return function(r) {
+const g = window.game;
+if (!g || !g.online || r.game !== 'snakes') return b(r);
+if (r.react && r.react.at && r.react.at !== g._lastReactAt) { g._lastReactAt = r.react.at; if (r.react.by !== window.uidNow() && Date.now() - r.react.at < 15000) window.showGameReact(r.react.e, r.react.tag); }
+g.olLeft = r.left || [];
+if (g.net !== 'rtdb') g.olQueue = (r.actions || []).slice().sort((a, b2) => a.n - b2.n).filter(a => a.n >= g.olApplied);
+};
+})(window.olOnUpdate);
+window.olShowWait = (function(b) {
+return function(o) {
+const r = b(o), room = o && o.room, g = window.game;
+if (g && room && room.game === 'snakes' && room.hostUid === window.uidNow() && (room.uids || []).length >= 2) {
+const box = document.getElementById('gameOverlay').firstElementChild;
+if (box && !box.querySelector('[data-snlstart]')) box.insertAdjacentHTML('beforeend', `<button data-snlstart onclick="window.olStart()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-lime-400 text-slate-950 text-sm font-black uppercase">▶ Start with ${(room.uids || []).length} players</button>`);
+}
+return r;
+};
+})(window.olShowWait);
+window.olHostAutoStart = (function(b) {
+return function(r) {
+if (r.game !== 'snakes') return b(r);
+if (r.hostUid !== window.uidNow()) return;
+const n = (r.uids || []).length; clearTimeout(window._olAutoT);
+if (n >= (r.max || 10)) return window.olStart();
+if (r.isPublic && n >= 2) window._olAutoT = setTimeout(() => window.olRoom && window.olRoom.status === 'waiting' && window.olStart(), 30000);
+};
+})(window.olHostAutoStart);
+window.olLeave = (function(b) { return async function(...a) { const g = window.game; const r = await b.apply(this, a); if (g && g.id === 'snakes') g.mode = null; return r; }; })(window.olLeave);
+(function playHash() { const go = () => { if (location.hash === '#play') { history.replaceState(null, '', location.pathname + location.search); window.switchView('play'); } }; window.addEventListener('hashchange', go); setTimeout(go, 1800); })();
+
+window.olKeeper = function(g) {
+const away = g._awaySince || {};
+const cur = g.cur && g.cur(), here = g.players.filter(p => !p.ai && p.uid && !(g.olLeft || []).includes(p.uid) && (!cur || p.uid !== cur.uid));   // someone other than the player whose turn it is
+return (here.find(p => !away[p.uid]) || here[0] || {}).uid;
+};
+window.olAwayClear = function(g, a) {
+if (!a || !g._awaySince) return;
+const owner = g.players[typeof a.turn === 'number' ? a.turn : g.turn];
+if (owner && a.by && a.by === owner.uid && g._awaySince[owner.uid]) { delete g._awaySince[owner.uid]; if (owner.uid !== window.uidNow()) g.msg = `👋 ${window.hnd ? '@' + window.hnd(owner.tag || '') : owner.tag} is back`; }
+};
+window.olAwayMark = function(g, p) {
+g._awaySince = g._awaySince || {};
+if (!g._awaySince[p.uid]) g._awaySince[p.uid] = Date.now() - 10000;
+g.msg = `🤖 AI is playing for @${window.hnd(p.tag || '')} (away)`;
+const humans = g.players.filter(x => !x.ai);
+if (humans.length === 2 && Date.now() - g._awaySince[p.uid] >= 60000) {
+const mine = g.players.find(x => x.uid === window.uidNow()); if (!mine || g.phase === 'over') return false;
+window.olAwayWin(g, mine, p);
+return true;
+}
+return false;
+};
+window.olAwayWin = function(g, mine, away) {
+const r = window.olRoom;
+if (r) updateDoc(doc(window.db, 'gameRooms', r.id), { status: 'done', winnerUid: window.uidNow(), endReason: 'away', awayUid: away.uid, lastAt: Date.now() }).catch(() => {});
+showToast(`⌛ @${window.hnd(away.tag || '')} was away for a minute. You win!`);
+if (g.id === 'ludo') { g.win(mine); }
+else if (g.id === 'snakes') { g.winner = mine; g.phase = 'over'; window.setGameScore(1); setTimeout(() => window.snakesOver(mine), 300); }
+};
+window.oppQuietMs = function(g, live) {
+if (!g._oppQ || g._oppQ.v !== live) g._oppQ = { v: live, at: Date.now() };
+return Date.now() - g._oppQ.at;
+};
+window.olOnUpdate = (function(b) {
+return function(r) {
+const g = window.game;
+if (g && g.online && r.status === 'done' && r.endReason === 'away' && r.winnerUid !== window.uidNow() && !g._awayEndShown && g.phase !== 'over') {
+g._awayEndShown = true; g.phase = 'over'; g.state = 'over';
+const w = (r.players || []).find(p => p.uid === r.winnerUid) || {};
+document.getElementById('gameOverlay').innerHTML = `<div class="text-center bg-black/85 rounded-3xl px-6 py-6 border border-white/10 w-full max-w-[300px]"><p class="text-5xl">⌛</p><p class="text-lg font-black text-white mt-1">Game over</p><p class="text-xs text-gray-300 mt-1">You were away for over a minute, so @${escapeHTML(window.hnd(w.tag || ''))} won.</p>
+<button onclick="window.olStop(); window.game && (window.game.online=false, window.game.mode=null); window.olQuick('${escapeHTML(r.game)}')" class="mt-4 w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 font-black text-sm uppercase">⚡ New match</button>
+<button onclick="window.closeGame()" class="mt-2 w-full py-2.5 rounded-xl bg-gg-900 border border-white/10 text-gray-300 text-xs font-black">Exit</button></div>`;
+return;
+}
+return b(r);
+};
+})(window.olOnUpdate);
+window.olFastWrap = function(g) {
+if (g._ffWrapped) return; g._ffWrapped = true;
+const base = g.update;
+g.update = (dt) => {
+if (!g._catchUp) return base(dt);
+const idle = () => !(g.olQueue || []).length && !g.anim && !g.slide && !(g.rolling > 0);
+for (let i = 0; i < 60; i++) { base(0.07); if (idle()) break; }
+if (idle() && Date.now() > (g._catchUntil || 0)) { g._catchUp = false; g.olKeyAt = Date.now(); g.msg = g.msg || '✅ You’re back in the game'; }
+};
+};
+window.olBegin = (function(b) {
+return function(r) {
+const res = b(r), g = window.game;
+if (g && g.online && (g.id === 'ludo' || g.id === 'snakes')) {
+g._awaySince = {};
+window.olFastWrap(g);
+if (Date.now() - (r.startedMs || Date.now()) > 15000) { g._catchUp = true; g._catchUntil = Date.now() + 5000; showToast('🔁 Catching up with the game…'); }
+}
+return res;
+};
+})(window.olBegin);
+window.olRejoinCheck = async function() {
+if (!window.isSignedIn() || window.olRoom || window._rejoinAsked) return;
+window._rejoinAsked = true;
+let rooms = [];
+try { const s = await getDocs(query(collection(window.db, 'gameRooms'), where('uids', 'array-contains', window.uidNow()), limit(10))); s.forEach(d => rooms.push({ id: d.id, ...d.data() })); } catch (e) { return; }
+const r = rooms.filter(x => x.status === 'playing' && ['ludo', 'snakes'].includes(x.game) && Date.now() - (x.lastAt || x.startedMs || 0) < 2 * 3600e3).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0))[0];
+if (!r) return;
+let skip = ''; try { skip = sessionStorage.getItem('sg_rejoin_no') || ''; } catch (e) {}
+if (skip === r.id) return;
+const name = (window.GAMES[r.game] || {}).name || 'game', others = (r.players || []).filter(p => p.uid !== window.uidNow()).map(p => '@' + window.hnd(p.tag || '')).slice(0, 3).join(', ');
+const ok = await window.sgConfirm(`Your online ${name} with ${others || 'other players'} is still going. The AI kept your seat warm 🤖\n\nJump back in?`, { title: `${(window.GAMES[r.game] || {}).emoji || '🎮'} Game in progress`, okText: 'Rejoin', cancelText: 'Not now' });
+if (!ok) { try { sessionStorage.setItem('sg_rejoin_no', r.id); } catch (e) {} return; }
+window.olRejoin(r);
+};
+window.olRejoin = async function(r) {
+window.switchView && window.switchView('play');
+window.olEnsureGame(r.game);
+try { await updateDoc(doc(window.db, 'gameRooms', r.id), { left: arrayRemove(window.uidNow()), lastAt: Date.now() }); } catch (e) {}
+window.olListen(r.id);
+};
+window.afterAuthChange = (function(b) { return async function(u) { const r = await b(u); if (u) setTimeout(() => window.olRejoinCheck(), 4500); return r; }; })(window.afterAuthChange);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !window.olRoom && Date.now() - (window._rejoinAt || 0) > 120000) { window._rejoinAt = Date.now(); window._rejoinAsked = false; setTimeout(() => window.olRejoinCheck(), 1500); } });
+
+Object.assign(window.XP_RULES, { time: [1, 90], play: [1, 120], game: [4, 60], clip: [1, 80], read: [2, 30], watch: [2, 60], react: [1, 60] });
+window._actAt = Date.now();
+['pointerdown', 'keydown', 'scroll', 'touchmove'].forEach(ev => document.addEventListener(ev, () => { window._actAt = Date.now(); }, { passive: true, capture: true }));
+setInterval(() => {
+if (document.visibilityState !== 'visible' || !window.isSignedIn()) return;
+const watching = !!document.querySelector('#sgClips:not(.hidden), #hlModal:not(.hidden), #liveRoomModal:not(.hidden)') || (window.musicAudio && !window.musicAudio.paused);
+if (Date.now() - window._actAt > 90000 && !watching) return;
+window._tick2 = (window._tick2 || 0) + 1;
+if (window._tick2 % 2 === 0) window.addXP(1, 'time');
+if (window.game && window.game.state === 'play') window.addXP(1, 'play');
+}, 60000);
+window.openNews = (function(b) { return function(...a) { window.addXP(2, 'read'); return b.apply(this, a); }; })(window.openNews);
+window.clipSignal = (function(b) { return function(it, ms) { if (ms >= 8000) window.addXP(1, 'clip'); return b(it, ms); }; })(window.clipSignal);
+window.renderTopAccounts = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a);
+const h = document.querySelector('#view-popular [data-score-help]');
+if (h) h.innerHTML = `⭐ <b class="text-white">Score</b> = points for <b class="text-white">everything</b> you do on Sinless GG: 🎮 playing games, ▶ watching clips & videos, 📰 reading, 📸 posting, 💬 commenting, 🔥 daily streaks, ⏱️ time in the app, challenges & invites. Plus 2 per GG you get and 1 per 20 views. Daily limits keep it fair.`;
+return r;
+};
+})(window.renderTopAccounts);
+
+window.LUDO_BACK_MAX = 5;
+window.GAMES.ludo.desc = 'Classic Ludo with 🦵 back kick: kick an opponent up to 5 squares behind you. Play vs AI, friends on one phone, or online.';
+window.ludoInit = (function(b) {
+return function(g) {
+b(g);
+g.backs = [];
+g.canBack = (pl, ti, d) => {
+if (!d || d > window.LUDO_BACK_MAX) return false;
+const t = pl.tokens[ti]; if (t < 1 || t > 50 || t - d < 0) return false;
+const abs = g.absPos(pl, t - d); if (window.LUDO_SAFE.has(abs)) return false;
+return g.players.some(op => op !== pl && op.tokens.some(ot => ot >= 0 && ot <= 50 && g.absPos(op, ot) === abs));
+};
+const afterRoll = g.afterRoll;
+g.afterRoll = function() {
+const pl = g.cur(), d = g.dice;
+g.backs = [0, 1, 2, 3].filter(ti => g.canBack(pl, ti, d));
+if (!g.backs.length) return afterRoll();
+g.sixes = 0;
+g.movable = [0, 1, 2, 3].filter(ti => g.canMove(pl, ti, d));
+g.phase = 'move'; g.msg = '🦵 Back kick is on!';
+if (!pl.human) g.aiT = 0.55;
+};
+const move = g.move;
+g.move = function(ti, back) {
+if (!back) { g.backs = []; return move(ti); }
+const pl = g.cur(), d = g.dice;
+if (g.phase !== 'move' || !g.backs.includes(ti)) return;
+g.phase = 'anim'; const from = pl.tokens[ti];
+g.anim = { pl, ti, steps: Array.from({ length: d }, (_, k) => from - k - 1), k: 0, t: 0 };
+g.backs = []; g.msg = '🦵 BACK KICK!';
+if (navigator.vibrate) try { navigator.vibrate([20, 30, 40]); } catch (e) {}
+};
+g.aiChoice = function() {
+const pl = g.cur(), d = g.dice;
+if (!g.backs.length) return { ti: g.aiPick() };
+const great = g.movable.find(ti => { const t = pl.tokens[ti], np = t < 0 ? 0 : t + d; if (np === 56) return true; if (np > 50) return false; const abs = g.absPos(pl, np); return !window.LUDO_SAFE.has(abs) && g.players.some(op => op !== pl && op.tokens.some(ot => ot >= 0 && ot <= 50 && g.absPos(op, ot) === abs)); });
+return great !== undefined ? { ti: great } : { ti: g.backs[0], back: 1 };
+};
+g.aiMove = function() { const c = g.aiChoice(); g.move(c.ti, c.back); };
+g.backTarget = (ti) => { const pl = g.cur(), [r, c] = window.LUDO_PATH[g.absPos(pl, pl.tokens[ti] - g.dice)]; return [g.ox + (c + 0.5) * g.cell, g.oy + (r + 0.5) * g.cell]; };
+const tap = g.tap;
+g.tap = function(x, y) {
+const pl = g.cur();
+if (g.phase === 'move' && g.backs.length && pl.human && !(g.mode === 'online' && (!g.myTurn() || g.olWaiting))) {
+let best = null, bd = 1e9, fd = 1e9;
+g.backs.forEach(ti => { const [cx, cy] = g.backTarget(ti), dd = Math.hypot(cx - x, cy - y); if (dd < bd) { bd = dd; best = ti; } });
+g.movable.forEach(ti => { const [r, c] = g.cellOf(pl, ti); fd = Math.min(fd, Math.hypot(g.ox + (c + 0.5) * g.cell - x, g.oy + (r + 0.5) * g.cell - y)); });
+if (best !== null && bd < g.cell * 1.3 && bd <= fd) { if (g.mode === 'online') window.olLudoAct({ t: 'move', ti: best, back: 1 }); else g.move(best, true); return; }
+}
+return tap(x, y);
+};
+const draw = g.draw;
+g.draw = function() {
+draw();
+if (g.phase !== 'move' || !g.backs.length) return;
+const ctx = g.ctx, pulse = 0.5 + 0.5 * Math.sin(performance.now() / 110), pl = g.cur();
+const mine = pl.human && (g.mode !== 'online' || g.myTurn());
+g.backs.forEach(ti => {
+const [x, y] = g.backTarget(ti);
+ctx.save(); ctx.strokeStyle = `rgba(239,68,68,${0.6 + 0.4 * pulse})`; ctx.lineWidth = 3.5; ctx.setLineDash([5, 4]);
+ctx.beginPath(); ctx.arc(x, y, g.cell * (0.5 + 0.06 * pulse), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+ctx.font = `${g.cell * 0.55}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🦵', x + g.cell * 0.45, y - g.cell * 0.45);
+const [r0, c0] = g.cellOf(pl, ti), x0 = g.ox + (c0 + 0.5) * g.cell, y0 = g.oy + (r0 + 0.5) * g.cell;
+ctx.strokeStyle = 'rgba(239,68,68,.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke();
+ctx.restore();
+});
+if (mine) { ctx.fillStyle = '#fca5a5'; ctx.font = '800 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('🦵 Tap a red ring to back-kick, or a glowing token to move', g.W / 2, g.oy + g.cell * 15 + 130); }
+};
+};
+})(window.ludoInit);
 
