@@ -552,6 +552,7 @@ document.querySelectorAll('[data-post-id]').forEach(el => window.postViewObserve
 };
 
 window.submitUniversalPost = async function() {
+if (window.needSignIn && window.needSignIn('post')) return;
 const publishBtn = document.getElementById('publishPostBtn');
 let text = document.getElementById('postTextContent').value.trim();
 let cat = document.getElementById('postCategorySelect').value;
@@ -616,10 +617,7 @@ createdAt: new Date().toISOString()
 
 try {
 if(window.db && typeof addDoc === 'function' && typeof collection === 'function') {
-const docRef = await addDoc(collection(window.db, "posts"), {
-...postPayload,
-createdAt: serverTimestamp()
-});
+const docRef = await window.savePostCloud(postPayload);
 postPayload.id = docRef.id;
 postPayload.docId = docRef.id;
 showToast("Published to Cloud Feed!");
@@ -629,8 +627,9 @@ await publishLocallyFallback(postPayload);
 resetPostForm();
 } catch(e) {
 console.error("Firestore Error:", e);
-showToast("Cloud sync failed. Saving locally...");
+window.queuePostRetry && window.queuePostRetry(postPayload);
 await publishLocallyFallback(postPayload);
+showToast("⚠️ Your post is saved on this phone but hasn't reached everyone yet. We'll keep trying automatically.");
 } finally {
 if (publishBtn) {
 publishBtn.disabled = false;
@@ -20037,4 +20036,41 @@ if (mine) { ctx.fillStyle = '#fca5a5'; ctx.font = '800 12px system-ui'; ctx.text
 };
 };
 })(window.ludoInit);
+
+window.VIEW_RULES.repeatEveryMs = 7000;
+window.VIEW_RULES.maxPerStay = 200;
+setInterval(() => {   // Clips: the clip you're watching keeps counting too
+const box = document.getElementById('sgClips'); if (!box || box.classList.contains('hidden') || document.visibilityState !== 'visible') return;
+const c = (window.clipsList || [])[window.clipCur]; if (c && c.kind === 'post') window.addPostViews(c.id, 1);
+}, 7000);
+Object.keys(window.XP_RULES).forEach(k => { window.XP_RULES[k] = [window.XP_RULES[k][0], 1e9]; });
+window.savePostCloud = async function(payload) {
+let last;
+for (let i = 0; i < 3; i++) {
+try { return await addDoc(collection(window.db, 'posts'), window.cleanForCloud({ ...payload, id: null, docId: null, isLocalFallback: null, createdAt: serverTimestamp() })); }
+catch (e) { last = e; await new Promise(r => setTimeout(r, 1500 * (i + 1))); }
+}
+throw last;
+};
+window.postQueue = () => { try { return JSON.parse(localStorage.getItem('sg_post_queue') || '[]'); } catch (e) { return []; } };
+window.queuePostRetry = function(p) { const q = window.postQueue().filter(x => x.id !== p.id); q.push(p); try { localStorage.setItem('sg_post_queue', JSON.stringify(q.slice(-10))); } catch (e) {} };
+window.flushPostQueue = async function() {
+if (!window.isSignedIn() || window._pqBusy) return; const q = window.postQueue(); if (!q.length) return;
+window._pqBusy = true; const left = [];
+for (const p of q) {
+if (p.uid !== window.uidNow()) { left.push(p); continue; }
+try {
+const ref = await window.savePostCloud(p);
+const loc = (window.fypposts || []).find(x => x.id === p.id); if (loc) { loc.id = ref.id; loc.docId = ref.id; delete loc.isLocalFallback; }
+try { await removePostFromIndexedDB(p.id); } catch (e) {}
+showToast('✅ Your post is now live for everyone!');
+} catch (e) { left.push(p); }
+}
+try { localStorage.setItem('sg_post_queue', JSON.stringify(left)); } catch (e) {}
+window._pqBusy = false;
+window.renderFypFeed && window.renderFypFeed();
+};
+window.afterAuthChange = (function(b) { return async function(u) { const r = await b(u); if (u) setTimeout(() => window.flushPostQueue(), 5000); return r; }; })(window.afterAuthChange);
+window.addEventListener('online', () => setTimeout(() => window.flushPostQueue(), 3000));
+setInterval(() => window.flushPostQueue(), 120000);
 
