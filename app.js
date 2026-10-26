@@ -21363,3 +21363,156 @@ last = 0;
 return r;
 };
 })(window.clipsV2);
+
+(function clipsV2b() {
+const s = document.createElement('style');
+s.textContent = `
+#sgClips .cv-top{left:0;right:0;top:0;height:auto;padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 18px;border:0;border-radius:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;
+background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,0));pointer-events:none;justify-content:center}
+#sgClips .cv-top .cv-word{pointer-events:none}
+#sgClips .cv-top .cv-tr{position:absolute;left:10px;top:calc(env(safe-area-inset-top,0px) + 4px);pointer-events:auto;flex-direction:row-reverse}
+#sgClips .cv-x{background:rgba(0,0,0,.55);border:0}
+#sgClips [data-v2] [data-clip-yt]{max-height:none;margin-bottom:0}
+#sgClips [data-v2] video[data-clip-video].cv-fill{object-fit:cover}
+#sgClips [data-v2] > img.cv-fill{object-fit:cover}
+#sgClips .cv-b.gg .em{display:none}
+#sgClips .cv-b.gg .hrt{font-size:19px;line-height:1;color:#ff4d8d}
+#sgClips .cv-b.gg.on .hrt{display:none}
+#sgClips .cv-b.gg.on .em{display:inline;filter:drop-shadow(0 0 6px rgba(255,45,149,.9));opacity:1}
+#deletePostModal,#editPostModal{z-index:420!important}`;
+document.head.appendChild(s);
+})();
+window.cvSync = (function(b) {
+return function(s) {
+const r = b(s);
+const gb = s && s.querySelector('.cv-b.gg');
+if (gb && !gb.querySelector('.hrt')) gb.insertAdjacentHTML('afterbegin', '<i class="hrt fa-regular fa-heart"></i>');
+return r;
+};
+})(window.cvSync);
+window.cvFit = function(s) {
+const v = s.querySelector(':scope > video[data-clip-video]'), im = s.querySelector(':scope > img');
+const fit = (w, h, el) => { if (w && h) el.classList.toggle('cv-fill', h / w >= 1.3); };
+if (v) { if (v.videoWidth) fit(v.videoWidth, v.videoHeight, v); else v.addEventListener('loadedmetadata', () => fit(v.videoWidth, v.videoHeight, v), { once: true }); }
+if (im) { if (im.naturalWidth) fit(im.naturalWidth, im.naturalHeight, im); else im.addEventListener('load', () => fit(im.naturalWidth, im.naturalHeight, im), { once: true }); }
+};
+window.clipsV2 = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+document.querySelectorAll('#sgClips [data-v2]:not([data-v2c])').forEach(s => {
+s.setAttribute('data-v2c', '1');
+window.cvFit(s);
+const c = (window.clipsList || [])[+s.getAttribute('data-clip')];
+if (c && c.kind === 'short' && c.v) {
+const chat = s.querySelectorAll('.cv-b')[2];
+if (chat) chat.setAttribute('onclick', `event.stopPropagation(); window.cvYtChat(${+s.getAttribute('data-clip')})`);
+}
+s.querySelectorAll('.cv-b').forEach(bt => bt.addEventListener('pointerdown', () => { window._cvLastBtn = bt; }));
+});
+return r;
+};
+})(window.clipsV2);
+window.cvYtChat = function(i) {
+const c = (window.clipsList || [])[i]; if (!c || !c.v) return;
+window.hlRegistry = window.hlRegistry || []; window.hlRegistry.push(c.v);
+const k = window.hlRegistry.length - 1;
+window._hlDirect = true; window.closeClips(); window.playHighlight(k);
+};
+window.ggBurst = (function(b) {
+return function(x, y, size) {
+if ((!x && !y || (x < 4 && y < 4)) && window._cvLastBtn && window._cvLastBtn.isConnected) { const r = window._cvLastBtn.getBoundingClientRect(); x = r.left + r.width / 2; y = r.top; }
+return b(x, y, size);
+};
+})(window.ggBurst);
+window.openMyPostMenu = (function(b) {
+return function(id) {
+if (!window.findPost(id)) { const p = (window.profilePostsList || []).find(x => (x.docId || x.id) === id); if (p) { window.postFetchCache = window.postFetchCache || {}; window.postFetchCache[id] = p; } }
+return b(id);
+};
+})(window.openMyPostMenu);
+window.openEditPostModal = (function(b) {
+return function(postId) {
+if (!(window.fypposts || []).some(p => p.id === postId || p.docId === postId)) { const p = window.findPost(postId) || (window.profilePostsList || []).find(x => (x.docId || x.id) === postId); if (p) (window.fypposts = window.fypposts || []).push(p); }
+return b(postId);
+};
+})(window.openEditPostModal);
+window.sgBackStack = [];
+window.sgPushBack = function(kind) { try { history.pushState({ sgBack: kind }, ''); window.sgBackStack.push(kind); } catch (e) {} };
+window.sgDropBack = function(kind) {
+const i = window.sgBackStack.lastIndexOf(kind); if (i < 0) return;
+window.sgBackStack.splice(i, 1);
+if (history.state && history.state.sgBack === kind && i === window.sgBackStack.length) { window._sgIgnorePop = true; try { history.back(); } catch (e) {} setTimeout(() => { window._sgIgnorePop = false; }, 400); }
+};
+window.addEventListener('popstate', () => {
+if (window._sgIgnorePop) return;
+while (window.sgBackStack.length && window.sgIsOpen && !window.sgIsOpen(window.sgBackStack[window.sgBackStack.length - 1])) window.sgBackStack.pop();
+const kind = window.sgBackStack.pop(); if (!kind) return;
+window._sgFromBack = true;
+try {
+if (kind === 'clips') window.closeClips();
+else if (kind === 'panel') window.closePanel && window.closePanel();
+else if (kind === 'post') window.closePostDetail && window.closePostDetail();
+else if (kind === 'profile') window.closeUserProfileModal ? window.closeUserProfileModal() : document.getElementById('userProfileModal')?.classList.add('hidden');
+else if (kind === 'squad') window.closeSquadDetailsModal && window.closeSquadDetailsModal();
+else if (kind === 'dm') window.closeDmModal && window.closeDmModal();
+} finally { window._sgFromBack = false; }
+});
+[['openClips', 'closeClips', 'clips'], ['openPanel', 'closePanel', 'panel'], ['openPostDetail', 'closePostDetail', 'post'], ['openUserProfileModal', 'closeUserProfileModal', 'profile'], ['openSquadDetailsModal', 'closeSquadDetailsModal', 'squad'], ['openDmModal', 'closeDmModal', 'dm']].forEach(([o, c, k]) => {
+const fo = window[o], fc = window[c];
+if (typeof fo === 'function') window[o] = function(...a) { const was = window.sgBackStack.includes(k); const r = fo.apply(this, a); if (!was) window.sgPushBack(k); return r; };
+if (typeof fc === 'function') window[c] = function(...a) { const r = fc.apply(this, a); if (!window._sgFromBack) window.sgDropBack(k); return r; };
+});
+
+window.postStats = function(id) {
+const p = window.findPost(id) || (window.profilePostsList || []).find(x => (x.docId || x.id) === id); if (!p) return;
+const reposts = (window.fypposts || []).filter(x => x.repostOf === id).length;
+const tile = (emo, n, l) => `<div class="rounded-2xl p-3 text-center" style="background:linear-gradient(rgba(14,14,22,.95),rgba(14,14,22,.95)) padding-box,linear-gradient(135deg,#22d3ee,#a855f7 55%,#ff2d95) border-box;border:1.5px solid transparent"><p class="text-2xl">${emo}</p><p class="text-lg font-black text-white">${window.formatCount(n || 0)}</p><p class="text-[10px] text-gray-400 font-bold uppercase">${l}</p></div>`;
+window.openPanel('📊 Your post stats', `
+<p class="text-xs text-gray-300 line-clamp-2">${escapeHTML(p.caption || 'Your post')}</p>
+<p class="text-[10px] text-gray-500">Posted ${window.timeAgo(window.postTimeValue(p))}</p>
+<div class="grid grid-cols-2 gap-2">${tile('👀', p.viewsCount, 'Views')}${tile('💘', p.ggsCount, 'GGs')}${tile('💬', p.commentsCount, 'Comments')}${tile('🔁', reposts, 'Reposts')}</div>
+<button onclick="window.closePanel(); window.openWhoGG('${escapeHTML(id)}')" class="w-full py-2.5 rounded-xl bg-gg-900 border border-magenta/30 text-magenta text-xs font-black">See who GG'd</button>
+<div class="grid grid-cols-2 gap-2"><button onclick="window.closePanel(); window.openEditPostModal('${escapeHTML(id)}')" class="py-2.5 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-xs font-black"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
+<button onclick="window.closePanel(); window.deletePost('${escapeHTML(id)}')" class="py-2.5 rounded-xl bg-red-500/15 border border-red-500/40 text-red-300 text-xs font-black"><i class="fa-solid fa-trash mr-1"></i> Delete</button></div>`);
+};
+window.clipsV2 = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+document.querySelectorAll('#sgClips [data-v2]:not([data-v2d])').forEach(s => {
+s.setAttribute('data-v2d', '1');
+const c = (window.clipsList || [])[+s.getAttribute('data-clip')]; if (!c) return;
+const grid = s.querySelector('.cv-btns'), last = grid && grid.lastElementChild; if (!last) return;
+const p = c.p || ((c.kind === 'post' || c.kind === 'pimg') ? window.findPost(c.id) : null);
+if (!p) { last.remove(); grid.style.gridTemplateColumns = 'repeat(4,1fr)'; return; }
+if (window.isMyPost(p)) { last.setAttribute('onclick', `event.stopPropagation(); window.postStats('${escapeHTML(c.id)}')`); last.querySelector('.lab').innerHTML = `STATS<br>${window.formatCount(p.viewsCount || 0)} views`; }
+else { last.setAttribute('onclick', `event.stopPropagation(); window.closeClips(); window.openRepostMenu('${escapeHTML(c.id)}')`); last.innerHTML = '<i class="fa-solid fa-retweet"></i><span class="lab">Repost</span>'; }
+});
+return r;
+};
+})(window.clipsV2);
+window.loadProfilePosts = (function(b) {
+return async function(tag) {
+const r = await b.apply(this, arguments);
+if (!window.isSignedIn() || String(tag || '').toLowerCase() !== window.meLower()) return r;
+const box = document.getElementById('profileUserPostsList'); if (!box) return r;
+[...box.children].forEach((tileEl, i) => {
+const p = (window.profilePostsList || [])[i]; if (!p || tileEl.querySelector('[data-mymenu]')) return;
+if (getComputedStyle(tileEl).position === 'static') tileEl.style.position = 'relative';
+tileEl.insertAdjacentHTML('beforeend', `<span data-mymenu role="button" onclick="event.stopPropagation(); window.openMyPostMenu('${escapeHTML(p.docId || p.id)}')" class="absolute top-1 left-1 z-10 w-7 h-7 rounded-full bg-black/65 text-white text-sm flex items-center justify-center">⋯</span>`);
+});
+return r;
+};
+})(window.loadProfilePosts);
+window.openMyPostMenu = (function(b) {
+return function(id) {
+const r = b(id);
+const items = window.actionSheetItems; if (items && !items.some(x => /Stats/.test(x.label))) { items.splice(1, 0, { icon: 'fa-chart-simple', label: 'Stats', run: () => window.postStats(id) }); window.openActionSheet('Your post', items); }
+return r;
+};
+})(window.openMyPostMenu);
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => {
+const u = e.data && e.data.sgOpen; if (!u) return;
+try { const url = new URL(u, location.href); if (url.hash) { if (location.hash === url.hash) location.hash = ''; location.hash = url.hash; } else if (url.search && url.search !== location.search) location.href = url.href; } catch (er) {}
+});
+window.sgIsOpen = (k) => { const id = { clips: 'sgClips', panel: 'sgPanel', post: 'postDetailModal', profile: 'userProfileModal', squad: 'squadDetailsModal', dm: 'dmModal' }[k]; const el = id && document.getElementById(id); return !!(el && !el.classList.contains('hidden') && el.offsetParent !== null || (el && k === 'clips' && !el.classList.contains('hidden'))); };
+(function() { const s = document.createElement('style'); s.textContent = '#sgClips .cv-top{justify-content:flex-start;padding-left:96px}'; document.head.appendChild(s); })();
