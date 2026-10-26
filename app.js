@@ -36,7 +36,7 @@ return out;
 return v;
 };
 const sgWrapDoc = (d) => d && new Proxy(d, { get(t, p) {
-if (p === 'data') return (...a) => { const x = t.data(...a); return x ? window.sgClean(x) : x; };
+if (p === 'data') return (...a) => { const x = t.data(...a); if (x) { ['id', 'docId', 'isLocalFallback'].forEach(k => { if (x[k] === null || x[k] === undefined) delete x[k]; }); } return x ? window.sgClean(x) : x; };
 const v = t[p]; return typeof v === 'function' ? v.bind(t) : v;
 } });
 const sgWrapSnap = (s) => {
@@ -20056,7 +20056,7 @@ Object.keys(window.XP_RULES).forEach(k => { window.XP_RULES[k] = [window.XP_RULE
 window.savePostCloud = async function(payload) {
 let last;
 for (let i = 0; i < 3; i++) {
-try { return await addDoc(collection(window.db, 'posts'), window.cleanForCloud({ ...payload, id: null, docId: null, isLocalFallback: null, createdAt: serverTimestamp() })); }
+try { const { id, docId, isLocalFallback, ...clean } = payload; return await addDoc(collection(window.db, 'posts'), window.cleanForCloud({ ...clean, createdAt: serverTimestamp() })); }
 catch (e) { last = e; await new Promise(r => setTimeout(r, 1500 * (i + 1))); }
 }
 throw last;
@@ -21666,7 +21666,8 @@ return b(postId);
 window.fsDecodeDoc = function(d) {
 const dec = (v) => !v ? null : 'stringValue' in v ? v.stringValue : 'integerValue' in v ? +v.integerValue : 'doubleValue' in v ? v.doubleValue : 'booleanValue' in v ? v.booleanValue : 'timestampValue' in v ? v.timestampValue : 'nullValue' in v ? null : 'arrayValue' in v ? (v.arrayValue.values || []).map(dec) : 'mapValue' in v ? Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, dec(x)])) : null;
 const id = d.name.split('/').pop();
-return window.sgClean({ id, docId: id, ...Object.fromEntries(Object.entries(d.fields || {}).map(([k, x]) => [k, dec(x)])) });
+const f = Object.fromEntries(Object.entries(d.fields || {}).map(([k, x]) => [k, dec(x)])); delete f.id; delete f.docId; delete f.isLocalFallback;
+return window.sgClean({ ...f, id, docId: id });
 };
 window.fsRestQuery = async function(sq) {
 const r = await fetch('https://firestore.googleapis.com/v1/projects/sinlessgg/databases/(default)/documents:runQuery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ structuredQuery: sq }) });
