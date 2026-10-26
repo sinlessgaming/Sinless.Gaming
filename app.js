@@ -21658,12 +21658,306 @@ return r;
 window.toggleGGPost = (function(b) {
 return async function(postId) {
 const known = (window.fypposts || []).some(p => p.id === postId || p.docId === postId) || window.findPost(postId);
-if (!known && window.db && !String(postId).startsWith('local_')) {
-try { const sn = await getDoc(doc(window.db, 'posts', postId)); if (!sn.exists()) { window.purgePost(postId); showToast('This post was deleted.'); return; } } catch (e) {}
-}
-if (known && window.db && !String(postId).startsWith('local_')) {
-try { const sn = await getDoc(doc(window.db, 'posts', postId)); if (!sn.exists()) { window.purgePost(postId); showToast('This post was deleted.'); return; } } catch (e) {}
-}
+if (!String(postId).startsWith('local_') && window.postExistsOnServer && (await window.postExistsOnServer(postId)) === false) { window.purgePost(postId); showToast('This post was deleted.'); return; }
 return b(postId);
 };
 })(window.toggleGGPost);
+
+window.fsDecodeDoc = function(d) {
+const dec = (v) => !v ? null : 'stringValue' in v ? v.stringValue : 'integerValue' in v ? +v.integerValue : 'doubleValue' in v ? v.doubleValue : 'booleanValue' in v ? v.booleanValue : 'timestampValue' in v ? v.timestampValue : 'nullValue' in v ? null : 'arrayValue' in v ? (v.arrayValue.values || []).map(dec) : 'mapValue' in v ? Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, dec(x)])) : null;
+const id = d.name.split('/').pop();
+return window.sgClean({ id, docId: id, ...Object.fromEntries(Object.entries(d.fields || {}).map(([k, x]) => [k, dec(x)])) });
+};
+window.fsRestQuery = async function(sq) {
+const r = await fetch('https://firestore.googleapis.com/v1/projects/sinlessgg/databases/(default)/documents:runQuery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ structuredQuery: sq }) });
+if (!r.ok) throw new Error('rest ' + r.status);
+return (await r.json()).filter(x => x.document).map(x => window.fsDecodeDoc(x.document));
+};
+window.feedRescue = async function(why) {
+if (window._rescuing) return; window._rescuing = true;
+try {
+const posts = await window.fsRestQuery({ from: [{ collectionId: 'posts' }], orderBy: [{ field: { fieldPath: 'createdAt' }, direction: 'DESCENDING' }], limit: 40 });
+if (!posts.length) return;
+const have = new Set((window.fypposts || []).map(p => p.docId || p.id));
+const add = posts.filter(p => !have.has(p.id));
+if (add.length) { window.fypposts = [...(window.fypposts || []), ...add]; posts.forEach(p => { (window.postFetchCache = window.postFetchCache || {})[p.id] = p; }); window.cloudFeedLoaded = true; window.rebuildFeedOrder && window.rebuildFeedOrder(); window.renderFypFeed && window.renderFypFeed(); }
+let last = 0; try { last = +localStorage.getItem('sg_fix_at') || 0; } catch (e) {}
+if (why === 'stuck' && Date.now() - last > 864e5) { try { localStorage.setItem('sg_fix_cache', '1'); localStorage.setItem('sg_fix_at', String(Date.now())); } catch (e) {} }
+} catch (e) {} finally { window._rescuing = false; }
+};
+setTimeout(() => { if (!(window.fypposts || []).filter(p => !String(p.id || '').startsWith('local_')).length) window.feedRescue('stuck'); }, 9000);
+setTimeout(() => { if (!(window.fypposts || []).filter(p => !String(p.id || '').startsWith('local_')).length) window.feedRescue('stuck'); }, 25000);
+window.loadProfilePosts = (function(b) {
+return async function(tag) {
+const r = await b.apply(this, arguments);
+if ((window.profilePostsList || []).length || window.activeProfileUser !== tag) return r;
+try {
+const pr = await window.getProfile(tag);
+const f = pr && pr.uid ? { fieldPath: 'uid', v: pr.uid } : { fieldPath: 'user', v: tag };
+const list = await window.fsRestQuery({ from: [{ collectionId: 'posts' }], where: { fieldFilter: { field: { fieldPath: f.fieldPath }, op: 'EQUAL', value: { stringValue: f.v } } }, limit: 120 });
+if (list.length && window.activeProfileUser === tag) {
+list.forEach(p => { (window.postFetchCache = window.postFetchCache || {})[p.id] = p; if (!(window.fypposts || []).some(x => (x.docId || x.id) === p.id)) (window.fypposts = window.fypposts || []).push(p); });
+setTimeout(() => { if (window.activeProfileUser === tag) b.call(window, tag); }, 50);
+}
+} catch (e) {}
+return r;
+};
+})(window.loadProfilePosts);
+document.addEventListener('click', (e) => {
+const b = e.target.closest && e.target.closest('#fypFeedContainer .feed-mute-btn');
+if (!b) return;
+e.stopPropagation(); e.preventDefault();
+window.toggleFeedMute();
+const v = b.closest('[data-post-id]')?.querySelector('video[data-feed-video]'); if (v) { v.muted = window.feedMuted; if (v.paused && !window.feedMuted) v.play().catch(() => {}); }
+}, true);
+document.addEventListener('pointerdown', (e) => { if (e.target.closest && e.target.closest('#fypFeedContainer .feed-mute-btn')) e.stopPropagation(); }, true);
+window.clipsV2 = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+document.querySelectorAll('#sgClips [data-v2]:not([data-v2g])').forEach(s => {
+s.setAttribute('data-v2g', '1');
+const last = s.querySelector('.cv-btns')?.lastElementChild; if (!last || !/STATS/.test(last.textContent)) return;
+const c = (window.clipsList || [])[+s.getAttribute('data-clip')], p = c && (c.p || window.findPost(c.id));
+const n = p ? (p.viewsCount || 0) : 0;
+last.innerHTML = `<span class="ic"><i class="fa-regular fa-eye"></i></span><span class="lab">${window.formatCount(n)} view${n === 1 ? '' : 's'}</span>`;
+});
+return r;
+};
+})(window.clipsV2);
+window.ghostSweep = async function() {
+if (!window.isSignedIn() || window._ghostSwept) return; window._ghostSwept = true;
+const local = await window.loadLocalPostsFromDB(); if (!local.length) return;
+const queued = new Set(window.postQueue().map(p => p.id));
+let gone = 0, sent = 0;
+for (const p of local) {
+const id = p.docId || p.id; if (!id) continue;
+if (String(id).startsWith('local_')) {
+if (queued.has(id)) continue;
+const mine = p.uid === window.uidNow();
+const mediaOk = (p.mediaList || []).every(m => m && /^https:\/\//.test(m.url || ''));
+if (mine && mediaOk && (p.caption || (p.mediaList || []).length)) { window.queuePostRetry(p); sent++; }
+else { try { await removePostFromIndexedDB(id); } catch (e) {} window.purgePost(id); gone++; }
+} else {
+if ((await window.postExistsOnServer(id)) === false) { try { await removePostFromIndexedDB(id); } catch (e) {} window.purgePost(id); gone++; }
+}
+}
+if (sent) window.flushPostQueue();
+if (gone || sent) window.renderFypFeed && window.renderFypFeed();
+};
+setTimeout(() => window.ghostSweep(), 15000);
+window.afterAuthChange = (function(b) { return async function(u) { const r = await b(u); if (u) setTimeout(() => { window._ghostSwept = false; window.ghostSweep(); }, 15000); return r; }; })(window.afterAuthChange);
+window.postExistsOnServer = async function(id) {
+try {
+const r = await fetch(`https://firestore.googleapis.com/v1/projects/sinlessgg/databases/(default)/documents/posts/${encodeURIComponent(id)}?mask.fieldPaths=user`);
+if (r.status === 404) return false;
+if (r.ok) return true;
+} catch (e) {}
+return null;   // unknown (offline): never hide anything on a guess
+};
+(function() { const s = document.createElement('style'); s.textContent = `
+#sgClips .cv-b.gg{border-color:rgba(168,85,247,.55)!important}
+#sgClips .cv-b.gg .lab{color:#fff!important}
+#sgClips .cv-b.gg .ic i{color:#e879f9!important}
+#sgClips .cv-b.gg.on{background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(168,85,247,.22),rgba(255,45,149,.22))!important;border-color:#a855f7!important;box-shadow:0 0 12px -3px rgba(168,85,247,.9)!important}`; document.head.appendChild(s); })();
+
+window.sgAudio = (function() {
+const A = { ctx: null, master: null, music: null, sfx: null, playing: null, timer: null, step: 0, nextT: 0, intensity: 0 };
+A.mode = (() => { try { return localStorage.getItem('sg_game_audio') || 'all'; } catch (e) { return 'all'; } })();   // all | sfx | off
+A.init = function() {
+if (A.ctx) { if (A.ctx.state === 'suspended') A.ctx.resume().catch(() => {}); return true; }
+const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+A.ctx = new AC(); A.master = A.ctx.createGain(); A.master.gain.value = 0.9; A.master.connect(A.ctx.destination);
+const comp = A.ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.connect(A.master);
+A.music = A.ctx.createGain(); A.music.gain.value = 0.22; A.music.connect(comp);
+A.sfx = A.ctx.createGain(); A.sfx.gain.value = 0.55; A.sfx.connect(comp);
+A.noiseBuf = A.ctx.createBuffer(1, A.ctx.sampleRate, A.ctx.sampleRate); const d = A.noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+return true;
+};
+const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+A.tone = function(out, t, midi, dur, type, vol, cutoff, attack) {
+const o = A.ctx.createOscillator(), g = A.ctx.createGain(), f = A.ctx.createBiquadFilter();
+o.type = type || 'square'; o.frequency.setValueAtTime(hz(midi), t);
+f.type = 'lowpass'; f.frequency.value = cutoff || 3000;
+g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.2, t + (attack || 0.01)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+o.connect(f); f.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
+};
+A.kick = function(t, vol) { const o = A.ctx.createOscillator(), g = A.ctx.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12); g.gain.setValueAtTime(vol || 0.9, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.28); o.connect(g); g.connect(A.music); o.start(t); o.stop(t + 0.3); };
+A.noise = function(out, t, dur, vol, hp, bp) { const s = A.ctx.createBufferSource(), f = A.ctx.createBiquadFilter(), g = A.ctx.createGain(); s.buffer = A.noiseBuf; f.type = bp ? 'bandpass' : 'highpass'; f.frequency.value = bp || hp || 6000; g.gain.setValueAtTime(vol || 0.2, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); s.connect(f); f.connect(g); g.connect(out); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02); };
+A.STYLES = {
+dribble: { bpm: 128, root: 57, scale: [0, 2, 3, 5, 7, 8, 10], chords: [0, 5, 3, 4], lead: 'sawtooth', arp: [0, 2, 4, 7, 4, 2, 0, 4], groove: 'edm' },
+keeper:  { bpm: 112, root: 52, scale: [0, 2, 3, 5, 7, 8, 11], chords: [0, 0, 5, 4], lead: 'square', arp: [0, 4, 7, 4, 0, 7, 4, 2], groove: 'tension' },
+penalty: { bpm: 100, root: 50, scale: [0, 2, 3, 5, 7, 8, 10], chords: [0, 3, 5, 4], lead: 'triangle', arp: [0, 7, 0, 7, 2, 7, 3, 7], groove: 'suspense' },
+tower:   { bpm: 122, root: 60, scale: [0, 2, 4, 5, 7, 9, 11], chords: [0, 4, 5, 3], lead: 'square', arp: [0, 2, 4, 2, 7, 4, 2, 4], groove: 'bounce' },
+ludo:    { bpm: 104, root: 55, scale: [0, 2, 4, 5, 7, 9, 11], chords: [0, 3, 4, 3], lead: 'triangle', arp: [0, 4, 2, 4, 7, 4, 2, 0], groove: 'afro' },
+snakes:  { bpm: 108, root: 62, scale: [0, 2, 4, 7, 9], chords: [0, 3, 1, 4], lead: 'triangle', arp: [0, 1, 2, 4, 2, 1, 3, 2], groove: 'jungle' }
+};
+A.noteOf = (S, deg, oct) => S.root + 12 * (oct || 0) + S.scale[((deg % S.scale.length) + S.scale.length) % S.scale.length] + 12 * Math.floor(deg / S.scale.length);
+A.schedule = function() {
+const S = A.playing; if (!S || !A.ctx) return;
+const spb = 60 / S.bpm / 4;   // 16th notes
+while (A.nextT < A.ctx.currentTime + 0.12) {
+const t = A.nextT, st = A.step % 16, bar = Math.floor(A.step / 16) % 4, ch = S.chords[bar], I = A.intensity;
+const G = S.groove;
+if (G === 'afro') { if (st === 0 || st === 7 || st === 10) A.kick(t, 0.8); if (st % 2 === 0) A.noise(A.music, t, 0.04, 0.07, 7000); if (st === 4 || st === 12) A.noise(A.music, t, 0.12, 0.22, 0, 1800); if (I > 0.4 && st % 4 === 3) A.noise(A.music, t, 0.03, 0.08, 9000); }
+else if (G === 'jungle') { if (st === 0 || st === 6 || st === 8) A.kick(t, 0.6); if (st % 4 === 2) A.noise(A.music, t, 0.05, 0.1, 0, 3500); if (I > 0.3 && st % 2 === 1) A.noise(A.music, t, 0.03, 0.05, 8000); }
+else if (G === 'suspense') { if (st === 0 || st === 8) A.kick(t, 0.7); if (st === 4 || st === 12) A.noise(A.music, t, 0.15, 0.15, 0, 1500); if (I > 0.3 && st % 2 === 0) A.noise(A.music, t, 0.03, 0.06, 8000); }
+else if (G === 'tension') { if (st === 0 || st === 3) A.kick(t, 0.8); if (st === 8 || st === 11) A.kick(t, 0.5); if (st % 4 === 2) A.noise(A.music, t, 0.04, 0.08, 7000); if (I > 0.5 && st === 12) A.noise(A.music, t, 0.14, 0.18, 0, 2000); }
+else { if (st % 4 === 0) A.kick(t, 0.85); if (st % 4 === 2) A.noise(A.music, t, 0.04, 0.09, 7000); if (st === 4 || st === 12) A.noise(A.music, t, 0.13, 0.2, 0, 2000); if (I > 0.35 && st % 2 === 1) A.noise(A.music, t, 0.025, 0.05, 9000); }
+if (st % 4 === 0 || (G !== 'suspense' && st % 8 === 6)) A.tone(A.music, t, A.noteOf(S, ch, -2), spb * 2.6, G === 'afro' ? 'sine' : 'sawtooth', 0.32, 500 + I * 900);
+if (st === 0) [0, 2, 4].forEach(k => A.tone(A.music, t, A.noteOf(S, ch + k, 0), spb * 15, 'sawtooth', 0.045, 900 + I * 1500, 0.25));
+if ((I > 0.15 || st % 2 === 0) && (G !== 'suspense' || st % 2 === 0)) A.tone(A.music, t, A.noteOf(S, ch + S.arp[st % 8], 1), spb * 0.9, S.lead, 0.06 + I * 0.05, 1800 + I * 3500);
+A.nextT += spb; A.step++;
+}
+};
+A.start = function(id) {
+if (A.mode !== 'all' || !A.init()) return;
+const S = A.STYLES[id] || A.STYLES.dribble;
+if (A.playing === S && A.timer) return;
+A.stop();
+if (A.ctx) { A.music.gain.cancelScheduledValues(A.ctx.currentTime); } A.playing = S; A.step = 0; A.intensity = 0; A.nextT = A.ctx.currentTime + 0.08;
+A.music.gain.cancelScheduledValues(A.ctx.currentTime); A.music.gain.setValueAtTime(0.0001, A.ctx.currentTime); A.music.gain.exponentialRampToValueAtTime(0.22, A.ctx.currentTime + 1.2);
+A.timer = setInterval(A.schedule, 25);
+};
+A.stop = function() { clearInterval(A.timer); A.timer = null; A.playing = null; };
+A.fadeOut = function() { if (!A.ctx || !A.timer) return A.stop(); const was = A.playing, tm = A.timer; A.music.gain.setTargetAtTime(0.0001, A.ctx.currentTime, 0.25); A.playing = null; setTimeout(() => { clearInterval(tm); if (A.timer === tm) A.timer = null; if (!A.playing && A.music) A.music.gain.value = 0.22; }, 900); };
+A.fx = function(kind, n) {
+if (A.mode === 'off' || !A.init()) return;
+const t = A.ctx.currentTime + 0.01, out = A.sfx;
+if (kind === 'tap') A.tone(out, t, 84, 0.06, 'triangle', 0.12, 4000);
+else if (kind === 'score') { const base = 72 + Math.min(12, (n || 0) % 13); A.tone(out, t, base, 0.09, 'square', 0.16, 5000); A.tone(out, t + 0.06, base + 7, 0.12, 'square', 0.14, 5000); }
+else if (kind === 'roll') { for (let k = 0; k < 6; k++) A.noise(out, t + k * 0.055, 0.04, 0.25, 0, 2500 + Math.random() * 2000); A.tone(out, t + 0.36, 79, 0.1, 'triangle', 0.15, 4000); }
+else if (kind === 'up') [0, 4, 7, 12, 16].forEach((d, k) => A.tone(out, t + k * 0.06, 67 + d, 0.12, 'square', 0.13, 5000));
+else if (kind === 'down') { const o = A.ctx.createOscillator(), g = A.ctx.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(700, t); o.frequency.exponentialRampToValueAtTime(90, t + 0.6); g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.65); o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.7); }
+else if (kind === 'hit') { A.noise(out, t, 0.18, 0.4, 0, 900); A.tone(out, t, 40, 0.2, 'sine', 0.4, 400); }
+else if (kind === 'whoosh') A.noise(out, t, 0.25, 0.18, 0, 1200);
+else if (kind === 'win') [0, 4, 7, 12, 7, 12, 16, 19].forEach((d, k) => A.tone(out, t + k * 0.09, 72 + d, k === 7 ? 0.6 : 0.14, 'square', 0.15, 6000));
+else if (kind === 'lose') [7, 6, 5, 0].forEach((d, k) => A.tone(out, t + k * 0.18, 60 + d, k === 3 ? 0.6 : 0.2, 'triangle', 0.18, 2500));
+else if (kind === 'go') { A.tone(out, t, 76, 0.12, 'square', 0.15); A.tone(out, t + 0.13, 88, 0.25, 'square', 0.15); }
+};
+return A;
+})();
+window.gameAudioBtn = function() {
+const bar = document.querySelector('#gameModal > div'); if (!bar || document.getElementById('gameAudioBtn')) return;
+const top = document.getElementById('gameScoreTop');
+top && top.insertAdjacentHTML('beforebegin', `<button id="gameAudioBtn" onclick="window.cycleGameAudio()" class="w-9 h-9 rounded-xl bg-gg-800 text-white text-base mr-1"></button>`);
+window.paintGameAudioBtn();
+};
+window.paintGameAudioBtn = function() { const b = document.getElementById('gameAudioBtn'); if (b) b.textContent = { all: '🔊', sfx: '🎵', off: '🔇' }[window.sgAudio.mode]; if (b) b.title = { all: 'Music + sounds', sfx: 'Sounds only', off: 'Silent' }[window.sgAudio.mode]; };
+window.cycleGameAudio = function() {
+const A = window.sgAudio; A.mode = A.mode === 'all' ? 'sfx' : A.mode === 'sfx' ? 'off' : 'all';
+try { localStorage.setItem('sg_game_audio', A.mode); } catch (e) {}
+if (A.mode === 'all' && window.game) A.start(window.game.id); else A.fadeOut();
+window.paintGameAudioBtn();
+showToast({ all: '🔊 Music & sounds on', sfx: '🎵 Music off · sounds on', off: '🔇 Game sounds off' }[A.mode]);
+};
+window.openGame = (function(b) {
+return function(id) {
+const r = b(id);
+window.gameAudioBtn(); window.paintGameAudioBtn();
+setTimeout(() => { const g = window.game; if (g && !document.getElementById('gameModal').classList.contains('hidden')) { window.sgAudio.start(g.id === 'keepy' ? id : g.id || id); window._gaWatch = { score: g.score || 0, state: g.state, phase: g.phase, rolling: false, pos: null }; } }, 150);
+return r;
+};
+})(window.openGame);
+window.closeGame = (function(b) { return function(...a) { window.sgAudio.fadeOut(); window._gaWatch = null; return b.apply(this, a); }; })(window.closeGame);
+document.addEventListener('visibilitychange', () => { const A = window.sgAudio; if (!A.ctx) return; if (document.visibilityState === 'hidden') A.ctx.suspend().catch(() => {}); else if (window._gaWatch) A.ctx.resume().catch(() => {}); });
+document.addEventListener('pointerdown', (e) => { if (e.target && e.target.id === 'gameCanvas' && window.game && ['dribble', 'keeper', 'penalty'].includes(window.game.id)) window.sgAudio.fx('tap'); }, true);
+document.addEventListener('pointerup', (e) => { if (e.target && e.target.id === 'gameCanvas' && window.game && window.game.id === 'tower') window.sgAudio.fx('whoosh'); }, true);
+setInterval(() => {
+const W = window._gaWatch, g = window.game; if (!W || !g || document.getElementById('gameModal').classList.contains('hidden')) return;
+const A = window.sgAudio;
+if ((g.score || 0) > W.score) { A.fx('score', g.score); W.score = g.score; const goal = { dribble: 400, keeper: 25, penalty: 12, tower: 20, ludo: 1, snakes: 1 }[g.id] || 20; A.intensity = Math.min(1, (g.score || 0) / goal); }
+if ((g.state === 'play' || g.state === 'playing') && !(W.state === 'play' || W.state === 'playing')) { A.fx('go'); if (A.mode === 'all') A.start(g.id); }
+if (g.state === 'over' && W.state !== 'over') {
+setTimeout(() => { const txt = (document.getElementById('gameOverlay') || {}).textContent || ''; A.fx(/you win|win!|🏆|new best|record/i.test(txt) ? 'win' : 'lose'); }, 250);
+A.intensity = 0;
+}
+W.state = g.state;
+const rolling = !!(g.rolling || g.phase === 'rolling'); if (rolling && !W.rolling) A.fx('roll'); W.rolling = rolling;
+if (g.id === 'snakes' && g.players && g.cur) { const pos = g.players.map(p => p.pos).join(','); if (W.pos && W.pos !== pos) { const a = W.pos.split(',').map(Number), b2 = g.players.map(p => p.pos); a.forEach((x, k) => { const d = (b2[k] || 0) - x; if (d > 6) A.fx('up'); else if (d < 0) A.fx('down'); }); } W.pos = pos; }
+if (g.id === 'ludo' && g.players) { const pos = JSON.stringify(g.players.map(p => (p.tokens || p.t || []).map(t => t.pos !== undefined ? t.pos : t))); if (W.lpos && W.lpos !== pos) { try { const a = JSON.parse(W.lpos), b2 = JSON.parse(pos); a.forEach((ts, k) => (ts || []).forEach((x, j) => { const y = ((b2[k] || [])[j]); if (typeof x === 'number' && typeof y === 'number' && y < x && x > 0) A.fx('hit'); })); } catch (e) {} } W.lpos = pos; }
+}, 120);
+
+window.openNotification = (function(b) {
+return function(id) {
+const n = (window.notifList || []).find(x => x.id === id) || (window._notifOne && window._notifOne.id === id ? window._notifOne : null);
+if (!n) return b(id);
+const pid = String(n.postId || ''), done = () => { window.closeNotifications && window.closeNotifications(); n.read = true; if (n.id) updateDoc(doc(window.db, 'notifications', n.id), { read: true }).catch(() => {}); window.updateNotifBadge && window.updateNotifBadge(); };
+if (n.type === 'dm' && n.fromUser && !pid) { done(); return window.openDmModal(n.fromUser); }
+if (n.type === 'tournament' && !pid) {
+done();
+const txt = String(n.text || '').toLowerCase();
+const t = (window.tournamentsList || []).filter(x => x && x.title && txt.includes(String(x.title).toLowerCase())).sort((a, c) => (c.title || '').length - (a.title || '').length)[0];
+window.switchView('tournaments');
+setTimeout(() => { if (t) window.openTournamentById(t.id); else window.setTourTab && window.setTourTab('mine'); }, 250);
+return;
+}
+if ((n.type === 'verified' || n.type === 'invite') && !pid) { done(); return window.openUserProfileModal(n.type === 'verified' ? window.me() : n.fromUser); }
+if (n.type === 'follow' && n.fromUser) { done(); return window.openUserProfileModal(n.fromUser); }
+return b(id);
+};
+})(window.openNotification);
+window.openNotifFromHash = async function() {
+const m = (location.hash || '').match(/notif=([A-Za-z0-9]{10,40})/); if (!m) return;
+if (!window.isSignedIn()) return setTimeout(window.openNotifFromHash, 1500);
+try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+let n = (window.notifList || []).find(x => x.id === m[1]);
+if (!n) { try { const s = await getDoc(doc(window.db, 'notifications', m[1])); if (s.exists()) { n = { id: s.id, ...s.data() }; window._notifOne = n; } } catch (e) {} }
+if (n) window.openNotification(n.id);
+};
+window.addEventListener('hashchange', window.openNotifFromHash);
+setTimeout(window.openNotifFromHash, 2500);
+window.peopleToFollow = (function(b) { return function() { return b().filter(p => !(window.amFollowing && window.amFollowing(p.gamertag))); }; })(window.peopleToFollow);
+window.amFollowing = (function(b) { return function(tag) { if (b(tag)) return true; const p = window.profileFor && window.profileFor(tag); return !!(p && p.uid && window.myFollowing && window.myFollowing.uids.has(p.uid)); }; })(window.amFollowing);
+window.loadMyFollowing = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a);
+document.querySelectorAll('#fypFeedContainer button[onclick*="toggleFollowUser("]').forEach(btn => { const tag = (btn.getAttribute('onclick').match(/toggleFollowUser\('([^']+)'/) || [])[1]; if (tag && window.amFollowing(tag) && /^Follow$/.test(btn.textContent.trim())) { const tile = btn.closest('.snap-start'); tile && tile.remove(); } });
+return r;
+};
+})(window.loadMyFollowing);
+
+window.renderSquadEventBar = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+const sq = window.activeSquadDetails, bar = document.getElementById('squadEventBar'); if (!sq || !bar) return r;
+const e = (window._sqEvents || []).find(x => x.at > Date.now() - 2 * 3600e3); if (!e) return r;
+const going = (e.going || []).includes(window.uidNow()), soon = e.at - Date.now() < 30 * 60000;
+if (going && !soon) bar.remove();
+else if (going && soon) { const p = bar.querySelector('p'); if (p) p.textContent = (e.at <= Date.now() ? '🔴 Starting now: ' : '⏰ Starting soon: ') + e.title; }
+return r;
+};
+})(window.renderSquadEventBar);
+setInterval(() => { if (window.activeSquadDetails && document.getElementById('squadDetailsModal') && !document.getElementById('squadDetailsModal').classList.contains('hidden')) window.renderSquadEventBar(); }, 60000);
+window.renderSquadChannel = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+const w = document.querySelector('#squadRoomMsgsBox [data-weekly]'), sq = window.activeSquadDetails;
+if (w && sq) {
+let hidden = false; try { hidden = !!localStorage.getItem(`sg_weekly_hide_${sq.id}_${window.squadWeekKey()}`); } catch (e) {}
+if (hidden) w.remove();
+else { const btn = w.querySelector('button[onclick^="window.toggleWeekly"]'), lab = btn && btn.lastElementChild; if (lab) lab.textContent = 'Hide ✕'; }
+}
+return r;
+};
+})(window.renderSquadChannel);
+window.deleteSquadEvent = async function(eid) {
+const sq = window.activeSquadDetails; if (!sq) return;
+const e = (window._sqEvents || []).find(x => x.id === eid);
+if (!await window.sgConfirm(`Delete "${e ? e.title : 'this event'}"? Everyone stops getting its reminder.`, { title: '🗑 Delete event', okText: 'Delete', danger: true })) return;
+try { await deleteDoc(doc(window.db, 'squads', sq.id, 'events', eid)); window._sqEvents = (window._sqEvents || []).filter(x => x.id !== eid); window.renderSquadEventBar(); window.openSquadEvents(); showToast('🗑 Event deleted'); }
+catch (er) { showToast('⚠️ Only squad admins can delete events.'); }
+};
+window.openSquadEvents = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+const sq = window.activeSquadDetails; if (!sq) return r;
+const ev = window._sqEvents || [];
+const rows = [...document.querySelectorAll('#sgPanel .glass-panel.rounded-2xl.p-3.flex.items-center')];
+rows.forEach((row, k) => {
+const e = ev[k]; if (!e || row.querySelector('[data-evdel]')) return;
+if (!(window.isSquadAdmin(sq) || e.byUid === window.uidNow())) return;
+row.insertAdjacentHTML('beforeend', `<button data-evdel onclick="window.deleteSquadEvent('${escapeHTML(e.id)}')" aria-label="Delete event" class="shrink-0 w-9 h-9 rounded-xl bg-red-500/15 border border-red-500/40 text-red-300 text-sm"><i class="fa-solid fa-trash"></i></button>`);
+});
+return r;
+};
+})(window.openSquadEvents);

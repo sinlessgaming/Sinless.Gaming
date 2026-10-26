@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
     
+    <script>try{if(localStorage.getItem('sg_fix_cache')==='1'){localStorage.removeItem('sg_fix_cache');if(indexedDB.databases){indexedDB.databases().then(function(l){l.forEach(function(d){if(d.name&&d.name.indexOf('firestore')===0)indexedDB.deleteDatabase(d.name);});});}}}catch(e){}</script>
     <link rel="modulepreload" href="app.js">
     <link rel="modulepreload" href="firebase-config.js">
     <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js">

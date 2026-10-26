@@ -3,7 +3,7 @@
 // - Opens instantly from the saved copy. A new version is downloaded whole, then used on the next open.
 // - Each update has a new CACHE name, so the newest files are fetched as soon as an update is uploaded.
 // - If there's no internet, it opens the last saved copy of the app instead of a blank page.
-const CACHE = 'sinless-gg-v59';
+const CACHE = 'sinless-gg-v60';
 const APP_FILES = ['./', './index.html', './tailwind.css', './styles.css', './app.js', './firebase-config.js', './manifest.json', './icon-192.png', './icon-512.png', './logo-96.png', './icon-180.png'];
 
 self.addEventListener('install', (event) => {
@@ -41,7 +41,9 @@ self.addEventListener('fetch', (event) => {
 // Tapping a phone alert opens (or focuses) the app
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || './';
+  let url = (event.notification.data && event.notification.data.url) || './';
+  const tag = event.notification.tag || '';
+  if (/^[A-Za-z0-9]{10,40}$/.test(tag) && url.indexOf('#') < 0) url += '#notif=' + tag;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) { if ('focus' in c) { try { c.postMessage({ sgOpen: url }); } catch (e) {} return c.focus(); } }
