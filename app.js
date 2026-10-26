@@ -753,9 +753,13 @@ showToast("📋 Link copied to clipboard!");
 };
 
 window.toggleGGPost = async function(postId) {
-const post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId || String(p.id) === String(postId));
+let post = (window.fypposts || []).find(p => p.id === postId || p.docId === postId || String(p.id) === String(postId))
+|| (window.findPost && window.findPost(postId)) || (window.profilePostsList || []).find(p => p && (p.id === postId || p.docId === postId));
+if (!post && window.db && !String(postId).startsWith('local_')) {
+try { const sn = await getDoc(doc(window.db, 'posts', postId)); if (sn.exists()) { post = { id: sn.id, docId: sn.id, ...sn.data() }; (window.postFetchCache = window.postFetchCache || {})[sn.id] = post; } } catch (e) {}
+}
 if (!post) {
-showToast("⚠️ Unable to interact with this post.");
+showToast("⚠️ This post was removed.");
 return;
 }
 
@@ -20042,12 +20046,12 @@ if (mine) { ctx.fillStyle = '#fca5a5'; ctx.font = '800 12px system-ui'; ctx.text
 };
 })(window.ludoInit);
 
-window.VIEW_RULES.repeatEveryMs = 7000;
+window.VIEW_RULES.repeatEveryMs = 5000;
 window.VIEW_RULES.maxPerStay = 200;
 setInterval(() => {   // Clips: the clip you're watching keeps counting too
 const box = document.getElementById('sgClips'); if (!box || box.classList.contains('hidden') || document.visibilityState !== 'visible') return;
 const c = (window.clipsList || [])[window.clipCur]; if (c && c.kind === 'post') window.addPostViews(c.id, 1);
-}, 7000);
+}, 5000);
 Object.keys(window.XP_RULES).forEach(k => { window.XP_RULES[k] = [window.XP_RULES[k][0], 1e9]; });
 window.savePostCloud = async function(payload) {
 let last;
@@ -20635,6 +20639,462 @@ return r;
 };
 })(window.renderAdminPush);
 
+window.fsSeasonNo = function(h) {
+const ids = new Set(h.comps.map(c => c.id));
+const ts = (window.tournamentsList || []).filter(t => t.hostId === window.uidNow() && ids.has(t.compId)).map(t => t.season || 0);
+const ti = (window._titlesCache || []).filter(x => x.hostUid === window.uidNow() && ids.has(x.compId)).map(x => x.season || 0);
+return Math.max(0, ...ts, ...ti) + 1;
+};
+window.mySquadsAdmin = () => (window.clansData || []).filter(s => s && (s.ownerUid === window.uidNow() || (s.adminUids || []).includes(window.uidNow())));
+window.fsState = null;
+window.openFullSeason = async function() {
+const h = window.myHost || await window.loadMyHost(true); if (!h) return;
+try { window._titlesCache = await window.loadTitles(); } catch (e) {}
+const leagues = h.comps.filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier), cups = h.comps.filter(c => c.kind === 'cup');
+const running = leagues.filter(c => { const t = window.latestOf(c.id, 'league'); return t && t.status !== 'finished'; });
+const base = window.dayStartOf(Date.now()) + window.DAY;
+const S = window.fsState = window.fsState || { season: window.fsSeasonNo(h), game: 'FC MOBILE', squad: (window.activeSquadForTournament || (window.mySquadsAdmin()[0] || {}).id || ''), prize: 'Bragging Rights', reg: window.dayStartOf(Date.now()), start: base + 2 * window.DAY, end: base + 30 * window.DAY,
+mode: 'open', size: Object.fromEntries(leagues.map(c => [c.id, 8])), h2h: Object.fromEntries(leagues.map(c => [c.id, c.h2h || '1x'])), cups: Object.fromEntries(cups.map(c => [c.id, !/champion/i.test(c.name)])), cupSize: Object.fromEntries(cups.map(c => [c.id, 16])), rules: '' };
+const f = 'w-full mt-0.5 bg-gg-900 border border-amber-500/30 rounded-lg px-2 py-2 text-[11px] text-white';
+const games = ['FC MOBILE', 'EA SPORTS FC', 'EFOOTBALL', 'DLS', 'FOOTBALL', 'CALL OF DUTY', 'OTHER GAMES'];
+const sq = window.mySquadsAdmin();
+const sizes = [4, 6, 8, 10, 12, 14, 16, 18, 20];
+const plan = window.fsPlacement();
+window.openPanel('🚀 Start a full season', `
+${running.length ? `<div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200">⚠️ Still running: ${running.map(c => escapeHTML(c.name)).join(', ')}. Those divisions are skipped. Finish them, then use 🔁 Next season for promotion & relegation.</div>` : ''}
+<p class="text-[11px] text-gray-400">This starts <b class="text-white">Season ${S.season}</b> of <b class="text-white">${escapeHTML(h.org)}</b>: every division at the same time, with one calendar.</p>
+<div class="grid grid-cols-2 gap-2">
+<label class="text-[10px] text-gray-400 font-bold">Game<select data-fs="game" class="${f}">${games.map(g => `<option ${S.game === g ? 'selected' : ''}>${g}</option>`).join('')}</select></label>
+<label class="text-[10px] text-gray-400 font-bold">Season no.<input data-fs="season" type="number" min="1" max="999" value="${S.season}" class="${f}"></label>
+</div>
+<label class="block text-[10px] text-gray-400 font-bold">Who can join<select data-fs="squad" class="${f}"><option value="">🌍 Anyone on SINLESS GG</option>${sq.map(s => `<option value="${escapeHTML(s.id)}" ${S.squad === s.id ? 'selected' : ''}>🛡️ Members of ${escapeHTML(s.name)}</option>`).join('')}</select></label>
+<label class="block text-[10px] text-gray-400 font-bold">Prize / trophy<input data-fs="prize" maxlength="60" value="${escapeHTML(S.prize)}" class="${f}"></label>
+<div class="grid grid-cols-3 gap-1.5">
+<label class="text-[9px] text-gray-400 font-bold">Registration opens<input data-fsd="reg" type="date" value="${window.dateInputVal(S.reg)}" class="${f}"></label>
+<label class="text-[9px] text-gray-400 font-bold">Season starts<input data-fsd="start" type="date" value="${window.dateInputVal(S.start)}" class="${f}"></label>
+<label class="text-[9px] text-gray-400 font-bold">Season ends<input data-fsd="end" type="date" value="${window.dateInputVal(S.end)}" class="${f}"></label>
+</div>
+<p class="text-[10px] font-black text-gray-300 uppercase tracking-wider pt-1">Divisions</p>
+${leagues.map(c => `<div class="glass-panel rounded-xl p-2.5 border border-cyan-500/20 ${running.includes(c) ? 'opacity-50' : ''}">
+<p class="text-[11px] font-black text-white">${['🥇', '🥈', '🥉'][c.tier - 1] || '🏅'} ${escapeHTML(c.name)} <span class="text-[9px] text-gray-500">Tier ${c.tier}</span></p>
+<div class="grid grid-cols-2 gap-1.5 mt-1"><label class="text-[9px] text-gray-400 font-bold">Players<select data-fss="${c.id}" class="${f}">${sizes.map(n => `<option value="${n}" ${S.size[c.id] === n ? 'selected' : ''}>${n} players</option>`).join('')}</select></label>
+<label class="text-[9px] text-gray-400 font-bold">Fixtures<select data-fsh="${c.id}" class="${f}"><option value="1x" ${S.h2h[c.id] !== '2x' ? 'selected' : ''}>Once</option><option value="2x" ${S.h2h[c.id] === '2x' ? 'selected' : ''}>Home & away</option></select></label></div>
+${S.mode === 'auto' && plan[c.id] ? `<p class="text-[10px] text-cyan-200 mt-1">${plan[c.id].length ? plan[c.id].map(p => escapeHTML(window.dnText(p))).join(' · ') : 'Nobody placed yet (open spots)'}</p>` : ''}</div>`).join('')}
+${cups.length ? `<p class="text-[10px] font-black text-gray-300 uppercase tracking-wider pt-1">Cups</p>${cups.map(c => `<div class="glass-panel rounded-xl p-2.5 border border-magenta/25 space-y-1">
+<label class="flex items-center gap-2 text-[11px] font-black text-white"><input data-fsc="${c.id}" type="checkbox" ${S.cups[c.id] ? 'checked' : ''} class="w-4 h-4 accent-pink-500"> 🏆 ${escapeHTML(c.name)}: run it this season (open registration)</label>
+<label class="text-[9px] text-gray-400 font-bold">Size<select data-fscs="${c.id}" class="${f}">${[4, 8, 16, 32, 64].map(n => `<option value="${n}" ${S.cupSize[c.id] === n ? 'selected' : ''}>${n} players (knockout)</option>`).join('')}</select></label>
+<p class="text-[9px] text-gray-500">Leave it off if players should qualify from the league tables (it then starts with 🔁 Next season).</p></div>`).join('')}` : ''}
+<p class="text-[10px] font-black text-gray-300 uppercase tracking-wider pt-1">Players</p>
+<label class="flex items-start gap-2 text-[11px] text-gray-200"><input type="radio" name="fsmode" value="open" ${S.mode === 'open' ? 'checked' : ''} onchange="window.fsRead(); window.fsState.mode='open'; window.openFullSeason()" class="mt-0.5"> <span><b class="text-white">Open registration</b><br><span class="text-[10px] text-gray-400">Players join the division they want. You can move them before it starts.</span></span></label>
+<label class="flex items-start gap-2 text-[11px] text-gray-200"><input type="radio" name="fsmode" value="auto" ${S.mode === 'auto' ? 'checked' : ''} ${S.squad ? '' : 'disabled'} onchange="window.fsRead(); window.fsState.mode='auto'; window.openFullSeason()" class="mt-0.5"> <span><b class="text-white">Place my squad members by points</b><br><span class="text-[10px] text-gray-400">${S.squad ? 'The best players (Top Rank points) go to the top division, the next ones lower down. Free spots stay open.' : 'Pick a squad above first.'}</span></span></label>
+<label class="block text-[10px] text-gray-400 font-bold">Rules (optional)<textarea data-fs="rules" rows="2" maxlength="1500" class="${f}" placeholder="e.g. 6-min halves, no lag excuses, screenshots for every result">${escapeHTML(S.rules)}</textarea></label>
+<button onclick="window.lockFullSeason()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs uppercase">🚀 Start Season ${S.season}</button>`);
+};
+window.fsRead = function() {
+const S = window.fsState; if (!S) return;
+document.querySelectorAll('[data-fs]').forEach(el => { const k = el.dataset.fs; S[k] = k === 'season' ? Math.max(1, parseInt(el.value) || 1) : el.value.trim(); });
+document.querySelectorAll('[data-fsd]').forEach(el => { const v = window.dateFromInput(el.value, el.dataset.fsd === 'end'); if (v) S[el.dataset.fsd] = v; });
+document.querySelectorAll('[data-fss]').forEach(el => { S.size[el.dataset.fss] = +el.value; });
+document.querySelectorAll('[data-fsh]').forEach(el => { S.h2h[el.dataset.fsh] = el.value; });
+document.querySelectorAll('[data-fsc]').forEach(el => { S.cups[el.dataset.fsc] = el.checked; });
+document.querySelectorAll('[data-fscs]').forEach(el => { S.cupSize[el.dataset.fscs] = +el.value; });
+if (!S.squad && S.mode === 'auto') S.mode = 'open';
+};
+window.fsPlacement = function() {
+const S = window.fsState, h = window.myHost; if (!S || S.mode !== 'auto' || !S.squad || !h) return {};
+const sq = (window.clansData || []).find(s => s.id === S.squad); if (!sq) return {};
+const pts = (tag) => { const p = window.profileFor(tag) || {}; return p.xp || 0; };
+const members = [...new Set(sq.members || [])].filter(t => t && !window.isBlocked(t)).sort((a, b) => pts(b) - pts(a));
+const out = {}; let i = 0;
+h.comps.filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier).forEach(c => { const n = S.size[c.id] || 8; out[c.id] = members.slice(i, i + n); i += n; });
+return out;
+};
+window.lockFullSeason = async function() {
+if (window._fsBusy) return;
+window.fsRead();
+const S = window.fsState, h = window.myHost; if (!S || !h) return;
+if (S.end < S.start) { showToast('⚠️ The season ends before it starts.'); return; }
+if (S.reg > S.start) { showToast('⚠️ Registration should open before the season starts.'); return; }
+const leagues = h.comps.filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier), cups = h.comps.filter(c => c.kind === 'cup' && S.cups[c.id]);
+const todo = leagues.filter(c => { const t = window.latestOf(c.id, 'league'); return !t || t.status === 'finished'; });
+if (!todo.length && !cups.length) { showToast('Every division is already running.'); return; }
+const place = window.fsPlacement();
+if (!await window.sgConfirm(`Start Season ${S.season} of ${h.org}?\n\n${todo.map(c => `• ${c.name}: ${S.size[c.id]} players${place[c.id] && place[c.id].length ? ` (${place[c.id].length} placed)` : ''}`).join('\n')}${cups.length ? '\n' + cups.map(c => `• ${c.name}: ${S.cupSize[c.id]}-player knockout`).join('\n') : ''}\n\n${window.dateInputVal(S.start)} → ${window.dateInputVal(S.end)}`, { title: '🚀 Full season', okText: 'Start season' })) return;
+window._fsBusy = true; let made = 0;
+const exists = async (id) => { if ((window.tournamentsList || []).some(t => t.id === id)) return true; try { return (await getDoc(doc(window.db, 'tournaments', id))).exists(); } catch (e) { return false; } };
+const common = { host: window.me(), game: S.game, prizePool: S.prize || 'Bragging Rights', squadId: S.squad || null, eliminated: [], hostId: window.uidNow(), hostOrg: h.org, season: S.season, status: 'active',
+startAt: S.start, endAt: S.end, regAt: S.reg, rules: S.rules || '', deadlineHrs: 24, coHosts: [], coHostUids: [], fullSeason: true };
+try {
+for (const c of todo) {
+const id = window.nsId(c.id, S.season); if (await exists(id)) continue;
+const n = S.size[c.id] || 8, placed = (place[c.id] || []).slice(0, n);
+const players = [...placed]; for (let i = 1; players.length < n; i++) players.push(`Club_${i}`);
+const t = { ...common, id, title: `${c.name} · Season ${S.season}`, format: 'LEAGUE', leagueH2H: S.h2h[c.id] || '1x', maxPlayers: n, players, matches: window.makeLeagueMatches(players, S.h2h[c.id] || '1x'),
+compId: c.id, compName: c.name, compKind: 'league', tier: c.tier };
+window.tournamentsList.unshift(t); await window.saveTournament(t, true); made++;
+placed.forEach(p => window.notifyTag(p, `⚽ You're in ${c.name} for Season ${S.season} of ${h.org}! Check My Matches.`));
+}
+for (const c of cups) {
+const id = window.nsId(c.id, S.season); if (await exists(id)) continue;
+const N = S.cupSize[c.id] || 16, cupStart = Math.min(S.end, S.start + 7 * window.DAY);
+const t = { ...common, id, title: `${c.name} · Season ${S.season}`, format: 'KNOCKOUT', maxPlayers: N, players: [], matches: window.makeKnockoutMatches([], N),
+compId: c.id, compName: c.name, compKind: 'cup', tier: 0, startAt: cupStart, endAt: S.end };
+window.tournamentsList.unshift(t); await window.saveTournament(t, true); made++;
+}
+window.fsState = null; window.closePanel();
+showToast(made ? `🚀 Season ${S.season} is live: ${made} competition${made === 1 ? '' : 's'}! Share it so players register.` : 'This season was already started.');
+window.renderHostDash();
+} catch (e) { console.warn(e); showToast('⚠️ Couldn’t start everything. Check your connection and try again; nothing is created twice.'); }
+finally { window._fsBusy = false; }
+};
+window.renderHostDash = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a);
+const box = document.getElementById('tourExtraBody'), h = window.myHost; if (!box || window.tourTab !== 'host' || !h || box.querySelector('[data-fsbtn]')) return r;
+const leagues = h.comps.filter(c => c.kind === 'league');
+const latest = leagues.map(c => window.latestOf(c.id, 'league'));
+const anyRunning = latest.some(t => t && t.status !== 'finished'), anyEver = latest.some(Boolean);
+if (!leagues.length || anyRunning) return r;
+const html = `<button data-fsbtn onclick="window.fsState=null; window.openFullSeason()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-xs uppercase shadow-lg">🚀 Start a full season · all ${leagues.length} divisions${anyEver ? ' (fresh start)' : ''}</button>
+${anyEver ? '' : `<p class="text-[10px] text-gray-400 text-center -mt-1">Sets up every division and cup at once with one calendar. After it, 🔁 Next season handles promotion & relegation.</p>`}`;
+const sys = [...box.children].find(el => /Your league system/i.test(el.textContent || '') && el.querySelector('[onclick*="editHostComps"]'));
+if (sys) sys.insertAdjacentHTML('afterend', html); else box.insertAdjacentHTML('afterbegin', html);
+return r;
+};
+})(window.renderHostDash);
+
+window.unseenViews = {};
+window.watchingNow = (id) => { const st = window.viewState[id]; if (st && (st.timer || st.interval)) return true; const box = document.getElementById('sgClips'); const c = box && !box.classList.contains('hidden') && (window.clipsList || [])[window.clipCur]; return !!(c && c.kind === 'post' && c.id === id); };
+window.addPostViews = function(postId, n = 1) {
+if (!postId || n <= 0) return;
+const post = window.findPost(postId); if (!post) return;
+const targetId = post.docId || post.id;
+window.unseenViews[targetId] = (window.unseenViews[targetId] || 0) + n;
+if (targetId && !String(targetId).startsWith('local_')) window.pendingViewSaves[targetId] = (window.pendingViewSaves[targetId] || 0) + n;
+};
+window.applySeenViews = function(id) {
+const n = window.unseenViews[id]; if (!n) return;
+const p = window.findPost(id); delete window.unseenViews[id];
+if (p) p.viewsCount = (p.viewsCount || 0) + n;
+};
+window.endViewStay = (function(b) { return function(id) { const r = b(id); setTimeout(() => window.applySeenViews(id), 50); return r; }; })(window.endViewStay);
+window.clipActivate = (function(b) { return function(i) { const prev = (window.clipsList || [])[window.clipCur]; const r = b(i); if (prev && prev.kind === 'post' && window.clipCur !== undefined && (window.clipsList[i] || {}).id !== prev.id) window.applySeenViews(prev.id); return r; }; })(window.clipActivate);
+window.closeClips = (function(b) { return function(...a) { const c = (window.clipsList || [])[window.clipCur]; const r = b.apply(this, a); if (c && c.kind === 'post') window.applySeenViews(c.id); return r; }; })(window.closeClips);
+window.flushViewSaves = function() {
+if (!window.db) return;
+const keep = {}, send = {};
+Object.entries(window.pendingViewSaves).forEach(([id, n]) => { if (n > 0) (window.watchingNow(id) && document.visibilityState === 'visible' ? keep : send)[id] = n; });
+window.pendingViewSaves = keep;
+Object.entries(send).forEach(([id, n]) => updateDoc(doc(window.db, 'posts', id), { viewsCount: increment(n) }).catch(() => {}));
+};
+
+window.renderArcade = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a);
+const card = document.querySelector('#playBody [data-gstreak]'); if (!card || !window.isSignedIn()) return r;
+const line = card.querySelector('p.text-\\[11px\\]'); if (!line) return r;
+try {
+const list = await window.topScoreList(), me = window.me().toLowerCase(), i = list.findIndex(c => (c.gamertag || '').toLowerCase() === me);
+let msg;
+if (i === 0) msg = '👑 You\'re #1 on the Top Rank. Keep playing to stay there!';
+else if (i > 0) { const gap = Math.max(1, Math.ceil((list[i - 1].score || 0) - (list[i].score || 0)) + 1); msg = `🎮 Play more for more points · you're ${window.formatCount(gap)} pts from #${i} on the Top Rank`; }
+else msg = '🎮 Play more for more points and climb the Top Rank';
+line.className = 'text-[11px] text-amber-100 font-bold'; line.textContent = msg;
+} catch (e) {}
+return r;
+};
+})(window.renderArcade);
+
+window.bookSquadMatchmakingFixture = (function(b) {
+return async function(...a) {
+const sq = window.activeSquadDetails; const before = sq ? (sq.matchmakingQueue || []).length : 0;
+const r = await b.apply(this, a);
+const s2 = window.activeSquadDetails;
+if (s2 && (s2.matchmakingQueue || []).length > before) {
+const me = window.meLower();
+(s2.members || []).filter(t => t && t.toLowerCase() !== me).slice(0, 80)
+.forEach(t => window.notifyTag(t, `⚔️ ${window.dnText(window.me())} posted a ${s2.game || 'match'} challenge in ${s2.name}. Tap to accept!`));
+}
+return r;
+};
+})(window.bookSquadMatchmakingFixture);
+window.acceptSquadChallenge = (function(b) {
+return async function(matchId) {
+const sq = window.activeSquadDetails, e = sq && (sq.matchmakingQueue || []).find(m => m.id === matchId);
+if (!e) { showToast('Someone already took this challenge.'); window.renderSquadMatchmaking && window.renderSquadMatchmaking(); return; }
+if (e.challenger.toLowerCase() === window.meLower()) return b(matchId);
+sq.matchmakingQueue = (sq.matchmakingQueue || []).filter(m => m.id !== matchId);
+try { await window.updateSquadCloud(sq, { matchmakingQueue: sq.matchmakingQueue }); } catch (er) {}
+window.notifyTag(e.challenger, `✅ ${window.dnText(window.me())} accepted your challenge in ${sq.name}! Check your messages.`);
+};
+})(window.acceptSquadChallenge);
+window._acceptOpen = window.acceptSquadChallenge;
+window.acceptSquadChallenge = async function(matchId) {
+const sq = window.activeSquadDetails, e = sq && (sq.matchmakingQueue || []).find(m => m.id === matchId);
+await window._acceptOpen(matchId);
+if (e && e.challenger.toLowerCase() !== window.meLower()) {
+window.closeSquadDetailsModal && window.closeSquadDetailsModal(); window.openDmModal(e.challenger);
+setTimeout(() => { const i = document.getElementById('dmInputText'); if (i) i.value = `Hey! I'll take your ${e.format} challenge from ${sq.name} ⚔️ When are you free?`; }, 400);
+}
+};
+window.cancelSquadChallenge = async function(matchId) {
+const sq = window.activeSquadDetails; if (!sq) return;
+sq.matchmakingQueue = (sq.matchmakingQueue || []).filter(m => m.id !== matchId);
+try { await window.updateSquadCloud(sq, { matchmakingQueue: sq.matchmakingQueue }, 'Challenge removed.'); } catch (e) {}
+window.renderSquadMatchmaking();
+};
+window.renderSquadMatchmaking = (function(b) {
+return function(...a) {
+const sq = window.activeSquadDetails;
+if (sq) sq.matchmakingQueue = (sq.matchmakingQueue || []).filter(m => !m.at || Date.now() - m.at < 3 * 864e5);   // old challenges fade after 3 days
+const r = b.apply(this, a);
+document.querySelectorAll('#squadRoomMsgsBox [onclick^="window.acceptSquadChallenge("]').forEach(btn => {
+const id = (btn.getAttribute('onclick').match(/'([^']+)'/) || [])[1], e = (sq.matchmakingQueue || []).find(m => m.id === id);
+if (e && e.challenger.toLowerCase() === window.meLower()) { btn.textContent = 'Cancel'; btn.className = 'px-3 py-1.5 bg-gg-900 border border-red-500/40 text-red-300 font-black text-[10px] rounded-xl uppercase'; btn.setAttribute('onclick', `window.cancelSquadChallenge('${id}')`); }
+});
+return r;
+};
+})(window.renderSquadMatchmaking);
+
+window.registerPushToken = async function(silent) {
+if (!window.isSignedIn() || !window.messaging || !('Notification' in window) || Notification.permission !== 'granted') return false;
+const cfg = await window.loadPushCfg(); if (!cfg.vapid) return false;
+try {
+const reg = await navigator.serviceWorker.ready;
+const token = await getToken(window.messaging, { vapidKey: cfg.vapid, serviceWorkerRegistration: reg });
+if (!token) return false;
+let last = 0; try { last = +localStorage.getItem('sg_push_at') || 0; } catch (e) {}
+if (localStorage.getItem('sg_push_token') !== token || localStorage.getItem('sg_push_uid') !== window.uidNow() || Date.now() - last > 12 * 3600e3) {
+await setDoc(doc(window.db, 'users', window.uidNow()), { fcmTokens: arrayUnion(token), pushOn: true, pushAt: Date.now() }, { merge: true });
+try { localStorage.setItem('sg_push_token', token); localStorage.setItem('sg_push_uid', window.uidNow()); localStorage.setItem('sg_push_at', String(Date.now())); } catch (e) {}
+}
+window._pushOk = true;
+return true;
+} catch (e) { if (!silent) console.warn('push token', e); window._pushOk = false; return false; }
+};
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') window.registerPushToken(true); });
+window.selfTestPush = async function() {
+if (!window.alertsEnabled()) await window._baseSetupPushNotifications26();
+const ok = await window.registerPushToken(false);
+if (!ok) { showToast(Notification.permission === 'denied' ? '🔕 Alerts are blocked. Phone Settings → Apps → Chrome → Notifications → allow sinlessgg.com' : '⚠️ Couldn’t turn on alerts on this phone yet.'); window.renderPushStatus(); return; }
+try {
+const ref = await addDoc(collection(window.db, 'notifications'), { toUid: window.uidNow(), fromUid: window.uidNow(), fromUser: window.me(), type: 'test', postId: null, text: 'Alerts are working 🎉', read: true, createdAt: serverTimestamp() });
+await window.pushPing(ref.id);
+showToast('📨 Sent! Lock your phone now; the alert arrives in a few seconds.');
+} catch (e) { showToast('⚠️ Test failed.'); }
+window.renderPushStatus();
+};
+window.renderPushStatus = function() {
+const list = document.getElementById('notifList'); if (!list) return;
+let bar = document.getElementById('sgPushBar');
+if (!bar) { bar = document.createElement('div'); bar.id = 'sgPushBar'; list.parentElement.insertBefore(bar, list); }
+const supported = 'Notification' in window && 'serviceWorker' in navigator, perm = supported ? Notification.permission : 'unsupported';
+const on = perm === 'granted' && window._pushOk !== false;
+bar.className = 'max-w-xl w-full mx-auto px-3 pt-3';
+bar.innerHTML = !supported ? '' : `<div class="rounded-2xl p-3 flex items-center gap-3 ${on ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-amber-500/10 border border-amber-500/40'}">
+<span class="text-2xl">${on ? '🔔' : '🔕'}</span><div class="flex-1 min-w-0"><p class="text-xs font-black text-white">${on ? 'Phone alerts are on' : perm === 'denied' ? 'Alerts are blocked on this phone' : 'Phone alerts are off'}</p>
+<p class="text-[10px] text-gray-300">${on ? 'You get alerts with sound & vibration even when the app is closed.' : perm === 'denied' ? 'Phone Settings → Apps → Chrome → Notifications → allow sinlessgg.com' : 'Turn them on to get messages, GGs and match alerts when the app is closed.'}</p></div>
+<button onclick="window.selfTestPush()" class="shrink-0 px-3 py-2 rounded-xl text-[10px] font-black ${on ? 'bg-gg-900 border border-emerald-500/40 text-emerald-300' : 'bg-amber-400 text-slate-950'}">${on ? 'Test' : 'Turn on'}</button></div>`;
+};
+window.openNotifications = (function(b) { return function(...a) { const r = b.apply(this, a); window.renderPushStatus(); window.registerPushToken(true).then(() => window.renderPushStatus()); return r; }; })(window.openNotifications);
+setTimeout(() => {
+if (!window.isSignedIn() || !('Notification' in window) || Notification.permission !== 'default') return;
+try { if (+localStorage.getItem('sg_push_ask') > Date.now() - 3 * 864e5) return; localStorage.setItem('sg_push_ask', String(Date.now())); } catch (e) {}
+window.islandShow(`<span class="ico pop">🔔</span><span class="txt">Get alerts on your phone<span class="sub">Messages, GGs & your matches</span></span><button class="act" onclick="window.islandHide(); window.setupPushNotifications()">Turn on</button>`, 'info', 9000);
+}, 20000);
+
+window.withStallGuard = function(run, onP) {
+return new Promise((resolve, reject) => {
+let last = Date.now(), pct = 0, done = false;
+const fin = (fn, v) => { if (done) return; done = true; clearInterval(iv); fn(v); };
+const iv = setInterval(() => {
+if (window._postCancel) return fin(reject, new Error('cancelled'));
+const idle = Date.now() - last;
+if ((pct < 100 && idle > 45000) || (pct >= 100 && idle > 120000)) fin(reject, new Error('stalled'));
+}, 2000);
+run((p) => { last = Date.now(); pct = p; onP && onP(p); }).then(v => fin(resolve, v), e => fin(reject, e));
+});
+};
+['cloudinary', 'imagekit', 'b2'].forEach(h => { const f = window.MEDIA_HOSTS[h]; window.MEDIA_HOSTS[h] = (file, onP) => window.withStallGuard((p) => f(file, p), onP); });
+window.uploadToCloudinary = (function(b) {
+return async function(...a) {
+try { return await b.apply(this, a); }
+catch (e) { if (/cancelled/.test(e.message || '')) throw new Error('Cancelled'); if (/stalled/.test(e.message || '')) throw new Error('Your connection is too slow right now. Try again on better internet or a shorter video.'); throw e; }
+};
+})(window.uploadToCloudinary);
+window.postStatus.progress = (function(b) {
+return function(p) {
+const r = b.call(this, p);
+const isl = document.querySelector('#sgIsland .isl');
+if (isl && !isl.querySelector('[data-pcancel]') && isl.querySelector('.ring')) isl.insertAdjacentHTML('beforeend', `<button data-pcancel onclick="window._postCancel=true; window.islandHide();" aria-label="Cancel" class="act" style="padding:6px 10px;background:rgba(255,255,255,.12);color:#fff">✕</button>`);
+const sub = isl && isl.querySelector('.sub'); if (sub && p >= 92) sub.textContent = 'Almost there… finishing up';
+return r;
+};
+})(window.postStatus.progress);
+window.postStatus.start = (function(b) { return function(...a) { window._postCancel = false; return b.apply(this, a); }; })(window.postStatus.start);
+window.postStatus.fail = (function(b) { return function(msg) { if (/cancel/i.test(msg || '')) { window._postCancel = false; window.islandHide(); document.getElementById('createPostModal')?.classList.remove('hidden'); return; } return b.call(this, msg); }; })(window.postStatus.fail);
+
+(function compactIsland() {
+const st = document.createElement('style'); st.id = 'sgIslandCss2';
+st.textContent = `
+#sgIsland{width:max-content;max-width:min(90vw,380px);top:calc(env(safe-area-inset-top,0px) + 8px)}
+#sgIsland .isl{gap:9px;padding:6px 12px 8px 6px;border-radius:999px;background:linear-gradient(rgba(6,7,12,.94),rgba(6,7,12,.94)) padding-box,linear-gradient(120deg,var(--a),var(--b)) border-box;border-width:1px;box-shadow:0 10px 26px -10px rgba(0,0,0,.7),0 0 18px -8px var(--a)}
+#sgIsland .ico{width:28px;height:28px;border-radius:999px;font-size:14px}
+#sgIsland .txt{font-size:12.5px;line-height:1.3;font-weight:650;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#sgIsland .sub{font-size:10.5px}
+#sgIsland .thumb{width:30px;height:30px;border-radius:999px}
+#sgIsland .ring,#sgIsland .ring svg{width:28px;height:28px}
+#sgIsland .ring b{font-size:8px}
+#sgIsland .act{padding:5px 11px;font-size:11px}
+#sgIsland .bar{left:18px;right:18px;bottom:2.5px;height:2px}`;
+(document.head || document.documentElement).appendChild(st);
+})();
+
+(function clipsCss() {
+const st = document.createElement('style');
+st.textContent = `#sgClips [data-clip] button span.w-11{width:31px;height:31px;font-size:13px}
+#sgClips [data-clip] button span.w-11 + span{font-size:9px}
+#sgClips [data-clip] .flex-col.gap-4{gap:.7rem}
+#sgClips .sg-wordmark{font:800 13px/1 system-ui,-apple-system,'Segoe UI',sans-serif;letter-spacing:.3px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+#sgClips .sg-wordmark b{background:linear-gradient(90deg,#ff2d95,#22d3ee);-webkit-background-clip:text;background-clip:text;color:transparent}
+#sgClips .sg-follow{margin-left:6px;padding:3px 10px;border-radius:999px;font:800 10px system-ui;color:#fff;background:linear-gradient(90deg,#22d3ee,#d946ef);vertical-align:middle}
+#sgClips .sg-follow.on{background:rgba(255,255,255,.15)}`;
+document.head.appendChild(st);
+})();
+window.clipsDecorate = function() {
+const box = document.getElementById('sgClips'); if (!box) return;
+const hint = [...box.querySelectorAll(':scope > p')].find(p => /Clips/.test(p.textContent));
+if (hint && !hint.querySelector('.sg-wordmark')) { hint.innerHTML = '<span class="sg-wordmark">Sinless <b>GG</b></span>'; hint.style.top = '1.15rem'; }
+box.querySelectorAll('[data-clip]:not([data-fol])').forEach(s => {
+s.setAttribute('data-fol', '1');
+const c = (window.clipsList || [])[+s.getAttribute('data-clip')]; if (!c || c.kind !== 'post' || !c.p || !window.isSignedIn()) return;
+const tag = c.p.user; if (!tag || tag.toLowerCase() === window.meLower()) return;
+const nameP = s.querySelector('.absolute.left-3 p'); if (!nameP) return;
+const on = window.amFollowing && window.amFollowing(tag);
+nameP.insertAdjacentHTML('beforeend', `<button class="sg-follow ${on ? 'on' : ''}" onclick="event.stopPropagation(); window.toggleFollowUser('${escapeHTML(tag)}'); this.classList.toggle('on'); this.textContent=this.classList.contains('on')?'Following':'Follow'">${on ? 'Following' : 'Follow'}</button>`);
+});
+};
+window.openClips = (function(b) { return function(...a) { const r = b.apply(this, a); window.clipsDecorate(); return r; }; })(window.openClips);
+window.appendClips = (function(b) { return function(...a) { const r = b.apply(this, a); window.clipsDecorate(); return r; }; })(window.appendClips);
+
+window.SNL_LADDERS = { 4: 14, 9: 31, 21: 42, 36: 44, 51: 67, 71: 91 };
+window.SNL_SNAKES = { 16: 6, 25: 5, 34: 12, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 74: 53, 87: 24, 89: 68, 93: 73, 95: 75, 97: 61, 99: 41 };
+window.towerLevel = (function(b) {
+return function(g) {
+const carry = g.carryOne || 0;
+b(g);
+const L = g.level;
+g.balls = 5 + (L >= 4 ? 1 : 0) + (L >= 8 ? 1 : 0) + Math.min(2, carry);   // 5–7 shots a level, plus up to 2 saved
+};
+})(window.towerLevel);
+window.towerInit = (function(b) {
+return function(g) {
+b(g);
+const up = g.update;
+g.update = (dt) => { const was = g.cleared, left = g.balls; up(dt); if (!was && g.cleared) g.carryOne = Math.min(2, left || 0); };
+};
+})(window.towerInit);
+window.GAMES.tower.desc = 'Drag to aim, let go to fire. 5+ shots a level, and shots you don\'t use carry over. Knock everything off the platform!';
+window.GAMES.snakes.desc = 'Roll, climb the ladders, dodge the (many) snakes. Land exactly on 100 to win! Up to 10 players online.';
+
+window.fetchJsonT = async (u, ms) => { const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms); try { const r = await fetch(u, { signal: ac.signal }); if (!r.ok) throw new Error('bad'); return await r.json(); } finally { clearTimeout(t); } };
+window.fetchJsonRelay = async function(url) {
+const push = await window.loadPushCfg().catch(() => ({}));
+if (push && push.url && url.startsWith(window.FPL)) { try { return await window.fetchJsonT(push.url + '/fpl/' + url.slice(window.FPL.length), 20000); } catch (e) {} }
+const proxies = ['https://api.allorigins.win/raw?url=' + encodeURIComponent(url), 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), 'https://corsproxy.io/?url=' + encodeURIComponent(url)];
+try { return await window.fetchJsonT(url, 12000); } catch (e) {}
+try { return await Promise.any(proxies.map(u => window.fetchJsonT(u, 30000))); } catch (e) { throw new Error('offline'); }
+};
+
+window.STICKERS = ['1f600', '1f602', '1f923', '1f60d', '1f970', '1f618', '1f60e', '1f929', '1f973', '1f914', '1f92f', '1f644', '1f62c', '1f97a', '1f62d', '1f621', '1f631', '1f480', '1f440', '1f525',
+'1f4af', '2764_fe0f', '1f494', '1f389', '1f38a', '2728', '1f44d', '1f44e', '1f44f', '1f64f', '1f4aa', '1f91d', '1f44b', '270c_fe0f', '1f918', '1f64c', '1f60b', '1f61c', '1f917', '1f92b',
+'1f634', '1f924', '1f975', '1f976', '1f92e', '1f921', '1f47b', '1f916', '1f4a9', '1f648', '1f680', '1f4b8', '1f451', '1f3c6', '26bd', '1f3ae', '1f3af', '1f4a5', '1f9e0', '1f60f'];
+window.stickerUrl = (cp) => `https://fonts.gstatic.com/s/e/notoemoji/latest/${cp}/512.gif`;
+window.MEDIA_OK = /^https:\/\/(fonts\.gstatic\.com\/s\/e\/notoemoji\/|media\d*\.tenor\.com\/|res\.cloudinary\.com\/|ik\.imagekit\.io\/|f\d+\.backblazeb2\.com\/|[\w-]+\.[\w-]+\.workers\.dev\/f\/)[^\s"'<>]+$/;
+window.GIF_CFG = { tenor: '' };
+window.loadGifCfg = async function() { if (window._gifAt && Date.now() - window._gifAt < 30 * 60000) return window.GIF_CFG; try { const s = await getDoc(doc(window.db, 'config', 'gif')); if (s.exists()) window.GIF_CFG = { tenor: s.data().tenor || '' }; } catch (e) {} window._gifAt = Date.now(); return window.GIF_CFG; };
+window.sendPickedMedia = function(inputId, kind, url) {
+const inp = document.getElementById(inputId); if (!inp || !window.MEDIA_OK.test(url)) return;
+inp.value = `[${kind}]${url}`;
+inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+setTimeout(() => { if (inp.value.startsWith('[' + kind + ']')) { const btn = inp.parentElement && [...inp.parentElement.querySelectorAll('button')].find(b => /paper-plane|send|Post|Reply/i.test(b.innerHTML)); btn && btn.click(); } }, 150);
+window.closePanel && window.closePanel();
+};
+window.openStickerPicker = async function(inputId, tab) {
+window._pickFor = inputId; tab = tab || window._pickTab || 'sticker'; window._pickTab = tab;
+const cfg = await window.loadGifCfg();
+const tabs = `<div class="flex gap-2">${[['sticker', '🎨 Stickers'], ['gif', '🎞️ GIFs']].map(([k, l]) => `<button onclick="window.openStickerPicker('${inputId}','${k}')" class="flex-1 py-2 rounded-xl text-xs font-black ${tab === k ? 'bg-white text-slate-950' : 'bg-gg-900 text-gray-400'}">${l}</button>`).join('')}</div>`;
+const phone = `<label class="block w-full py-2.5 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-xs font-black text-center cursor-pointer">📱 Send a GIF from my phone<input type="file" accept="image/gif" class="hidden" onchange="window.sendPhoneGif(this)"></label>`;
+const body = tab === 'sticker'
+? `<div class="grid grid-cols-5 gap-2">${window.STICKERS.map(cp => `<button onclick="window.sendPickedMedia('${inputId}','sticker','${window.stickerUrl(cp)}')" class="aspect-square rounded-xl bg-gg-900/60 p-1.5"><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/${cp}/512.webp" alt="" loading="lazy" class="w-full h-full object-contain" onerror="this.closest('button').remove()"></button>`).join('')}</div>
+<p class="text-[9px] text-gray-500 text-center">Animated emoji: Noto Emoji by Google (CC BY 4.0)</p>`
+: `${cfg.tenor ? `<input id="gifQ" placeholder="Search GIFs…" oninput="clearTimeout(window._gifT); window._gifT=setTimeout(window.searchGifs, 350)" class="w-full bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-sm text-white"><div id="gifGrid" class="grid grid-cols-2 gap-2"><p class="col-span-2 text-xs text-gray-500 text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i></p></div><p class="text-[9px] text-gray-500 text-center">Powered by Tenor · safe search on</p>` : `<p class="text-[11px] text-gray-400 text-center py-2">GIF search is coming soon. You can send any GIF from your phone 👇</p>`}${phone}`;
+window.openPanel(tab === 'sticker' ? '🎨 Stickers' : '🎞️ GIFs', tabs + body);
+if (tab === 'gif' && cfg.tenor) window.searchGifs();
+};
+window.searchGifs = async function() {
+const grid = document.getElementById('gifGrid'); if (!grid) return;
+const q = ((document.getElementById('gifQ') || {}).value || '').trim(), k = encodeURIComponent(window.GIF_CFG.tenor);
+const u = q ? `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(q)}&key=${k}&client_key=sinlessgg&limit=30&media_filter=tinygif,gif&contentfilter=high` : `https://tenor.googleapis.com/v2/featured?key=${k}&client_key=sinlessgg&limit=30&media_filter=tinygif,gif&contentfilter=high`;
+try {
+const j = await (await fetch(u)).json();
+const items = (j.results || []).map(r => ({ small: (r.media_formats.tinygif || {}).url, big: ((r.media_formats.gif || r.media_formats.tinygif) || {}).url })).filter(x => x.small && window.MEDIA_OK.test(x.small));
+grid.innerHTML = items.length ? items.map(x => `<button onclick="window.sendPickedMedia(window._pickFor,'gif','${escapeHTML(x.small)}')" class="rounded-xl overflow-hidden bg-gg-900"><img src="${escapeHTML(x.small)}" alt="" loading="lazy" class="w-full h-28 object-cover"></button>`).join('') : `<p class="col-span-2 text-xs text-gray-500 text-center py-6">No GIFs found.</p>`;
+} catch (e) { grid.innerHTML = `<p class="col-span-2 text-xs text-gray-500 text-center py-6">Couldn't load GIFs.</p>`; }
+};
+window.sendPhoneGif = async function(inp) {
+const f = inp.files && inp.files[0]; inp.value = ''; if (!f) return;
+if (f.size > 8 * 1024 * 1024) { showToast('That GIF is over 8 MB.'); return; }
+showToast('🎞️ Uploading GIF…');
+try { const up = await window.uploadToCloudinary(f); window.sendPickedMedia(window._pickFor, 'gif', up.url.split('#')[0]); } catch (e) { showToast('⚠️ GIF failed: ' + e.message); }
+};
+window.addPickerButtons = function() {
+[['dmInputText'], ['squadSubRoomInput'], ['commentInputText'], ['postDetailReplyInput'], ['sgCmtInput']].forEach(([id]) => {
+const inp = document.getElementById(id); if (!inp || inp.previousElementSibling?.hasAttribute('data-picker')) return;
+inp.insertAdjacentHTML('beforebegin', `<button type="button" data-picker onclick="window.openStickerPicker('${id}')" title="Stickers & GIFs" class="w-10 h-10 shrink-0 rounded-full bg-gg-800 border border-amber-400/30 text-lg flex items-center justify-center">😊</button>`);
+});
+};
+window.MARK_RE = /\[(sticker|gif)\](https:\/\/\S+)/;
+window.renderStickers = function(root) {
+const w = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, { acceptNode: n => /\[(sticker|gif)\]https/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+const nodes = []; while (w.nextNode()) nodes.push(w.currentNode);
+nodes.forEach(n => {
+const m = n.nodeValue.match(window.MARK_RE); if (!m) return;
+const url = m[2].replace(/[’”]/g, ''), kind = m[1];
+let el = n.parentElement; if (!el) return;
+while (el.parentElement && el.parentElement.textContent.trim() === el.textContent.trim() && !el.parentElement.id) el = el.parentElement;
+const whole = el.textContent.trim() === m[0].trim() || el.textContent.trim() === m[0].trim().replace(/[’”]/g, '');
+if (whole && window.MEDIA_OK.test(url) && el.tagName !== 'INPUT' && !el.closest('input,textarea')) {
+el.innerHTML = `<img src="${escapeHTML(url)}" alt="${kind}" loading="lazy" class="${kind === 'sticker' ? 'w-24 h-24' : 'max-h-48 rounded-xl'} object-contain" style="max-width:100%">`;
+const bub = el.closest('.rounded-2xl'); if (bub && kind === 'sticker') { bub.style.background = 'transparent'; bub.style.border = '0'; bub.style.boxShadow = 'none'; }
+} else n.nodeValue = n.nodeValue.replace(window.MARK_RE, kind === 'sticker' ? '🎨 Sticker' : '🎞️ GIF');
+});
+};
+let _stkT = 0;
+new MutationObserver((recs) => {
+let hit = false; for (const r of recs) { for (const n of r.addedNodes) { const t = n.nodeType === 3 ? n.nodeValue : n.nodeType === 1 ? n.textContent : ''; if (t && t.indexOf(']https') > -1) { hit = true; break; } } if (hit) break; }
+if (hit) window._stkHit = true;
+if (_stkT) return; _stkT = requestAnimationFrame(() => { _stkT = 0; if (window._stkHit) { window._stkHit = false; window.renderStickers(document.body); } window.addPickerButtons(); });
+}).observe(document.documentElement, { childList: true, subtree: true });
+setTimeout(window.addPickerButtons, 2000);
+window.notify = (function(b) { return function(toUid, type, extra = {}) { if (extra && extra.text && window.MARK_RE.test(extra.text)) extra = { ...extra, text: extra.text.replace(window.MARK_RE, (a, k) => k === 'sticker' ? 'sent a sticker 🎨' : 'sent a GIF 🎞️') }; return b(toUid, type, extra); }; })(window.notify);
+window.renderAdminPush = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a), box = document.getElementById('adminBody'); if (!box || box.querySelector('[data-gifadm]')) return r;
+window._gifAt = 0; const cfg = await window.loadGifCfg();
+box.insertAdjacentHTML('beforeend', `<div data-gifadm class="glass-panel rounded-2xl p-3.5 border border-amber-400/25 space-y-2">
+<p class="text-sm font-black text-white">🎞️ GIF search (Tenor)</p>
+<p class="text-[11px] text-gray-400">Free key from Google: console.cloud.google.com → APIs → enable "Tenor API" → Credentials → Create API key → restrict it to websites: sinlessgg.com/*. This key is meant for apps, so it's safe here.</p>
+<input id="gifKey" value="${escapeHTML(cfg.tenor)}" placeholder="AIza…" class="w-full bg-gg-900 border border-amber-400/30 rounded-xl px-3 py-2.5 text-xs text-white">
+<button onclick="window.saveGifKey()" class="w-full py-2.5 rounded-xl bg-amber-400 text-slate-950 text-xs font-black uppercase">Save GIF key</button></div>`);
+return r;
+};
+})(window.renderAdminPush);
+window.saveGifKey = async function() {
+const k = (document.getElementById('gifKey').value || '').trim();
+if (k && !/^[\w-]{20,60}$/.test(k)) { showToast('That doesn’t look like a Google API key.'); return; }
+try { await setDoc(doc(window.db, 'config', 'gif'), { tenor: k }); window._gifAt = 0; showToast('✅ GIF search saved'); } catch (e) { showToast('⚠️ Couldn’t save. Paste the new Firebase rules first.'); }
+};
 
 window._baseWeekChallenges20 = function(wk = window.weekKey(Date.now())) {
 const seed = Math.floor(new Date(wk + 'T00:00:00Z').getTime() / (7 * 86400000));
@@ -20643,4 +21103,33 @@ if (!L) return out;
 for (let i = 0; out.length < 4 && i < L * 8; i++) { const c = pool[(((seed * 5 + i * 7) % L) + L) % L]; if (c && !out.includes(c)) out.push(c); }
 for (let k = 0; out.length < Math.min(4, L) && k < L; k++) { const c = pool[(((seed + k) % L) + L) % L]; if (!out.includes(c)) out.push(c); }
 return out;
+};
+
+window.viewedAt = (() => { try { return JSON.parse(localStorage.getItem('sg_viewed_at') || '{}'); } catch (e) { return {}; } })();
+(function migrateViewed() { const now = Date.now(); let ch = false; (window.viewedPosts || new Set()).forEach(id => { if (!window.viewedAt[id]) { window.viewedAt[id] = now; ch = true; } }); if (ch) try { localStorage.setItem('sg_viewed_at', JSON.stringify(window.viewedAt)); } catch (e) {} })();
+window.seenRecently = (id) => { const t = window.viewedAt[id]; return !!t && Date.now() - t < 3 * 864e5; };
+window.markViewed = (function(b) {
+return function(id) {
+const r = b(id); window.viewedAt[id] = Date.now();
+clearTimeout(window._vaT); window._vaT = setTimeout(() => { const e = Object.entries(window.viewedAt).sort((a, c) => c[1] - a[1]).slice(0, 3000); window.viewedAt = Object.fromEntries(e); try { localStorage.setItem('sg_viewed_at', JSON.stringify(window.viewedAt)); } catch (er) {} }, 800);
+return r;
+};
+})(window.markViewed);
+window.newFeedMix = (function(b) {
+return function(...a) {
+[...window.viewedPosts].forEach(id => { if (!window.seenRecently(id)) window.viewedPosts.delete(id); });
+const r = b.apply(this, a);
+if (window.feedMix) window.feedMix.seenPosts = new Set([...window.feedMix.seenPosts].filter(window.seenRecently));
+return r;
+};
+})(window.newFeedMix);
+if (window.feedMix && window.feedMix.seenPosts) window.feedMix.seenPosts = new Set([...window.feedMix.seenPosts].filter(window.seenRecently));
+window.feedDecide = function(id) {
+const mix = window.feedMix;
+if (mix.include.has(id)) return true;
+if (mix.exclude.has(id)) return false;
+const p = window.findPost(id);
+const ok = !!p && (window.isFreshMine(p) || !window.seenRecently(id));
+(ok ? mix.include : mix.exclude).add(id);
+return ok;
 };
