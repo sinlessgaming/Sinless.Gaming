@@ -21441,12 +21441,12 @@ window.sgPushBack = function(kind) { try { history.pushState({ sgBack: kind }, '
 window.sgDropBack = function(kind) {
 const i = window.sgBackStack.lastIndexOf(kind); if (i < 0) return;
 window.sgBackStack.splice(i, 1);
-if (history.state && history.state.sgBack === kind && i === window.sgBackStack.length) { window._sgIgnorePop = true; try { history.back(); } catch (e) {} setTimeout(() => { window._sgIgnorePop = false; }, 400); }
+try { if (history.state && history.state.sgBack === kind) history.replaceState({ sgDead: 1 }, ''); } catch (e) {}
 };
 window.addEventListener('popstate', () => {
 if (window._sgIgnorePop) return;
 while (window.sgBackStack.length && window.sgIsOpen && !window.sgIsOpen(window.sgBackStack[window.sgBackStack.length - 1])) window.sgBackStack.pop();
-const kind = window.sgBackStack.pop(); if (!kind) return;
+const kind = window.sgBackStack.pop(); if (!kind) { if (history.state && history.state.sgDead) { try { history.back(); } catch (e) {} } return; }
 window._sgFromBack = true;
 try {
 if (kind === 'clips') window.closeClips();
@@ -21516,3 +21516,52 @@ try { const url = new URL(u, location.href); if (url.hash) { if (location.hash =
 });
 window.sgIsOpen = (k) => { const id = { clips: 'sgClips', panel: 'sgPanel', post: 'postDetailModal', profile: 'userProfileModal', squad: 'squadDetailsModal', dm: 'dmModal' }[k]; const el = id && document.getElementById(id); return !!(el && !el.classList.contains('hidden') && el.offsetParent !== null || (el && k === 'clips' && !el.classList.contains('hidden'))); };
 (function() { const s = document.createElement('style'); s.textContent = '#sgClips .cv-top{justify-content:flex-start;padding-left:96px}'; document.head.appendChild(s); })();
+
+(function clipsV3() {
+if (!document.getElementById('sgOrbitron')) { const l = document.createElement('link'); l.id = 'sgOrbitron'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&display=swap'; document.head.appendChild(l); }
+const s = document.createElement('style');
+s.textContent = `
+#sgClips .cv-top{justify-content:flex-start!important;padding-left:14px!important;padding-right:96px}
+#sgClips .cv-top .cv-tr{left:auto!important;right:10px;flex-direction:row!important}
+#sgClips .cv-word{font-family:'Orbitron',system-ui,sans-serif!important;font-weight:900!important;font-size:14px!important;letter-spacing:1.5px!important}
+#sgClips .cv-card{left:0;right:0;bottom:0;border-radius:0;border:0;padding:40px 12px calc(env(safe-area-inset-bottom,0px) + 10px);-webkit-backdrop-filter:none;backdrop-filter:none;
+background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.55) 45%,rgba(0,0,0,.8));pointer-events:none}
+#sgClips .cv-card > *{pointer-events:auto}
+#sgClips .cv-title,#sgClips .cv-ch{text-shadow:0 1px 4px rgba(0,0,0,.8)}
+#sgClips .cv-title{font-size:15px}
+#sgClips .cv-ch{color:#d4d4d8}
+#sgClips .cv-line{height:1.5px;margin:8px 0;opacity:.8}
+#sgClips .cv-btns{gap:7px}
+#sgClips .cv-b{height:50px;border-radius:14px;background:rgba(255,255,255,.09);border:1px solid rgba(168,85,247,.55);box-shadow:0 0 10px -5px rgba(255,45,149,.8);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);overflow:hidden;font-size:10px}
+#sgClips .cv-b .ic{font-size:18px;line-height:1;height:20px;display:flex;align-items:center;justify-content:center}
+#sgClips .cv-b.gg{border-color:rgba(255,77,141,.6)}
+#sgClips .cv-b.gg.on{background:rgba(255,45,149,.18);border-color:#ff4d8d}
+#sgClips .cv-b.gg .ic i{color:#ff4d8d}
+#sgClips .cv-b.gg.on .ic{filter:drop-shadow(0 0 6px rgba(255,45,149,.9))}`;
+document.head.appendChild(s);
+})();
+window.cvSync = function(s) {
+const card = s && s.querySelector('.cv-card'); if (!card) return;
+const col = s.querySelector(':scope > .absolute.right-3'); const btns = col ? [...col.querySelectorAll(':scope > button')] : [];
+const gg = btns.find(b => /👍|💖|🤍/.test((b.querySelector('span') || {}).textContent || ''));
+const on = !!(gg && /💖/.test(gg.textContent)), cnt = gg ? ((gg.querySelectorAll('span')[1] || {}).textContent || '').trim() : '';
+const gb = card.querySelector('.cv-b.gg');
+if (gb) { gb.classList.toggle('on', on); gb.innerHTML = `<span class="ic">${on ? '💘' : '<i class="fa-regular fa-heart"></i>'}</span><span class="lab">GG${/^[\d.]+[KM]?$/.test(cnt) ? ' ' + cnt : ''}</span>`; }
+const sv = btns.find(b => /Save|Saved/.test(b.textContent || '')), sb = card.querySelector('.cv-b.save');
+if (sv && sb) { const so = /Saved|✅|🔖/.test(sv.textContent); sb.innerHTML = `<span class="ic"><i class="${so ? 'fa-solid' : 'fa-regular'} fa-bookmark"></i></span><span class="lab">${so ? 'Saved' : 'Save'}</span>`; }
+card.querySelectorAll('.cv-b:not(.gg):not(.save)').forEach(b => { const i = b.querySelector(':scope > i'); if (i) { const sp = document.createElement('span'); sp.className = 'ic'; b.insertBefore(sp, i); sp.appendChild(i); } });
+};
+(function() { const s = document.createElement('style'); s.textContent = '#sgClips .cv-word{filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.95)) drop-shadow(0 0 6px rgba(168,85,247,.75))!important}'; document.head.appendChild(s); })();
+window.feedSpecialOk = (function(b) { return function(k) { return k === 'tags' ? false : b(k); }; })(window.feedSpecialOk);
+window.cvFit = function(s) {
+const v = s.querySelector(':scope > video[data-clip-video]'), im = s.querySelector(':scope > img');
+const fit = (w, h, el) => { if (!w || !h) return; const R = (window.innerHeight || 800) / (window.innerWidth || 400), r = h / w, cut = 1 - Math.min(r / R, R / r); el.classList.toggle('cv-fill', cut <= 0.10); };
+if (v) { if (v.videoWidth) fit(v.videoWidth, v.videoHeight, v); else v.addEventListener('loadedmetadata', () => fit(v.videoWidth, v.videoHeight, v), { once: true }); }
+if (im) { if (im.naturalWidth) fit(im.naturalWidth, im.naturalHeight, im); else im.addEventListener('load', () => fit(im.naturalWidth, im.naturalHeight, im), { once: true }); }
+};
+window.uploadToCloudinary = (function(b) {
+return async function(...a) {
+try { return await b.apply(this, a); }
+catch (e) { if (/B2: B2 sign-in failed/i.test(e.message || '')) throw new Error('Video storage is not ready right now. Try again in a little while, or post a shorter video.'); throw e; }
+};
+})(window.uploadToCloudinary);
