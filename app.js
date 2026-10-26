@@ -9851,20 +9851,21 @@ box.innerHTML = Object.entries(window.GAMES).map(([id, g]) => `
 <button onclick="window.openGame('${id}')" class="w-full py-3 bg-gradient-to-r ${g.color} text-slate-950 font-black text-sm uppercase tracking-wider">▶ Play</button>
 </div>`).join('') + `
 <div class="glass-panel rounded-2xl overflow-hidden border border-amber-500/25">
-<div class="flex items-center justify-between px-3 pt-3"><p class="text-xs font-black text-white uppercase tracking-wider">🏆 This week's best</p>
+<div class="flex items-center justify-between px-3 pt-3"><p class="text-xs font-black text-white uppercase tracking-wider">${window.boardSpan === 'all' ? '♾️ All-time best' : "🏆 This week's best"}</p>
 <div class="flex gap-1">${Object.entries(window.GAMES).map(([id, g]) => `<button onclick="window.arcadeBoard='${id}'; window.renderArcade()" class="px-2.5 py-1 rounded-full text-[10px] font-black ${window.arcadeBoard === id ? 'bg-white text-slate-950' : 'bg-gg-900 text-gray-400'}">${g.emoji} ${g.name}</button>`).join('')}</div></div>
+<div class="flex gap-1.5 px-3 pt-2.5">${[['week', '📅 This week'], ['all', '♾️ All time']].map(([k, l]) => `<button data-span="${k}" onclick="window.boardSpan='${k}'; window.renderArcade()" class="flex-1 py-1.5 rounded-xl text-[11px] font-black ${(window.boardSpan || 'week') === k ? 'bg-gradient-to-r from-cyan-400 to-magenta text-slate-950' : 'bg-gg-900 text-gray-400 border border-white/10'}">${l}</button>`).join('')}</div>
 <div id="arcadeBoardBody" class="pt-2"><p class="text-xs text-gray-500 text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i></p></div>
-<p class="text-[9px] text-gray-500 text-center pb-2">Resets every Monday · winners get bragging rights 😎</p>
+<p class="text-[9px] text-gray-500 text-center pb-2">${window.boardSpan === 'all' ? 'Best scores ever · Ludo & Snakes count total wins' : 'Resets every Monday · winners get bragging rights 😎'}</p>
 </div>`;
-const rows = await window.loadGameBoard(window.arcadeBoard);
+const rows = await window.loadGameBoard(window.arcadeBoard, false, window.boardSpan);
 const el = document.getElementById('arcadeBoardBody'); if (!el) return;
 el.innerHTML = rows.length ? rows.slice(0, 25).map((r, i) => `<div class="flex items-center justify-between px-3 py-2 ${r.uid === window.uidNow() ? 'bg-amber-500/10' : ''}">
 <div class="flex items-center gap-2 min-w-0"><span class="w-6 text-center text-sm">${['🥇', '🥈', '🥉'][i] || `<span class="text-[10px] text-gray-500 font-black">#${i + 1}</span>`}</span>${window.avatarHtml(r.user, 'w-7 h-7', 'rounded-lg', 'text-[9px]')}<span class="text-xs font-bold text-white truncate">${window.dn(r.user)}</span></div>
-<span class="text-sm font-black text-amber-400">${r.score}</span></div>`).join('') : `<p class="text-xs text-gray-400 text-center py-6">No scores yet this week. Be the first! 🔥</p>`;
+<span class="text-sm font-black text-amber-400">${r.score}</span></div>`).join('') : `<p class="text-xs text-gray-400 text-center py-6">No scores yet${window.boardSpan === 'all' ? '' : ' this week'}. Be the first! 🔥</p>`;
 };
 window._boardCache = {};
-window.loadGameBoard = async function(game, force) {
-const key = `${game}_${window.weekKey(Date.now())}`;
+window.loadGameBoard = async function(game, force, span) {
+const key = span === 'all' ? `${game}_all` : `${game}_${window.weekKey(Date.now())}`;
 const c = window._boardCache[key];
 if (!force && c && Date.now() - c.at < 90000) return c.rows;
 const rows = [];
@@ -11115,7 +11116,7 @@ if (youWon && window.isSignedIn()) {
 const wk = window.weekKey(Date.now()), gw = `ludo_${wk}`, ref = doc(window.db, 'gameScores', `${gw}_${window.uidNow()}`);
 try {
 const cur = await getDoc(ref); const wins = (cur.exists() ? cur.data().score : 0) + 1;
-await setDoc(ref, { game: 'ludo', week: wk, gw, uid: window.uidNow(), user: window.me(), score: wins, at: serverTimestamp() });
+await setDoc(ref, { game: 'ludo', week: wk, gw, uid: window.uidNow(), user: window.me(), score: wins, at: serverTimestamp() }); window.saveAllTime && window.saveAllTime('ludo', wins, true);
 try { localStorage.setItem('sg_best_ludo', Math.max(window.bestScore('ludo'), wins)); } catch (e) {}
 delete window._boardCache[gw];
 const rows = await window.loadGameBoard('ludo', true); const rank = rows.findIndex(r => r.uid === window.uidNow()) + 1;
@@ -11827,7 +11828,7 @@ const row = (x) => `<button onclick="window.openTournamentById('${x.t.id}')" cla
 <p class="text-[10px] text-gray-500">${escapeHTML(x.t.game || '')}${window.dueChip ? window.dueChip(x.t, x.m) : ''}</p>
 </div>
 ${x.played ? `<div class="text-right"><p class="text-base font-black text-white">${x.my}–${x.their}</p>${x.m.forfeit ? '<p class="text-[9px] font-black text-red-300">Forfeit</p>' : ''}<span class="text-[10px] font-black px-1.5 py-0.5 rounded ${x.res === 'W' ? 'bg-emerald-500/20 text-emerald-300' : x.res === 'L' ? 'bg-red-500/20 text-red-300' : 'bg-gray-500/20 text-gray-300'}">${x.res}</span></div>`
-: x.m.status === 'disputed' ? '<span class="text-[9px] font-black px-2 py-1 rounded-lg bg-amber-500/15 text-amber-300">Awaiting approval</span>' : '<i class="fa-solid fa-chevron-right text-gray-600 text-xs"></i>'}
+: x.m.status === 'disputed' ? '<span class="text-[9px] font-black px-2 py-1 rounded-lg bg-amber-500/15 text-amber-300">Awaiting approval</span>' : (mine && window.isRealPlayer(x.opp) ? `<span role="button" onclick="event.stopPropagation(); window.enterResult('${x.t.id}', '${x.m.id}')" class="shrink-0 text-[10px] font-black px-2.5 py-1.5 rounded-lg ${x.when !== null && x.when <= today ? 'bg-emerald-400 text-slate-950' : 'bg-gg-800 text-emerald-300 border border-emerald-500/40'}">⚽ Enter result</span>` : '<i class="fa-solid fa-chevron-right text-gray-600 text-xs"></i>')}
 </button>`;
 const group = (title, list, accent) => list.length ? `<p class="text-[10px] font-black uppercase tracking-wider px-1 pt-2 ${accent || 'text-gray-400'}">${title} <span class="text-gray-600">· ${list.length}</span></p>${list.map(row).join('')}` : '';
 const byDay = {}; dated.forEach(x => (byDay[x.when] = byDay[x.when] || []).push(x));
@@ -19791,7 +19792,7 @@ window.gameStreakTick(); window.addXP && window.addXP(youWon ? 10 : 2, 'game'); 
 const r = window.olRoom; if (g.online && r && r.hostUid === window.uidNow()) { try { updateDoc(doc(window.db, 'gameRooms', r.id), { status: 'done', lastAt: Date.now() }); } catch (e) {} if (r.net === 'rtdb' && window.rtdb) setTimeout(() => { try { window.rtdbApi.remove(window.rtdbApi.ref(window.rtdb, `games/${r.id}`)).catch(() => {}); } catch (e) {} }, 8000); }
 if (youWon && window.isSignedIn()) {
 const wk = window.weekKey(Date.now()), gw = `snakes_${wk}`, ref = doc(window.db, 'gameScores', `${gw}_${window.uidNow()}`);
-try { const cur = await getDoc(ref); const wins = (cur.exists() ? cur.data().score : 0) + 1; await setDoc(ref, { game: 'snakes', week: wk, gw, uid: window.uidNow(), user: window.me(), score: wins, at: serverTimestamp() }); delete window._boardCache[gw];
+try { const cur = await getDoc(ref); const wins = (cur.exists() ? cur.data().score : 0) + 1; await setDoc(ref, { game: 'snakes', week: wk, gw, uid: window.uidNow(), user: window.me(), score: wins, at: serverTimestamp() }); window.saveAllTime && window.saveAllTime('snakes', wins, true); delete window._boardCache[gw];
 const el = document.getElementById('gameRankLine'); if (el) el.textContent = `🏆 ${wins} win${wins === 1 ? '' : 's'} this week`; } catch (e) {}
 }
 };
@@ -20481,11 +20482,11 @@ setTimeout(find, 250);
 
 window.boardGames = () => Object.keys(window.GAMES).filter(g => g !== 'keepy' && g !== 'all');
 window.loadGameBoard = (function(b) {
-return async function(game, force) {
-if (game !== 'all') return b(game, force);
-const key = `all_${window.weekKey(Date.now())}`, c = window._boardCache[key];
+return async function(game, force, span) {
+if (game !== 'all') return b(game, force, span);
+const key = span === 'all' ? 'all_all' : `all_${window.weekKey(Date.now())}`, c = window._boardCache[key];
 if (!force && c && Date.now() - c.at < 90000) return c.rows;
-const per = await Promise.all(window.boardGames().map(g => b(g, force).then(rows => [g, rows]).catch(() => [g, []])));
+const per = await Promise.all(window.boardGames().map(g => b(g, force, span).then(rows => [g, rows]).catch(() => [g, []])));
 const tot = {};
 per.forEach(([g, rows]) => {
 const top = Math.max(0, ...rows.map(r => +r.score || 0)); if (!top) return;
@@ -20513,11 +20514,11 @@ fixChips();
 const r = await p; fixChips();
 const body = document.getElementById('arcadeBoardBody'); if (!body || !box) return r;
 if (window.arcadeBoard === 'all') {
-const rows = await window.loadGameBoard('all'), top = rows[0];
+const rows = await window.loadGameBoard('all', false, window.boardSpan), top = rows[0];
 body.insertAdjacentHTML('afterbegin', top ? `<div class="mx-3 mb-2 rounded-2xl p-3 flex items-center gap-3" style="background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(249,115,22,.18));border:1px solid rgba(251,191,36,.5)">
 <div class="shrink-0">${window.avatarHtml(top.user, 'w-12 h-12', 'rounded-2xl', 'text-xs')}</div>
-<div class="flex-1 min-w-0"><p class="text-[10px] font-black text-amber-300 uppercase tracking-wider">👑 Game King this week</p><p class="text-sm font-black text-white truncate">${window.dn(top.user)}</p><p class="text-[10px] text-gray-300">${top.pts} pts across ${top.games.length} game${top.games.length > 1 ? 's' : ''}</p></div></div>` : '');
-body.insertAdjacentHTML('beforeend', `<p class="text-[10px] text-gray-400 text-center px-4 pt-1">Each game gives up to 100 pts (your best ÷ the week's top score). Play more games to climb. Every game also earns ⭐ Top Rank points.</p>`);
+<div class="flex-1 min-w-0"><p class="text-[10px] font-black text-amber-300 uppercase tracking-wider">👑 Game King ${window.boardSpan === 'all' ? 'of all time' : 'this week'}</p><p class="text-sm font-black text-white truncate">${window.dn(top.user)}</p><p class="text-[10px] text-gray-300">${top.pts} pts across ${top.games.length} game${top.games.length > 1 ? 's' : ''}</p></div></div>` : '');
+body.insertAdjacentHTML('beforeend', `<p class="text-[10px] text-gray-400 text-center px-4 pt-1">Each game gives up to 100 pts (your best ÷ the ${window.boardSpan === 'all' ? 'all-time' : "week's"} top score). Play more games to climb. Every game also earns ⭐ Top Rank points.</p>`);
 const mine = rows.findIndex(x => x.uid === window.uidNow());
 if (mine > 24) body.insertAdjacentHTML('beforeend', `<p class="text-[11px] text-amber-300 font-black text-center pt-1">You: #${mine + 1} · ${rows[mine].pts} pts</p>`);
 }
@@ -21978,3 +21979,449 @@ if (typeof url === 'string' && /ik\.imagekit\.io\//.test(url) && (kind === 'vide
 return b(url, width, kind);
 };
 })(window.cldSized);
+
+window.enterResult = function(tid, mid) {
+const t = (window.tournamentsList || []).find(x => x.id === tid); if (!t) return;
+window.activeTournament = t;
+window.openMatchReportModal(mid);
+};
+(function clipsHideCss() { const s = document.createElement('style'); s.textContent = `
+#sgClips .cv-card,#sgClips .cv-top{transition:opacity .35s ease, transform .35s ease}
+#sgClips [data-clip].cv-hide .cv-card{opacity:0;transform:translateY(24px);pointer-events:none}
+#sgClips.cv-hide-top .cv-top .cv-word{opacity:.0;transition:opacity .35s}
+#sgClips .cv-prog{position:absolute;left:0;right:0;bottom:0;height:18px;z-index:17;display:flex;align-items:flex-end;touch-action:none}
+#sgClips .cv-prog .bar{position:relative;width:100%;height:3px;background:rgba(255,255,255,.18);transition:height .15s}
+#sgClips .cv-prog.drag .bar,#sgClips [data-clip].cv-hide .cv-prog .bar{height:4px}
+#sgClips .cv-prog .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);box-shadow:0 0 8px rgba(168,85,247,.8)}
+#sgClips [data-clip]:not(.cv-hide) .cv-prog{bottom:auto;top:auto}
+#sgClips [data-clip]:not(.cv-hide) .cv-prog{display:none}`; document.head.appendChild(s); })();
+window.cvArmHide = function(s) {
+clearTimeout(window._cvHideT); if (!s) return;
+s.classList.remove('cv-hide'); document.getElementById('sgClips')?.classList.remove('cv-hide-top');
+window._cvHideT = setTimeout(() => { if (s.isConnected) { s.classList.add('cv-hide'); document.getElementById('sgClips')?.classList.add('cv-hide-top'); } }, 3500);
+};
+window.clipActivate = (function(b) { return function(i) { const r = b(i); window.cvArmHide(document.querySelector(`#sgClipsScroll [data-clip="${i}"]`)); return r; }; })(window.clipActivate);
+window.clipsV2 = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+document.querySelectorAll('#sgClips [data-v2]:not([data-v2h])').forEach(s => {
+s.setAttribute('data-v2h', '1');
+s.addEventListener('pointerup', (e) => {
+if (e.target.closest('button,a,input,[role=button],.cv-prog,iframe')) { window.cvArmHide(s); return; }
+if (s.classList.contains('cv-hide')) window.cvArmHide(s); else { clearTimeout(window._cvHideT); s.classList.add('cv-hide'); document.getElementById('sgClips')?.classList.add('cv-hide-top'); }
+});
+s.querySelector('.cv-card')?.addEventListener('pointerdown', () => window.cvArmHide(s));
+const v = s.querySelector(':scope > video[data-clip-video]');
+if (v) {
+s.insertAdjacentHTML('beforeend', `<div class="cv-prog"><div class="bar"><div class="fill"></div></div></div>`);
+const pg = s.querySelector('.cv-prog'), fill = pg.querySelector('.fill');
+v.addEventListener('timeupdate', () => { if (v.duration) fill.style.width = (v.currentTime / v.duration * 100) + '%'; });
+const seek = (e) => { const rc = pg.getBoundingClientRect(); const f = Math.min(1, Math.max(0, (e.clientX - rc.left) / rc.width)); if (v.duration) { v.currentTime = f * v.duration; fill.style.width = (f * 100) + '%'; } };
+pg.addEventListener('pointerdown', (e) => { e.stopPropagation(); pg.classList.add('drag'); pg.setPointerCapture && pg.setPointerCapture(e.pointerId); seek(e); });
+pg.addEventListener('pointermove', (e) => { if (pg.classList.contains('drag')) seek(e); });
+pg.addEventListener('pointerup', (e) => { e.stopPropagation(); pg.classList.remove('drag'); });
+}
+});
+return r;
+};
+})(window.clipsV2);
+(function feedNeonCss() { const s = document.createElement('style'); s.textContent = `
+#fypFeedContainer .sg-actions{border-top:0!important;gap:6px;padding-top:10px}
+#fypFeedContainer .sg-actions > button,#fypFeedContainer .sg-actions > span{flex:1;justify-content:center;padding:7px 4px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(168,85,247,.35);box-shadow:0 0 8px -5px rgba(255,45,149,.8);color:#e5e7eb!important;font-size:11px;margin:0!important}
+#fypFeedContainer .sg-actions > button:active{transform:scale(.95)}
+#fypFeedContainer .sg-actions .gg-on{background:linear-gradient(135deg,rgba(34,211,238,.15),rgba(168,85,247,.2),rgba(255,45,149,.2));border-color:#a855f7}
+#fypFeedContainer .sg-actions .sg-heart{color:#e879f9}
+#fypFeedContainer .sg-actions > *{gap:5px}`; document.head.appendChild(s); })();
+window.feedNeon = function() {
+document.querySelectorAll('#fypFeedContainer button[onclick^="window.toggleGGPost("]').forEach(btn => {
+const row = btn.parentElement; if (row && !row.classList.contains('sg-actions')) row.classList.add('sg-actions');
+const id = (btn.getAttribute('onclick').match(/'([^']+)'/) || [])[1], p = id && window.findPost(id);
+const on = !!(p && (p.ggsBy || []).includes(window.uidNow && window.uidNow()));
+const i = btn.querySelector('i'); btn.classList.toggle('gg-on', on);
+if (i && !i.classList.contains('sg-heart') && !btn.querySelector('.sg-em')) { i.remove(); btn.insertAdjacentHTML('afterbegin', on ? '<span class="sg-em">💘</span>' : '<i class="sg-heart fa-regular fa-heart"></i>'); }
+else if (on && btn.querySelector('.sg-heart')) btn.querySelector('.sg-heart').outerHTML = '<span class="sg-em">💘</span>';
+else if (!on && btn.querySelector('.sg-em')) btn.querySelector('.sg-em').outerHTML = '<i class="sg-heart fa-regular fa-heart"></i>';
+});
+};
+window.renderFypFeed = (function(b) { return function(...a) { const r = b.apply(this, a); try { window.feedNeon(); } catch (e) {} return r; }; })(window.renderFypFeed);
+window.toggleGGPost = (function(b) { return async function(...a) { const r = await b.apply(this, a); try { window.feedNeon(); } catch (e) {} return r; }; })(window.toggleGGPost);
+
+window.TRIVIA2 = [
+['Which country won the 2022 FIFA World Cup?', ['Argentina', 'France', 'Brazil', 'Croatia'], 'Argentina beat France on penalties after a 3–3 final in Qatar.'],
+['Where was the 2022 FIFA World Cup played?', ['Qatar', 'Russia', 'Brazil', 'South Africa'], 'It was the first World Cup held in the Middle East (Nov–Dec 2022).'],
+['Which country hosted the first World Cup in Africa (2010)?', ['South Africa', 'Ghana', 'Egypt', 'Morocco'], 'South Africa hosted in 2010. Spain won it.'],
+['How far did Ghana go at the 2010 World Cup?', ['Quarter-finals', 'Semi-finals', 'Round of 16', 'Group stage'], 'Ghana lost to Uruguay on penalties after the famous handball on the goal line.'],
+['How many AFCON titles has Ghana won?', ['4', '2', '5', '7'], 'Ghana won in 1963, 1965, 1978 and 1982.'],
+['Which country has won the most AFCON titles?', ['Egypt', 'Cameroon', 'Ghana', 'Nigeria'], 'Egypt has 7 Africa Cup of Nations titles.'],
+['Which country has won the most FIFA World Cups?', ['Brazil', 'Germany', 'Italy', 'Argentina'], 'Brazil has 5 titles: 1958, 1962, 1970, 1994 and 2002.'],
+['How many players does each team have on the pitch?', ['11', '10', '9', '12'], 'Ten outfield players plus one goalkeeper.'],
+['A hat-trick means a player scored…', ['3 goals', '2 goals', '4 goals', '5 goals'], 'Three goals by one player in one match.'],
+['How far is the penalty spot from the goal line?', ['12 yards (11 m)', '10 yards (9 m)', '18 yards (16 m)', '6 yards (5 m)'], 'The penalty mark is 12 yards / 11 metres from goal.'],
+['How long is a normal football match (no extra time)?', ['90 minutes', '80 minutes', '100 minutes', '60 minutes'], 'Two halves of 45 minutes, plus added time.'],
+['How long is extra time in football?', ['30 minutes', '20 minutes', '15 minutes', '45 minutes'], 'Two halves of 15 minutes each.'],
+['Which card sends a player off?', ['Red card', 'Yellow card', 'Blue card', 'Green card'], 'A red card means the player must leave the pitch.'],
+['Two yellow cards in one match equal…', ['A red card', 'A penalty', 'A free goal', 'Nothing'], 'A second yellow becomes a red, and the player is sent off.'],
+['What does VAR stand for?', ['Video Assistant Referee', 'Very Accurate Replay', 'Video Action Review', 'Virtual Assistant Ref'], 'VAR helps the referee check goals, penalties, red cards and mistaken identity.'],
+['How often is the FIFA World Cup played?', ['Every 4 years', 'Every 2 years', 'Every year', 'Every 5 years'], 'The men’s World Cup happens every four years.'],
+['Which three countries hosted the 2026 World Cup?', ['USA, Canada & Mexico', 'USA, Brazil & Mexico', 'Spain, Portugal & Morocco', 'Canada, USA & Argentina'], 'It was the first World Cup with 48 teams and three hosts.'],
+['Which club has won the most European Cups / Champions Leagues?', ['Real Madrid', 'AC Milan', 'Liverpool', 'Bayern Munich'], 'Real Madrid hold the record (15 titles by 2024).'],
+['The Premier League is the top league of which country?', ['England', 'Spain', 'Italy', 'Germany'], 'It started in 1992.'],
+['La Liga is the top league of…', ['Spain', 'Portugal', 'Argentina', 'Mexico'], 'Real Madrid and Barcelona are its biggest clubs.'],
+['Serie A is the top league of…', ['Italy', 'Brazil', 'France', 'Spain'], 'Clubs include Juventus, Inter and AC Milan.'],
+['The Bundesliga is the top league of…', ['Germany', 'Austria', 'Netherlands', 'Belgium'], 'Bayern Munich are its most successful club.'],
+['Ligue 1 is the top league of…', ['France', 'Belgium', 'Switzerland', 'Canada'], 'PSG, Marseille and Lyon play there.'],
+['Who scored the famous "Hand of God" goal?', ['Diego Maradona', 'Pelé', 'Lionel Messi', 'Zinedine Zidane'], 'Maradona scored it for Argentina against England at the 1986 World Cup.'],
+['Which player is nicknamed "CR7"?', ['Cristiano Ronaldo', 'Ronaldinho', 'Ronaldo Nazário', 'Christian Pulisic'], 'CR7 = Cristiano Ronaldo and his shirt number 7.'],
+['Lionel Messi plays for which national team?', ['Argentina', 'Spain', 'Uruguay', 'Portugal'], 'Messi captained Argentina to the 2022 World Cup.'],
+['Which award goes to the best footballer of the year?', ['Ballon d’Or', 'Golden Boot', 'Golden Glove', 'Puskás Award'], 'The Golden Boot is for top scorer and the Puskás Award is for best goal.'],
+['The Puskás Award is given for…', ['The best goal of the year', 'Best goalkeeper', 'Most assists', 'Best coach'], 'It is named after Hungarian legend Ferenc Puskás.'],
+['Which club is nicknamed "The Phobians"?', ['Accra Hearts of Oak', 'Asante Kotoko', 'Medeama', 'Aduana'], 'Hearts of Oak were founded in Accra in 1911.'],
+['Which Ghanaian club is called the "Porcupine Warriors"?', ['Asante Kotoko', 'Hearts of Oak', 'Legon Cities', 'Dreams FC'], 'Kotoko are based in Kumasi.'],
+['What is the nickname of Ghana’s national team?', ['Black Stars', 'Super Eagles', 'Lions', 'Pharaohs'], 'Named after the black star on Ghana’s flag.'],
+['What is the nickname of Nigeria’s national team?', ['Super Eagles', 'Black Stars', 'Indomitable Lions', 'Elephants'], 'Nigeria have won AFCON three times.'],
+['What is the nickname of Cameroon’s national team?', ['Indomitable Lions', 'Super Eagles', 'Desert Foxes', 'Leopards'], 'Cameroon reached the World Cup quarter-finals in 1990.'],
+['Which year did Ghana first play at a World Cup?', ['2006', '1998', '2010', '1994'], 'Ghana reached the Round of 16 in Germany 2006.'],
+['Who is Ghana’s all-time top scorer?', ['Asamoah Gyan', 'Abedi Pele', 'Tony Yeboah', 'Jordan Ayew'], 'Asamoah Gyan scored 51 goals for the Black Stars.'],
+['André and Jordan Ayew are sons of which Ghana legend?', ['Abedi Pele', 'Tony Yeboah', 'Stephen Appiah', 'Michael Essien'], 'Abedi Pele won the Champions League with Marseille in 1993.'],
+['Which company makes the EA Sports FC games (formerly FIFA)?', ['Electronic Arts (EA)', 'Konami', 'Ubisoft', 'Activision'], 'EA renamed the series from FIFA to EA Sports FC in 2023.'],
+['eFootball (formerly PES) is made by…', ['Konami', 'EA Sports', 'Sony', 'Nintendo'], 'PES = Pro Evolution Soccer.'],
+['Which company makes Fortnite?', ['Epic Games', 'Valve', 'Riot Games', 'Rockstar Games'], 'Fortnite Battle Royale launched in 2017.'],
+['Which studio created Minecraft?', ['Mojang', 'Epic Games', 'Valve', 'Rockstar Games'], 'Microsoft bought Mojang in 2014.'],
+['Which company makes the Grand Theft Auto (GTA) games?', ['Rockstar Games', 'EA', 'Ubisoft', 'Capcom'], 'Rockstar is owned by Take-Two Interactive.'],
+['PlayStation consoles are made by…', ['Sony', 'Microsoft', 'Nintendo', 'Samsung'], 'The first PlayStation came out in 1994.'],
+['Xbox consoles are made by…', ['Microsoft', 'Sony', 'Nintendo', 'Apple'], 'The first Xbox launched in 2001.'],
+['Which company makes the Switch console?', ['Nintendo', 'Sony', 'Microsoft', 'Sega'], 'Nintendo also created Mario and Zelda.'],
+['What is the name of Mario’s brother?', ['Luigi', 'Wario', 'Toad', 'Yoshi'], 'Luigi usually wears green.'],
+['What kind of animal is Sonic?', ['Hedgehog', 'Fox', 'Cat', 'Rabbit'], 'Sonic the Hedgehog is Sega’s mascot.'],
+['What type of Pokémon is Pikachu?', ['Electric', 'Fire', 'Water', 'Grass'], 'Pikachu uses moves like Thunderbolt.'],
+['In chess, which piece moves in an "L" shape?', ['Knight', 'Bishop', 'Rook', 'Queen'], 'The knight is the only piece that can jump over others.'],
+['How do you win a game of chess?', ['Checkmate', 'Take the queen', 'Reach the last row', 'Take 10 pieces'], 'Checkmate = the king is attacked and cannot escape.'],
+['In most Ludo rules, what roll lets a token leave home?', ['6', '1', '5', 'Any even number'], 'A 6 also usually gives you another roll.'],
+['In Snakes & Ladders, what happens on a snake’s head?', ['You slide down', 'You climb up', 'You miss a turn', 'You win'], 'Ladders take you up, snakes take you down.'],
+['Which company publishes Free Fire?', ['Garena', 'Tencent', 'Supercell', 'Epic Games'], 'Free Fire is one of the most played mobile games in Africa.'],
+['PUBG Mobile is what kind of game?', ['Battle royale', 'Racing', 'Football', 'Puzzle'], 'Up to 100 players drop on a map and the last one standing wins.'],
+['What does "GG" mean in gaming?', ['Good game', 'Go go', 'Great goal', 'Game ground'], 'Players say GG to show respect after a match.'],
+['What does "AFK" mean?', ['Away from keyboard', 'Always free kill', 'Attack from Kumasi', 'Aim for kills'], 'It means the player isn’t at the controls.'],
+['What does "NPC" stand for in games?', ['Non-player character', 'New player card', 'Next play chance', 'No points counted'], 'NPCs are characters controlled by the game.'],
+['In game genres, "FPS" means…', ['First-person shooter', 'Fast play speed', 'Free player spin', 'Final power score'], 'You see the game through the character’s eyes.'],
+['In Minecraft, what green creature explodes?', ['Creeper', 'Zombie', 'Enderman', 'Slime'], 'Creepers hiss before they explode.'],
+['In Pac-Man, what chases you?', ['Ghosts', 'Robots', 'Dogs', 'Aliens'], 'Eat a power pellet and you can eat the ghosts.'],
+['Which anime features Monkey D. Luffy?', ['One Piece', 'Naruto', 'Bleach', 'Dragon Ball'], 'Luffy leads the Straw Hat Pirates.'],
+['What is Luffy’s dream in One Piece?', ['To become King of the Pirates', 'To become Hokage', 'To be the strongest Saiyan', 'To be a hero'], 'He’s searching for the treasure called the One Piece.'],
+['Goku is the hero of which anime?', ['Dragon Ball', 'Naruto', 'One Piece', 'Attack on Titan'], 'Dragon Ball was created by Akira Toriyama.'],
+['What race is Goku?', ['Saiyan', 'Namekian', 'Human', 'Android'], 'Saiyans can transform into Super Saiyans.'],
+['What is Naruto’s dream?', ['To become Hokage', 'To become Pirate King', 'To find the Dragon Balls', 'To join the Survey Corps'], 'The Hokage is the leader of the Hidden Leaf Village.'],
+['Which village is Naruto from?', ['Hidden Leaf (Konoha)', 'Hidden Sand', 'Hidden Mist', 'Hidden Cloud'], 'Konoha is in the Land of Fire.'],
+['Which anime is about giants attacking humans behind huge walls?', ['Attack on Titan', 'Demon Slayer', 'Jujutsu Kaisen', 'Death Note'], 'The main character is Eren Yeager.'],
+['Tanjiro Kamado is the main character of…', ['Demon Slayer', 'One Piece', 'My Hero Academia', 'Hunter x Hunter'], 'He fights demons to save his sister Nezuko.'],
+['Light Yagami finds a notebook in which anime?', ['Death Note', 'Naruto', 'Bleach', 'Tokyo Ghoul'], 'Writing a name in the Death Note has deadly results.'],
+['Izuku "Deku" Midoriya is the hero of…', ['My Hero Academia', 'One Punch Man', 'Black Clover', 'Haikyuu!!'], 'He inherits the power called One For All.'],
+['Yuji Itadori is the main character of…', ['Jujutsu Kaisen', 'Chainsaw Man', 'Bleach', 'Demon Slayer'], 'He swallows a cursed finger of Sukuna.'],
+['Who beats every enemy with one punch?', ['Saitama', 'Goku', 'Ichigo', 'Vegeta'], 'One Punch Man is a comedy about being too strong.'],
+['Ichigo Kurosaki is the hero of…', ['Bleach', 'Naruto', 'One Piece', 'Fairy Tail'], 'Ichigo becomes a Soul Reaper.'],
+['Gon and Killua are best friends in…', ['Hunter x Hunter', 'Naruto', 'Pokémon', 'Black Clover'], 'Gon is searching for his father, Ging.'],
+['Who is Pikachu’s trainer in the Pokémon anime?', ['Ash Ketchum', 'Brock', 'Gary Oak', 'Misty'], 'Ash started his journey in Pallet Town.'],
+['Which wrestler is called "The Rock"?', ['Dwayne Johnson', 'John Cena', 'Roman Reigns', 'Randy Orton'], 'He became one of Hollywood’s biggest actors.'],
+['What is John Cena’s finishing move called?', ['Attitude Adjustment', 'Stone Cold Stunner', 'RKO', 'Tombstone'], 'It was first called the F-U.'],
+['Which wrestler’s finisher is the RKO?', ['Randy Orton', 'John Cena', 'Seth Rollins', 'Kane'], 'RKO comes from his initials, Randal Keith Orton.'],
+['"Stone Cold" Steve Austin’s finisher is the…', ['Stunner', 'Pedigree', 'Spear', 'Chokeslam'], 'It became his signature move in the Attitude Era.'],
+['Which wrestler is famous for the Tombstone Piledriver?', ['The Undertaker', 'Triple H', 'Batista', 'Edge'], 'The Undertaker won 21 WrestleMania matches in a row.'],
+['What is WWE’s biggest yearly show?', ['WrestleMania', 'SummerSlam', 'Royal Rumble', 'Survivor Series'], 'The first WrestleMania was in 1985.'],
+['Whose catchphrase is "You can’t see me"?', ['John Cena', 'The Rock', 'CM Punk', 'Rey Mysterio'], 'He waves his hand in front of his face when he says it.'],
+['What is the capital of Ghana?', ['Accra', 'Kumasi', 'Tamale', 'Takoradi'], 'Accra is on the Gulf of Guinea coast.'],
+['In which year did Ghana become independent?', ['1957', '1960', '1966', '1945'], 'Independence Day is 6 March 1957, led by Kwame Nkrumah.'],
+['Who was Ghana’s first president?', ['Kwame Nkrumah', 'Jerry Rawlings', 'John Kufuor', 'Kofi Annan'], 'Nkrumah led Ghana to independence in 1957.'],
+['What was Ghana called before independence?', ['Gold Coast', 'Ivory Coast', 'Slave Coast', 'Grain Coast'], 'The name came from the gold trade.'],
+['What is Ghana’s currency?', ['Cedi', 'Naira', 'Rand', 'Shilling'], 'The cedi is split into 100 pesewas.'],
+['What is in the middle of Ghana’s flag?', ['A black star', 'An eagle', 'A sun', 'A shield'], 'The flag is red, gold and green with a black star.'],
+['Lake Volta in Ghana is famous for being…', ['One of the largest man-made lakes in the world', 'The deepest lake in Africa', 'A salt lake', 'Frozen in winter'], 'It was formed by the Akosombo Dam (1965).'],
+['Kente cloth comes from which country?', ['Ghana', 'Kenya', 'Egypt', 'South Africa'], 'It is woven by Asante and Ewe weavers.'],
+['Twi is mainly spoken in…', ['Ghana', 'Nigeria', 'Kenya', 'Senegal'], 'Twi is a dialect of Akan, Ghana’s biggest language group.'],
+['Who wrote the novel "Things Fall Apart"?', ['Chinua Achebe', 'Wole Soyinka', 'Ngũgĩ wa Thiong’o', 'Ama Ata Aidoo'], 'Published in 1958, it’s one of Africa’s most read novels.'],
+['What is the capital of Nigeria?', ['Abuja', 'Lagos', 'Kano', 'Ibadan'], 'Abuja replaced Lagos as capital in 1991.'],
+['Which is the longest river in Africa?', ['Nile', 'Congo', 'Niger', 'Zambezi'], 'The Nile flows north into the Mediterranean Sea.'],
+['Which is the largest country in Africa by area?', ['Algeria', 'Nigeria', 'DR Congo', 'Egypt'], 'Algeria became the biggest after Sudan split in 2011.'],
+['Mount Kilimanjaro is in which country?', ['Tanzania', 'Kenya', 'Uganda', 'Ethiopia'], 'It is Africa’s highest mountain.'],
+['Which planet is known as the Red Planet?', ['Mars', 'Venus', 'Jupiter', 'Mercury'], 'Iron oxide (rust) on its surface makes it look red.'],
+['Which is the largest planet in our solar system?', ['Jupiter', 'Saturn', 'Earth', 'Neptune'], 'Jupiter is more than 11 times wider than Earth.'],
+['Which planet has the most famous rings?', ['Saturn', 'Mars', 'Mercury', 'Venus'], 'Saturn’s rings are made of ice and rock.'],
+['At sea level, water boils at…', ['100 °C', '90 °C', '50 °C', '120 °C'], 'That is 212 °F.'],
+['What is H₂O?', ['Water', 'Salt', 'Oxygen', 'Sugar'], 'Two hydrogen atoms and one oxygen atom.'],
+['How many continents are there?', ['7', '5', '6', '8'], 'Africa, Antarctica, Asia, Australia/Oceania, Europe, North America, South America.'],
+['What is the fastest land animal?', ['Cheetah', 'Lion', 'Horse', 'Antelope'], 'Cheetahs can sprint at around 100 km/h.'],
+['What is the largest ocean?', ['Pacific', 'Atlantic', 'Indian', 'Arctic'], 'The Pacific covers about a third of Earth’s surface.'],
+['What is the largest animal on Earth?', ['Blue whale', 'African elephant', 'Giraffe', 'Great white shark'], 'Blue whales can be about 30 metres long.'],
+['Which gas do plants take in from the air?', ['Carbon dioxide', 'Oxygen', 'Nitrogen', 'Helium'], 'They use it, with sunlight and water, to make food (photosynthesis).'],
+['What is the closest star to Earth?', ['The Sun', 'Sirius', 'Polaris', 'Alpha Centauri'], 'Its light takes about 8 minutes to reach us.'],
+['What is 7 × 8?', ['56', '54', '64', '48'], '7 × 8 = 56.'],
+['What is the square root of 144?', ['12', '14', '11', '16'], '12 × 12 = 144.'],
+['How many minutes are in 3 hours?', ['180', '160', '300', '120'], '3 × 60 = 180.'],
+['How many sides does a hexagon have?', ['6', '5', '7', '8'], 'Honeycomb cells are hexagons.'],
+['What is the smallest prime number?', ['2', '1', '3', '0'], '2 is the only even prime number.'],
+['How many bones are in an adult human body?', ['206', '186', '226', '306'], 'Babies are born with more, and some fuse together.'],
+['Who painted the Mona Lisa?', ['Leonardo da Vinci', 'Pablo Picasso', 'Vincent van Gogh', 'Michelangelo'], 'It hangs in the Louvre in Paris.'],
+['Which Marvel hero carries a round shield?', ['Captain America', 'Iron Man', 'Thor', 'Hulk'], 'His shield is made of vibranium.'],
+['What is the name of Thor’s hammer?', ['Mjölnir', 'Stormbreaker', 'Excalibur', 'Gungnir'], 'Only the worthy can lift it.'],
+['Black Panther is king of which country?', ['Wakanda', 'Genovia', 'Zamunda', 'Latveria'], 'Wakanda is a fictional African nation.'],
+['What is Spider-Man’s real name?', ['Peter Parker', 'Bruce Wayne', 'Clark Kent', 'Tony Stark'], 'He lives in Queens, New York.'],
+['Who wrote the Harry Potter books?', ['J.K. Rowling', 'Stephen King', 'Rick Riordan', 'J.R.R. Tolkien'], 'The first book came out in 1997.'],
+['Which company makes the iPhone?', ['Apple', 'Samsung', 'Tecno', 'Google'], 'The first iPhone was released in 2007.'],
+['What does "WWW" stand for?', ['World Wide Web', 'Wide World Wire', 'Web World Wide', 'World Web Window'], 'Invented by Tim Berners-Lee in 1989.']
+];
+(function v50Css() { const s = document.createElement('style'); s.textContent = `
+.to-fuchsia-500{--tw-gradient-to:#d946ef var(--tw-gradient-to-position)}
+.bg-fuchsia-400{background-color:#e879f9}.bg-fuchsia-500\/10{background-color:rgba(217,70,239,.1)}.bg-fuchsia-500\/15{background-color:rgba(217,70,239,.15)}.bg-fuchsia-500\/25{background-color:rgba(217,70,239,.25)}
+.border-fuchsia-400{border-color:#e879f9}.border-fuchsia-400\/30{border-color:rgba(232,121,249,.3)}.border-fuchsia-400\/40{border-color:rgba(232,121,249,.4)}.border-fuchsia-400\/60{border-color:rgba(232,121,249,.6)}
+.text-fuchsia-300{color:#f0abfc}.bg-cyan-500\/25{background-color:rgba(6,182,212,.25)}.border-cyan-300{border-color:#67e8f9}.pt-1\.5{padding-top:.375rem}.text-\[13px\]{font-size:13px}.accent-fuchsia-500{accent-color:#d946ef}`; document.head.appendChild(s); })();
+window.TRIV_N = 5;
+window.dayNum = (d) => { const [y, m, dd] = d.split('-').map(Number); return Math.floor(Date.UTC(y, m - 1, dd) / 864e5); };
+window._trivOrder = null;
+window.todayTrivia = function(day) {
+const d = day || window.todayStr(), bank = window.TRIVIA2, n = bank.length;
+if (!window._trivOrder) window._trivOrder = window.seededShuffle(bank.map((x, i) => i), 20261026);
+const start = (window.dayNum(d) * window.TRIV_N) % n, out = [];
+for (let i = 0; i < window.TRIV_N; i++) out.push(bank[window._trivOrder[(start + i) % n]]);
+return out.map(([q, opts, why], k) => { const order = window.seededShuffle([0, 1, 2, 3], window.dayNum(d) * 7 + k * 13 + q.length); return { q, why, opts: order.map(i => opts[i]), correct: order.indexOf(0) }; });
+};
+window.trivHist = () => { try { return JSON.parse(localStorage.getItem('sg_triv_hist') || '{}'); } catch (e) { return {}; } };
+window.trivSaveHist = (d, score) => { try { const h = window.trivHist(); h[d] = score; Object.keys(h).sort().slice(0, -60).forEach(k => delete h[k]); localStorage.setItem('sg_triv_hist', JSON.stringify(h)); } catch (e) {} };
+window.trivDone = () => { const h = window.trivHist(); return h[window.todayStr()]; };
+window.openTrivia = async function(i = 0, score = 0) {
+const d = window.todayStr(), qs = window.todayTrivia(d), N = qs.length;
+if (i === 0) {
+const done = window.trivDone();
+if (done !== undefined) return window.trivResult(done, false);
+if (window.isSignedIn()) {   // already played on another phone?
+try { const s = await getDoc(doc(window.db, 'trivia', d + '_' + window.uidNow())); if (s.exists()) { const x = s.data(); window.trivSaveHist(d, x.score); return window.trivResult(x.score, false); } } catch (e) {}
+}
+window._trivT0 = Date.now(); window._trivLock = false;
+}
+if (i >= N) return window.finishTrivia(score);
+const q = qs[i];
+window.openPanel(`🧠 Daily trivia · ${i + 1}/${N}`, `<div class="flex gap-1 mb-3">${qs.map((x, k) => `<span class="flex-1 h-1.5 rounded-full ${k < i ? 'bg-cyan-400' : k === i ? 'bg-fuchsia-400' : 'bg-white/10'}"></span>`).join('')}</div>
+<p class="text-lg font-black text-white leading-snug">${escapeHTML(q.q)}</p>
+<div class="space-y-2 pt-3" id="trivOpts">${q.opts.map((o, k) => `<button onclick="window.answerTrivia(${i}, ${k}, ${score}, this)" class="w-full text-left px-4 py-3.5 rounded-2xl bg-gg-900 border border-white/10 text-sm font-bold text-white">${escapeHTML(o)}</button>`).join('')}</div>
+<div id="trivWhy"></div>
+<p class="text-[10px] text-gray-500 text-center pt-3">Same 5 questions for everyone today · ${score} correct so far</p>`);
+};
+window.answerTrivia = function(i, k, score, btn) {
+if (window._trivLock) return; window._trivLock = true;
+const q = window.todayTrivia()[i], ok = k === q.correct, box = btn.parentElement;
+[...box.children].forEach((b, n) => { b.disabled = true; if (n === q.correct) b.className = b.className.replace('bg-gg-900 border-white/10', 'bg-cyan-500/25 border-cyan-300'); });
+if (!ok) btn.className = btn.className.replace('bg-gg-900 border-white/10', 'bg-fuchsia-500/25 border-fuchsia-400');
+try { window.sgAudio && window.sgAudio.fx && window.sgAudio.fx(ok ? 'up' : 'down'); } catch (e) {}
+const last = i + 1 >= window.TRIV_N, ns = score + (ok ? 1 : 0);
+const w = document.getElementById('trivWhy');
+if (w) w.innerHTML = `<div class="mt-3 p-3 rounded-2xl border ${ok ? 'border-cyan-400/40 bg-cyan-500/10' : 'border-fuchsia-400/40 bg-fuchsia-500/10'}">
+<p class="text-sm font-black ${ok ? 'text-cyan-300' : 'text-fuchsia-300'}">${ok ? '✅ Correct!' : '❌ Not this time'}</p>
+<p class="text-xs text-gray-300 mt-1">${escapeHTML(q.why || '')}</p></div>
+<button onclick="window._trivLock=false; window.openTrivia(${i + 1}, ${ns})" class="mt-3 w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-fuchsia-500 text-slate-950 text-xs font-black uppercase">${last ? 'See my score' : 'Next question →'}</button>`;
+};
+window.finishTrivia = async function(score) {
+const d = window.todayStr(), ms = Math.min(3600e3, Math.max(0, Date.now() - (window._trivT0 || Date.now())));
+if (window.trivDone() !== undefined) return window.trivResult(window.trivDone(), false);
+window.trivSaveHist(d, score);
+const s = window.dailyState(); s.trivia = score; s.t5 = 1; window.saveDaily(s);
+const pts = score * 10 + 5 + (score === window.TRIV_N ? 20 : 0);
+if (window.isSignedIn()) {
+window.addXP(pts, 'challenge');
+try { await setDoc(doc(window.db, 'trivia', d + '_' + window.uidNow()), window.cleanForCloud({ uid: window.uidNow(), user: window.me(), day: d, score, ms: Math.round(ms), createdAt: serverTimestamp() })); } catch (e) {}
+}
+window.trivResult(score, true, pts);
+try { window.renderDailyCard(); } catch (e) {}
+};
+window.trivResult = function(score, fresh, pts) {
+const N = window.TRIV_N, em = score === N ? '🏆' : score >= 3 ? '🔥' : score ? '👏' : '💪';
+window.openPanel('🧠 Daily trivia', `<div class="text-center py-4 space-y-2"><p class="text-6xl">${em}</p>
+<p class="text-2xl font-black text-white">${score}/${N} correct</p>
+${fresh && pts ? `<p class="text-sm font-black text-amber-300">+${pts} Top Rank points${score === N ? ' (perfect bonus!)' : ''}</p>` : `<p class="text-xs text-gray-400">You already played today. New questions tomorrow!</p>`}
+${!window.isSignedIn() ? `<p class="text-[11px] text-gray-400">Sign in to save your points and join the leaderboard.</p>` : ''}
+<div id="trivBoard" class="text-left pt-2"><p class="text-xs text-gray-500 text-center py-4"><i class="fa-solid fa-spinner fa-spin"></i></p></div>
+<button onclick="window.shareStatusCard({ title: 'I got ${score}/${N} in today’s SINLESS GG trivia! Can you beat me?', big: '${score}/${N}', by: '@${escapeHTML(window.me() || 'player')}', url: 'https://sinlessgg.com' })" class="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-fuchsia-500 text-slate-950 text-xs font-black uppercase">📲 Challenge friends</button></div>`);
+window.loadTriviaBoard();
+};
+window.loadTriviaBoard = async function(day) {
+const d = day || window.todayStr(); let rows = [];
+try { const s = await getDocs(query(collection(window.db, 'trivia'), where('day', '==', d), limit(300))); s.forEach(x => rows.push(x.data())); } catch (e) {}
+const box = document.getElementById('trivBoard'); if (!box) return;
+rows = rows.filter(r => r && r.user && !(window.isBlocked && window.isBlocked(r.user))).sort((a, b) => (b.score - a.score) || ((a.ms || 9e9) - (b.ms || 9e9)));
+if (!rows.length) { box.innerHTML = `<p class="text-xs text-gray-500 text-center py-3">Be the first on today’s leaderboard!</p>`; return; }
+const meU = window.uidNow && window.uidNow(), myRank = rows.findIndex(r => r.uid === meU);
+const row = (r, i) => `<div class="flex items-center gap-2 px-3 py-2 rounded-xl ${r.uid === meU ? 'bg-fuchsia-500/15 border border-fuchsia-400/40' : 'bg-gg-900 border border-white/5'}">
+<span class="w-6 text-xs font-black ${i < 3 ? 'text-amber-300' : 'text-gray-500'}">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
+<span class="flex-1 min-w-0 truncate text-xs font-bold text-white">${escapeHTML(window.dnText ? window.dnText(r.user) : r.user)}</span>
+<span class="text-[10px] text-gray-500">${r.ms ? Math.round(r.ms / 1000) + 's' : ''}</span><span class="text-xs font-black text-cyan-300 w-8 text-right">${r.score}/${window.TRIV_N}</span></div>`;
+box.innerHTML = `<p class="text-[10px] font-black text-gray-400 uppercase mb-1.5">🏅 Today’s leaderboard · ${rows.length} played</p><div class="space-y-1.5">${rows.slice(0, 10).map(row).join('')}
+${myRank >= 10 ? `<p class="text-center text-gray-600 text-xs">⋯</p>${row(rows[myRank], myRank)}` : ''}</div>
+<p class="text-[10px] text-gray-500 text-center pt-1.5">Ties are split by who answered fastest.</p>`;
+};
+
+window.briefHidden = () => { try { return localStorage.getItem('sg_brief_hide') === window.todayStr(); } catch (e) { return false; } };
+window.hideBriefing = function() { try { localStorage.setItem('sg_brief_hide', window.todayStr()); } catch (e) {} document.querySelectorAll('[data-daily]').forEach(e => e.remove()); showToast('👍 See you tomorrow for a fresh briefing'); };
+window.briefRows = function() {
+const rows = [], s = window.dailyState(), today = window.dayStartOf(Date.now()), DAY = window.DAY || 864e5;
+if (!s.reward) rows.push({ ic: '🎁', t: 'Your daily reward is ready', sub: 'Bigger with your streak', btn: 'Open', go: 'window.claimDailyReward()' });
+if (window.trivDone() === undefined) rows.push({ ic: '🧠', t: 'Daily trivia: 5 questions', sub: 'Up to +75 points · leaderboard', btn: 'Play', go: 'window.openTrivia()' });
+else rows.push({ ic: '🧠', t: `Trivia: ${window.trivDone()}/${window.TRIV_N} today`, sub: 'See where you rank', btn: 'Board', go: 'window.trivResult(window.trivDone(), false)', done: 1 });
+try {
+const due = window.matchesOf(window.me()).filter(x => !x.played && x.when !== null && x.when !== undefined && x.when < today + DAY && window.isRealPlayer && window.isRealPlayer(x.opp)).sort((a, b) => a.when - b.when)[0];
+if (due) rows.push({ ic: '⚽', t: `Match vs ${window.dnText(due.opp)}`, sub: `${window.compShort ? window.compShort(due.t) : due.t.title} · ${due.when < today ? 'overdue!' : 'today'}`, btn: 'Result', go: due.m && due.m.id !== undefined ? `window.enterResult('${due.t.id}', '${due.m.id}')` : 'window.openMyMatches()', hot: due.when < today });
+} catch (e) {}
+try { const n = (window.notifList || []).filter(x => !x.read && !(window.isBlocked && window.isBlocked(x.fromUser))).length; if (n) rows.push({ ic: '🔔', t: `${n} new alert${n === 1 ? '' : 's'}`, sub: 'GGs, replies & more', btn: 'View', go: 'window.openNotifications()' }); } catch (e) {}
+try { const st = window.myStats || {}, L = window.levelOf(st.xp || 0); rows.push({ ic: '🔥', t: st.streak > 1 ? `${st.streak}-day streak` : 'Start a streak today', sub: L.next ? `${window.formatCount ? window.formatCount(L.next - L.xp) : L.next - L.xp} points to Lv ${L.lv + 1}` : `Lv ${L.lv} · ${L.name}`, btn: 'Level', go: 'window.openProgress()', done: 1 }); } catch (e) {}
+const wd = new Date().getDay(); if (wd === 0 || wd === 1) rows.push({ ic: '📊', t: 'Your week in review is ready', sub: 'Share your stats card', btn: 'See', go: 'window.openWeeklyRecap()' });
+try { const n = (window.newsForYou ? window.newsForYou() : [])[0]; if (n && n.title) rows.push({ ic: '📰', t: n.title, sub: n.source || 'Top story for you', btn: 'Read', go: `window.openNews(${window.newsRegister(n)})` }); } catch (e) {}
+return rows.slice(0, 6);
+};
+window.renderDailyCard = function() {
+const box = document.getElementById('fypFeedContainer'); if (!box) return;
+box.querySelectorAll('[data-daily]').forEach(e => e.remove());
+if (!window.isSignedIn() || window.briefHidden()) return;
+const rows = window.briefRows(); if (!rows.length) return;
+const date = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
+const d = document.createElement('div'); d.setAttribute('data-daily', '1'); d.className = 'sg-brief';
+d.innerHTML = `<div class="rounded-2xl p-3 border border-fuchsia-400/30" style="background:linear-gradient(135deg,rgba(34,211,238,.10),rgba(168,85,247,.14) 55%,rgba(255,45,149,.12));box-shadow:0 0 18px -10px #a855f7">
+<div class="flex items-center gap-2 mb-2"><span class="text-lg">🗞️</span><div class="flex-1 min-w-0"><p class="text-[13px] font-black text-white leading-tight">Your GG Briefing</p><p class="text-[10px] text-gray-400">${escapeHTML(date)}</p></div>
+<button onclick="window.hideBriefing()" class="text-[10px] font-bold text-gray-400 px-2 py-1 rounded-lg bg-white/5" aria-label="Hide for today">Hide today</button></div>
+<div class="space-y-1.5">${rows.map(r => `<div class="flex items-center gap-2.5 px-2.5 py-2 rounded-xl bg-black/25 border ${r.hot ? 'border-fuchsia-400/60' : 'border-white/5'}">
+<span class="text-lg w-6 text-center">${r.ic}</span><div class="flex-1 min-w-0"><p class="text-xs font-black text-white truncate">${escapeHTML(r.t)}</p><p class="text-[10px] ${r.hot ? 'text-fuchsia-300' : 'text-gray-400'} truncate">${escapeHTML(r.sub || '')}</p></div>
+<button onclick="${r.go}" class="px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase ${r.done ? 'bg-white/10 text-white' : 'bg-gradient-to-r from-cyan-400 to-fuchsia-500 text-slate-950'}">${r.btn}</button></div>`).join('')}</div></div>`;
+box.prepend(d);
+};
+window.claimDailyReward = (function(b) { return function(...a) { const r = b.apply(this, a); try { window.renderDailyCard(); } catch (e) {} return r; }; })(window.claimDailyReward);
+
+window.openWeeklyRecap = async function() {
+if (window.needSignIn('see your week')) return;
+window.openPanel('📊 Your week', `<p class="text-xs text-gray-400 text-center py-10"><i class="fa-solid fa-spinner fa-spin"></i></p>`);
+const since = Date.now() - 7 * 864e5, msOf = (p) => p.createdAt ? (p.createdAt.seconds ? p.createdAt.seconds * 1000 : +new Date(p.createdAt)) : 0;
+let posts = [];
+try { const s = await getDocs(query(collection(window.db, 'posts'), where('user', '==', window.me()), limit(200))); s.forEach(d => posts.push({ id: d.id, ...d.data() })); }
+catch (e) { posts = (window.fypposts || []).filter(p => (p.user || '').toLowerCase() === window.meLower()); }
+posts = posts.filter(p => msOf(p) >= since);
+const ggs = posts.reduce((a, p) => a + (p.ggsCount || 0), 0), views = posts.reduce((a, p) => a + (p.viewsCount || 0), 0), cm = posts.reduce((a, p) => a + (p.commentsCount || 0), 0);
+const best = [...posts].sort((a, b) => (b.ggsCount || 0) - (a.ggsCount || 0))[0];
+const h = window.trivHist(), tw = Object.keys(h).filter(k => window.dayNum(k) > window.dayNum(window.todayStr()) - 7), triv = tw.reduce((a, k) => a + (+h[k] || 0), 0);
+let mp = 0, mw = 0; try { window.matchesOf(window.me()).forEach(x => { if (x.played && x.when && x.when >= since - 864e5) { mp++; if (x.res === 'W') mw++; } }); } catch (e) {}
+const st = window.myStats || {}, L = window.levelOf(st.xp || 0), f = window.formatCount || (x => x);
+const tiles = [['📝', posts.length, 'posts'], ['💘', f(ggs), 'GGs'], ['👁️', f(views), 'views'], ['💬', f(cm), 'comments'], ['🔥', st.streak || 0, 'day streak'], ['🧠', `${triv}`, `trivia right (${tw.length}d)`], ['⚽', mp ? `${mw}/${mp}` : '0', 'matches won'], ['⭐', `Lv ${L.lv}`, L.name]];
+if (best) { window.postFetchCache = window.postFetchCache || {}; window.postFetchCache[best.id] = window.postFetchCache[best.id] || best; }
+const body = document.getElementById('sgPanelBody'); if (!body) return;
+const sub = `${posts.length} posts · ${f(ggs)} GGs · ${f(views)} views · 🔥 ${st.streak || 0}-day streak${tw.length ? ` · 🧠 ${triv} trivia` : ''}`;
+window._recapCard = { title: 'My week on SINLESS GG', big: `${f(ggs)} GGs`, sub, by: '@' + window.me(), url: 'https://sinlessgg.com' };
+body.innerHTML = `<div class="space-y-3"><p class="text-xs text-gray-400 text-center">Last 7 days</p>
+<div class="grid grid-cols-2 gap-2">${tiles.map(([ic, v, l]) => `<div class="p-3 rounded-2xl bg-gg-900 border border-white/5"><p class="text-lg">${ic}</p><p class="text-xl font-black text-white">${escapeHTML(String(v))}</p><p class="text-[10px] text-gray-400 uppercase font-bold">${escapeHTML(l)}</p></div>`).join('')}</div>
+${best && best.ggsCount ? `<button onclick="window.closePanel(); window.openPostDetail('${best.id}')" class="w-full text-left p-3 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-400/30"><p class="text-[10px] font-black text-fuchsia-300 uppercase">🏅 Your top post</p><p class="text-xs text-white font-bold truncate">${escapeHTML(best.caption || 'Your post')}</p><p class="text-[10px] text-gray-400">${f(best.ggsCount)} GGs · ${f(best.viewsCount || 0)} views</p></button>` : ''}
+<button onclick="window.shareStatusCard(window._recapCard)" class="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-fuchsia-500 text-slate-950 text-xs font-black uppercase">📲 Share my week</button>
+<p class="text-[10px] text-gray-500 text-center">${posts.length ? 'Keep it going next week!' : 'Post something this week to fill your card 💪'}</p></div>`;
+};
+
+window.NP_CATS = [
+['gg', '💘 GGs on my posts', ['gg']], ['talk', '💬 Comments, replies & @mentions', ['reply', 'mention']], ['follow', '➕ New followers', ['follow']],
+['dm', '✉️ Messages & groups', ['dm', 'group']], ['squad', '🛡️ Squad chats & events', ['squad']], ['tourn', '🏆 Tournaments, matches & game invites', ['tournament', 'invite', 'game']],
+['story', '📸 Stories & live', ['story', 'live']], ['official', '📣 SINLESS GG news', ['official']]
+];
+window.npCatOf = (type) => (window.NP_CATS.find(c => c[2].includes(type)) || [])[0] || null;
+window._npCache = {};
+window.npOffFor = async function(uid) {
+const c = window._npCache[uid]; if (c && Date.now() - c.at < 30 * 60e3) return c.off;
+let off = [];
+try { const s = await getDoc(doc(window.db, 'notifPrefs', uid)); if (s.exists()) off = Array.isArray(s.data().off) ? s.data().off : []; } catch (e) { return []; }
+window._npCache[uid] = { off, at: Date.now() }; return off;
+};
+window.notify = (function(b) {
+return async function(toUid, type, extra = {}) {
+try {
+const cat = window.npCatOf(type), must = /breaks the SINLESS GG rules/.test((extra && extra.text) || '');
+if (cat && !must && toUid && window.isSignedIn() && toUid !== window.uidNow()) { const off = await window.npOffFor(toUid); if (off.includes(cat)) return; }
+} catch (e) {}
+return b.call(this, toUid, type, extra);
+};
+})(window.notify);
+window.myNpOff = () => { try { return JSON.parse(localStorage.getItem('sg_np_off') || '[]'); } catch (e) { return []; } };
+window.openNotifSettings = async function() {
+if (window.needSignIn('choose your alerts')) return;
+let off = window.myNpOff();
+try { delete window._npCache[window.uidNow()]; off = await window.npOffFor(window.uidNow()); } catch (e) {}
+window.openPanel('🔔 Choose your alerts', `<p class="text-[11px] text-gray-400 mb-3">Turn off what you don’t want. Switched-off alerts won’t show in the app or on your phone.</p>
+<div class="space-y-2">${window.NP_CATS.map(([k, label]) => `<label class="flex items-center gap-3 px-3 py-3 rounded-2xl bg-gg-900 border border-white/5 cursor-pointer">
+<span class="flex-1 text-sm font-bold text-white">${label}</span><input type="checkbox" data-np="${k}" ${off.includes(k) ? '' : 'checked'} class="w-5 h-5 accent-fuchsia-500"></label>`).join('')}</div>
+<button onclick="window.saveNotifSettings()" class="mt-3 w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-fuchsia-500 text-slate-950 text-xs font-black uppercase">Save</button>
+<p class="text-[10px] text-gray-500 text-center pt-2">Rule-break warnings from SINLESS GG always come through.</p>`);
+};
+window.saveNotifSettings = async function() {
+const off = [...document.querySelectorAll('[data-np]')].filter(i => !i.checked).map(i => i.dataset.np);
+try { localStorage.setItem('sg_np_off', JSON.stringify(off)); } catch (e) {}
+try { await setDoc(doc(window.db, 'notifPrefs', window.uidNow()), { off, at: Date.now() }); window._npCache[window.uidNow()] = { off, at: Date.now() }; showToast('✅ Alert settings saved'); window.closePanel ? window.closePanel() : null; }
+catch (e) { showToast('⚠️ Couldn’t save. Check your internet.'); }
+};
+window.renderPushStatus = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try { const bar = document.getElementById('sgPushBar'); if (bar && !document.getElementById('sgNpBtn')) bar.insertAdjacentHTML('beforeend', `<button id="sgNpBtn" onclick="window.openNotifSettings()" class="mt-2 w-full py-2 rounded-xl bg-white/5 border border-white/10 text-[11px] font-black text-white">⚙️ Choose which alerts you get</button>`); } catch (e) {}
+return r;
+};
+})(window.renderPushStatus);
+
+window.addXP = (function(b) {
+return function(n, reason) {
+const before = window.levelOf((window.myStats || {}).xp || 0).lv;
+const r = b.apply(this, arguments);
+try {
+const L = window.levelOf((window.myStats || {}).xp || 0);
+if (L.lv > before && window.isSignedIn()) setTimeout(() => window.levelUpCelebrate(L), 700);
+} catch (e) {}
+return r;
+};
+})(window.addXP);
+window.levelUpCelebrate = function(L) {
+window._lvCard = { title: `I just reached Level ${L.lv} on SINLESS GG!`, big: `Lv ${L.lv}`, sub: `${L.name} · ${window.formatCount ? window.formatCount(L.xp) : L.xp} Top Rank points`, by: '@' + window.me(), url: 'https://sinlessgg.com' };
+try { window.sgAudio && window.sgAudio.fx && window.sgAudio.fx('win'); } catch (e) {}
+window.islandShow(`<span class="ico pop">⬆️</span><span class="txt">Level ${L.lv} · ${escapeHTML(L.name)}!<span class="sub">You levelled up 🎉</span></span><button class="act" onclick="window.islandHide(); window.shareStatusCard(window._lvCard)">Share</button>`, 'ok', 7000);
+};
+
+window.addV50Menu = function() {
+const notif = [...document.querySelectorAll('#sideDrawer .drawer-menu-item')].find(li => (li.getAttribute('onclick') || '').includes('openNotifications'));
+if (!notif || document.getElementById('dmTrivia')) return;
+notif.insertAdjacentHTML('afterend', `<li id="dmTrivia" class="drawer-menu-item" onclick="toggleDrawer(false); window.openTrivia();"><span><i class="fa-solid fa-brain mr-2"></i> Daily Trivia</span><span class="badge" id="dmTriviaBadge">NEW</span></li>
+<li class="drawer-menu-item" onclick="toggleDrawer(false); window.openWeeklyRecap();"><span><i class="fa-solid fa-chart-simple mr-2"></i> My Week</span></li>
+<li class="drawer-menu-item" onclick="toggleDrawer(false); window.openNotifSettings();"><span><i class="fa-solid fa-sliders mr-2"></i> Alert Settings</span></li>`);
+window.updTrivBadge();
+};
+window.updTrivBadge = () => { const b = document.getElementById('dmTriviaBadge'); if (b) { const d = window.trivDone(); b.textContent = d === undefined ? 'NEW' : `${d}/${window.TRIV_N}`; } };
+window.finishTrivia = (function(b) { return async function(...a) { const r = await b.apply(this, a); window.updTrivBadge(); return r; }; })(window.finishTrivia);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', window.addV50Menu); else window.addV50Menu();
+
+window.WIN_GAMES = ['ludo', 'snakes'];
+window.allBestLocal = (g) => { try { return +localStorage.getItem('sg_allbest_' + g) || 0; } catch (e) { return 0; } };
+window.saveAllTime = async function(game, value, add) {
+if (!window.isSignedIn() || !game) return;
+const gw = `${game}_all`, ref = doc(window.db, 'gameScores', `${gw}_${window.uidNow()}`);
+try {
+if (!add && Math.floor(value) <= window.allBestLocal(game)) return;   // nothing new, save a read
+const cur = await getDoc(ref), have = cur.exists() ? +cur.data().score || 0 : 0;
+const next = Math.min(5000, Math.floor(add ? Math.max(have + 1, value || 0) : Math.max(have, value)));
+if (next > have) await setDoc(ref, { game, week: 'all', gw, uid: window.uidNow(), user: window.me(), score: next, at: serverTimestamp() });
+try { localStorage.setItem('sg_allbest_' + game, String(Math.max(next, have))); } catch (e) {}
+delete window._boardCache[gw]; delete window._boardCache.all_all;
+} catch (e) {}
+};
+window.submitGameScore = (function(b) {
+return async function(game, score) {
+const r = await b.apply(this, arguments);
+try { if (score && !window.WIN_GAMES.includes(game)) await window.saveAllTime(game, Math.max(+score || 0, (r && r.weekBest) || 0)); } catch (e) {}
+return r;
+};
+})(window.submitGameScore);
+window.backfillAllTime = async function() {
+if (!window.isSignedIn()) return;
+const flag = 'sg_allbf1_' + window.uidNow(); try { if (localStorage.getItem(flag)) return; } catch (e) {}
+const per = {};
+try {
+const s = await getDocs(query(collection(window.db, 'gameScores'), where('uid', '==', window.uidNow()), limit(400)));
+s.forEach(d => { const x = d.data(); if (!x || !x.game || x.week === 'all' || /_all$/.test(x.gw || '')) return; const v = +x.score || 0; per[x.game] = window.WIN_GAMES.includes(x.game) ? (per[x.game] || 0) + v : Math.max(per[x.game] || 0, v); });
+} catch (e) { return; }
+Object.keys(window.GAMES || {}).forEach(g => { if (!window.WIN_GAMES.includes(g)) per[g] = Math.max(per[g] || 0, window.bestScore(g)); });
+for (const [g, v] of Object.entries(per)) { if (v > 0) await window.saveAllTime(g, v); }
+try { localStorage.setItem(flag, '1'); } catch (e) {}
+};
+setTimeout(() => window.backfillAllTime(), 12000);
