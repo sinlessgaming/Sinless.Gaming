@@ -20634,3 +20634,13 @@ ${line ? `<p class="text-[11px] text-gray-400">Add this line at the bottom of <b
 return r;
 };
 })(window.renderAdminPush);
+
+
+window._baseWeekChallenges20 = function(wk = window.weekKey(Date.now())) {
+const seed = Math.floor(new Date(wk + 'T00:00:00Z').getTime() / (7 * 86400000));
+const pool = window.CHALLENGE_POOL || [], L = pool.length, out = [];
+if (!L) return out;
+for (let i = 0; out.length < 4 && i < L * 8; i++) { const c = pool[(((seed * 5 + i * 7) % L) + L) % L]; if (c && !out.includes(c)) out.push(c); }
+for (let k = 0; out.length < Math.min(4, L) && k < L; k++) { const c = pool[(((seed + k) % L) + L) % L]; if (!out.includes(c)) out.push(c); }
+return out;
+};
