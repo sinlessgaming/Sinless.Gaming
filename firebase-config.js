@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { 
-    getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, 
+    getFirestore, initializeFirestore, memoryLocalCache, 
     collection, 
     addDoc, 
     doc,
@@ -39,9 +39,10 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-// Keep a copy of what you've seen on the phone, so the app shows it instantly next time (even on 2G)
+// Always read fresh from the server (the saved-on-phone copy could get stuck when several tabs were open,
+// which made the feed look empty). The app keeps its own small quick-start copy of the feed.
 let db;
-try { db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
+try { db = initializeFirestore(app, { localCache: memoryLocalCache() }); }
 catch (e) { db = getFirestore(app); }
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();

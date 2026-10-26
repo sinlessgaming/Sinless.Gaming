@@ -21961,3 +21961,13 @@ row.insertAdjacentHTML('beforeend', `<button data-evdel onclick="window.deleteSq
 return r;
 };
 })(window.openSquadEvents);
+window.feedRescue = (function(b) { return async function(why) { const r = await b(why); window._restPosts = (window.fypposts || []).filter(p => p && p.id && !String(p.id).startsWith('local_')); return r; }; })(window.feedRescue);
+window.renderFypFeed = (function(b) {
+return function(...a) {
+if (window._restPosts && window._restPosts.length && !(window.fypposts || []).some(p => p && !String(p.id || '').startsWith('local_'))) {
+const have = new Set((window.fypposts || []).map(p => p.docId || p.id));
+window.fypposts = [...(window.fypposts || []), ...window._restPosts.filter(p => !have.has(p.docId || p.id))];
+}
+return b.apply(this, a);
+};
+})(window.renderFypFeed);
