@@ -21133,3 +21133,198 @@ const ok = !!p && (window.isFreshMine(p) || !window.seenRecently(id));
 (ok ? mix.include : mix.exclude).add(id);
 return ok;
 };
+
+window.amOfficial = () => window.isSignedIn() && window.isOfficial && window.isOfficial(window.me());
+window.ALL_RE = /(^|\s)@(all|everyone)\b/i;
+window.sendSquadMessage = (function(b) {
+return async function(payload) {
+const sq = window.activeSquadDetails, text = (payload && payload.text) || '';
+if (sq && window.ALL_RE.test(text) && !(window.isSquadOwner(sq) || window.isSquadAdmin(sq) || window.amOfficial())) {
+showToast('📣 Only squad admins can tag @all. Your message was sent without it.');
+payload = { ...payload, text: text.replace(window.ALL_RE, '$1all') };
+return b.call(this, payload);
+}
+const isAll = sq && window.ALL_RE.test(text);
+let r; const n0 = window.notify;
+if (isAll) window.notify = (u, type, ex) => (type === 'squad' && ex && ex.postId === 'squad:' + sq.id) ? Promise.resolve() : n0(u, type, ex);   // no double alert
+try { r = await b.call(this, payload); } finally { if (isAll) window.notify = n0; }
+if (isAll) {
+const msg = `📣 ${window.dnText(window.me())} in ${sq.name}: ${text.replace(window.ALL_RE, ' ').trim()}`.slice(0, 140);
+const uids = [...new Set(sq.memberUids || [])].filter(u => u && u !== window.uidNow());
+for (let i = 0; i < uids.length; i += 10) { await Promise.all(uids.slice(i, i + 10).map(u => window.notify(u, 'squad', { text: msg, postId: 'squad:' + sq.id }))); }
+showToast(`📣 Everyone in ${sq.name} was notified (${uids.length})`);
+}
+return r;
+};
+})(window.sendSquadMessage);
+window.broadcastOfficial = async function(postId, caption) {
+if (!window.amOfficial() || !postId) return;
+if (!Object.keys(window.allProfilesMap || {}).length) await window.loadAllProfiles(true);
+const uids = [...new Set(Object.values(window.allProfilesMap || {}).filter(p => p && p.uid && !p.deleted && p.uid !== window.uidNow()).map(p => p.uid))];
+if (!uids.length) return;
+const text = `📣 ${String(caption || 'New post from SINLESS GG').replace(/\s+/g, ' ').slice(0, 120)}`;
+let done = 0;
+window.islandShow(`<span class="ico pop">📣</span><span class="txt">Sending to everyone…<span class="sub" id="bcCount">0 / ${uids.length}</span></span>`, 'info', 0, true);
+for (let i = 0; i < uids.length; i += 8) {
+await Promise.all(uids.slice(i, i + 8).map(u => window.notify(u, 'official', { text, postId }).catch(() => {})));
+done = Math.min(uids.length, i + 8); const c = document.getElementById('bcCount'); if (c) c.textContent = `${done} / ${uids.length}`;
+await new Promise(r => setTimeout(r, 250));
+}
+try { await updateDoc(doc(window.db, 'posts', postId), { boostAll: true }); } catch (e) {}
+window.islandHide(); showToast(`📣 Sent to ${uids.length} people`);
+};
+window.postStatus.done = (function(b) {
+return function(id) {
+const r = b.call(this, id);
+if (window.amOfficial() && id) {
+const cap = this.cap;
+setTimeout(async () => { if (await window.sgConfirm('Send this post to EVERYONE as a phone alert and notification?', { title: '📣 Official post', okText: 'Send to everyone' })) window.broadcastOfficial(id, cap); }, 1200);
+}
+return r;
+};
+})(window.postStatus.done);
+window.isBoostedOfficial = (p) => p && window.isOfficial && window.isOfficial(p.user) && Date.now() - window.postTimeValue(p) < 48 * 3600e3 && !window.seenRecently(p.docId || p.id);
+window.isFreshMine = (function(b) { return function(p) { return b(p) || window.isBoostedOfficial(p); }; })(window.isFreshMine);
+window.buildClipsList = (function(b) {
+return function(...a) {
+const list = b.apply(this, a) || [];
+const off = list.filter(c => c && c.kind === 'post' && window.isBoostedOfficial(c.p));
+return off.length ? [...off, ...list.filter(c => !off.includes(c))] : list;
+};
+})(window.buildClipsList);
+window.notifIcon = (function(b) { return function(type) { return type === 'official' ? 'fa-bullhorn text-amber-400' : b(type); }; })(window.notifIcon);
+
+window.mentionCandidates = (function(b) {
+return function(q) {
+const el = window._mentionEl, sq = window.activeSquadDetails;
+let out = b(q);
+if (el && el.id === 'squadSubRoomInput' && sq) {
+const ql = (q || '').toLowerCase(), mine = [];
+[...new Set(sq.members || [])].forEach(tag => {
+const p = window.profileFor(tag) || {}, name = p.displayName || tag;
+if (!tag || tag.toLowerCase() === window.meLower()) return;
+if (ql && !tag.toLowerCase().includes(ql) && !name.toLowerCase().includes(ql) && !window.hnd(tag).toLowerCase().includes(ql)) return;
+mine.push({ tag, name });
+});
+const seen = new Set(mine.map(x => x.tag.toLowerCase()));
+out = [...mine.slice(0, 6), ...out.filter(x => !seen.has(x.tag.toLowerCase()))].slice(0, 7);
+if ((window.isSquadOwner(sq) || window.isSquadAdmin(sq) || window.amOfficial()) && (!ql || 'all'.startsWith(ql) || 'everyone'.startsWith(ql))) out.unshift({ tag: 'all', name: '📣 Everyone in this squad', all: true });
+}
+return out;
+};
+})(window.mentionCandidates);
+window.onMentionInput = (function(b) {
+return function(el) {
+window._mentionEl = el;
+const r = b(el);
+const box = document.getElementById('mentionBox'), vv = window.visualViewport;
+if (box && !box.classList.contains('hidden') && vv) {
+const rc = el.getBoundingClientRect(), above = rc.top > vv.height / 2;
+box.style.maxHeight = Math.max(140, (above ? rc.top : vv.height - rc.bottom) - 16) + 'px'; box.style.overflowY = 'auto';
+if (above) { box.style.top = 'auto'; box.style.bottom = Math.max(8, window.innerHeight - rc.top + 6) + 'px'; }
+}
+return r;
+};
+})(window.onMentionInput);
+window.pickMention = (function(b) {
+return function(i) {
+const s = window.mentionState, c = s && s.list[i];
+if (c && c.all) { const v = s.el.value; s.el.value = v.slice(0, s.start) + '@all ' + v.slice(s.end); const pos = s.start + 5; s.el.focus(); s.el.setSelectionRange(pos, pos); window.hideMentionBox(); return; }
+return b(i);
+};
+})(window.pickMention);
+window.sendSquadMessage = (function(b) {
+return async function(payload) {
+const r = await b.call(this, payload);
+const sq = window.activeSquadDetails, text = (payload && payload.text) || '';
+if (sq && text && !window.ALL_RE.test(text)) {
+const tags = [...new Set((text.match(/@([A-Za-z0-9_]{2,30})/g) || []).map(x => x.slice(1).toLowerCase()))];
+tags.forEach(k => {
+const member = (sq.members || []).find(t => t.toLowerCase() === k || window.hnd(t).toLowerCase() === k);
+if (member && member.toLowerCase() !== window.meLower()) window.notifyTag(member, `💬 ${window.dnText(window.me())} mentioned you in ${sq.name}: ${text.slice(0, 90)}`);
+});
+}
+return r;
+};
+})(window.sendSquadMessage);
+
+(function clipsV2Css() {
+const st = document.createElement('style'); st.id = 'sgClipsV2';
+st.textContent = `
+#sgClips.v2 > button[onclick*="closeClips"], #sgClips.v2 > p{display:none!important}
+#sgClips.v2 [data-v2] > .absolute.right-3, #sgClips.v2 [data-v2] > .absolute.left-3{display:none!important}
+#sgClips .cv-top{position:absolute;z-index:20;top:calc(env(safe-area-inset-top,0px) + 8px);left:10px;right:10px;height:46px;border-radius:18px;display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 14px;
+background:linear-gradient(rgba(9,9,16,.9),rgba(9,9,16,.9)) padding-box,linear-gradient(90deg,rgba(34,211,238,.25),#22d3ee 35%,#a855f7 65%,#ff2d95) border-box;border:1.5px solid transparent;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 0 18px -6px rgba(255,45,149,.6)}
+#sgClips .cv-word{font:900 15px/1 system-ui,-apple-system,'Segoe UI',sans-serif;letter-spacing:1.2px;text-transform:uppercase;background:linear-gradient(90deg,#22d3ee,#a855f7 50%,#ff2d95);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 6px rgba(168,85,247,.75)) drop-shadow(0 0 2px rgba(34,211,238,.6))}
+#sgClips .cv-x{width:34px;height:34px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center}
+#sgClips .cv-card{position:absolute;z-index:15;left:6px;right:6px;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);border-radius:22px;padding:14px 14px 12px;color:#fff;
+background:linear-gradient(180deg,rgba(20,18,30,.55),rgba(8,8,14,.88));-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.07)}
+#sgClips .cv-title{font:800 17px/1.25 system-ui,-apple-system,'Segoe UI',sans-serif;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#sgClips .cv-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+#sgClips .cv-ch{font:700 11px/1.2 system-ui;letter-spacing:.6px;text-transform:uppercase;color:#a1a1aa;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#sgClips .cv-follow{flex:none;padding:7px 18px;border-radius:999px;font:800 13px system-ui;color:#fff;background:linear-gradient(90deg,#22d3ee,#a855f7 55%,#ff2d95);box-shadow:0 0 14px -4px rgba(255,45,149,.7)}
+#sgClips .cv-follow.on{background:rgba(255,255,255,.12);box-shadow:none}
+#sgClips .cv-line{height:2.5px;border-radius:3px;margin:10px 0 10px;background:linear-gradient(90deg,#22d3ee,#a855f7 55%,#ff2d95);box-shadow:0 0 8px rgba(168,85,247,.6)}
+#sgClips .cv-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+#sgClips .cv-b{height:56px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#fff;font:700 10.5px/1.15 system-ui;text-align:center;
+background:linear-gradient(rgba(14,14,22,.92),rgba(14,14,22,.92)) padding-box,linear-gradient(135deg,#22d3ee,#a855f7 55%,#ff2d95) border-box;border:1.5px solid transparent;box-shadow:0 0 10px -4px rgba(168,85,247,.8)}
+#sgClips .cv-b i{font-size:17px}
+#sgClips .cv-b.gg.on{background:linear-gradient(rgba(40,10,22,.95),rgba(40,10,22,.95)) padding-box,linear-gradient(135deg,#ff2d95,#ef4444) border-box}
+#sgClips .cv-b.gg .lab{color:#f87171}
+#sgClips .cv-b:active{transform:scale(.94)}
+#sgClips [data-v2] [data-clip-yt]{max-height:calc(100% - 200px);margin-bottom:120px}
+#sgClips [data-v2] video[data-clip-video], #sgClips [data-v2] > img{max-height:100%}`;
+document.head.appendChild(st);
+})();
+window.cvSync = function(s) {
+const card = s.querySelector('.cv-card'); if (!card) return;
+const col = s.querySelector(':scope > .absolute.right-3'); if (!col) return;
+const btns = [...col.querySelectorAll(':scope > button')];
+const find = (re) => btns.find(b => re.test(b.textContent || ''));
+const gg = btns.find(b => /👍|💖|🤍|❤/.test((b.querySelector('span') || {}).textContent || '')), ggOn = gg && /💖/.test(gg.textContent);
+const ggCount = gg ? ((gg.querySelectorAll('span')[1] || {}).textContent || '').trim() : '';
+const gb = card.querySelector('.cv-b.gg'); if (gb) { gb.classList.toggle('on', !!ggOn); gb.querySelector('i').className = ggOn ? 'fa-solid fa-heart' : 'fa-regular fa-heart'; gb.querySelector('i').style.color = ggOn ? '#ff3b5c' : '#ff6b81'; gb.querySelector('.lab').textContent = 'GG' + (/^\d|K|M/.test(ggCount) ? ' ' + ggCount : ''); }
+const sv = find(/Save|Saved/), sb = card.querySelector('.cv-b.save'); if (sv && sb) { const on = /Saved|✅|🔖/.test(sv.textContent); sb.querySelector('i').className = on ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark'; sb.querySelector('.lab').textContent = on ? 'Saved' : 'Save'; }
+};
+window.clipsV2 = function() {
+const box = document.getElementById('sgClips'); if (!box) return;
+box.classList.add('v2');
+if (!box.querySelector('.cv-top')) {
+const mute = document.getElementById('sgClipsMute');
+box.insertAdjacentHTML('beforeend', `<div class="cv-top"><span class="cv-word">Sinless GG</span><span style="display:flex;gap:6px;align-items:center" class="cv-tr"></span></div>`);
+const tr = box.querySelector('.cv-tr');
+if (mute) { mute.className = 'cv-x'; mute.style.position = 'static'; tr.appendChild(mute); }
+tr.insertAdjacentHTML('beforeend', `<button class="cv-x" aria-label="Close" onclick="window.closeClips()">✕</button>`);
+}
+box.querySelectorAll('[data-clip]:not([data-v2])').forEach(s => {
+const c = (window.clipsList || [])[+s.getAttribute('data-clip')]; if (!c) return;
+s.setAttribute('data-v2', '1');
+const col = s.querySelector(':scope > .absolute.right-3'), btns = col ? [...col.querySelectorAll(':scope > button')] : [];
+const idx = (re) => btns.findIndex(b => re.test(b.textContent || ''));
+const iGG = btns.findIndex(b => /👍|💖|🤍/.test((b.querySelector('span') || {}).textContent || '')), iChat = btns.findIndex(b => /💬/.test((b.querySelector('span') || {}).textContent || '')), iShare = idx(/Share/), iSave = idx(/Save/), iWatch = idx(/Watch/);
+const p = c.p || (c.kind === 'post' || c.kind === 'pimg' ? window.findPost(c.id) : null), v = c.v || {};
+const title = p ? (String(p.caption || '').split('\n')[0] || (p.mediaList && p.mediaList.length ? '📸 New post' : '')) : (v.title || '');
+const ch = p ? window.dnText(p.user) : ((v.ch && v.ch.name) || 'YouTube');
+const followBtn = p && window.isSignedIn() && p.user && p.user.toLowerCase() !== window.meLower()
+? `<button class="cv-follow ${window.amFollowing && window.amFollowing(p.user) ? 'on' : ''}" onclick="event.stopPropagation(); window.toggleFollowUser('${escapeHTML(p.user)}'); this.classList.toggle('on'); this.textContent=this.classList.contains('on')?'Following':'Follow'">${window.amFollowing && window.amFollowing(p.user) ? 'Following' : 'Follow'}</button>`
+: (!p && iWatch >= 0 ? `<button class="cv-follow" onclick="event.stopPropagation(); this.closest('[data-clip]').querySelector(':scope > .absolute.right-3').children[${iWatch}].click()">▶ Watch</button>` : '');
+const views = p ? window.formatCount(p.viewsCount || 0) : '';
+const chatN = iChat >= 0 ? ((btns[iChat].querySelectorAll('span')[1] || {}).textContent || '').trim() : '';
+const tap = (i) => i >= 0 ? `onclick="event.stopPropagation(); const b=this.closest('[data-clip]').querySelector(':scope > .absolute.right-3').children[${i}]; b && b.click(); setTimeout(()=>window.cvSync(this.closest('[data-clip]')),350)"` : 'disabled style="opacity:.45"';
+s.insertAdjacentHTML('beforeend', `<div class="cv-card" onclick="event.stopPropagation()">
+<div class="cv-title">${escapeHTML(title || ch)}</div>
+<div class="cv-row"><span class="cv-ch">${escapeHTML(ch)}${p && window.isVerified && window.isVerified(p.user) ? ' ✔' : ''}${p ? '' : ' · OFFICIAL'}</span>${followBtn}</div>
+<div class="cv-line"></div>
+<div class="cv-btns">
+<button class="cv-b save" ${tap(iSave)}><i class="fa-regular fa-bookmark"></i><span class="lab">Save</span></button>
+<button class="cv-b gg" ${tap(iGG)}><i class="fa-regular fa-heart"></i><span class="lab">GG</span></button>
+<button class="cv-b" ${tap(iChat)}><i class="fa-solid fa-comment-dots"></i><span class="lab">${/^\d/.test(chatN) ? escapeHTML(chatN) : 'Chat'}</span></button>
+<button class="cv-b" ${tap(iShare)}><i class="fa-solid fa-share"></i><span class="lab">Share</span></button>
+<button class="cv-b" ${p ? `onclick="event.stopPropagation(); window.openWhoGG ? window.openWhoGG('${escapeHTML(c.id)}') : 0"` : tap(iWatch)}><i class="fa-solid fa-chart-simple"></i><span class="lab">${p ? `STATS<br>${views} views` : 'More'}</span></button>
+</div></div>`);
+window.cvSync(s);
+});
+};
+window.clipsDecorate = (function(b) { return function(...a) { const r = b.apply(this, a); window.clipsV2(); return r; }; })(window.clipsDecorate);
+window.clipActivate = (function(b) { return function(i) { const r = b(i); const s = document.querySelector(`#sgClipsScroll [data-clip="${i}"]`); if (s) window.cvSync(s); return r; }; })(window.clipActivate);
+(function() { const s = document.createElement('style'); s.textContent = '#sgClips.v2 [data-v2] > button.top-3{top:calc(env(safe-area-inset-top,0px) + 62px)}'; document.head.appendChild(s); })();
