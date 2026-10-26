@@ -21565,3 +21565,105 @@ try { return await b.apply(this, a); }
 catch (e) { if (/B2: B2 sign-in failed/i.test(e.message || '')) throw new Error('Video storage is not ready right now. Try again in a little while, or post a shorter video.'); throw e; }
 };
 })(window.uploadToCloudinary);
+
+(function() { const s = document.createElement('style'); s.textContent = '#shareSheet{z-index:460!important}#actionSheet{z-index:455!important}'; document.head.appendChild(s); })();
+window.sharePost = (function(b) {
+return function(postId) {
+const r = b(postId);
+const sh = window.activeShare || {};
+if (navigator.share && sh.link) {
+document.getElementById('shareSheet')?.classList.add('hidden');
+navigator.share({ title: 'SINLESS GG', text: sh.text, url: sh.link }).catch((e) => { if (e && e.name !== 'AbortError') document.getElementById('shareSheet')?.classList.remove('hidden'); });
+}
+return r;
+};
+})(window.sharePost);
+window.repostVideo = async function(vid, title) {
+if (window.needSignIn('repost')) return;
+const ok = await window.sgConfirm(`Repost this video to your followers?\n\n${title || ''}`, { title: '🔁 Repost', okText: 'Repost' });
+if (!ok) return;
+const payload = { user: window.me(), displayName: window.myDisplayName || window.me(), uid: window.uidNow(), verified: false, game: 'OTHER GAMES',
+caption: `🔁 ${String(title || '').slice(0, 200)}\nhttps://youtube.com/shorts/${vid}`, mediaList: [], audioTrack: null, poll: null, pollCounts: {}, pollVoters: [], ggsCount: 0, ggsBy: [], tipsTotal: 0, viewsCount: 1, commentsCount: 0 };
+try { await window.savePostCloud(payload); showToast('🔁 Reposted to your followers!'); } catch (e) { showToast("⚠️ Couldn't repost. Check your connection."); }
+};
+window.clipsV2 = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+document.querySelectorAll('#sgClips [data-v2]:not([data-v2e])').forEach(s => {
+s.setAttribute('data-v2e', '1');
+const c = (window.clipsList || [])[+s.getAttribute('data-clip')]; if (!c) return;
+const grid = s.querySelector('.cv-btns'); if (!grid) return;
+const shareBtn = [...grid.children].find(x => /Share/.test(x.textContent));
+if (shareBtn && c.kind !== 'short' && c.id) shareBtn.setAttribute('onclick', `event.stopPropagation(); window.sharePost('${escapeHTML(c.id)}')`);
+if (c.kind === 'short' && c.v && grid.children.length === 4) {
+grid.style.gridTemplateColumns = 'repeat(5,1fr)';
+grid.insertAdjacentHTML('beforeend', `<button class="cv-b" onclick="event.stopPropagation(); window.repostVideo('${escapeHTML(c.v.vid)}', ${JSON.stringify(String(c.v.title || '').slice(0, 150)).replace(/"/g, '&quot;')})"><span class="ic"><i class="fa-solid fa-retweet"></i></span><span class="lab">Repost</span></button>`);
+}
+const last = grid.lastElementChild;
+if (last && /Repost/.test(last.textContent) && c.kind !== 'short') last.setAttribute('onclick', `event.stopPropagation(); window.openRepostMenu('${escapeHTML(c.id)}')`);
+});
+return r;
+};
+})(window.clipsV2);
+window.openMyPostMenu = (function(b) {
+return function(id) {
+const r = b(id);
+const items = window.actionSheetItems; if (items && !items.some(x => /Repost/.test(x.label))) { items.splice(2, 0, { icon: 'fa-retweet', label: 'Repost / Quote', run: () => window.openRepostMenu(id) }); window.openActionSheet('Your post', items); }
+return r;
+};
+})(window.openMyPostMenu);
+
+window.adminDeletePost = async function(id) {
+if (!window.isAppAdmin) return;
+const p = window.findPost(id) || (window.postFetchCache || {})[id];
+if (!await window.sgConfirm(`Delete this post for everyone?${p && p.caption ? `\n\n"${String(p.caption).slice(0, 80)}"` : ''}`, { title: '🛡️ Admin delete', okText: 'Delete', danger: true })) return;
+try { await deleteDoc(doc(window.db, 'posts', id)); } catch (e) { showToast('⚠️ Couldn’t delete: ' + (e.message || 'error')); return; }
+window.purgePost(id);
+if (p && p.uid && p.uid !== window.uidNow()) window.notify(p.uid, 'official', { text: 'Your post was removed because it breaks the SINLESS GG rules.' });
+showToast('🗑 Post deleted for everyone');
+};
+window.purgePost = function(id) {
+window.fypposts = (window.fypposts || []).filter(p => p.id !== id && p.docId !== id);
+if (window.postFetchCache) delete window.postFetchCache[id];
+window.profilePostsList = (window.profilePostsList || []).filter(p => (p.docId || p.id) !== id);
+try { const c = JSON.parse(localStorage.getItem('sg_feed_cache') || 'null'); if (c && c.posts) { c.posts = c.posts.filter(p => p.id !== id && p.docId !== id); localStorage.setItem('sg_feed_cache', JSON.stringify(c)); } } catch (e) {}
+try { removePostFromIndexedDB(id); } catch (e) {}
+document.querySelectorAll(`[data-post-id="${CSS.escape(id)}"]`).forEach(el => (el.closest('#fypFeedContainer > *') || el).remove());
+const box = document.getElementById('sgClips');
+if (box && !box.classList.contains('hidden')) { const c = (window.clipsList || [])[window.clipCur]; if (c && c.id === id) window.closeClips(); }
+window.renderFypFeed && window.renderFypFeed();
+};
+window.openPostActions = (function(b) {
+return function(postId) {
+const r = b(postId);
+const p = window.findPost(postId) || (window.postFetchCache || {})[postId];
+const items = window.actionSheetItems;
+if (window.isAppAdmin && items && !(p && window.isMyPost(p)) && !items.some(x => /admin/i.test(x.label))) { items.push({ icon: 'fa-shield-halved', label: '🛡️ Delete post (admin)', danger: true, run: () => window.adminDeletePost(postId) }); window.openActionSheet(document.getElementById('actionSheetTitle')?.innerText || 'Post', items); }
+return r;
+};
+})(window.openPostActions);
+window.openMyPostMenu = (function(b) { return function(id) { const p = window.findPost(id) || (window.postFetchCache || {})[id] || (window.profilePostsList || []).find(x => (x.docId || x.id) === id); if (p && !window.isMyPost(p)) return window.openPostActions(id); return b(id); }; })(window.openMyPostMenu);
+window.clipsV2 = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+document.querySelectorAll('#sgClips [data-v2]:not([data-v2f])').forEach(s => {
+s.setAttribute('data-v2f', '1');
+const c = (window.clipsList || [])[+s.getAttribute('data-clip')]; if (!c || c.kind === 'short' || !c.id) return;
+const row = s.querySelector('.cv-row'); if (!row) return;
+row.insertAdjacentHTML('beforeend', `<button onclick="event.stopPropagation(); window.openMyPostMenu('${escapeHTML(c.id)}')" aria-label="More" class="flex-none w-9 h-9 rounded-full text-white text-lg" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25)">⋯</button>`);
+});
+return r;
+};
+})(window.clipsV2);
+window.toggleGGPost = (function(b) {
+return async function(postId) {
+const known = (window.fypposts || []).some(p => p.id === postId || p.docId === postId) || window.findPost(postId);
+if (!known && window.db && !String(postId).startsWith('local_')) {
+try { const sn = await getDoc(doc(window.db, 'posts', postId)); if (!sn.exists()) { window.purgePost(postId); showToast('This post was deleted.'); return; } } catch (e) {}
+}
+if (known && window.db && !String(postId).startsWith('local_')) {
+try { const sn = await getDoc(doc(window.db, 'posts', postId)); if (!sn.exists()) { window.purgePost(postId); showToast('This post was deleted.'); return; } } catch (e) {}
+}
+return b(postId);
+};
+})(window.toggleGGPost);
