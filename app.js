@@ -21971,3 +21971,9 @@ window.fypposts = [...(window.fypposts || []), ...window._restPosts.filter(p => 
 return b.apply(this, a);
 };
 })(window.renderFypFeed);
+window.cldSized = (function(b) {
+return function(url, width, kind = 'image') {
+if (typeof url === 'string' && /ik\.imagekit\.io\//.test(url) && (kind === 'video' || /\.(mp4|mov|webm|m4v|3gp|mkv)(\?|#|$)/i.test(url.split('#')[0])) && !(kind === 'image' && url.includes('#p='))) { const clean = url.split('#')[0].replace(/\?tr=[^&]*/, ''); return clean + (clean.includes('?') ? '&' : '?') + 'tr=orig-true'; }
+return b(url, width, kind);
+};
+})(window.cldSized);
