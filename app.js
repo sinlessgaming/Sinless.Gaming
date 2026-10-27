@@ -23248,5 +23248,101 @@ return r;
 })(window.clipsV2);
 (function ytCleanCss() { const s = document.createElement('style'); s.textContent = `
 #sgClips [data-clip-yt]{overflow:hidden}
-#sgClips [data-clip-yt] > iframe{transform:scale(1.14);transform-origin:50% 46%}
 #sgClips .cv-top{background:linear-gradient(180deg,rgba(0,0,0,.78),rgba(0,0,0,.35) 60%,rgba(0,0,0,0))!important}`; document.head.appendChild(s); })();
+
+(function capCss() { const s = document.createElement('style'); s.textContent = `#sgClips [data-clip].cv-fit{box-sizing:border-box}`; document.head.appendChild(s); })();
+window.cvFitSlides = function() {
+document.querySelectorAll('#sgClips [data-clip]').forEach(s => {
+const card = s.querySelector('.cv-card'); if (!card) return;
+const h = card.offsetHeight; if (!h) return;
+s.classList.add('cv-fit'); s.style.paddingBottom = (h + 4) + 'px';
+});
+};
+window.clipsV2 = (function(b) { return function(...a) { const r = b.apply(this, a); try { window.cvFitSlides(); requestAnimationFrame(window.cvFitSlides); } catch (e) {} return r; }; })(window.clipsV2);
+window.addEventListener('resize', () => { try { window.cvFitSlides(); } catch (e) {} });
+
+window.SG_BUILD = 52;
+window._swUpdated = false;
+if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange', () => { if (window._swHadController) window._swUpdated = true; });
+window.ensureLatest = async function() {
+try {
+if (!navigator.serviceWorker || !navigator.onLine) return false;
+const reg = await navigator.serviceWorker.getRegistration(); if (!reg) return false;
+await Promise.race([reg.update(), new Promise(r => setTimeout(r, 3000))]).catch(() => {});
+const nw = reg.installing || reg.waiting;
+if (nw) await new Promise(res => { const t = setTimeout(res, 9000); const chk = () => { if (window._swUpdated || nw.state === 'activated' || nw.state === 'redundant') { clearTimeout(t); res(); } }; nw.addEventListener('statechange', chk); const iv = setInterval(() => { chk(); if (window._swUpdated) clearInterval(iv); }, 300); setTimeout(() => clearInterval(iv), 9500); });
+return !!(window._swUpdated || (nw && nw.state === 'activated'));
+} catch (e) { return false; }
+};
+window.olResumeAfterUpdate = function(act) {
+try { sessionStorage.setItem('sg_ol_resume', JSON.stringify({ ...act, at: Date.now() })); } catch (e) {}
+showToast('⬆️ Getting the newest version so you can play together…');
+setTimeout(() => location.reload(), 600);
+};
+window.olUpdateThen = async function(act) {
+if (window._olChecked && Date.now() - window._olChecked < 10 * 60e3) return false;
+window._olChecked = Date.now();
+const upd = await window.ensureLatest();
+if (upd) { window.olResumeAfterUpdate(act); return true; }
+return false;
+};
+(function olResume() {
+const go = () => {
+let a = null; try { a = JSON.parse(sessionStorage.getItem('sg_ol_resume') || 'null'); } catch (e) {}
+if (!a || Date.now() - (a.at || 0) > 120000) return;
+if (!window.isSignedIn()) return setTimeout(go, 1200);
+try { sessionStorage.removeItem('sg_ol_resume'); } catch (e) {}
+window._olChecked = Date.now();
+window.switchView('play');
+setTimeout(() => { if (a.act === 'join' && a.code) window.olJoin(a.code); else if (a.act === 'quick' && a.game) { window.openGame(a.game); setTimeout(() => window.olQuick(a.game), 500); } else if (a.act === 'create' && a.game) { window.openGame(a.game); setTimeout(() => window.olCreate(a.game, !!a.pub), 500); } }, 600);
+};
+setTimeout(go, 2200);
+})();
+window.olQuick = (function(b) { return async function(game, ...a) { if (await window.olUpdateThen({ act: 'quick', game })) return; return b.call(this, game, ...a); }; })(window.olQuick);
+window.olCreate = (function(b) { return async function(game, isPublic, ...a) { if (await window.olUpdateThen({ act: 'create', game, pub: !!isPublic })) return; return b.call(this, game, isPublic, ...a); }; })(window.olCreate);
+window.olJoin = (function(b) { return async function(code, quiet, ...a) { if (await window.olUpdateThen({ act: 'join', code })) return true; return b.call(this, code, quiet, ...a); }; })(window.olJoin);
+window.olMe = (function(b) { return function() { return { ...b(), v: window.SG_BUILD }; }; })(window.olMe);
+window.olOldPlayers = (r) => (r.players || []).filter(p => p && p.uid !== window.uidNow() && !(p.v >= window.SG_BUILD));
+window.olNewerThanMe = (r) => (r.players || []).some(p => p && (p.v || 0) > window.SG_BUILD);
+window.olShowWait = (function(b) {
+return function(o) {
+const res = b(o), room = o && o.room;
+try {
+if (room && room.id && window.olNewerThanMe(room) && !window._olSelfUpd) { window._olSelfUpd = true; window._olChecked = 0; window.olUpdateThen({ act: 'join', code: room.id }); }
+const old = room ? window.olOldPlayers(room) : [];
+const box = document.getElementById('gameOverlay').firstElementChild;
+if (old.length && box && !box.querySelector('[data-olold]')) {
+const cancel = [...box.querySelectorAll('button')].pop();
+const d = document.createElement('div'); d.setAttribute('data-olold', '1'); d.className = 'rounded-xl p-2.5 text-left border border-fuchsia-400/40 bg-fuchsia-500/10';
+d.innerHTML = `<p class="text-[11px] font-black text-white">⬆️ ${old.map(p => '@' + escapeHTML(window.hnd(p.tag || ''))).join(', ')} ${old.length === 1 ? 'has' : 'have'} an old copy of the app</p><p class="text-[10px] text-gray-300">Ask them to close the app fully and open it again, then rejoin. Old copies can’t play properly together.</p>`
++ (room.hostUid === window.uidNow() ? `<button onclick="window._olForce=true; window.olStart()" class="mt-2 w-full py-2 rounded-xl bg-white/10 text-white text-[11px] font-black">Start anyway</button>` : '');
+cancel ? cancel.before(d) : box.appendChild(d);
+}
+} catch (e) {}
+return res;
+};
+})(window.olShowWait);
+window.olHostAutoStart = (function(b) { return function(r) { if (r && window.olOldPlayers(r).length && !window._olForce) { clearTimeout(window._olAutoT); return; } return b(r); }; })(window.olHostAutoStart);
+setInterval(() => {
+try {
+const g = window.game, r = window.olRoom;
+if (!g || !r || g.online || r.status !== 'playing' || g.id !== r.game) { window._olStuckAt = 0; return; }
+if (!(r.uids || []).includes(window.uidNow())) return;
+if (!window._olStuckAt) { window._olStuckAt = Date.now(); return; }
+if (Date.now() - window._olStuckAt > 2500) { window._olStuckAt = 0; window.olBegin(r); }
+} catch (e) {}
+}, 1000);
+window.olStop = (function(b) { return function(...a) { window._olForce = false; window._olSelfUpd = false; return b.apply(this, a); }; })(window.olStop);
+window.feedNeon = function() {
+const me = window.uidNow && window.uidNow();
+document.querySelectorAll('#fypFeedContainer button[onclick^="window.toggleGGPost("]').forEach(btn => {
+const row = btn.parentElement; if (row && !row.classList.contains('sg-actions')) row.classList.add('sg-actions');
+const id = (btn.getAttribute('onclick').match(/'([^']+)'/) || [])[1], p = id && window.findPost(id);
+const on = !!(p && (p.ggsBy || []).includes(me));
+const nm = (btn.textContent.match(/(\d[\d.,]*\s*[KkMm]?)\s*GG/) || [])[1];
+const n = p ? (window.formatCount ? window.formatCount(p.ggsCount || 0) : (p.ggsCount || 0)) : (nm || '0');
+const html = (on ? '<b class="sg-em" style="font-weight:normal">💘</b>' : '<i class="sg-heart fa-regular fa-heart"></i>') + `<span>${n} GGs</span>`;
+if (btn.innerHTML !== html) btn.innerHTML = html;
+btn.classList.toggle('gg-on', on);
+});
+};
