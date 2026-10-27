@@ -17945,7 +17945,7 @@ ${[['text', 'Aa', 'Text'], ['sticker', '😀', 'Stickers'], ['filter', '🎨', '
 <div id="edBusy" class="hidden absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-3 text-white" style="z-index:9"><div class="w-24 h-24 rounded-full flex items-center justify-center text-xl font-black" id="edPct" style="border:6px solid rgba(255,255,255,.2)">0%</div><p class="font-black">Processing…</p><p class="text-xs text-gray-300">Stay on this screen until it finishes</p></div>`;
 const m = document.getElementById('edMedia');
 const fit = () => window.edFitLayer();
-if (it.type === 'video') m.addEventListener('loadedmetadata', () => { window.ed.dur = m.duration || 0; window.ed.trim = [0, Math.min(m.duration || 0, 180)]; fit(); });
+if (it.type === 'video') m.addEventListener('loadedmetadata', () => { window.ed.dur = m.duration || 0; window.ed.trim = [0, Math.min(m.duration || 0, window.VID_MAX_SEC || 60)]; fit(); });
 else m.addEventListener('load', fit);
 window.addEventListener('resize', fit);
 if (it.type === 'video') m.addEventListener('timeupdate', () => { const e = window.ed; if (e && e.trim[1] && m.currentTime > e.trim[1]) m.currentTime = e.trim[0]; });
@@ -23353,3 +23353,114 @@ if (v.readyState >= 1) fit(); else v.addEventListener('loadedmetadata', fit, { o
 return r;
 };
 })(window.clipsV2);
+
+window.VID_FREE_MAX = 24 * 1024 * 1024;
+window.VID_MAX_SEC = 60;                  // 🎬 SINLESS GG videos: up to 60 seconds (saves our free storage)
+window.VID_MB_PER_MIN = 3;                // every 60-second video ends up about 3 MB (still sharp on phones)
+window.vidMeta = (file) => new Promise((res) => {
+const v = document.createElement('video'), u = URL.createObjectURL(file); v.preload = 'metadata'; v.muted = true; v.src = u;
+const done = (x) => { URL.revokeObjectURL(u); res(x); };
+v.onloadedmetadata = () => done({ d: v.duration, w: v.videoWidth, h: v.videoHeight }); v.onerror = () => done(null); setTimeout(() => done(null), 8000);
+});
+window.shrinkVideo = async function(file, targetBytes, onP, maxSec) {
+const mime = window.recMime(); if (!mime || !HTMLCanvasElement.prototype.captureStream) throw new Error('This phone can’t prepare the video. Please try Chrome.');
+const ac = new (window.AudioContext || window.webkitAudioContext)(); try { await ac.resume(); } catch (e) {}
+const src = URL.createObjectURL(file), v = document.createElement('video'); v.src = src; v.playsInline = true; v.preload = 'auto';
+v.style.cssText = 'position:fixed;left:-2px;top:-2px;width:1px;height:1px;opacity:0;pointer-events:none'; document.body.appendChild(v);
+const clean = () => { try { v.pause(); v.remove(); URL.revokeObjectURL(src); ac.close(); } catch (e) {} };
+try {
+await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('Can’t read this video')); setTimeout(() => rej(new Error('Can’t read this video')), 20000); });
+const st = Math.max(0, Math.min(+file._sgStart || 0, (v.duration || 0) - 1)), dur = Math.min((v.duration || 60) - st, maxSec || 1e9);
+if (st) { v.currentTime = st; await new Promise(r => { v.onseeked = r; setTimeout(r, 3000); }); }
+const vbps = Math.max(300e3, Math.min(2.4e6, (targetBytes * 8 * 0.9) / dur - 64e3));
+const short = Math.min(v.videoWidth, v.videoHeight) || 720, sc = Math.min(1, (vbps < 800e3 ? 540 : 720) / short);
+const c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * sc / 2) * 2; c.height = Math.round(v.videoHeight * sc / 2) * 2; const x = c.getContext('2d');
+const stream = c.captureStream(30);
+try { const dst = ac.createMediaStreamDestination(); ac.createMediaElementSource(v).connect(dst); dst.stream.getAudioTracks().forEach(t => stream.addTrack(t)); } catch (e) {}
+const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: Math.round(vbps), audioBitsPerSecond: 64000 }), chunks = [];
+rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+let stop = false, finish;
+const ended = new Promise((res, rej) => { finish = res; v.onended = res; v.onerror = () => rej(new Error('The video stopped playing')); });
+const loop = () => { if (stop) return; x.drawImage(v, 0, 0, c.width, c.height); const el = v.currentTime - st; onP && onP(Math.min(1, el / dur), Math.max(0, dur - el)); if (el >= dur) { finish(); return; } v.requestVideoFrameCallback ? v.requestVideoFrameCallback(loop) : requestAnimationFrame(loop); };
+x.drawImage(v, 0, 0, c.width, c.height); rec.start(1000); await v.play(); loop();
+await ended;
+stop = true; v.pause(); x.drawImage(v, 0, 0, c.width, c.height);
+await new Promise(res => { rec.onstop = res; rec.stop(); });
+const type = mime.split(';')[0], ext = type.includes('mp4') ? 'mp4' : 'webm';
+return new File(chunks, (file.name || 'video').replace(/\.\w+$/, '') + '_sg.' + ext, { type });
+} finally { clean(); }
+};
+window.vidTarget = (sec) => Math.max(1.5 * 1048576, Math.min(sec, window.VID_MAX_SEC) / 60 * window.VID_MB_PER_MIN * 1048576);
+window.prepareAndUpload = (function(b) {
+return async function(file, onProgress, ...a) {
+const isVideo = file && (file.type || '').includes('video');
+if (!isVideo) return b.call(this, file, onProgress, ...a);
+const meta = await window.vidMeta(file), dur = meta && meta.d && isFinite(meta.d) ? meta.d : 0;
+const target = window.vidTarget(dur || 60), long = dur > window.VID_MAX_SEC + 0.5 || +file._sgStart > 0;
+if (!long && file.size <= target * 1.25) return b.call(this, file, onProgress, ...a);   // already small: post as it is
+let last = -1, lastSec = -1, done = false;
+const isl = (f, left) => { const s = Math.ceil(left); if (done || s === lastSec) return; lastSec = s;
+window.islandShow && window.islandShow(`<span class="ico pop">🎬</span><span class="txt">Preparing your video · ${Math.round(f * 100)}%<span class="sub">⏳ ${s}s left · keep the app open</span></span>`, 'info', 0, true); };
+let small;
+try {
+small = await window.shrinkVideo(file, target, (f, left) => { isl(f, left); const pc = Math.round(f * 45); if (pc !== last && onProgress) { last = pc; onProgress(pc); } }, window.VID_MAX_SEC);
+} finally { done = true; setTimeout(() => window.islandHide && window.islandHide(), 300); }
+if (small.size > 25 * 1024 * 1024) throw new Error('Video is still too big. Please post a shorter clip.');
+return b.call(this, small, (p) => onProgress && onProgress(45 + Math.round(p * 0.55)), ...a);
+};
+})(window.prepareAndUpload);
+document.addEventListener('change', async (e) => {
+const inp = e.target; if (!inp || inp.type !== 'file' || !inp.files || !inp.files.length) return;
+const vids = [...inp.files].filter(f => (f.type || '').includes('video')); if (!vids.length) return;
+const meta = await window.vidMeta(vids[0]), d = meta && meta.d && isFinite(meta.d) ? meta.d : 0;
+const t = (x) => `${Math.floor(x / 60)}:${String(Math.round(x % 60)).padStart(2, '0')}`;
+if (d > window.VID_MAX_SEC + 0.5) { if (inp.id === 'mediaFileInput') setTimeout(() => window.openVidCut(vids[0], d), 250); else window.islandShow(`<span class="ico pop">⏱️</span><span class="txt">Videos are up to ${window.VID_MAX_SEC} seconds<span class="sub">Yours is ${t(d)} · only the first ${window.VID_MAX_SEC}s will be posted</span></span>`, 'warn', 8000); }
+else window.islandShow(`<span class="ico pop">🎬</span><span class="txt">Video ready${d ? ' · ' + t(d) : ''}<span class="sub">It’s made light before posting so it loads fast for everyone</span></span>`, 'info', 4000);
+}, true);
+window.openCreatePostModal = (function(b) { return function(...a) { const r = b.apply(this, a); try { const sel = document.getElementById('mediaFileInput'), lab = sel && sel.closest('label'); if (lab && !document.getElementById('sgVidRule')) lab.parentElement.insertAdjacentHTML('afterend', `<p id="sgVidRule" class="text-[10px] text-gray-400 mt-1.5">🎬 Videos: up to ${window.VID_MAX_SEC} seconds</p>`); } catch (e) {} return r; }; })(window.openCreatePostModal);
+window.catSelectSetup = function() {
+const sel = document.getElementById('postCategorySelect'); if (!sel) return;
+if (!sel.querySelector('option[value=""]')) { const o = document.createElement('option'); o.value = ''; o.textContent = '📂 Choose a category…'; sel.insertBefore(o, sel.firstChild); }
+const g = sel.querySelector('option[value="GENERAL"]'); if (g && g.previousElementSibling && g.previousElementSibling.value !== '') sel.insertBefore(g, sel.children[1] || null);
+};
+window.openCreatePostModal = (function(b) { return function(...a) { window.catSelectSetup(); const sel = document.getElementById('postCategorySelect'); if (sel) sel.value = ''; return b.apply(this, a); }; })(window.openCreatePostModal);
+window.submitUniversalPost = (function(b) { return async function(...a) { const sel = document.getElementById('postCategorySelect'); if (sel && !sel.value) sel.value = 'GENERAL'; return b.apply(this, a); }; })(window.submitUniversalPost);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', window.catSelectSetup); else window.catSelectSetup();
+
+window.fmtT = (x) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
+window.openVidCut = function(file, dur) {
+const M = window.VID_MAX_SEC, n = Math.ceil(dur / M), url = URL.createObjectURL(file);
+window._vcFile = file; window._vcDur = dur;
+window.openPanel('✂️ Your video is ' + window.fmtT(dur), `<div class="space-y-3">
+<p class="text-[11px] text-gray-300">SINLESS GG videos are up to <b>${M} seconds</b> so they load fast for everyone. Pick your best minute, or post it all in parts.</p>
+<video id="vcV" src="${url}" muted playsinline autoplay class="w-full max-h-[42vh] rounded-2xl bg-black object-contain"></video>
+<div><div class="flex justify-between text-[11px] font-black text-white"><span>Part to post</span><span id="vcLab">0:00 – ${window.fmtT(Math.min(M, dur))}</span></div>
+<input id="vcR" type="range" min="0" max="${Math.max(0, dur - M).toFixed(1)}" step="0.5" value="0" class="w-full accent-fuchsia-500" oninput="window.vcMove(+this.value)"></div>
+<button onclick="window.vcUse()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-xs font-black uppercase">✂️ Post this minute</button>
+<button onclick="window.vcParts()" class="w-full py-3 rounded-2xl bg-white/10 border border-white/15 text-white text-xs font-black uppercase">🧩 Post all of it in ${n} parts</button>
+<p class="text-[10px] text-gray-500 text-center">Parts post one after another: Part 1/${n}, Part 2/${n}…</p></div>`);
+const pnl = document.getElementById('sgPanel'); if (pnl) pnl.style.zIndex = 370;
+const v = document.getElementById('vcV'); if (v) v.addEventListener('timeupdate', () => { const st = +(document.getElementById('vcR') || {}).value || 0; if (v.currentTime > st + M || v.currentTime < st - 0.5) v.currentTime = st; });
+};
+window.vcMove = function(st) { const v = document.getElementById('vcV'), M = window.VID_MAX_SEC; if (v) try { v.currentTime = st; v.play(); } catch (e) {} const l = document.getElementById('vcLab'); if (l) l.textContent = `${window.fmtT(st)} – ${window.fmtT(Math.min(window._vcDur, st + M))}`; };
+window.vcUse = function() { const f = window._vcFile; if (!f) return; f._sgStart = +(document.getElementById('vcR') || {}).value || 0; window._vidParts = null; window.closePanel(); showToast(`✂️ Posting ${window.fmtT(f._sgStart)} – ${window.fmtT(Math.min(window._vcDur, f._sgStart + window.VID_MAX_SEC))}`); };
+window.vcParts = function() { const f = window._vcFile; if (!f) return; f._sgStart = 0; window._vidParts = { file: f, n: Math.ceil(window._vcDur / window.VID_MAX_SEC), k: 1 }; window.closePanel(); showToast(`🧩 Part 1 of ${window._vidParts.n}. After it posts, the next part opens ready to post.`); };
+window.submitUniversalPost = (function(b) {
+return async function(...a) {
+const P = window._vidParts, inThis = P && (window.uploadedMediaBlobs || []).some(m => m.file === P.file);
+const tx = document.getElementById('postTextContent'), sel = document.getElementById('postCategorySelect');
+if (inThis) { P.caption = P.caption ?? String(tx.value || '').replace(/\s*\(Part \d+\/\d+\)\s*$/, ''); P.cat = sel && sel.value; tx.value = `${P.caption}${P.caption ? ' ' : ''}(Part ${P.k}/${P.n})`; }
+const r = await b.apply(this, a);
+if (inThis && !(window.uploadedMediaBlobs || []).some(m => m.file === P.file) && P.k < P.n) {
+P.k++; P.file._sgStart = (P.k - 1) * window.VID_MAX_SEC;
+setTimeout(() => {
+window.openCreatePostModal();
+const t2 = document.getElementById('postTextContent'); if (t2) t2.value = `${P.caption}${P.caption ? ' ' : ''}(Part ${P.k}/${P.n})`;
+const s2 = document.getElementById('postCategorySelect'); if (s2 && P.cat) s2.value = P.cat;
+window.handleMediaUploadSelect({ files: [P.file] });
+window.islandShow(`<span class="ico pop">🧩</span><span class="txt">Part ${P.k} of ${P.n} is ready<span class="sub">Tap Publish to post it</span></span>`, 'info', 6000);
+}, 1800);
+} else if (inThis && P.k >= P.n) window._vidParts = null;
+return r;
+};
+})(window.submitUniversalPost);
