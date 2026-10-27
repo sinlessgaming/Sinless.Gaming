@@ -14053,7 +14053,7 @@ const v = s.querySelector('video[data-clip-video]'), yt = s.querySelector('[data
 if (v) { if (cur) { v.preload = 'auto'; v.muted = window.feedMuted; v.play().catch(() => {}); } else { if (!v.paused) v.pause(); if (k === i + 1) v.preload = 'auto'; } }
 if (yt) {
 const f = yt.querySelector('iframe');
-if (cur && !f) { const id = yt.getAttribute('data-clip-yt'); const fr = document.createElement('iframe'); fr.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=0&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&loop=1&playlist=${id}`; fr.className = 'absolute inset-0 w-full h-full border-0'; fr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; fr.setAttribute('data-clip-frame', '1'); yt.appendChild(fr); }
+if (cur && !f) { const id = yt.getAttribute('data-clip-yt'); const fr = document.createElement('iframe'); fr.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=0&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&controls=0&iv_load_policy=3&fs=0&disablekb=1&loop=1&playlist=${id}`; fr.className = 'absolute inset-0 w-full h-full border-0'; fr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; fr.setAttribute('data-clip-frame', '1'); yt.appendChild(fr); }
 else if (!cur && f) f.remove();
 }
 });
@@ -23115,3 +23115,138 @@ return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error(
 };
 window._tcTheme = 'holo';
 window.statusCardForPost = (function(b) { return function(id, ...a) { const p = window.findPost(id) || (window.postFetchCache || {})[id]; if (sgHasWords(p)) return window.openTextCard(id); return b.call(this, id, ...a); }; })(window.statusCardForPost);
+
+window.MOD_REASONS = [
+['🔞', 'Nudity or sexual content'], ['🩸', 'Violence or graphic content'], ['🤬', 'Hate, bullying or harassment'],
+['💸', 'Spam or scam'], ['⚠️', 'Dangerous or illegal activity'], ['©️', 'Not their content (copyright)'],
+['🧢', 'Fake or misleading'], ['🚫', 'Inappropriate content']
+];
+window.modPick = function(what, who) {
+return new Promise(res => {
+window._modRes = (v) => { window._modRes = null; window.closePanel && window.closePanel(); res(v); };
+window.openPanel(`🛡️ Remove ${escapeHTML(what)}`, `<div class="space-y-2">
+<p class="text-[11px] text-gray-400">${who ? `@${escapeHTML(window.hnd ? window.hnd(who) : who)} will be told why. ` : ''}Pick the reason:</p>
+${window.MOD_REASONS.map(([ic, t], i) => `<label class="flex items-center gap-3 px-3 py-3 rounded-2xl bg-gg-900 border border-white/5 cursor-pointer"><input type="radio" name="modR" value="${i}" ${i === 0 ? 'checked' : ''} class="w-4 h-4 accent-fuchsia-500"><span class="text-lg">${ic}</span><span class="text-sm font-bold text-white">${t}</span></label>`).join('')}
+<input id="modNote" maxlength="60" placeholder="Extra note (optional)" class="w-full bg-gg-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white">
+${who ? `<label class="flex items-center gap-3 px-3 py-3 rounded-2xl border border-fuchsia-400/40 bg-fuchsia-500/10"><input id="modBan" type="checkbox" class="w-5 h-5 accent-fuchsia-500"><span class="text-sm font-black text-white">Also ban this account</span></label>` : ''}
+<div class="flex gap-2 pt-1"><button onclick="window._modRes && window._modRes(null)" class="flex-1 py-3 rounded-2xl bg-white/10 text-white text-xs font-black uppercase">Cancel</button>
+<button onclick="window._modRes && window._modRes({ r: window.MOD_REASONS[+(document.querySelector('[name=modR]:checked') || {}).value || 0][1], note: (document.getElementById('modNote') || {}).value || '', ban: !!(document.getElementById('modBan') || {}).checked })" class="flex-1 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-xs font-black uppercase">Remove</button></div></div>`);
+});
+};
+window.modAfter = async function(uid, tag, kind, pick) {
+if (uid && uid !== window.uidNow()) {
+const txt = `Your ${kind} was removed: ${pick.r}${pick.note ? ' (' + pick.note.trim().slice(0, 40) + ')' : ''}. This breaks the SINLESS GG rules.`;
+try { await window.notify(uid, 'official', { text: txt.slice(0, 140) }); } catch (e) {}
+}
+if (pick.ban && uid && uid !== window.uidNow()) {
+try { await setDoc(doc(window.db, 'banned', uid), { tag: tag || '', by: window.me(), reason: pick.r, createdAt: serverTimestamp() }); showToast(`🚫 @${window.hnd ? window.hnd(tag || '') : tag} banned`); } catch (e) { showToast('⚠️ Removed, but the ban didn’t save.'); }
+}
+};
+window.adminDeletePost = async function(id) {
+if (!window.isAppAdmin) return;
+const p = window.findPost(id) || (window.postFetchCache || {})[id];
+const cv = document.getElementById('sgClips'), clipsOpen = cv && !cv.classList.contains('hidden'); if (clipsOpen) { try { document.querySelectorAll('#sgClips video').forEach(v => v.pause()); } catch (e) {} }
+const pick = await window.modPick('this post', p && p.user); if (!pick) return;
+try { await deleteDoc(doc(window.db, 'posts', id)); } catch (e) { showToast('⚠️ Couldn’t delete: ' + (e.message || 'error')); return; }
+window.purgePost(id);
+await window.modAfter(p && p.uid, p && p.user, 'post', pick);
+showToast('🛡️ Post removed for everyone');
+};
+window.showStory = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try {
+const st = window.storyViewer && window.storyViewer.list[window.storyViewer.index], hdr = document.getElementById('storyHeader');
+if (window.isAppAdmin && st && hdr && !hdr.querySelector('[data-admst]') && !(window.storyMine && window.storyMine(st))) {
+const x = [...hdr.querySelectorAll('button')].find(bt => /closeStoryViewer/.test(bt.getAttribute('onclick') || ''));
+x && x.insertAdjacentHTML('beforebegin', `<button data-admst onclick="event.stopPropagation(); window.adminDeleteStory('${escapeHTML(st.id)}')" class="h-8 px-3 rounded-full bg-black/60 text-white text-[11px] font-black border border-fuchsia-400/60" title="Remove (admin)">🛡️ Remove</button>`);
+}
+} catch (e) {}
+return r;
+};
+})(window.showStory);
+window.adminDeleteStory = async function(id) {
+if (!window.isAppAdmin) return;
+const sv = window.storyViewer, st = (sv.list || []).find(s => s.id === id) || {};
+try { window.storyPause ? window.storyPause() : clearTimeout(sv.timer); } catch (e) {}
+const modal = document.getElementById('storyViewerModal'); modal && modal.classList.add('hidden');
+const pick = await window.modPick('this story', st.user);
+if (!pick) { modal && modal.classList.remove('hidden'); window.showStory(); return; }
+try { await deleteDoc(doc(window.db, 'stories', id)); } catch (e) { showToast('⚠️ Couldn’t delete: ' + (e.message || 'error')); modal && modal.classList.remove('hidden'); window.showStory(); return; }
+window.cloudStories = (window.cloudStories || []).filter(s => s.id !== id);
+sv.list = (sv.list || []).filter(s => s.id !== id);
+try { window.mergeStories && window.mergeStories(); window.renderStoriesBar && window.renderStoriesBar(); } catch (e) {}
+await window.modAfter(st.uid, st.user, 'story', pick);
+showToast('🛡️ Story removed for everyone');
+if (sv.list.length) { sv.index = Math.min(sv.index, sv.list.length - 1); modal && modal.classList.remove('hidden'); window.showStory(); } else window.closeStoryViewer();
+};
+window.adminDeleteTournament = async function(id) {
+if (!window.isAppAdmin) return;
+const t = (window.tournamentsList || []).find(x => x.id === id) || {};
+const pick = await window.modPick('this tournament', t.host); if (!pick) return;
+try { await deleteDoc(doc(window.db, 'tournaments', id)); } catch (e) { showToast('⚠️ Couldn’t delete: ' + (e.message || 'error')); return; }
+window.tournamentsList = (window.tournamentsList || []).filter(x => x.id !== id);
+if (window.activeTournament && window.activeTournament.id === id) window.activeTournament = null;
+try { localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList)); } catch (e) {}
+await window.modAfter(t.hostUid, t.host, 'tournament', pick);
+showToast('🛡️ Tournament removed');
+window.renderTournamentsTabDedicated && window.renderTournamentsTabDedicated();
+};
+window.renderTournamentsTabDedicated = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try {
+const c = document.getElementById('tournamentsDedicatedContainer'), t = window.activeTournament;
+if (window.isAppAdmin && c && t && t.id && !c.querySelector('[data-admtour]')) c.insertAdjacentHTML('afterbegin', `<div data-admtour class="flex items-center gap-2 p-2.5 mb-2 rounded-2xl border border-fuchsia-400/40 bg-fuchsia-500/10"><span class="flex-1 text-[11px] font-bold text-white truncate">🛡️ Admin · ${escapeHTML(t.title || 'this tournament')}</span><button onclick="window.adminDeleteTournament('${escapeHTML(t.id)}')" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-[10px] font-black uppercase">Remove</button></div>`);
+} catch (e) {}
+return r;
+};
+})(window.renderTournamentsTabDedicated);
+
+(function ytLineCss() { const s = document.createElement('style'); s.textContent = `
+#sgClips .cv-line.cv-lp{height:4px!important}
+#sgClips .cv-line .cv-kn{width:15px;height:15px;margin:-7.5px 0 0 -7.5px}
+#sgClips .cv-line.cv-lp::before{top:-16px;bottom:-16px}`; document.head.appendChild(s); })();
+window.addEventListener('message', (e) => {
+if (!/youtube/.test(String(e.origin))) return;
+let d; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (er) { return; }
+if (!d || d.event !== 'infoDelivery' || !d.info) return;
+const f = [...document.querySelectorAll('#sgClips iframe')].find(x => x.contentWindow === e.source); if (!f) return;
+if (typeof d.info.currentTime === 'number') { f._ytT = d.info.currentTime; f._ytAt = performance.now(); }
+if (typeof d.info.duration === 'number' && d.info.duration > 0) f._ytD = d.info.duration;
+});
+window.ytCmd = (f, func, args) => { try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: args || [], id: 'sg', channel: 'widget' }), '*'); } catch (e) {} };
+window.cvLineYt = function(s) {
+const line = s.querySelector('.cv-line'); if (!line || line.classList.contains('cv-lp')) return;
+line.classList.add('cv-lp', 'cv-yt'); line.innerHTML = '<i class="cv-lf"></i><b class="cv-kn"></b>';
+const fill = line.querySelector('.cv-lf'), kn = line.querySelector('.cv-kn');
+const show = (f) => { const pc = Math.max(0, Math.min(1, f)) * 100 + '%'; fill.style.width = pc; kn.style.left = pc; };
+line._show = show;
+const seek = (e) => { const f = s.querySelector('[data-clip-yt] iframe'), rc = line.getBoundingClientRect(), r = Math.min(1, Math.max(0, (e.clientX - rc.left) / rc.width)); show(r); if (f && f._ytD) { window.ytCmd(f, 'seekTo', [r * f._ytD, true]); f._ytT = r * f._ytD; f._ytAt = performance.now(); } };
+line.addEventListener('pointerdown', (e) => { e.stopPropagation(); line.classList.add('drag'); try { line.setPointerCapture(e.pointerId); } catch (er) {} seek(e); });
+line.addEventListener('pointermove', (e) => { if (line.classList.contains('drag')) { e.stopPropagation(); seek(e); } });
+const up = (e) => { e.stopPropagation(); line.classList.remove('drag'); }; line.addEventListener('pointerup', up); line.addEventListener('pointercancel', up);
+line.addEventListener('click', (e) => e.stopPropagation());
+};
+window.clipsV2 = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+document.querySelectorAll('#sgClips [data-clip]').forEach(s => { if (s.querySelector('[data-clip-yt]')) window.cvLineYt(s); });
+clearInterval(window._cvYtT);
+window._cvYtT = setInterval(() => {
+const box = document.getElementById('sgClips'); if (!box || box.classList.contains('hidden')) { clearInterval(window._cvYtT); return; }
+box.querySelectorAll('[data-clip-yt] iframe').forEach(f => {
+if (!f._sgL) { f._sgL = true; window.ytListen ? window.ytListen(f) : null; setTimeout(() => window.ytCmd(f, 'addEventListener', ['onStateChange']), 1500); }
+if (!f._ytD && (f._pg = (f._pg || 0) + 1) % 4 === 1) { try { f.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'sg', channel: 'widget' }), '*'); } catch (e) {} }
+const s = f.closest('[data-clip]'), line = s && s.querySelector('.cv-line.cv-yt'); if (!line || !line._show || line.classList.contains('drag') || !f._ytD) return;
+const playing = f._ytState === 1, t = (f._ytT || 0) + (playing && f._ytAt ? (performance.now() - f._ytAt) / 1000 : 0);
+line._show((t % f._ytD) / f._ytD);
+});
+}, 250);
+return r;
+};
+})(window.clipsV2);
+(function ytCleanCss() { const s = document.createElement('style'); s.textContent = `
+#sgClips [data-clip-yt]{overflow:hidden}
+#sgClips [data-clip-yt] > iframe{transform:scale(1.14);transform-origin:50% 46%}
+#sgClips .cv-top{background:linear-gradient(180deg,rgba(0,0,0,.78),rgba(0,0,0,.35) 60%,rgba(0,0,0,0))!important}`; document.head.appendChild(s); })();
