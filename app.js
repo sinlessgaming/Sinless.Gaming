@@ -23250,16 +23250,8 @@ return r;
 #sgClips [data-clip-yt]{overflow:hidden}
 #sgClips .cv-top{background:linear-gradient(180deg,rgba(0,0,0,.78),rgba(0,0,0,.35) 60%,rgba(0,0,0,0))!important}`; document.head.appendChild(s); })();
 
-(function capCss() { const s = document.createElement('style'); s.textContent = `#sgClips [data-clip].cv-fit{box-sizing:border-box}`; document.head.appendChild(s); })();
-window.cvFitSlides = function() {
-document.querySelectorAll('#sgClips [data-clip]').forEach(s => {
-const card = s.querySelector('.cv-card'); if (!card) return;
-const h = card.offsetHeight; if (!h) return;
-s.classList.add('cv-fit'); s.style.paddingBottom = (h + 4) + 'px';
-});
-};
-window.clipsV2 = (function(b) { return function(...a) { const r = b.apply(this, a); try { window.cvFitSlides(); requestAnimationFrame(window.cvFitSlides); } catch (e) {} return r; }; })(window.clipsV2);
-window.addEventListener('resize', () => { try { window.cvFitSlides(); } catch (e) {} });
+window.cvFitSlides = function() {};
+
 
 window.SG_BUILD = 52;
 window._swUpdated = false;
@@ -23346,3 +23338,18 @@ if (btn.innerHTML !== html) btn.innerHTML = html;
 btn.classList.toggle('gg-on', on);
 });
 };
+(function fillCss() { const s = document.createElement('style'); s.textContent = `
+#sgClips [data-clip-yt][style*="9/16"]{position:absolute!important;inset:0;width:100%!important;height:100%!important;max-width:none!important;aspect-ratio:auto!important;overflow:hidden}
+#sgClips [data-clip-yt][style*="9/16"] > iframe,#sgClips [data-clip-yt][style*="9/16"] > img{position:absolute!important;top:0!important;left:50%!important;right:auto!important;bottom:auto!important;height:100%!important;width:max(100%, calc(100dvh * 9 / 16))!important;transform:translateX(-50%)}
+#sgClips [data-clip] > video[data-clip-video].cv-cover{object-fit:cover!important}`; document.head.appendChild(s); })();
+window.clipsV2 = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+document.querySelectorAll('#sgClips [data-clip] > video[data-clip-video]:not([data-fitset])').forEach(v => {
+v.setAttribute('data-fitset', '1');
+const fit = () => { if (v.videoWidth && v.videoHeight) v.classList.toggle('cv-cover', v.videoHeight / v.videoWidth >= 1.3); };
+if (v.readyState >= 1) fit(); else v.addEventListener('loadedmetadata', fit, { once: true });
+});
+return r;
+};
+})(window.clipsV2);
