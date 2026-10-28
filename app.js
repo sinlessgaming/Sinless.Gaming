@@ -23464,3 +23464,1612 @@ window.islandShow(`<span class="ico pop">🧩</span><span class="txt">Part ${P.k
 return r;
 };
 })(window.submitUniversalPost);
+
+window._sgIgnorePop = true;                 // switch off the old back system
+window.sgPushBack = function() {}; window.sgDropBack = function() {};
+window.sgNav = { stack: [], n: 0, ignore: 0, fromBack: false };
+window.NAV_OV = {
+sgPanel: 'closePanel', sgClips: 'closeClips', postDetailModal: 'closePostDetail', userProfileModal: 'closeUserProfileModal', squadDetailsModal: 'closeSquadDetailsModal',
+dmModal: 'closeDmModal', storyViewerModal: 'closeStoryViewer', gameModal: 'closeGame', hlModal: 'closeHighlight', createPostModal: 'closeCreatePostModal', notifModal: 'closeNotifications',
+commentsModal: 'closeCommentsModal', liveRoomModal: 'closeLiveRoom', loungeModal: 'closeLounge', mediaZoomModal: 'closeMediaZoomModal', marketModal: 'closeMarketModal', adminModal: 'closeAdminPanel',
+accountModal: 'closeAccountModal', shareSheet: 'closeShareSheet', reportSheet: 'closeReportSheet', editProfileModal: 'closeEditProfileModal', createTournamentModal: 'closeCreateTournamentModal',
+matchReportModal: 'closeMatchReportModal', squadSettingsSheet: 'closeSquadSettings', editPostModal: 'closeEditPostModal', sgEdit: 'closeEditor', actionSheet: '', sideDrawer: '', sgCmtSheet: '',
+sgDialogModal: '', createSquadModal: '', audioSelectorModal: '', liveStreamModal: '', goLiveModal: '', universalCreateModal: '', installSheet: '', channelEditSheet: '', squadChannelSheet: '',
+deletePostModal: '', deleteTournamentModal: '', gamertagModal: '', manualAddPlayerModal: '', sgCam: '', sgKids: '', sgDraw: '', sgJoinSheet: ''
+};
+window.navIsOpen = function(id) {
+const el = document.getElementById(id); if (!el || !el.isConnected) return false;
+if (id === 'sideDrawer') return el.classList.contains('active');
+if (id === 'sgCmtSheet') return el.classList.contains('on');
+if (el.classList.contains('hidden')) return false;
+const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden';
+};
+window.navClose = function(id) {
+try {
+if (id === 'sideDrawer') return window.toggleDrawer(false);
+if (id === 'sgDialogModal') { const c = document.getElementById('sgDialogCancel'); if (c && !c.classList.contains('hidden')) return c.click(); return document.getElementById('sgDialogOk')?.click(); }
+if (id === 'sgCmtSheet') { const el = document.getElementById('sgCmtSheet'); const x = el && el.querySelector('[onclick*="close"],[aria-label="Close"]'); if (x) return x.click(); el && el.classList.remove('on'); return; }
+const fn = window.NAV_OV[id];
+if (fn && typeof window[fn] === 'function') { window[fn](); if (!window.navIsOpen(id)) return; }
+const el = document.getElementById(id); if (!el) return;
+const x = el.querySelector('[aria-label="Close"],[onclick*="close"],[onclick*="Close"]'); if (x) { x.click(); if (!window.navIsOpen(id)) return; }
+el.classList.add('hidden');
+} catch (e) { const el = document.getElementById(id); el && el.classList.add('hidden'); }
+};
+window.navPush = function(entry) {
+const N = window.sgNav; N.exitAt = 0; entry.n = ++N.n; N.stack.push(entry);
+try { history.pushState({ sgNav: entry.n }, ''); } catch (e) {}
+if (N.stack.length > 60) N.stack.splice(0, N.stack.length - 60);
+};
+window.navScan = function() {
+const N = window.sgNav; if (N.fromBack) return;
+Object.keys(window.NAV_OV).forEach(id => {
+const open = window.navIsOpen(id), i = N.stack.findIndex(e => e.ov === id);
+if (open && i < 0) window.navPush({ ov: id });
+else if (!open && i >= 0) {
+const e = N.stack[i]; N.stack.splice(i, 1);
+try { if (history.state && history.state.sgNav === e.n) { N.ignore++; history.back(); } } catch (er) {}
+}
+});
+};
+window._navT = 0;
+window.navSoon = () => { if (window._navT) return; window._navT = requestAnimationFrame(() => { window._navT = 0; window.navScan(); }); };
+(function navObserve() {
+const seen = new WeakSet();
+const att = new MutationObserver(() => window.navSoon());
+const hook = () => { Object.keys(window.NAV_OV).forEach(id => { const el = document.getElementById(id); if (el && !seen.has(el)) { seen.add(el); att.observe(el, { attributes: true, attributeFilter: ['class', 'style'] }); } }); window.navSoon(); };
+const top = new MutationObserver(hook);
+const go = () => { top.observe(document.body, { childList: true }); hook(); };
+if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
+setInterval(hook, 4000);   // overlays created inside other boxes
+})();
+window._sgView = 'fyp';
+window.switchView = (function(b) {
+return function(v, ...a) {
+const prev = window._sgView, N = window.sgNav;
+const r = b.call(this, v, ...a);
+if (v && v !== prev) { window._sgView = v; if (!N.fromBack) window.navPush({ view: prev }); }
+return r;
+};
+})(window.switchView);
+window.addEventListener('popstate', (ev) => {
+const N = window.sgNav;
+if (N.ignore > 0) { N.ignore--; return; }
+while (N.stack.length) {
+const e = N.stack[N.stack.length - 1];
+if ((e.ov && !window.navIsOpen(e.ov)) || (e.panelRestore && !window.navIsOpen('sgPanel'))) { N.stack.pop(); continue; }
+N.stack.pop(); N.fromBack = true;
+try {
+if (e.ov) window.navClose(e.ov);
+else if (e.view) window.switchView(e.view);
+else if (e.panelRestore) { if (window.navIsOpen('sgPanel')) { const t = document.getElementById('sgPanelTitle'), bd = document.getElementById('sgPanelBody'); if (t && bd) { t.innerHTML = e.panelRestore.t; bd.innerHTML = e.panelRestore.h; } } else { N.fromBack = false; return window.dispatchEvent(new PopStateEvent('popstate', { state: history.state })); } }
+}
+finally { setTimeout(() => { N.fromBack = false; window.navScan(); }, 0); }
+return;
+}
+if (ev.state && ev.state.sgRoot) return;
+if (Date.now() - (N.exitAt || 0) < 2200) { try { history.back(); } catch (e) {} return; }
+N.exitAt = Date.now();
+try { history.pushState({ sgRoot: 1 }, ''); } catch (e) {}
+window.showToast && showToast('👋 Press back again to exit');
+});
+setTimeout(() => { try { if (!history.state || !history.state.sgRoot) { history.replaceState({ sgRootBase: 1 }, ''); history.pushState({ sgRoot: 1 }, ''); } } catch (e) {} }, 1200);
+window.openPanel = (function(b) {
+return function(title, html, ...a) {
+const N = window.sgNav;
+if (!N.fromBack && window.navIsOpen('sgPanel')) {
+const t = document.getElementById('sgPanelTitle'), bd = document.getElementById('sgPanelBody');
+if (t && bd) window.navPush({ panelRestore: { t: t.innerHTML, h: bd.innerHTML } });
+}
+return b.call(this, title, html, ...a);
+};
+})(window.openPanel);
+
+window.audioSrc = function(url) {
+url = String(url || '');
+if (/res\.cloudinary\.com/.test(url)) return url.replace(/\.(webm|weba|ogg|oga|opus|mp4|m4a|wav)$/i, '.mp3');
+if (/backblazeb2\.com\/file\//.test(url) && window.b2View) return window.b2View(url.split('#')[0]);
+return url.split('#')[0];
+};
+document.addEventListener('play', (e) => { const a = e.target; if (!a || a.tagName !== 'AUDIO') return; document.querySelectorAll('audio').forEach(x => { if (x !== a && !x.paused) try { x.pause(); } catch (er) {} }); }, true);
+window.finishVoiceNote = (function(b) { return async function(...a) { window._voiceUp = true; try { return await b.apply(this, a); } finally { window._voiceUp = false; } }; })(window.finishVoiceNote);
+
+window._dmSeenAt = {};
+window.dmPopCheck = function() {
+if (!window.isSignedIn()) return;
+const me = window.uidNow(), tv = (x) => window.postTimeValue({ createdAt: x }) || 0, first = !window._dmPopInit;
+const cur = window.activeDm, dmOpen = window.navIsOpen && window.navIsOpen('dmModal');
+[...(window.dmThreads || []).map(t => ({ k: 'd:' + t.id, t, at: tv(t.lastAt), from: t.lastFrom, name: (t.names || {})[t.lastFrom], text: t.lastText, open: () => window.openDmModal((t.names || {})[t.lastFrom]), viewing: cur && !cur.group && cur.threadId === t.id })),
+...(window.groupThreads || []).map(g => ({ k: 'g:' + g.id, t: g, at: tv(g.lastAt), from: g.lastFrom, name: g.lastUser || g.name, text: (g.lastUser ? (window.dnText ? window.dnText(g.lastUser) : g.lastUser) + ': ' : '') + (g.lastText || ''), group: g.name, open: () => { window.openDmModal(); setTimeout(() => window.openGroupThread && window.openGroupThread(g.id), 200); }, viewing: cur && cur.group && cur.groupId === g.id }))
+].forEach(x => {
+const prev = window._dmSeenAt[x.k]; window._dmSeenAt[x.k] = x.at;
+if (first || !x.at || prev === undefined || x.at <= prev || !x.from || x.from === me || x.from === window.me()) return;
+if (x.viewing && dmOpen) return;
+window._dmPopOpen = x.open;
+const who = x.group ? x.group : window.dnText ? window.dnText(x.name || 'Someone') : x.name;
+window.islandShow(`<span class="ico pop">💬</span><span class="txt">${escapeHTML(who || 'New message')}<span class="sub">${escapeHTML(String(x.text || 'sent you a message').slice(0, 60))}</span></span><button class="act" onclick="window.islandHide(); window._dmPopOpen && window._dmPopOpen()">Open</button>`, 'info', 6000);
+try { navigator.vibrate && navigator.vibrate([60, 40, 60]); } catch (e) {}
+try { window.sgAudio && window.sgAudio.fx && window.sgAudio.fx('tap'); } catch (e) {}
+});
+window._dmPopInit = true;
+};
+setInterval(() => { try { window.dmPopCheck(); } catch (e) {} }, 1500);
+
+window.renderPushStatus = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try { document.querySelectorAll('#sgPushBar button').forEach(bt => { if (/^\s*Test\s*$/i.test(bt.textContent)) bt.remove(); }); } catch (e) {}
+return r;
+};
+})(window.renderPushStatus);
+window.renderNotifications = (function(b) {
+return function(...a) { if (Array.isArray(window.notifList)) window.notifList = window.notifList.filter(n => n.type !== 'test'); return b.apply(this, a); };
+})(window.renderNotifications);
+
+window.notify = (function(b) {
+return function(toUid, type, extra = {}) {
+extra = { ...(extra || {}) };
+if (!extra.postId) {
+if (type === 'dm') extra.postId = 'dm:' + window.me();
+else if (type === 'tournament' && window.activeTournament && window.activeTournament.id) extra.postId = 'tourn:' + window.activeTournament.id;
+else if (type === 'follow') extra.postId = 'user:' + window.me();
+}
+return b.call(this, toUid, type, extra);
+};
+})(window.notify);
+window.openSpecialLink = function(pid) {
+pid = String(pid || '');
+const go = (fn) => { const run = () => window.isSignedIn() ? fn() : setTimeout(run, 1200); setTimeout(run, 300); };
+let m;
+if ((m = /^dm:(.+)$/.exec(pid))) { go(() => window.openDmModal(m[1])); return true; }
+if ((m = /^tourn:([A-Za-z0-9_\-]+)(?::(.+))?$/.exec(pid))) { go(() => { window.switchView('tournaments'); setTimeout(() => { window.openTournamentById && window.openTournamentById(m[1]); if (m[2] && window.openFixtures) window.openFixtures(m[1]); }, 300); }); return true; }
+if ((m = /^user:(.+)$/.exec(pid))) { go(() => window.openUserProfileModal(m[1])); return true; }
+if ((m = /^live:(.+)$/.exec(pid))) { go(() => window.openLiveRoom && window.openLiveRoom(m[1])); return true; }
+if ((m = /^group:(.+)$/.exec(pid))) { go(() => { window.openDmModal(); setTimeout(() => window.openGroupThread && window.openGroupThread(m[1]), 250); }); return true; }
+if ((m = /^story:(.+)$/.exec(pid))) { go(() => window.openStoryReplies && window.openStoryReplies(m[1])); return true; }
+if ((m = /^liveev:(.+)$/.exec(pid))) { go(() => window.openLiveEvent && window.openLiveEvent(m[1])); return true; }
+if ((m = /^squadtab:([^:]+):(.+)$/.exec(pid))) { go(() => { window.openSquadById(m[1]); setTimeout(() => window.openSquadTab && window.openSquadTab(m[2]), 600); }); return true; }
+return false;
+};
+window.openNotification = (function(b) {
+return function(id) {
+const n = (window.notifList || []).find(x => x.id === id) || (window._notifOne && window._notifOne.id === id ? window._notifOne : null);
+const pid = n && String(n.postId || '');
+if (n && /^(dm|tourn|user|liveev|squadtab):/.test(pid)) {
+window.closeNotifications && window.closeNotifications(); n.read = true; if (n.id) updateDoc(doc(window.db, 'notifications', n.id), { read: true }).catch(() => {});
+window.openSpecialLink(pid); return;
+}
+return b(id);
+};
+})(window.openNotification);
+window.openPostFromLink = (function(b) {
+return async function(...a) {
+const m = (location.hash || '').match(/^#post=((?:dm|tourn|user|group|live|story|liveev|squadtab):[^&]+)/);
+if (m) { history.replaceState(history.state, '', location.pathname + location.search); window.openSpecialLink(decodeURIComponent(m[1])); return; }
+return b.apply(this, a);
+};
+})(window.openPostFromLink);
+window.addEventListener('hashchange', () => { if (/^#post=(dm|tourn|user|group|liveev|squadtab):/.test(location.hash)) window.openPostFromLink(); });
+setTimeout(() => { if (/^#post=(dm|tourn|user|group|liveev|squadtab):/.test(location.hash)) window.openPostFromLink(); }, 2500);
+
+window._tBase = new WeakMap();
+window.tSnapBase = function() { (window.tournamentsList || []).forEach(t => { if (t && !window._tBase.has(t)) window._tBase.set(t, JSON.stringify({ players: t.players || [], matches: t.matches || [], eliminated: t.eliminated || [] })); }); };
+['renderTournamentsTab', 'renderTournamentsTabDedicated'].forEach(f => { const o = window[f]; if (typeof o === 'function') window[f] = function(...a) { try { window.tSnapBase(); } catch (e) {} return o.apply(this, a); }; });
+window.mergeTourn = function(base, local, server) {
+const out = {};
+const bp = base.players || [], lp = local.players || [], sp = server.players || [];
+if (bp.length === lp.length && lp.length === sp.length) out.players = sp.map((x, i) => lp[i] !== bp[i] ? lp[i] : x);
+else out.players = JSON.stringify(lp) !== JSON.stringify(bp) ? lp : sp;
+const bm = new Map((base.matches || []).map(m => [m.id, JSON.stringify(m)])), lm = new Map((local.matches || []).map(m => [m.id, m]));
+const res = [], seen = new Set();
+(server.matches || []).forEach(m => {
+seen.add(m.id);
+if (bm.has(m.id) && !lm.has(m.id)) return;                       // I deleted it
+const mine = lm.get(m.id);
+res.push(mine && JSON.stringify(mine) !== bm.get(m.id) ? mine : m);
+});
+(local.matches || []).forEach(m => { if (!seen.has(m.id) && !bm.has(m.id)) res.push(m); });   // new ones I added
+out.matches = res;
+const be = JSON.stringify(base.eliminated || []), le = JSON.stringify(local.eliminated || []);
+out.eliminated = le !== be ? (local.eliminated || []) : (server.eliminated || []);
+return out;
+};
+window.uidForTag = (tag) => { const p = (window.allProfilesMap || {})[String(tag || '').toLowerCase()]; return p && p.uid || null; };
+window._baseSaveTournament22 = async function(t, isNew = false) {
+try { localStorage.setItem('sinless_tournaments_list', JSON.stringify(window.tournamentsList)); } catch (e) {}
+if (!t) return;
+if (!window.isSignedIn()) { showToast('Saved on this phone only — sign in so others can see it.'); return; }
+const ref = doc(window.db, 'tournaments', t.id);
+const uids = (t.players || []).map(window.uidForTag).filter(Boolean);
+if (isNew || !window.cloudTournamentIds.has(t.id)) {
+try {
+t.hostUid = t.hostUid || window.currentUser.uid;
+await setDoc(ref, window.cleanForCloud({ ...t, playerUids: [...new Set([...(t.playerUids || []), ...uids])], createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+window.cloudTournamentIds.add(t.id); window._tBase.set(t, JSON.stringify({ players: t.players || [], matches: t.matches || [], eliminated: t.eliminated || [] }));
+} catch (e) { showToast('⚠️ Couldn’t save the tournament. Check your connection.'); }
+return;
+}
+let payload = { players: t.players || [], matches: t.matches || [], eliminated: t.eliminated || [] };
+try {
+const baseJ = window._tBase.get(t), s = await getDoc(ref);
+if (s.exists() && baseJ) { payload = window.mergeTourn(JSON.parse(baseJ), t, s.data()); }
+} catch (e) {}
+const host = window.canManageTourn && window.canManageTourn(t), owner = t.hostUid === window.uidNow() || window.isAppAdmin;
+const upd = { ...payload, updatedAt: serverTimestamp() };
+const newUids = [...new Set([...(t.playerUids || []), ...uids])];
+if (owner && newUids.length !== (t.playerUids || []).length) upd.playerUids = newUids;
+else if (!host && !(t.playerUids || []).includes(window.uidNow()) && (payload.players || []).some(p => String(p).toLowerCase() === window.meLower())) upd.playerUids = arrayUnion(window.uidNow());
+const write = async (u) => { await updateDoc(ref, window.cleanForCloud(u)); Object.assign(t, payload); if (u.playerUids && Array.isArray(u.playerUids)) t.playerUids = u.playerUids; window._tBase.set(t, JSON.stringify(payload)); };
+try {
+try { await write(upd); }
+catch (e1) { if (!upd.playerUids) throw e1; delete upd.playerUids; await write(upd); }   // older rules: save without the id list
+} catch (e) {
+console.warn('Tournament sync failed', e);
+if (!host && t.hostUid) {
+const changed = (t.matches || []).filter(m => { const b = (JSON.parse(window._tBase.get(t) || '{}').matches || []).find(x => x.id === m.id); return !b || JSON.stringify(b) !== JSON.stringify(m); }).slice(0, 3);
+const txt = changed.length ? changed.map(m => `${m.p1} ${m.s1 ?? '-'}–${m.s2 ?? '-'} ${m.p2}`).join(' · ') : 'sent an update';
+window.notify(t.hostUid, 'tournament', { postId: 'tourn:' + t.id, text: `needs you to confirm in ${t.title}: ${txt}`.slice(0, 140) });
+try { window.tlog && window.tlog(t, { type: 'result', text: `Result sent to host: ${txt}`.slice(0, 480) }); } catch (er) {}
+showToast('📨 Sent to the host to confirm. You’ll see it once they do.');
+} else showToast('⚠️ Couldn’t sync tournament. Check your connection and try again.');
+}
+};
+
+window.olSnap = function(g) {
+if (!g || !g.players) return null;
+if (g.id === 'ludo') return { turn: g.turn, tok: g.players.map(p => (p.tokens || []).slice()), dice: g.dice || null };
+if (g.id === 'snakes') return { turn: g.turn, pos: g.players.map(p => p.pos || 0) };
+return null;
+};
+window.olLudoAct = (function(b) {
+return function(a, ...rest) { try { const g = window.game; const st = window.olSnap(g); if (st && a && !a.st) a = { ...a, st }; } catch (e) {} return b.call(this, a, ...rest); };
+})(window.olLudoAct);
+window.olHeal = function(g) {
+const q = g.olQueue || []; while (q.length && q[0].n < g.olApplied) q.shift();
+const a = q[0]; if (!a || a.n !== g.olApplied || !a.st || g.anim || g.slide || g.rolling > 0) return;
+const st = a.st, want = a.t === 'roll' ? 'roll' : 'move';
+if (g.id === 'ludo') {
+const mine = window.olSnap(g); const sameBoard = mine && mine.turn === st.turn && JSON.stringify(mine.tok) === JSON.stringify(st.tok);
+if (sameBoard && g.phase === want && (want === 'roll' || g.dice === st.dice)) return;
+if (!Array.isArray(st.tok) || st.tok.length !== g.players.length) return;
+g.players.forEach((p, i) => { p.tokens = st.tok[i].slice(); p.done = p.tokens.filter(x => x === 56).length; });
+g.turn = st.turn;
+if (want === 'roll') { g.phase = 'roll'; g.dice = null; g.movable = []; }
+else { g.dice = st.dice; g.phase = 'move'; const p = g.cur(); g.movable = [0, 1, 2, 3].filter(ti => g.canMove(p, ti, g.dice)); }
+g.updateTop && g.updateTop(); g.olHealed = (g.olHealed || 0) + 1;
+} else if (g.id === 'snakes') {
+const mine = window.olSnap(g); if (mine && mine.turn === st.turn && JSON.stringify(mine.pos) === JSON.stringify(st.pos) && g.phase === 'roll') return;
+if (!Array.isArray(st.pos) || st.pos.length !== g.players.length) return;
+g.players.forEach((p, i) => { p.pos = st.pos[i]; }); g.turn = st.turn; g.phase = 'roll'; g.updateTop && g.updateTop(); g.olHealed = (g.olHealed || 0) + 1;
+}
+};
+window.olLudoTick = (function(b) { return function(g, ...a) { try { window.olHeal(g); } catch (e) {} return b.call(this, g, ...a); }; })(window.olLudoTick);
+window.snakesTick = (function(b) { return function(g, ...a) { try { window.olHeal(g); } catch (e) {} return b.call(this, g, ...a); }; })(window.snakesTick);
+
+(function chatCss() { const s = document.createElement('style'); s.textContent = `
+.sg-poll{margin-top:4px;min-width:220px}
+.sg-poll .q{font-weight:900;font-size:13px;margin-bottom:6px}
+.sg-poll .o{position:relative;display:block;width:100%;text-align:left;margin-top:5px;padding:8px 10px;border-radius:12px;border:1px solid rgba(168,85,247,.45);background:rgba(255,255,255,.06);overflow:hidden;font-size:12px;font-weight:800}
+.sg-poll .o .bar{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(34,211,238,.35),rgba(168,85,247,.35),rgba(255,45,149,.35));z-index:0;transition:width .3s}
+.sg-poll .o span{position:relative;z-index:1}
+.sg-poll .o.me{border-color:#22d3ee;box-shadow:0 0 8px -2px #22d3ee}
+.sg-poll .o.ok{border-color:#34d399}.sg-poll .o.bad{border-color:#f0abfc}
+.sg-poll .meta{font-size:10px;opacity:.75;margin-top:5px}
+.sg-mention-me{box-shadow:inset 3px 0 0 #ff2d95;background:linear-gradient(90deg,rgba(255,45,149,.10),rgba(168,85,247,.06)) !important}
+span[onclick^="openUserProfileModal("].text-cyan-400,.sg-at{background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);-webkit-background-clip:text;background-clip:text;color:transparent!important;font-weight:900;padding:0 1px;border-radius:4px}
+.sg-bot-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:900;padding:1px 7px;border-radius:999px;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);color:#0b0f24;margin-bottom:3px}
+.sg-once{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.18);font-weight:900;font-size:12px}
+.sg-fwd{font-size:10px;opacity:.7;font-style:italic;margin-bottom:2px}
+.bg-cyan-500 .sg-poll .o{color:#0b0f24;border-color:rgba(11,15,36,.35);background:rgba(255,255,255,.28)}
+.bg-cyan-500 .sg-poll .o.me{border-color:#4c1d95;box-shadow:none}
+.bg-cyan-500 .sg-at,.bg-cyan-500 span[onclick^="openUserProfileModal("].text-cyan-400{background:none;color:#4c1d95!important;-webkit-text-fill-color:#4c1d95}
+.bg-cyan-500 .sg-once{background:rgba(255,255,255,.25);color:#0b0f24}`; document.head.appendChild(s); })();
+
+
+(function twShim() { const s = document.createElement('style'); s.textContent = `
+.-mx-1{margin-left:-.25rem;margin-right:-.25rem}.h-56{height:14rem}.accent-fuchsia-500{accent-color:#d946ef}
+.bg-fuchsia-500\\/10{background-color:rgba(217,70,239,.10)}.bg-fuchsia-500\\/5{background-color:rgba(217,70,239,.05)}
+.border-fuchsia-400\\/30{border-color:rgba(232,121,249,.30)}.border-fuchsia-400\\/40{border-color:rgba(232,121,249,.40)}.border-fuchsia-500\\/30{border-color:rgba(217,70,239,.30)}.border-amber-300\\/60{border-color:rgba(252,211,77,.60)}
+.ring-amber-300{--tw-ring-color:#fcd34d;box-shadow:0 0 0 1px #fcd34d}
+.text-amber-100\\/50{color:rgba(254,243,199,.5)}.text-amber-100\\/70{color:rgba(254,243,199,.7)}.text-amber-200\\/80{color:rgba(253,230,138,.8)}
+.text-fuchsia-200{color:#f5d0fe}.text-pink-300{color:#f9a8d4}.text-violet-300{color:#c4b5fd}`; document.head.appendChild(s); })();
+
+window.chatRef = function(kind, mid) {
+if (kind === 'squad') { const sq = window.activeSquadDetails; const ch = sq && window.channelOf(sq, window.activeSquadSubRoom) || {}; return sq && doc(window.db, 'squads', sq.id, ch.staff ? 'staff' : 'messages', mid); }
+const d = window.activeDm; if (!d) return null;
+return d.group ? doc(window.db, 'groups', d.groupId, 'messages', mid) : doc(window.db, 'dms', d.threadId, 'messages', mid);
+};
+window.chatMsg = (kind, mid) => kind === 'squad' ? window.findSquadMsg(mid) : (window.dmMsgsById || {})[mid];
+window.chatSend = (kind, payload) => kind === 'squad' ? window.sendSquadMessage(payload) : window.sendDmMessage(payload);
+
+window.openChatPoll = function(kind) {
+if (window.needSignIn('make polls')) return;
+window._pollKind = kind;
+const f = 'w-full bg-gg-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white';
+window.openPanel('📊 New poll', `<div class="space-y-2">
+<input id="cpQ" maxlength="140" placeholder="Ask something… e.g. Who wins tonight?" class="${f}">
+<div id="cpOpts" class="space-y-2">${[1, 2].map(i => `<input data-cpo maxlength="60" placeholder="Option ${i}" class="${f}">`).join('')}</div>
+<button onclick="window.cpAddOpt()" class="w-full py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-black">+ Add option</button>
+<label class="flex items-center gap-2 text-xs text-white font-bold"><input id="cpMulti" type="checkbox" class="w-4 h-4 accent-fuchsia-500"> People can pick more than one</label>
+<label class="flex items-center gap-2 text-xs text-white font-bold"><input id="cpAnon" type="checkbox" class="w-4 h-4 accent-fuchsia-500"> Hide who voted (anonymous)</label>
+<select id="cpEnd" class="${f}"><option value="0">No end time</option><option value="1">Ends in 1 hour</option><option value="24" selected>Ends in 1 day</option><option value="168">Ends in 1 week</option></select>
+<button onclick="window.cpSend()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-xs font-black uppercase">Send poll</button></div>`);
+};
+window.cpAddOpt = function() { const box = document.getElementById('cpOpts'); if (!box || box.children.length >= 6) return; box.insertAdjacentHTML('beforeend', `<input data-cpo maxlength="60" placeholder="Option ${box.children.length + 1}" class="w-full bg-gg-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white">`); };
+window.cpSend = async function() {
+const q = (document.getElementById('cpQ') || {}).value || '', o = [...document.querySelectorAll('[data-cpo]')].map(i => i.value.trim()).filter(Boolean).slice(0, 6);
+if (!q.trim() || o.length < 2) { showToast('Add a question and at least 2 options'); return; }
+const hrs = +(document.getElementById('cpEnd') || {}).value || 0;
+const poll = { q: q.trim().slice(0, 140), o, multi: !!(document.getElementById('cpMulti') || {}).checked, anon: !!(document.getElementById('cpAnon') || {}).checked, ends: hrs ? Date.now() + hrs * 3600e3 : 0 };
+window.closePanel();
+await window.chatSend(window._pollKind, { isPoll: true, poll, text: '📊 ' + poll.q });
+};
+window.pollHtml = function(m, kind) {
+const p = m.poll || {}, pv = m.pv || {}, me = window.uidNow(), mine = pv[me] || [], over = p.ends && Date.now() > p.ends;
+const counts = (p.o || []).map((_, i) => Object.values(pv).filter(a => (a || []).includes(i)).length), total = Object.keys(pv).filter(u => (pv[u] || []).length).length;
+const voted = mine.length > 0 || over || (p.quiz && mine.length);
+const id = escapeHTML(m.id || '');
+return `<div class="sg-poll" onclick="event.stopPropagation()"><div class="q">${p.quiz ? '🧠 ' : '📊 '}${escapeHTML(p.q || '')}</div>${(p.o || []).map((o, i) => {
+const pc = total ? Math.round(counts[i] / total * 100) : 0, isMe = mine.includes(i);
+const cls = p.quiz && voted ? (i === p.correct ? ' ok' : isMe ? ' bad' : '') : isMe ? ' me' : '';
+return `<button class="o${cls}" ${over ? 'disabled' : ''} onclick="window.chatVotePoll('${kind}','${id}',${i})"><i class="bar" style="width:${voted ? pc : 0}%"></i><span>${p.quiz && voted && i === p.correct ? '✅ ' : isMe ? '✔️ ' : ''}${escapeHTML(o)}${voted ? ` · ${pc}%` : ''}</span></button>`;
+}).join('')}<div class="meta">${total} vote${total === 1 ? '' : 's'}${p.multi ? ' · pick any' : ''}${p.anon ? ' · anonymous' : ` · <u onclick="window.pollVoters('${kind}','${id}')">see votes</u>`}${p.ends ? ` · ${over ? 'final results' : 'ends ' + new Date(p.ends).toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</div></div>`;
+};
+window.chatVotePoll = async function(kind, mid, i) {
+if (window.needSignIn('vote')) return;
+const m = window.chatMsg(kind, mid); if (!m || !m.poll) return;
+const p = m.poll, me = window.uidNow(); if (p.ends && Date.now() > p.ends) return;
+let mine = [...((m.pv || {})[me] || [])];
+if (p.quiz) { if (mine.length) return; mine = [i]; if (i === p.correct) { window.addXP && window.addXP(10, 'challenge'); showToast('✅ Correct! +10 points'); } else showToast('❌ Not this time'); }
+else if (p.multi) mine = mine.includes(i) ? mine.filter(x => x !== i) : [...mine, i];
+else mine = mine.includes(i) ? [] : [i];
+m.pv = { ...(m.pv || {}), [me]: mine };
+window.paintChat(kind);
+try { await updateDoc(window.chatRef(kind, mid), { [`pv.${me}`]: mine }); } catch (e) { showToast('⚠️ Vote not saved. Paste the latest Firebase rules (admin).'); }
+};
+window.pollVoters = function(kind, mid) {
+const m = window.chatMsg(kind, mid); if (!m || !m.poll || m.poll.anon) return;
+const byUid = {}; Object.values(window.allProfilesMap || {}).forEach(x => { if (x && x.uid) byUid[x.uid] = x.gamertag; });
+if (kind === 'squad') { const sq = window.activeSquadDetails || {}; (sq.memberUids || []).forEach((u, k) => { if (!byUid[u] && (sq.members || [])[k]) byUid[u] = sq.members[k]; }); }
+if (kind !== 'squad' && window.activeDm) { const d = window.activeDm; if (d.partnerUid) byUid[d.partnerUid] = d.partnerTag; byUid[window.uidNow()] = window.me(); (d.g && d.g.memberUids || []).forEach((u, k) => { if (!byUid[u] && (d.g.members || [])[k]) byUid[u] = d.g.members[k]; }); }
+window.openPanel('🗳️ Votes', (m.poll.o || []).map((o, i) => { const who = Object.entries(m.pv || {}).filter(([, a]) => (a || []).includes(i)).map(([u]) => byUid[u] ? window.dnText(byUid[u]) : 'Someone'); return `<p class="text-xs font-black text-white mt-2">${escapeHTML(o)} · ${who.length}</p><p class="text-xs text-gray-400">${who.map(escapeHTML).join(', ') || '—'}</p>`; }).join(''));
+};
+
+window.sendInstantPhoto = function() {
+const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture', 'environment');
+inp.onchange = async () => {
+const f = inp.files && inp.files[0]; if (!f) return;
+showToast('📸 Sending Instant photo…');
+try { const up = await window.prepareAndUpload(f, null, 1280, 1280); await window.sendDmMessage({ isOnce: true, onceUrl: up.url, text: '📸 Instant photo' }); }
+catch (e) { showToast('⚠️ Photo failed: ' + e.message); }
+};
+inp.click();
+};
+window.openOnce = async function(mid) {
+const m = (window.dmMsgsById || {})[mid]; if (!m || !m.onceUrl) return;
+const me = window.uidNow(); if (m.fromUid === me) return;
+if ((m.openedBy || {})[me]) { showToast('📸 You already opened this Instant photo'); return; }
+m.openedBy = { ...(m.openedBy || {}), [me]: Date.now() };
+const v = document.createElement('div'); v.className = 'fixed inset-0 flex flex-col items-center justify-center bg-black'; v.style.zIndex = 500;
+v.innerHTML = `<img src="${escapeHTML(window.cldSized ? window.cldSized(m.onceUrl, 1280) : m.onceUrl)}" class="max-w-full max-h-[85vh] object-contain" style="-webkit-user-select:none;user-select:none;pointer-events:none"><p class="text-xs text-gray-300 mt-3">📸 Instant photo · tap anywhere to close · it can’t be opened again</p>`;
+v.onclick = () => { v.remove(); window.paintChat('dm'); };
+document.body.appendChild(v);
+try { await updateDoc(window.chatRef('dm', mid), { [`openedBy.${me}`]: Date.now() }); } catch (e) {}
+};
+
+window.paintChat = function(kind) {
+const box = document.getElementById(kind === 'squad' ? 'squadRoomMsgsBox' : 'dmMessagesContainer'); if (!box) return;
+const me = window.uidNow(), myTag = window.meLower();
+box.querySelectorAll('[data-mid]').forEach(row => {
+const id = row.getAttribute('data-mid'), m = id && window.chatMsg(kind, id); if (!m) return;
+const bubble = row.querySelector(kind === 'squad' ? '.rounded-2xl' : '.dm-bubble') || row;
+const textP = bubble.querySelector(kind === 'squad' ? 'p.text-sm' : 'p.whitespace-pre-wrap');
+if (m.isPoll && m.poll) { const old = bubble.querySelector('.sg-poll'); const html = window.pollHtml(m, kind); if (old) old.outerHTML = html; else if (textP) textP.outerHTML = html; }
+if (m.isOnce && kind !== 'squad' && textP && !bubble.querySelector('.sg-once')) {
+const mine = m.fromUid === me, opened = Object.keys(m.openedBy || {}).filter(u => u !== m.fromUid).length > 0, iOpened = (m.openedBy || {})[me];
+textP.outerHTML = mine ? `<div class="sg-once">📸 Instant photo · ${opened ? '✓ Opened' : 'not opened yet'}</div>`
+: iOpened ? `<div class="sg-once">📸 Opened</div>` : `<button class="sg-once" onclick="event.stopPropagation(); window.openOnce('${escapeHTML(id)}')">📸 Instant photo · tap to view (once)</button>`;
+}
+if (m.bot && !bubble.querySelector('.sg-bot-tag')) {
+bubble.insertAdjacentHTML('afterbegin', `<div class="sg-bot-tag">🤖 ${escapeHTML(m.botName || 'GG Bot')}</div>`);
+const nm = bubble.querySelector('a,[onclick*="openUserProfileModal"]'); if (nm && kind === 'squad' && nm.closest('.flex.items-center.flex-wrap')) nm.closest('.flex.items-center.flex-wrap').style.display = 'none';
+}
+if (m.fwd && !bubble.querySelector('.sg-fwd')) bubble.insertAdjacentHTML('afterbegin', `<p class="sg-fwd">↪ Forwarded</p>`);
+if (m.editedAt && textP && !bubble.querySelector('.sg-edited')) textP.insertAdjacentHTML('afterend', `<span class="sg-edited text-[9px] opacity-60">(edited)</span>`);
+const t = String(m.text || '').toLowerCase();
+if (m.senderUid !== me && m.fromUid !== me && (new RegExp('@' + myTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(t) || /(^|\s)@(all|everyone)\b/.test(t))) bubble.classList.add('sg-mention-me');
+});
+box.querySelectorAll(kind === 'squad' ? 'p.text-sm' : 'p.whitespace-pre-wrap').forEach(p => {
+if (p._at || !/@\w/.test(p.textContent)) return; p._at = 1;
+if (p.querySelector('.sg-at,[onclick^="openUserProfileModal("]')) return;
+p.innerHTML = p.innerHTML.replace(/(^|[\s(])@([\w.]{2,30})/g, (a, pre, tag) => `${pre}<span class="sg-at" onclick="event.stopPropagation(); window.openUserProfileModal('${tag}')">@${tag}</span>`);
+});
+};
+window.renderSquadChannel = (function(b) { return function(...a) { const r = b.apply(this, a); try { window.paintChat('squad'); window.sqToolsBar && window.sqToolsBar(); } catch (e) { console.warn(e); } return r; }; })(window.renderSquadChannel);
+window.renderDmMessages = (function(b) { return function(...a) { const r = b.apply(this, a); try { window.paintChat('dm'); } catch (e) { console.warn(e); } return r; }; })(window.renderDmMessages);
+
+window.renderChatStatus = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try {
+const d = window.activeDm, el = document.querySelector('#dmMessagesContainer .sg-seen'); if (!d || d.group || !el || !/Seen/.test(el.textContent)) return r;
+const t = ((window._chatDoc || {}).seen || {})[d.partnerUid]; if (t) el.textContent = `✓✓ Seen ${new Date(t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
+} catch (e) {}
+return r;
+};
+})(window.renderChatStatus);
+
+document.addEventListener('click', (e) => {
+const lab = e.target.closest && e.target.closest('label'); if (!lab) return;
+const inp = lab.querySelector('#dmChatImageInput,#squadChatImageInput'); if (!inp) return;
+if (window._attachBypass) { window._attachBypass = false; return; }
+e.preventDefault(); e.stopPropagation();
+const kind = inp.id === 'squadChatImageInput' ? 'squad' : 'dm', items = [{ icon: 'fa-image', label: '🖼️ Photo', run: () => { window._attachBypass = true; inp.click(); } }];
+if (kind === 'dm' && window.activeDm && !window.activeDm.group) items.push({ icon: 'fa-camera', label: '📸 Instant photo (opens once)', run: () => window.sendInstantPhoto() });
+items.push({ icon: 'fa-square-poll-vertical', label: '📊 Poll', run: () => window.openChatPoll(kind) });
+window.openActionSheet('Send', items);
+}, true);
+
+window.sqBots = (sq) => ({ ai: true, welcome: true, match: true, trivia: true, poll: true, ...((sq && sq.bots) || {}) });
+window.sqDayKey = (d = new Date()) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+window.sqMainRoom = (sq) => { const ch = window.squadChannels(sq).filter(c => !c.staff && !c.adminOnly); return (ch.find(c => c.name === 'chat') || ch[0] || { name: 'chat' }).name; };
+
+window.renderSquadChannel = (function(b) {
+return function(...a) {
+const rooms = window.activeSquadRooms || {}, me = window.uidNow(), keep = [];
+Object.values(rooms).forEach(list => (list || []).forEach(m => { if (m && m.bot && m.senderUid === me) { keep.push(m); m.senderUid = 'bot'; m._s = m.sender; m.sender = m.botName || 'GG Bot'; } }));
+try { return b.apply(this, a); } finally { keep.forEach(m => { m.senderUid = me; }); }
+};
+})(window.renderSquadChannel);
+
+window.renderSquadHeader = (function(b) {
+return function(...a) {
+const r = b.apply(this, a), set = document.getElementById('squadSettingsBtn');
+if (set && !document.getElementById('squadMoreBtn')) set.insertAdjacentHTML('beforebegin', `<button id="squadMoreBtn" onclick="window.openSquadTools()" class="w-9 h-9 shrink-0 rounded-xl bg-gg-800 text-gray-300" title="More">🧰</button>`);
+return r;
+};
+})(window.renderSquadHeader);
+window.openSquadTools = function() {
+const sq = window.activeSquadDetails; if (!sq) return;
+const admin = window.isSquadAdmin(sq), items = [
+{ icon: 'fa-magnifying-glass', label: '🔍 Search messages', run: () => window.sqSearch() },
+{ icon: 'fa-images', label: '🖼️ Photos & media', run: () => window.sqMedia() },
+{ icon: 'fa-scroll', label: '📜 Squad rules', run: () => window.sqRules() },
+{ icon: 'fa-qrcode', label: '🔗 Invite link & QR code', run: () => window.sqInvite() },
+{ icon: 'fa-square-poll-vertical', label: '📊 New poll', run: () => window.openChatPoll('squad') }];
+if (admin) items.push({ icon: 'fa-gauge', label: `🐢 Slow mode${sq.slowSec ? ' · ' + sq.slowSec + 's' : ' · off'}`, run: () => window.sqSlow() }, { icon: 'fa-robot', label: '🤖 Bots & GG AI', run: () => window.sqBotsPanel() });
+window.openActionSheet(sq.name || 'Squad', items);
+};
+
+window.sqSearch = function() {
+window.openPanel('🔍 Search this squad', `<input id="sqSearchQ" oninput="window.sqSearchRun()" placeholder="Words, @name…" class="w-full bg-gg-900 border border-cyan-500/40 rounded-2xl px-4 py-3 text-sm text-white"><div id="sqSearchOut" class="space-y-2 mt-2"></div>`);
+setTimeout(() => document.getElementById('sqSearchQ')?.focus(), 80); window.sqSearchRun();
+};
+window.sqSearchRun = function() {
+const q = ((document.getElementById('sqSearchQ') || {}).value || '').trim().toLowerCase(), out = document.getElementById('sqSearchOut'); if (!out) return;
+if (q.length < 2) { out.innerHTML = '<p class="text-xs text-gray-400 text-center py-6">Type at least 2 letters</p>'; return; }
+const hits = [];
+Object.entries(window.activeSquadRooms || {}).forEach(([room, list]) => (list || []).forEach(m => { if (m.id && !String(m.id).startsWith('tmp') && (`${m.text || ''} ${m.sender || ''}`).toLowerCase().includes(q)) hits.push({ room, m }); }));
+hits.sort((x, y) => (y.m.timestamp || 0) - (x.m.timestamp || 0));
+out.innerHTML = hits.slice(0, 60).map(({ room, m }) => `<button onclick="window.sqGoTo('${escapeHTML(room)}','${escapeHTML(m.id)}')" class="w-full text-left p-3 rounded-2xl bg-gg-900 border border-white/10"><p class="text-[10px] font-black text-cyan-300">#${escapeHTML(room)} · ${escapeHTML(window.dnText(m.sender || ''))} · ${window.timeAgo(m.timestamp || 0)}</p><p class="text-xs text-white mt-1 line-clamp-2">${escapeHTML(m.text || '')}</p></button>`).join('') || '<p class="text-xs text-gray-400 text-center py-6">No messages found</p>';
+};
+window.sqGoTo = function(room, id) { window.closePanel(); if (window.activeSquadSubRoom !== room) window.switchSquadSubRoom(room); setTimeout(() => window.jumpToSquadMsg && window.jumpToSquadMsg(id), 350); };
+
+window.sqMedia = function() {
+const pics = []; Object.values(window.activeSquadRooms || {}).forEach(l => (l || []).forEach(m => { if (m.isImage && m.imageUrl) pics.push(m); }));
+pics.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+window.openPanel('🖼️ Photos & media', pics.length ? `<div class="grid grid-cols-3 gap-1.5">${pics.slice(0, 90).map(m => `<img loading="lazy" src="${escapeHTML(window.cldSized(m.imageUrl, 300))}" onclick="window.openMediaZoomModal('image','${escapeHTML(m.imageUrl)}')" class="w-full aspect-square object-cover rounded-xl cursor-pointer">`).join('')}</div>` : '<p class="text-xs text-gray-400 text-center py-8">No photos shared yet</p>');
+};
+
+window.SQ_RULES_DEFAULT = '1. Respect everyone 🤝\n2. No spam, no links to other apps\n3. No adult or hateful content\n4. Play fair — no cheating in tournaments\n5. Have fun 🎮';
+window.sqRules = function(joining) {
+const sq = window.activeSquadDetails; if (!sq) return;
+const admin = window.isSquadAdmin(sq), rules = sq.rules || window.SQ_RULES_DEFAULT;
+window.openPanel('📜 ' + (sq.name || 'Squad') + ' rules', admin && !joining
+? `<textarea id="sqRulesIn" rows="8" maxlength="1200" class="w-full bg-gg-900 border border-white/10 rounded-2xl p-3 text-sm text-white">${escapeHTML(rules)}</textarea><button onclick="window.sqSaveRules()" class="w-full mt-2 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-xs font-black uppercase">Save rules</button>`
+: `<p class="text-sm text-white whitespace-pre-wrap leading-relaxed">${escapeHTML(rules)}</p>${joining ? `<button onclick="window.closePanel()" class="w-full mt-4 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-xs font-black uppercase">✅ I agree</button>` : ''}`);
+};
+window.sqSaveRules = async function() {
+const sq = window.activeSquadDetails, v = ((document.getElementById('sqRulesIn') || {}).value || '').trim().slice(0, 1200); if (!sq) return;
+try { await updateDoc(doc(window.db, 'squads', sq.id), { rules: v }); sq.rules = v; window.closePanel(); showToast('📜 Rules saved'); } catch (e) { showToast('⚠️ Not saved'); }
+};
+
+window.sqInvite = function() {
+const sq = window.activeSquadDetails; if (!sq) return;
+const link = `https://sinlessgg.com/#squad=${sq.id}`, qr = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(link)}`;
+window.openPanel('🔗 Invite to ' + (sq.name || 'squad'), `<div class="text-center">
+<div class="inline-block p-2 rounded-3xl" style="background:linear-gradient(135deg,#22d3ee,#a855f7,#ff2d95)"><img src="${qr}" alt="QR code" class="w-56 h-56 rounded-2xl bg-white"></div>
+<p class="text-xs text-gray-400 mt-3">Friends can scan this with their phone camera</p>
+<p class="mt-3 text-xs font-bold text-cyan-300 break-all">${escapeHTML(link)}</p>
+${sq.isPublic === false ? `<p class="text-xs text-white mt-2">Invite code: <b>${escapeHTML(sq.inviteCode || '')}</b></p>` : ''}
+<div class="grid grid-cols-2 gap-2 mt-4"><button onclick="navigator.clipboard&&navigator.clipboard.writeText('${link}');showToast('🔗 Link copied')" class="py-3 rounded-2xl bg-white/5 border border-white/10 text-white text-xs font-black">Copy link</button>
+<button onclick="window.sqShareInvite()" class="py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-xs font-black">Share</button></div></div>`);
+};
+window.sqShareInvite = function() {
+const sq = window.activeSquadDetails; if (!sq) return; const url = `https://sinlessgg.com/#squad=${sq.id}`, text = `Join my squad ${sq.name} on SINLESS GG 🎮${sq.isPublic === false ? ' Invite code: ' + sq.inviteCode : ''}`;
+if (navigator.share) navigator.share({ title: 'SINLESS GG', text, url }).catch(() => {}); else { navigator.clipboard && navigator.clipboard.writeText(text + ' ' + url); showToast('🔗 Copied'); }
+};
+
+window.sqSlow = async function() {
+const sq = window.activeSquadDetails; if (!sq) return;
+window.openActionSheet('🐢 Slow mode: one message every…', [0, 10, 30, 60, 300].map(s => ({ icon: 'fa-clock', label: s ? (s < 60 ? s + ' seconds' : s / 60 + ' minute' + (s > 60 ? 's' : '')) : 'Off', run: async () => { try { await updateDoc(doc(window.db, 'squads', sq.id), { slowSec: s }); sq.slowSec = s; showToast(s ? `🐢 Slow mode on (${s}s)` : 'Slow mode off'); } catch (e) { showToast('⚠️ Not saved'); } } })));
+};
+window.sendSquadMessage = (function(b) {
+return async function(payload, ...rest) {
+const sq = window.activeSquadDetails;
+if (sq && payload && !payload.bot) {
+const admin = window.isSquadAdmin(sq), k = 'sg_slow_' + sq.id;
+if (sq.slowSec && !admin) { const last = +(localStorage.getItem(k) || 0), left = Math.ceil((last + sq.slowSec * 1000 - Date.now()) / 1000); if (left > 0) { showToast(`🐢 Slow mode: wait ${left}s`); return; } }
+const now = Date.now(); window._sqBurst = (window._sqBurst || []).filter(t => now - t < 10000);
+if (!admin && window._sqBurst.length >= 6) { showToast('⏳ Slow down a little'); return; }
+if (payload.text && payload.text === window._sqLastText && now - (window._sqLastAt || 0) < 15000 && !payload.isPoll) { showToast('Already sent'); return; }
+window._sqBurst.push(now); window._sqLastText = payload.text; window._sqLastAt = now;
+try { localStorage.setItem(k, String(now)); } catch (e) {}
+const pm = String(payload.text || '').match(/^\/poll\s+(.+)$/i);
+if (pm && window.sqBots(sq).poll) { const parts = pm[1].split('|').map(s => s.trim()).filter(Boolean); if (parts.length >= 3) payload = { isPoll: true, poll: { q: parts[0].slice(0, 140), o: parts.slice(1, 7).map(x => x.slice(0, 60)), multi: false, anon: false, ends: 0 }, text: '📊 ' + parts[0].slice(0, 140) }; else { showToast('Poll: /poll Question | option 1 | option 2'); return; } }
+}
+const r = await b.call(this, payload, ...rest);
+try { if (sq && payload && payload.text && /(^|\s)@ai\b/i.test(payload.text) && window.sqBots(sq).ai) window.askGgAi(sq, payload.text); } catch (e) {}
+return r;
+};
+})(window.sendSquadMessage);
+
+window.openSquadMessageActions = (function(b) {
+return function(id) {
+const m = window.findSquadMsg(id), orig = window.openActionSheet;
+if (!m || String(id).startsWith('tmp')) return b(id);
+const mine = m.senderUid === window.uidNow() && !m.bot, extra = [];
+if (mine && m.text && !m.isPoll && !m.isAudio && Date.now() - (m.timestamp || 0) < 24 * 3600e3) extra.push({ icon: 'fa-pen', label: '✏️ Edit', run: () => window.editChatMsg('squad', id) });
+if (!m.isOnce) extra.push({ icon: 'fa-share', label: '↪ Forward', run: () => window.forwardMsg(m) });
+window.openActionSheet = (t, items) => orig(t, [...items.slice(0, 1), ...extra, ...items.slice(1)]);
+try { return b(id); } finally { window.openActionSheet = orig; }
+};
+})(window.openSquadMessageActions);
+window.editChatMsg = async function(kind, id) {
+const m = window.chatMsg(kind, id); if (!m) return;
+const v = await window.sgPrompt('Edit your message', { title: '✏️ Edit', defaultValue: m.text || '', okText: 'Save' });
+if (v == null || !String(v).trim() || v === m.text) return;
+const text = window.sgFilterText ? window.sgFilterText(String(v).trim()) : String(v).trim();
+m.text = text; m.editedAt = Date.now(); kind === 'squad' ? window.renderSquadChannel() : window.renderDmMessages(window._dmMsgs || []);
+try { await updateDoc(window.chatRef(kind, id), { text, editedAt: Date.now() }); } catch (e) { showToast('⚠️ Edit not saved. Paste the latest Firebase rules (admin).'); }
+};
+window.forwardMsg = function(m) {
+if (window.needSignIn('forward')) return;
+window._fwdMsg = m; const uid = window.uidNow();
+const dms = (window.dmThreads || []).slice(0, 25).map(t => { const o = (t.participants || []).find(p => p !== uid); return { k: 'dm', id: (t.names || {})[o], name: '@' + window.dnText((t.names || {})[o] || '') }; }).filter(x => x.id);
+const gs = (window.groupThreads || []).slice(0, 15).map(g => ({ k: 'group', id: g.id, name: '👥 ' + (g.name || 'Group') }));
+const sqs = (window.clansData || []).filter(s => window.isSquadMember(s)).slice(0, 20).map(s => ({ k: 'squad', id: s.id, name: '🛡️ ' + (s.name || 'Squad') }));
+const all = [...dms, ...gs, ...sqs];
+window.openPanel('↪ Forward to…', all.length ? all.map(x => `<button onclick="window.forwardTo('${x.k}','${escapeHTML(x.id)}')" class="w-full text-left px-4 py-3 rounded-2xl bg-gg-900 border border-white/10 text-sm font-bold text-white mb-2">${escapeHTML(x.name)}</button>`).join('') : '<p class="text-xs text-gray-400 text-center py-6">No chats yet</p>');
+};
+window.fwdPayload = (m) => { const p = { fwd: true, text: m.text || '' }; if (m.isImage) Object.assign(p, { isImage: true, imageUrl: m.imageUrl }); if (m.isAudio) Object.assign(p, { isAudio: true, audioUrl: m.audioUrl, duration: m.duration || 0 }); if (m.isPoll) Object.assign(p, { isPoll: true, poll: m.poll }); return p; };
+window.forwardTo = async function(kind, id) {
+const m = window._fwdMsg; if (!m) return; window.closePanel(); const p = window.fwdPayload(m);
+try {
+if (kind === 'squad') {
+const sq = (window.clansData || []).find(s => s.id === id); if (!sq) return;
+await addDoc(collection(window.db, 'squads', id, 'messages'), window.cleanForCloud({ room: window.sqMainRoom(sq), sender: window.me(), senderUid: window.uidNow(), timestamp: Date.now(), ...p, createdAt: serverTimestamp() }));
+} else {
+await window.openDmModal(kind === 'dm' ? id : null);
+if (kind === 'group') window.openGroupThread(id);
+for (let i = 0; i < 30 && !(window.activeDm && (kind === 'group' ? window.activeDm.groupId === id : String(window.activeDm.partnerTag || '').toLowerCase() === String(id).toLowerCase())); i++) await new Promise(r => setTimeout(r, 150));
+if (!window.activeDm) throw new Error('chat not open');
+await window.sendDmMessage(p);
+}
+showToast('↪ Forwarded');
+} catch (e) { showToast('⚠️ Not forwarded'); }
+};
+
+document.addEventListener('click', (e) => {
+const bub = e.target.closest && e.target.closest('#dmMessagesContainer .dm-bubble'); if (!bub || e.target.closest('button,a,img,audio,.sg-poll,[onclick]')) return;
+const id = bub.closest('.dm-row')?.dataset.mid, m = id && (window.dmMsgsById || {})[id]; if (!m) return;
+const mine = m.fromUid === window.uidNow(), items = [{ icon: 'fa-reply', label: '↩ Reply', run: () => window.setDmReply(id) }];
+if (m.text && !m.isOnce) items.push({ icon: 'fa-copy', label: 'Copy text', run: () => { navigator.clipboard && navigator.clipboard.writeText(m.text); showToast('Copied'); } });
+if (mine && m.text && !m.isPoll && !m.isOnce && !m.isAudio && Date.now() - window.postTimeValue(m) < 24 * 3600e3) items.push({ icon: 'fa-pen', label: '✏️ Edit', run: () => window.editChatMsg('dm', id) });
+if (!m.isOnce) items.push({ icon: 'fa-share', label: '↪ Forward', run: () => window.forwardMsg(m) });
+if (mine) items.push({ icon: 'fa-trash', label: '🗑️ Delete for everyone', run: async () => { if (!(await window.sgConfirm('Delete this message for everyone?', { okText: 'Delete', danger: true }))) return; try { await deleteDoc(window.chatRef('dm', id)); } catch (er) { showToast('⚠️ Not deleted'); } } });
+window.openActionSheet('Message', items);
+});
+
+window.renderSquadMembers = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a);
+try {
+const box = document.getElementById('squadRoomMsgsBox'); if (!box) return r;
+const rows = [...box.querySelectorAll('[onclick^="window.openMemberActions("]')], seen = [];
+rows.forEach(row => {
+const tag = (row.getAttribute('onclick').match(/openMemberActions\('([^']+)'/) || [])[1]; if (!tag || row.querySelector('.sg-ls')) return;
+const p = (window.allProfilesMap || {})[tag.toLowerCase()] || {}, ls = p.lastSeen && (p.lastSeen.toMillis ? p.lastSeen.toMillis() : +p.lastSeen);
+const t = ls ? window.lastSeenText(ls) : '', on = /Online/.test(t);
+seen.push({ row, on, ls: ls || 0 });
+const nameEl = row.querySelector('p,span'); if (nameEl && t) nameEl.insertAdjacentHTML('afterend', `<p class="sg-ls text-[10px] font-bold ${on ? 'text-emerald-300' : 'text-gray-500'}">${escapeHTML(t)}</p>`);
+});
+const on = seen.filter(x => x.on).length;
+if (rows.length && !box.querySelector('.sg-online-n')) rows[0].insertAdjacentHTML('beforebegin', `<p class="sg-online-n text-[11px] font-black text-emerald-300 mb-2">🟢 ${on} online now · ${rows.length} members</p>`);
+} catch (e) { console.warn(e); }
+return r;
+};
+})(window.renderSquadMembers);
+
+window.toggleSquadMembership = (function(b) {
+return async function(squadId, ...rest) {
+const before = (window.clansData || []).find(c => c.id === squadId), was = before && window.isSquadMember(before);
+const r = await b.call(this, squadId, ...rest);
+try {
+const sq = (window.clansData || []).find(c => c.id === squadId) || window.activeSquadDetails;
+if (!was && sq && window.isSquadMember(sq)) {
+if (window.activeSquadDetails && window.activeSquadDetails.id === squadId) setTimeout(() => window.sqRules(true), 500);
+if (window.sqBots(sq).welcome) await addDoc(collection(window.db, 'squads', squadId, 'messages'), window.cleanForCloud({ room: window.sqMainRoom(sq), sender: window.me(), senderUid: window.uidNow(), timestamp: Date.now(), bot: true, botName: 'Welcome Bot', text: `👋 Welcome @${window.me()} to ${sq.name}! Say hi and check the 📜 rules in 🧰.`, createdAt: serverTimestamp() }));
+}
+} catch (e) { console.warn(e); }
+return r;
+};
+})(window.toggleSquadMembership);
+
+window.SQ_BOT_LIST = [['ai', '🧠 GG AI', 'Answers when someone types @ai (who do I play today? rules? tips?)'], ['welcome', '👋 Welcome Bot', 'Greets new members'], ['match', '📅 Match Bot', "Posts today's fixtures and results"], ['trivia', '🎯 Trivia Bot', 'One fun quiz a day (+10 points)'], ['poll', '📊 Poll Bot', 'Type /poll Question | option | option']];
+window.sqBotsPanel = function() {
+const sq = window.activeSquadDetails; if (!sq) return; const b = window.sqBots(sq);
+window.openPanel('🤖 Bots & GG AI', `<p class="text-xs text-gray-400 mb-3">Bots help your squad. Switch off any you don't want.</p>${window.SQ_BOT_LIST.map(([k, n, d]) => `<label class="flex items-center gap-3 p-3 rounded-2xl bg-gg-900 border border-white/10 mb-2"><input type="checkbox" data-bot="${k}" ${b[k] ? 'checked' : ''} class="w-5 h-5 accent-fuchsia-500"><span><b class="text-sm text-white">${n}</b><br><span class="text-[11px] text-gray-400">${d}</span></span></label>`).join('')}
+<button onclick="window.sqSaveBots()" class="w-full mt-1 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-xs font-black uppercase">Save</button>`);
+};
+window.sqSaveBots = async function() {
+const sq = window.activeSquadDetails; if (!sq) return; const bots = {}; document.querySelectorAll('[data-bot]').forEach(i => bots[i.dataset.bot] = i.checked);
+try { await updateDoc(doc(window.db, 'squads', sq.id), { bots }); sq.bots = bots; window.closePanel(); showToast('🤖 Saved'); } catch (e) { showToast('⚠️ Not saved'); }
+};
+window.openCreateClanModal = (function(b) {
+return function(...a) {
+const r = b.apply(this, a), bio = document.getElementById('squadBioInput');
+if (bio && !document.getElementById('newSquadBots')) bio.insertAdjacentHTML('afterend', `<label class="flex items-center gap-2 mt-3 text-xs text-white font-bold"><input id="newSquadBots" type="checkbox" checked class="w-4 h-4 accent-fuchsia-500"> 🤖 Add GG AI & helper bots (you can switch them off later)</label>`);
+return r;
+};
+})(window.openCreateClanModal);
+window.submitNewSquad = (function(b) {
+return async function(...a) {
+const box = document.getElementById('newSquadBots'), on = !box || box.checked, c0 = window.cleanForCloud;
+window.cleanForCloud = (o) => (o && o.inviteCode && o.channels && !o.bots) ? c0({ ...o, bots: { ai: on, welcome: on, match: on, trivia: on, poll: on } }) : c0(o);
+try { return await b.apply(this, a); } finally { window.cleanForCloud = c0; }
+};
+})(window.submitNewSquad);
+
+window.askGgAi = async function(sq, text) {
+const url = window.SG_PUSH && window.SG_PUSH.url || (await window.loadPushCfg() || {}).url; if (!url) return;
+const me = window.me(), fx = (window.squadTournFixtures ? window.squadTournFixtures(sq.id, me) : []).slice(0, 8);
+const fxTxt = fx.map(f => { try { const t = f.t || f.tourn || {}, m = f.m || f.match || f; const opp = (m.p1 || '').toLowerCase() === me.toLowerCase() ? m.p2 : m.p1; return `${t.name || 'Tournament'}: vs ${opp}${window.matchDate ? ' · ' + (window.matchDate(t, m) || '') : ''}`; } catch (e) { return ''; } }).filter(Boolean).join('; ');
+const ctx = `Squad: ${sq.name}. Asker: ${me}. Their unplayed fixtures: ${fxTxt || 'none'}. Squad rules: ${(sq.rules || window.SQ_RULES_DEFAULT).slice(0, 400)}. ${window.sqFixturesCtx ? window.sqFixturesCtx(sq) : ''}`;
+try {
+const tok = await window.mediaIdToken();
+const res = await fetch(url.replace(/\/$/, '') + '/ai', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok }, body: JSON.stringify({ sid: sq.id, room: window.activeSquadSubRoom, q: String(text).slice(0, 500), ctx: ctx.slice(0, 2500), asker: me }) });
+const j = await res.json().catch(() => ({}));
+if (j.limit) showToast("🧠 GG AI is resting — today's limit for this squad is used up");
+else if (!res.ok) showToast('🧠 GG AI is not set up yet');
+} catch (e) { showToast('🧠 GG AI is offline'); }
+};
+
+window.sqDailyBots = async function(sq) {
+if (!sq || !window.isSignedIn() || !window.isSquadMember(sq)) return;
+const day = window.sqDayKey(), k = 'sg_bots_' + sq.id + '_' + day; try { if (localStorage.getItem(k)) return; localStorage.setItem(k, '1'); } catch (e) {}
+const b = window.sqBots(sq), room = window.sqMainRoom(sq), base = { room, sender: window.me(), senderUid: window.uidNow(), bot: true };
+const put = async (id, data) => { try { const ref = doc(window.db, 'squads', sq.id, 'messages', id); const s = await getDoc(ref); if (s.exists()) return; await setDoc(ref, window.cleanForCloud({ ...base, timestamp: Date.now(), ...data, createdAt: serverTimestamp() })); } catch (e) {} };
+if (b.match && window.sqMatchBotText) { const t = window.sqMatchBotText(sq); if (t) await put('bot_match_' + day, { botName: 'Match Bot', text: t }); }
+if (b.trivia && (window.TRIVIA2 || []).length && new Date().getHours() >= 12) {
+const n = window.TRIVIA2.length, seed = [...(sq.id + day)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7), q = window.TRIVIA2[seed % n];
+const opts = [...q[1]].sort((x, y) => ((seed ^ x.length * 97) % 7) - ((seed ^ y.length * 97) % 7));
+await put('bot_trivia_' + day, { botName: 'Trivia Bot', isPoll: true, poll: { q: q[0], o: opts, quiz: true, correct: opts.indexOf(q[1][0]), multi: false, anon: true, ends: 0 }, text: '🧠 ' + q[0] });
+}
+};
+window.renderSquadChannel = (function(b) { return function(...a) { const r = b.apply(this, a); try { const sq = window.activeSquadDetails; if (sq && sq.id !== window._sqBotsRan) { window._sqBotsRan = sq.id; setTimeout(() => window.sqDailyBots(sq), 2500); } } catch (e) {} return r; }; })(window.renderSquadChannel);
+
+(function fxCss() { const s = document.createElement('style'); s.textContent = `
+.fx-board{border-radius:22px;padding:12px;background:linear-gradient(160deg,rgba(34,211,238,.10),rgba(168,85,247,.10) 55%,rgba(255,45,149,.08));border:1px solid rgba(168,85,247,.35);box-shadow:0 0 22px -10px #a855f7}
+.fx-tabs{display:flex;gap:6px;overflow-x:auto;margin:8px 0}.fx-tabs button{flex-shrink:0;padding:5px 11px;border-radius:999px;font-size:10px;font-weight:900;background:rgba(255,255,255,.06);color:#cbd5e1;border:1px solid rgba(255,255,255,.08)}
+.fx-tabs button.on{background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);color:#0b0f24;border-color:transparent}
+.fx-row{display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:14px;background:rgba(11,15,36,.55);border:1px solid rgba(255,255,255,.06);margin-top:6px}
+.fx-row.me{border-color:#22d3ee;box-shadow:0 0 12px -4px #22d3ee}
+.fx-time{width:46px;flex-shrink:0;text-align:center;font-size:11px;font-weight:900;color:#22d3ee;line-height:1.1}
+.fx-st{font-size:9px;font-weight:900;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.fx-st.ok{background:rgba(34,211,238,.15);color:#67e8f9}.fx-st.wait{background:rgba(168,85,247,.18);color:#d8b4fe}.fx-st.late{background:rgba(255,45,149,.16);color:#f9a8d4}.fx-st.todo{background:rgba(255,255,255,.07);color:#cbd5e1}
+.fx-act{font-size:9px;font-weight:900;padding:4px 7px;border-radius:9px;background:rgba(255,255,255,.07);color:#fff;border:1px solid rgba(255,255,255,.1)}
+.sg-table{width:100%;font-size:11px;border-collapse:separate;border-spacing:0 4px}
+.sg-table th{font-size:8.5px;font-weight:900;text-transform:uppercase;color:#67e8f9;padding:4px 3px;text-align:center}
+.sg-table td{padding:7px 3px;text-align:center;background:rgba(11,15,36,.6)}
+.sg-table td:first-child{border-radius:12px 0 0 12px}.sg-table td:last-child{border-radius:0 12px 12px 0}
+.sg-table tr.z-top td{background:linear-gradient(90deg,rgba(34,211,238,.20),rgba(11,15,36,.6) 60%)}.sg-table tr.z-top td:first-child{box-shadow:inset 3px 0 0 #22d3ee,-4px 0 14px -6px #22d3ee}
+.sg-table tr.z-mid td{background:linear-gradient(90deg,rgba(168,85,247,.20),rgba(11,15,36,.6) 60%)}.sg-table tr.z-mid td:first-child{box-shadow:inset 3px 0 0 #a855f7}
+.sg-table tr.z-down td{background:linear-gradient(90deg,rgba(255,45,149,.20),rgba(11,15,36,.6) 60%)}.sg-table tr.z-down td:first-child{box-shadow:inset 3px 0 0 #ff2d95,-4px 0 14px -6px #ff2d95}
+.sg-table tr.me td{outline:1px solid rgba(34,211,238,.5)}
+.sg-f{display:inline-flex;width:14px;height:14px;border-radius:4px;align-items:center;justify-content:center;font-size:8px;font-weight:900;margin-left:1px}
+.sg-f.W{background:#22d3ee;color:#0b0f24}.sg-f.D{background:#a855f7;color:#fff}.sg-f.L{background:#ff2d95;color:#fff}
+.pwr-card{border-radius:24px;padding:14px;background:radial-gradient(120% 90% at 0% 0%,rgba(250,204,21,.25),transparent 60%),linear-gradient(160deg,#1a1405,#0b0f24 60%,#140a24);border:1px solid rgba(250,204,21,.55);box-shadow:0 0 26px -8px rgba(250,204,21,.55)}
+.pwr-row{display:flex;align-items:center;gap:9px;padding:9px;border-radius:16px;background:rgba(0,0,0,.35);border:1px solid rgba(250,204,21,.15);margin-top:6px}
+.pwr-tier{width:30px;height:30px;flex-shrink:0;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px}
+.pwr-tier.S{background:linear-gradient(135deg,#a5f3fc,#e0e7ff,#f0abfc);color:#0b0f24;box-shadow:0 0 12px #a5f3fc}.pwr-tier.A{background:linear-gradient(135deg,#fde68a,#f59e0b);color:#1a1405}.pwr-tier.B{background:#cbd5e1;color:#0b0f24}.pwr-tier.C{background:#b45309;color:#fff}.pwr-tier.D{background:#334155;color:#cbd5e1}`; document.head.appendChild(s); })();
+
+window.fxMe = () => window.me();
+window.fxReal = (m) => m && window.isRealPlayer(m.p1) && window.isRealPlayer(m.p2);
+window.fxMine = (m) => window.tagEq(m.p1, window.me()) || window.tagEq(m.p2, window.me());
+window.fxHM = (s) => { const x = String(s || '').match(/^(\d{1,2}):(\d{2})$/); return x ? (+x[1]) * 60 + (+x[2]) : null; };
+
+window.fxSlots = function(t, day) {
+const from = window.fxHM(t.playFrom), to = window.fxHM(t.playTo), len = +t.slotMin || 15; if (from === null || to === null || to <= from) return {};
+const ms = (t.matches || []).filter(m => window.fxReal(m) && window.matchDate(t, m) === day).sort((a, b) => (a.round || 0) - (b.round || 0) || String(a.id).localeCompare(String(b.id)));
+const n = Math.floor((to - from) / len), busy = {}, out = {};
+ms.forEach(m => {
+if (m.slotAt) { out[m.id] = m.slotAt; return; }
+for (let k = 0; k < n; k++) { const a = (busy[m.p1.toLowerCase()] = busy[m.p1.toLowerCase()] || new Set()), b = (busy[m.p2.toLowerCase()] = busy[m.p2.toLowerCase()] || new Set()); if (a.has(k) || b.has(k)) continue; a.add(k); b.add(k); out[m.id] = day + (from + k * len) * 60000; return; }
+});
+return out;
+};
+window.fxTime = function(t, m) { const d = window.matchDate(t, m); if (d === null) return null; const s = window.fxSlots(t, d)[m.id]; return s || null; };
+
+window.fxCollect = function(ts, tab) {
+const today = window.dayStartOf(Date.now()), out = [];
+ts.forEach(t => (t.matches || []).forEach(m => {
+if (!window.fxReal(m)) return;
+const d = window.matchDate(t, m), played = window.isPlayedM(m);
+const ok = tab === 'today' ? d === today : tab === 'tomorrow' ? d === today + window.DAY : tab === 'week' ? d !== null && d >= today && d < today + 7 * window.DAY : !played && (d === null || d <= today);
+if (ok) out.push({ t, m, d, at: window.fxTime(t, m) });
+}));
+return out.sort((a, b) => (a.d || 0) - (b.d || 0) || (a.at || 9e15) - (b.at || 9e15) || (window.fxMine(b.m) - window.fxMine(a.m)));
+};
+window.fxStatus = function(t, m) {
+if (window.isPlayedM(m)) return m.bothLost ? '<span class="fx-st late">❌ both lost 0–0</span>' : m.forfeit ? `<span class="fx-st ok">🏳️ ${escapeHTML(m.s1)}–${escapeHTML(m.s2)}</span>` : `<span class="fx-st ok">✅ ${escapeHTML(m.s1)}–${escapeHTML(m.s2)}</span>`;
+if (m.status === 'disputed' && m.s1 !== null && m.s1 !== undefined) return '<span class="fx-st wait">⏳ waiting for approval</span>';
+if (window.isOverdue(t, m)) return '<span class="fx-st late">⏰ overdue</span>';
+return '<span class="fx-st todo">🕓 to play</span>';
+};
+window.fxTabs = [['today', 'Today'], ['tomorrow', 'Tomorrow'], ['week', 'This week'], ['unplayed', 'Unplayed']];
+window.fxBoardHtml = function(ts, key) {
+const tab = (window._fxTab = window._fxTab || {})[key] || 'today', list = window.fxCollect(ts, tab), played = list.filter(x => window.isPlayedM(x.m)).length;
+const mgr = ts.some(t => window.canManageTourn(t)), multi = ts.length > 1;
+const row = (x) => {
+const { t, m } = x, me = window.fxMine(m), late = !window.isPlayedM(m);
+const time = x.at ? new Date(x.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : tab === 'today' || tab === 'unplayed' ? (x.d !== null && x.d < window.dayStartOf(Date.now()) ? window.fmtDay(x.d, { day: 'numeric', month: 'short' }) : 'any<br>time') : window.fmtDay(x.d, { weekday: 'short' });
+const nm = (p) => `<b onclick="event.stopPropagation(); window.fxPlayer('${escapeHTML(p)}')" class="cursor-pointer ${window.tagEq(p, window.me()) ? 'text-cyan-300' : 'text-white'}">${escapeHTML(window.dnText(p))}</b>`;
+const acts = mgr && tab === 'unplayed' && late && window.canManageTourn(t) ? `<div class="flex flex-wrap gap-1 mt-1.5">
+<button class="fx-act" onclick="event.stopPropagation(); window.fxNudge('${t.id}','${escapeHTML(m.id)}')">📣 Nudge</button>
+<button class="fx-act" onclick="event.stopPropagation(); window.fxDecide('${t.id}','${escapeHTML(m.id)}','ff1')">🏳️ ${escapeHTML(window.dnText(m.p1))} forfeits</button>
+<button class="fx-act" onclick="event.stopPropagation(); window.fxDecide('${t.id}','${escapeHTML(m.id)}','ff2')">🏳️ ${escapeHTML(window.dnText(m.p2))} forfeits</button>
+${t.format === 'LEAGUE' ? `<button class="fx-act" onclick="event.stopPropagation(); window.fxDecide('${t.id}','${escapeHTML(m.id)}','both')">❌ Both forfeit (0 pts)</button>` : ''}</div>` : '';
+return `<div class="fx-row ${me ? 'me' : ''}" onclick="window.fxOpenMatch('${t.id}','${escapeHTML(m.id)}')"><div class="fx-time">${me ? '⭐<br>' : ''}${time}</div>
+<div class="flex-1 min-w-0"><p class="text-xs truncate">${nm(m.p1)} <span class="text-gray-500">vs</span> ${nm(m.p2)}</p><p class="text-[9px] text-gray-400 truncate">${multi ? escapeHTML(t.title || '') + ' · ' : ''}${escapeHTML(m.stage || ('Round ' + (m.round || 1)))}</p>${acts}</div>${window.fxStatus(t, m)}</div>`;
+};
+const myNext = window.fxCollect(ts, 'week').find(x => window.fxMine(x.m) && !window.isPlayedM(x.m));
+return `<div class="fx-board" data-fxboard="${escapeHTML(key)}">
+<div class="flex items-center gap-2"><p class="flex-1 text-sm font-black text-white">📅 ${tab === 'unplayed' ? 'Unplayed matches' : "Today's Fixtures"}</p><span class="text-[10px] font-black text-cyan-300">${played}/${list.length} played</span>
+${ts.length === 1 && window.isTournOwner(ts[0]) ? `<button onclick="window.fxPlayTimes('${ts[0].id}')" class="fx-act">⏱️ Play times</button>` : ''}</div>
+${myNext ? `<p class="text-[10px] font-bold text-cyan-200 mt-1">⭐ Your next: vs ${escapeHTML(window.dnText(window.tagEq(myNext.m.p1, window.me()) ? myNext.m.p2 : myNext.m.p1))}${myNext.at ? ' at ' + new Date(myNext.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}${myNext.d !== null && myNext.d !== window.dayStartOf(Date.now()) ? ' · ' + window.fmtDay(myNext.d) : ' · today'}</p>` : ''}
+<div class="fx-tabs">${window.fxTabs.map(([k, l]) => `<button class="${k === tab ? 'on' : ''}" onclick="event.stopPropagation(); window.fxSetTab('${escapeHTML(key)}','${k}')">${l}</button>`).join('')}</div>
+${list.length ? list.slice(0, 60).map(row).join('') : `<p class="text-[11px] text-gray-400 text-center py-4">${tab === 'unplayed' ? '🎉 Nothing unplayed' : 'No matches ' + (tab === 'week' ? 'this week' : tab)}</p>`}
+${ts.some(t => t.playFrom) ? '' : '<p class="text-[9px] text-gray-500 mt-2">Times show once the host sets ⏱️ play times.</p>'}</div>`;
+};
+window.fxSetTab = function(key, tab) { (window._fxTab = window._fxTab || {})[key] = tab; window.fxRefresh(); };
+window.fxRefresh = function() {
+document.querySelectorAll('[data-fxboard]').forEach(el => { const key = el.getAttribute('data-fxboard'), ts = window.fxScope(key); if (ts.length) el.outerHTML = window.fxBoardHtml(ts, key); });
+};
+window.fxScope = function(key) {
+const all = (window.tournamentsList || []).filter(t => t.status !== 'finished');
+if (key.startsWith('t:')) return all.filter(t => t.id === key.slice(2));
+if (key.startsWith('s:')) return all.filter(t => t.squadId === key.slice(2));
+return all.filter(t => (t.players || []).some(p => window.tagEq(p, window.me())));
+};
+window.fxOpenMatch = function(tid, mid) {
+window.closePanel && window.closePanel();
+const go = () => { const t = (window.tournamentsList || []).find(x => x.id === tid); if (t && (!window.activeTournament || window.activeTournament.id !== tid)) window.openTournamentById(tid); setTimeout(() => window.openMatchReportModal && window.openMatchReportModal(mid), 500); };
+if (document.getElementById('squadDetailsModal') && !document.getElementById('squadDetailsModal').classList.contains('hidden')) window.closeSquadDetailsModal && window.closeSquadDetailsModal();
+go();
+};
+window.fxNudge = function(tid, mid) {
+const t = (window.tournamentsList || []).find(x => x.id === tid), m = t && (t.matches || []).find(x => x.id === mid); if (!m) return;
+const k = 'sg_nudge_' + mid + window.sqDayKey(); try { if (localStorage.getItem(k)) { showToast('Already nudged today'); return; } localStorage.setItem(k, '1'); } catch (e) {}
+[m.p1, m.p2].forEach(p => window.notifyTag(p, `📣 The host asks you to play your ${t.title} match vs ${window.dnText(window.tagEq(p, m.p1) ? m.p2 : m.p1)} today`));
+showToast('📣 Both players nudged');
+};
+window.fxDecide = async function(tid, mid, act) {
+const cc = window.openCommandCentre; window.openCommandCentre = () => {};
+try { await window.overdueAct(tid, mid, act); } finally { window.openCommandCentre = cc; }
+window.fxRefresh();
+};
+window.fxPlayTimes = function(tid) {
+const t = (window.tournamentsList || []).find(x => x.id === tid); if (!t || !window.isTournOwner(t)) return;
+const f = 'w-full bg-gg-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white';
+window.openPanel('⏱️ Play times', `<p class="text-xs text-gray-400 mb-3">Every match gets its own time inside these hours, so players know exactly when to play. Nobody gets two matches at once.</p>
+<div class="grid grid-cols-2 gap-2"><label class="text-[10px] font-black text-gray-300">From<input id="fxFrom" type="time" value="${escapeHTML(t.playFrom || '18:00')}" class="${f} mt-1"></label><label class="text-[10px] font-black text-gray-300">To<input id="fxTo" type="time" value="${escapeHTML(t.playTo || '22:00')}" class="${f} mt-1"></label></div>
+<label class="block text-[10px] font-black text-gray-300 mt-2">Each match<select id="fxLen" class="${f} mt-1">${[10, 15, 20, 30].map(n => `<option value="${n}" ${(+t.slotMin || 15) === n ? 'selected' : ''}>${n} minutes</option>`).join('')}</select></label>
+<div class="grid grid-cols-2 gap-2 mt-3"><button onclick="window.fxSaveTimes('${tid}',true)" class="py-3 rounded-2xl bg-white/5 border border-white/10 text-white text-xs font-black">Turn off</button><button onclick="window.fxSaveTimes('${tid}')" class="py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-xs font-black uppercase">Save</button></div>`);
+};
+window.fxSaveTimes = async function(tid, off) {
+const t = (window.tournamentsList || []).find(x => x.id === tid); if (!t) return;
+const v = off ? { playFrom: '', playTo: '', slotMin: 15 } : { playFrom: document.getElementById('fxFrom').value, playTo: document.getElementById('fxTo').value, slotMin: +document.getElementById('fxLen').value || 15 };
+if (!off && (window.fxHM(v.playTo) || 0) <= (window.fxHM(v.playFrom) || 0)) { showToast('"To" must be after "From"'); return; }
+Object.assign(t, v); window.closePanel();
+try { await updateDoc(doc(window.db, 'tournaments', t.id), v); showToast('⏱️ Play times saved'); } catch (e) { showToast('⚠️ Not saved'); }
+window.renderTournamentsTabDedicated && window.renderTournamentsTabDedicated();
+};
+
+window.renderTournamentsTabDedicated = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try {
+const c = document.getElementById('tournamentsDedicatedContainer'), t = window.activeTournament;
+if (c && t && t.id && t.status !== 'finished' && (t.matches || []).some(window.fxReal) && !c.querySelector('[data-fxboard]')) {
+const at = c.querySelector('[data-season-bar]'); const html = `<div class="mb-3">${window.fxBoardHtml([t], 't:' + t.id)}</div>`;
+at ? at.insertAdjacentHTML('afterend', html) : c.insertAdjacentHTML('afterbegin', html);
+}
+if (c && t) window.fxDetailTable(c, t);
+const bar = c && c.querySelector('[data-v38]');
+if (bar && t && !bar.querySelector('[data-pwr]') && (t.hostId || t.hostUid)) bar.insertAdjacentHTML('beforeend', `<button data-pwr onclick="window.openPowerRanking('${escapeHTML(t.hostId || t.hostUid)}')" class="px-2.5 py-1 rounded-lg uppercase font-black" style="background:linear-gradient(90deg,#fde68a,#f59e0b);color:#1a1405">👑 Power ranking</button>`);
+if (bar && t && window.isTournOwner(t) && t.format === 'LEAGUE' && t.compKind !== 'league' && !bar.querySelector('[data-zones]')) bar.insertAdjacentHTML('beforeend', `<button data-zones onclick="window.fxZones('${t.id}')" class="px-2.5 py-1 rounded-lg bg-gg-900 text-white border border-white/15">🎨 Table zones</button>`);
+} catch (e) { console.warn(e); }
+return r;
+};
+})(window.renderTournamentsTabDedicated);
+window.renderSquadChannel = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try {
+const sq = window.activeSquadDetails, box = document.getElementById('squadRoomMsgsBox'); if (!sq || !box) return r;
+let bar = document.getElementById('squadFxBar'); const ts = window.fxScope('s:' + sq.id).filter(t => (t.matches || []).some(window.fxReal));
+if (!ts.length || ['Members', 'Matchmaking'].includes(window.activeSquadSubRoom)) { bar && bar.remove(); return r; }
+const today = window.fxCollect(ts, 'today'), mine = today.find(x => window.fxMine(x.m) && !window.isPlayedM(x.m)), done = today.filter(x => window.isPlayedM(x.m)).length;
+const html = `<button id="squadFxBar" onclick="window.fxOpenSquadBoard()" class="w-full shrink-0 flex items-center gap-2 px-3 py-2 text-left" style="background:linear-gradient(90deg,rgba(34,211,238,.14),rgba(168,85,247,.14),rgba(255,45,149,.1));border-bottom:1px solid rgba(168,85,247,.3)">
+<span class="text-sm">📅</span><span class="flex-1 min-w-0"><span class="block text-[11px] font-black text-white truncate">Today's Fixtures · ${done}/${today.length} played</span>
+<span class="block text-[10px] font-bold ${mine ? 'text-cyan-300' : 'text-gray-400'} truncate">${mine ? `⭐ You play ${escapeHTML(window.dnText(window.tagEq(mine.m.p1, window.me()) ? mine.m.p2 : mine.m.p1))}${mine.at ? ' at ' + new Date(mine.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ' today'}` : today.length ? 'Tap to see who plays who' : 'No matches today · tap for the week'}</span></span><span class="text-gray-400 text-xs">›</span></button>`;
+if (bar) bar.outerHTML = html; else box.insertAdjacentHTML('beforebegin', html);
+} catch (e) { console.warn(e); }
+return r;
+};
+})(window.renderSquadChannel);
+window.fxOpenSquadBoard = function() { const sq = window.activeSquadDetails; if (!sq) return; window.openPanel('📅 ' + (sq.name || 'Squad') + ' fixtures', window.fxBoardHtml(window.fxScope('s:' + sq.id), 's:' + sq.id)); };
+window.sqMatchBotText = function(sq) {
+const l = window.fxCollect(window.fxScope('s:' + sq.id), 'today'); if (!l.length) return '';
+return `📅 Today's fixtures (${l.length})\n` + l.slice(0, 15).map(x => `${x.at ? new Date(x.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) + ' · ' : ''}@${x.m.p1} vs @${x.m.p2}`).join('\n') + (l.length > 15 ? `\n…and ${l.length - 15} more` : '') + '\nGood luck everyone ⚽';
+};
+window.sqFixturesCtx = function(sq) { const l = window.fxCollect(window.fxScope('s:' + sq.id), 'today'); return l.length ? `Today's fixtures in this squad: ${l.slice(0, 20).map(x => `${x.m.p1} vs ${x.m.p2}${x.at ? ' at ' + new Date(x.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}${window.isPlayedM(x.m) ? ` (played ${x.m.s1}-${x.m.s2})` : ''}`).join('; ')}.` : 'No squad fixtures today.'; };
+
+window.fxRemind = function() {
+if (!window.isSignedIn()) return;
+const mine = window.fxCollect(window.fxScope('me'), 'today').filter(x => window.fxMine(x.m) && !window.isPlayedM(x.m)); if (!mine.length) return;
+let done = {}; try { done = JSON.parse(localStorage.getItem('sg_fx_rem') || '{}'); } catch (e) {}
+const day = window.sqDayKey(), now = Date.now(), say = (key, title, body) => {
+if (done[key]) return; done[key] = now;
+window.islandShow && window.islandShow(`<b>${escapeHTML(title)}</b><br><span style="opacity:.8">${escapeHTML(body)}</span>`, 'info', 7000);
+try { if (Notification.permission === 'granted') navigator.serviceWorker.ready.then(r => r.showNotification(title, { body, icon: 'icon-192.png', tag: key })); } catch (e) {}
+};
+const opp = (x) => window.dnText(window.tagEq(x.m.p1, window.me()) ? x.m.p2 : x.m.p1);
+if (new Date().getHours() >= 7) say('am' + day, `📅 You play today${mine.length > 1 ? ' (' + mine.length + ' matches)' : ''}`, mine.map(x => `vs ${opp(x)}${x.at ? ' at ' + new Date(x.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''} · ${x.t.title}`).join(' · '));
+mine.filter(x => x.at && x.at - now <= 30 * 60000 && x.at - now > -5 * 60000).forEach(x => say('s' + x.m.id + day, `⏰ Your match starts ${x.at > now ? 'in ' + Math.max(1, Math.round((x.at - now) / 60000)) + ' min' : 'now'}`, `vs ${opp(x)} · ${x.t.title}`));
+Object.keys(done).forEach(k => { if (now - done[k] > 3 * 86400e3) delete done[k]; });
+try { localStorage.setItem('sg_fx_rem', JSON.stringify(done)); } catch (e) {}
+};
+setInterval(() => { try { window.fxRemind(); window.fxWatch(); } catch (e) {} }, 60000);
+setTimeout(() => { try { window.fxRemind(); } catch (e) {} }, 15000);
+
+window._fxSeen = {};
+window.fxWatch = function() {
+(window.tournamentsList || []).forEach(t => {
+const now = new Set((t.matches || []).filter(m => window.isPlayedM(m) && window.fxReal(m)).map(m => m.id + ':' + m.s1 + '-' + m.s2));
+const prev = window._fxSeen[t.id]; window._fxSeen[t.id] = now; if (!prev) return;
+(t.matches || []).forEach(m => {
+const k = m.id + ':' + m.s1 + '-' + m.s2; if (!now.has(k) || prev.has(k)) return;
+const mine = window.fxMine(m);
+if (t.squadId && (mine || window.canManageTourn(t))) window.fxPostResult(t, m);
+if (mine && !m.bothLost) window.islandShow && window.islandShow(`<b>📲 ${escapeHTML(window.dnText(m.p1))} ${escapeHTML(m.s1)}–${escapeHTML(m.s2)} ${escapeHTML(window.dnText(m.p2))}</b><br><button onclick="window.fxResultCard('${t.id}','${escapeHTML(m.id)}')" style="margin-top:6px;padding:5px 12px;border-radius:999px;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);color:#0b0f24;font-weight:900;font-size:11px">Share result card</button>`, 'info', 12000);
+});
+});
+};
+window.fxPostResult = async function(t, m) {
+const sq = (window.clansData || []).find(s => s.id === t.squadId); if (!sq || !window.sqBots(sq).match || !window.isSquadMember(sq)) return;
+const id = `bot_res_${t.id}_${m.id}`.replace(/[^\w-]/g, '_').slice(0, 140);
+try {
+const ref = doc(window.db, 'squads', sq.id, 'messages', id), s = await getDoc(ref); if (s.exists()) return;
+const line = m.bothLost ? `❌ ${m.p1} vs ${m.p2}: both forfeited (0 points)` : m.forfeit ? `🏳️ ${m.p1} ${m.s1}–${m.s2} ${m.p2} (forfeit by ${m.forfeit})` : `✅ ${m.p1} ${m.s1}–${m.s2} ${m.p2}`;
+await setDoc(ref, window.cleanForCloud({ room: window.sqMainRoom(sq), sender: window.me(), senderUid: window.uidNow(), bot: true, botName: 'Match Bot', text: `${line} · ${t.title}${m.stage ? ' · ' + m.stage : ''}`, timestamp: Date.now(), createdAt: serverTimestamp() }));
+} catch (e) {}
+};
+window.fxResultCard = function(tid, mid) {
+const t = (window.tournamentsList || []).find(x => x.id === tid), m = t && (t.matches || []).find(x => x.id === mid); if (!m) return;
+const w = +m.s1 > +m.s2 ? m.p1 : +m.s2 > +m.s1 ? m.p2 : null;
+window.shareStatusCard({ big: `${m.s1}–${m.s2}`, title: `${window.dnText(m.p1)} vs ${window.dnText(m.p2)}`, sub: `${t.title}${m.stage ? ' · ' + m.stage : ''}`, by: w ? `🏆 ${window.dnText(w)} wins` : '🤝 Draw' });
+};
+
+window.QCOLORS = ['#22d3ee', '#a855f7', '#ff2d95'];
+window.tourZones = (function(b) {
+return function(t) {
+const z = b(t); if (z && (z.up || z.down || (z.q || []).length) || !t || t.format !== 'LEAGUE' || !t.zones) return z || {};
+const s = t.zones; return { up: 0, down: +s.down || 0, q: (s.q || []).filter(x => x && x.n > 0).map((x, i) => ({ n: +x.n, label: x.label || 'Champions League', color: window.QCOLORS[i % 3] })), po: false };
+};
+})(window.tourZones);
+window.leagueTable = (function(b) {
+return function(t) { const rows = b(t); rows.forEach(r => { if (r.zc === '#34d399' || r.zc === '#38bdf8') r.zc = '#22d3ee'; if (r.zc === '#f87171') r.zc = '#ff2d95'; }); return rows; };
+})(window.leagueTable);
+window.tableLegend = (function(b) { return function(t) { return b(t).replace(/#34d399/g, '#22d3ee').replace(/#f87171/g, '#ff2d95').replace(/bg-red-500\/10/g, 'bg-fuchsia-500/10').replace(/border-red-500\/30/g, 'border-fuchsia-500/30').replace(/text-red-200/g, 'text-fuchsia-200'); }; })(window.tableLegend);
+window.formHtml = function(tag) {
+const l = window.allPlayedOf(tag).slice(0, 5); if (!l.length) return '<span class="text-[9px] text-gray-500">no games yet</span>';
+return l.map(x => { const r = window.resOf(x.m, tag); return `<span class="sg-f ${r}">${r}</span>`; }).join('');
+};
+window.fxFormIn = function(t, tag) {
+const l = (t.matches || []).filter(m => window.isPlayedM(m) && (window.tagEq(m.p1, tag) || window.tagEq(m.p2, tag))).sort((a, b) => (b.round || 0) - (a.round || 0)).slice(0, 5);
+return l.map(m => { const r = window.resOf(m, tag); return `<span class="sg-f ${r}">${r}</span>`; }).join('') || '<span class="text-gray-600">–</span>';
+};
+window.fxTableHtml = function(t) {
+const rows = window.leagueTable(t), z = window.tourZones(t), n = rows.length;
+const cls = (r) => r.zc === '#ff2d95' ? 'z-down' : r.zc === '#a855f7' ? 'z-mid' : r.zc ? 'z-top' : '';
+return `<div data-sgtable class="overflow-x-auto mb-2 -mx-1 px-1"><table class="sg-table"><thead><tr><th>#</th><th style="text-align:left">Player</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>PTS</th><th>Form</th></tr></thead><tbody>
+${rows.map((r, i) => { const gid = window.gameIdOf ? window.gameIdOf(t, r.p) : ''; return `<tr class="${cls(r)} ${window.tagEq(r.p, window.me()) ? 'me' : ''}" title="${escapeHTML(r.zl || '')}">
+<td class="font-black text-white">${i + 1}</td>
+<td style="text-align:left;max-width:130px" onclick="window.fxPlayer('${escapeHTML(r.p)}')"><p class="font-black text-white truncate cursor-pointer">${escapeHTML(window.dnText(r.p))}${r.tie ? ' ⚔️' : ''}</p>${gid ? `<p class="text-[9px] text-gray-400 truncate">🎮 ${escapeHTML(gid)}</p>` : ''}</td>
+<td>${r.played}</td><td class="text-cyan-300">${r.w}</td><td class="text-violet-300">${r.d}</td><td class="text-pink-300">${r.l}</td><td>${r.gf}</td><td>${r.ga}</td><td>${r.gd > 0 ? '+' + r.gd : r.gd}</td>
+<td class="font-black text-white" style="font-size:13px">${r.pts}</td><td class="whitespace-nowrap">${window.fxFormIn(t, r.p)}</td></tr>`; }).join('')}</tbody></table></div>`;
+};
+window.fxDetailTable = function(c, t) {
+if (t.format !== 'LEAGUE' || c.querySelector('[data-sgtable]')) return;
+const th = [...c.querySelectorAll('th')].find(x => /Club \/ Player/.test(x.textContent)); if (!th) return;
+const wrap = th.closest('div.overflow-x-auto') || th.closest('table'); if (wrap) wrap.outerHTML = window.fxTableHtml(t);
+};
+window.fxZones = function(tid) {
+const t = (window.tournamentsList || []).find(x => x.id === tid); if (!t) return; const z = t.zones || {}, q = (z.q || [])[0] || {};
+const f = 'w-full bg-gg-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white';
+window.openPanel('🎨 Table zones', `<p class="text-xs text-gray-400 mb-3">Colour the top and bottom of your table.</p>
+<label class="block text-[10px] font-black text-cyan-300">✨ Top places (cyan glow)<input id="zTopN" type="number" min="0" max="20" value="${+q.n || 0}" class="${f} mt-1"></label>
+<label class="block text-[10px] font-black text-gray-300 mt-2">Name for the top places<input id="zTopL" maxlength="30" value="${escapeHTML(q.label || 'Champions League')}" class="${f} mt-1"></label>
+<label class="block text-[10px] font-black text-pink-300 mt-2">⬇️ Relegation places (pink glow)<input id="zDownN" type="number" min="0" max="20" value="${+z.down || 0}" class="${f} mt-1"></label>
+<p class="text-[10px] text-gray-500 mt-2">Everyone in between is safe.</p>
+<button onclick="window.fxSaveZones('${tid}')" class="w-full mt-3 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-xs font-black uppercase">Save</button>`);
+};
+window.fxSaveZones = async function(tid) {
+const t = (window.tournamentsList || []).find(x => x.id === tid); if (!t) return;
+const zones = { q: [{ n: Math.max(0, +document.getElementById('zTopN').value || 0), label: (document.getElementById('zTopL').value || 'Champions League').slice(0, 30) }], down: Math.max(0, +document.getElementById('zDownN').value || 0) };
+t.zones = zones; window.closePanel();
+try { await updateDoc(doc(window.db, 'tournaments', t.id), { zones }); showToast('🎨 Saved'); } catch (e) { showToast('⚠️ Not saved'); }
+window.renderTournamentsTabDedicated();
+};
+
+window.PWR = { tier: { 1: 1.5, 2: 1.2, 3: 1.0 }, cup: 1.6, ucl: 2.0, final: 1.5, semi: 1.25,
+stage: { cup: { W: 30, F: 20, SF: 10, QF: 5 }, ucl: { W: 40, F: 25, SF: 15, QF: 8 }, league: { 1: 50, 2: 35, 3: 25 } } };
+window.compTypeOf = (t) => /champions league/i.test(t.compName || t.title || '') ? 'ucl' : t.compKind === 'cup' || (t.format !== 'LEAGUE' && /cup/i.test(t.title || '')) ? 'cup' : 'league';
+window.stageOf = (m) => { const s = String(m.stage || '').toLowerCase(); return /semi/.test(s) ? 'SF' : /quarter/.test(s) ? 'QF' : /final/.test(s) && !/semi|quarter/.test(s) ? 'F' : ''; };
+window.powerRanking = function(hostUid) {
+const ts = (window.tournamentsList || []).filter(t => !hostUid || t.hostId === hostUid || t.hostUid === hostUid);
+const R = {}, P = (p) => (R[p.toLowerCase()] = R[p.toLowerCase()] || { p, elo: 1000, pts: 0, played: 0, w: 0, notes: [] });
+const games = [];
+ts.forEach(t => (t.matches || []).forEach(m => { if (window.isPlayedM(m) && window.fxReal(m) && !m.bothLost) games.push({ t, m, k: (window.matchDate(t, m) || t.startAt || window.postTimeValue(t) || 0) + (m.round || 0) }); }));
+games.sort((a, b) => a.k - b.k).forEach(({ t, m }) => {
+const ty = window.compTypeOf(t), st = window.stageOf(m);
+let w = ty === 'ucl' ? window.PWR.ucl : ty === 'cup' ? window.PWR.cup : (window.PWR.tier[t.tier] || 1.0);
+if (st === 'F') w *= window.PWR.final; else if (st === 'SF') w *= window.PWR.semi;
+const a = P(m.p1), b = P(m.p2), ea = 1 / (1 + Math.pow(10, (b.elo - a.elo) / 400)), sa = +m.s1 > +m.s2 ? 1 : +m.s1 < +m.s2 ? 0 : 0.5, K = 24 * w;
+a.elo += K * (sa - ea); b.elo += K * ((1 - sa) - (1 - ea)); a.played++; b.played++; if (sa === 1) a.w++; if (sa === 0) b.w++;
+if (ty !== 'league' && st && st !== 'F') { const loser = sa === 1 ? b : sa === 0 ? a : null; if (loser) loser.pts += window.PWR.stage[ty][st] || 0; }
+});
+((window._titles && window._titles.list) || []).filter(x => !hostUid || x.hostUid === hostUid).forEach(x => {
+const ty = window.trophyKind(x) === 'ucl' ? 'ucl' : x.compKind === 'league' || /league/i.test(x.compName || '') && x.format === 'LEAGUE' ? 'league' : 'cup';
+const name = (x.compName || x.title || '').replace(/ Champion$/, '');
+const win = P(x.user || x.tag); win.pts += ty === 'league' ? (window.PWR.stage.league[x.tier || 1] || 25) : window.PWR.stage[ty].W; win.notes.push(ty === 'league' ? 'League Champion' : ty === 'ucl' ? 'CL Winner' : name + ' Winner');
+if (x.runnerUp && ty !== 'league') { const ru = P(x.runnerUp); ru.pts += window.PWR.stage[ty].F; ru.notes.push(ty === 'ucl' ? 'CL Finalist' : name + ' Finalist'); }
+});
+const list = Object.values(R).filter(r => r.played || r.pts).map(r => ({ ...r, score: Math.round(r.elo + r.pts) })).sort((a, b) => b.score - a.score);
+const n = list.length; list.forEach((r, i) => { const pc = i / Math.max(1, n); r.tier = pc < 0.10 ? 'S' : pc < 0.25 ? 'A' : pc < 0.50 ? 'B' : pc < 0.80 ? 'C' : 'D'; r.note = [...new Set(r.notes)].slice(0, 3).join(' + '); });
+return list;
+};
+window.openPowerRanking = function(hostUid) {
+const list = window.powerRanking(hostUid), h = window.hostDocOf ? window.hostDocOf({ hostId: hostUid }) : null;
+window.openPanel('👑 Power ranking', `<div class="pwr-card"><p class="text-[10px] font-black uppercase tracking-widest text-amber-300">${escapeHTML((h && h.org) || 'SINLESS GG')} · Season power ranking</p>
+<p class="text-[10px] text-amber-100/70 mt-1">Like FIFA & UEFA rankings: wins count more in top leagues, cups, the Champions League and finals. Trophies add points.</p>
+${list.length ? list.slice(0, 50).map((r, i) => `<div class="pwr-row ${window.tagEq(r.p, window.me()) ? 'ring-1 ring-amber-300' : ''}" onclick="window.fxPlayer('${escapeHTML(r.p)}')"><span class="w-6 text-center text-xs font-black text-amber-200">${i + 1}</span><span class="pwr-tier ${r.tier}">${r.tier}</span>
+<span class="flex-1 min-w-0"><b class="block text-sm text-white truncate">${escapeHTML(window.dnText(r.p))}</b><span class="block text-[10px] text-amber-200/80 truncate">${escapeHTML(r.note || `${r.w} wins in ${r.played} games`)}</span></span><b class="text-amber-300 text-sm">${r.score}</b></div>`).join('') : '<p class="text-xs text-amber-100/70 text-center py-6">No results yet</p>'}
+<p class="text-[9px] text-amber-100/50 mt-3">S = top 10% · A = next 15% · B = next 25% · C = next 30% · D = the rest</p></div>`);
+};
+
+window.careerOf = function(tag) {
+const l = window.allPlayedOf(tag).filter(x => window.fxReal(x.m)); const c = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, best: null, streak: 0, bestStreak: 0 };
+[...l].reverse().forEach(({ m }) => {
+const r = window.resOf(m, tag), me1 = window.tagEq(m.p1, tag), f = m.bothLost ? 0 : +(me1 ? m.s1 : m.s2), a = m.bothLost ? 0 : +(me1 ? m.s2 : m.s1);
+c.p++; c[r.toLowerCase()]++; c.gf += f; c.ga += a;
+if (r === 'W') { c.streak++; c.bestStreak = Math.max(c.bestStreak, c.streak); if (!c.best || f - a > c.best.d) c.best = { d: f - a, txt: `${f}–${a} vs ${window.dnText(me1 ? m.p2 : m.p1)}` }; } else c.streak = 0;
+});
+c.titles = (window.titlesFor ? window.titlesFor(tag) : []).length; c.pct = c.p ? Math.round(c.w * 100 / c.p) : 0;
+return c;
+};
+window.fxPlayer = function(tag) {
+const c = window.careerOf(tag), me = window.me(), isMe = window.tagEq(tag, me), h = !isMe && window.isSignedIn() ? window.h2hOf(me, tag) : null;
+const up = window.fxCollect(window.fxScope('me').concat((window.tournamentsList || []).filter(t => t.status !== 'finished' && (t.players || []).some(p => window.tagEq(p, tag)))).filter((t, i, a) => a.indexOf(t) === i), 'week').filter(x => window.tagEq(x.m.p1, tag) || window.tagEq(x.m.p2, tag));
+const pw = window.powerRanking(null).find(r => window.tagEq(r.p, tag));
+const st = (n, l) => `<div class="rounded-2xl p-2 bg-gg-900 border border-white/5 text-center"><p class="text-base font-black text-white">${n}</p><p class="text-[9px] font-bold text-gray-400 uppercase">${l}</p></div>`;
+window.openPanel('📈 ' + window.dnText(tag), `<div class="flex items-center gap-3 mb-3">${window.avatarHtml(tag, 'w-12 h-12', 'rounded-2xl', 'text-sm')}<div class="flex-1 min-w-0"><p class="text-base font-black text-white truncate">${escapeHTML(window.dnText(tag))}</p><p class="text-[11px] text-gray-400">${pw ? `👑 Tier ${pw.tier} · ${pw.score} pts` : 'Career'}</p></div><button onclick="window.closePanel(); window.openUserProfileModal('${escapeHTML(tag)}')" class="fx-act">Profile</button></div>
+<div class="grid grid-cols-4 gap-1.5">${st(c.p, 'Played')}${st(c.w, 'Won')}${st(c.d, 'Drawn')}${st(c.l, 'Lost')}${st(c.gf, 'Scored')}${st(c.ga, 'Conceded')}${st(c.pct + '%', 'Win rate')}${st(c.titles, 'Titles')}</div>
+<p class="text-[11px] text-gray-300 mt-2">🔥 Best run: ${c.bestStreak} wins${c.best ? ` · Biggest win: ${escapeHTML(c.best.txt)}` : ''}</p>
+<p class="text-[11px] text-gray-300 mt-1">Last 5: ${window.formHtml(tag)}</p>
+${h ? `<div class="mt-3 p-3 rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/5"><p class="text-[10px] font-black uppercase text-fuchsia-200 mb-1">⚔️ You vs ${escapeHTML(window.dnText(tag))}</p><p class="text-sm font-black text-white">${h.a} wins · ${h.d} draws · ${h.b} losses</p><p class="text-[10px] text-gray-400">Goals ${h.ga}–${h.gb}</p></div>` : ''}
+${up.length ? `<p class="text-[10px] font-black uppercase text-gray-400 mt-3 mb-1">📅 Fixtures this week</p>${up.map(x => `<div class="fx-row" onclick="window.fxOpenMatch('${x.t.id}','${escapeHTML(x.m.id)}')"><div class="fx-time">${x.at ? new Date(x.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : window.fmtDay(x.d, { weekday: 'short' })}</div><div class="flex-1 min-w-0 text-xs text-white truncate">${escapeHTML(window.dnText(x.m.p1))} vs ${escapeHTML(window.dnText(x.m.p2))}<p class="text-[9px] text-gray-400 truncate">${escapeHTML(x.t.title || '')}</p></div>${window.fxStatus(x.t, x.m)}</div>`).join('')}` : ''}`);
+};
+
+window.openTrophyCabinet = (function(b) {
+return function(user) {
+const r = b(user);
+const mine = ((window._titles && window._titles.list) || []).filter(x => x.tag === String(user || '').toLowerCase() && (window.isAppAdmin || x.hostUid === window.uidNow()));
+const panel = document.querySelector('#sgPanel .p-4, #sgPanel [id$="Body"], #sgPanelBody') || document.getElementById('sgPanel');
+if (mine.length && panel && !panel.querySelector('[data-strip]')) panel.insertAdjacentHTML('beforeend', `<button data-strip onclick="window.stripTitlePick('${escapeHTML(user)}')" class="w-full mt-3 py-2.5 rounded-2xl bg-white/5 border border-fuchsia-400/40 text-fuchsia-200 text-xs font-black">🚫 Remove a title (cheating / mistake)</button>`);
+return r;
+};
+})(window.openTrophyCabinet);
+window.stripTitlePick = function(user) {
+const mine = ((window._titles && window._titles.list) || []).filter(x => x.tag === String(user || '').toLowerCase() && (window.isAppAdmin || x.hostUid === window.uidNow()));
+window.openActionSheet('Remove which title?', mine.map(x => ({ icon: 'fa-ban', label: `${x.title}${x.season ? ' · Season ' + x.season : ''}`, run: () => window.stripTitle(x) })));
+};
+window.stripTitle = async function(x) {
+const why = await window.askReason('Cheating confirmed'); if (why === null) return;
+try {
+const s = await getDocs(query(collection(window.db, 'titles'), where('tag', '==', x.tag), limit(50))); const jobs = [];
+s.forEach(d => { const v = d.data(); if (v.tournId === x.tournId && v.title === x.title && (window.isAppAdmin || v.hostUid === window.uidNow())) jobs.push(deleteDoc(doc(window.db, 'titles', d.id))); });
+await Promise.all(jobs); window._titles = null; await window.loadTitles();
+const t = (window.tournamentsList || []).find(y => y.id === x.tournId); if (t) window.tlog(t, { type: 'decision', text: `removed the title "${x.title}" from ${x.user || x.tag}`, why });
+window.notifyTag(x.user || x.tag, `🚫 Your title "${x.title}" was removed. Reason: ${why}`);
+window.closePanel(); showToast(jobs.length ? '🚫 Title removed' : 'Nothing removed');
+} catch (e) { showToast('⚠️ Not removed'); }
+};
+
+window.fxPurgeOld = async function() {
+if (!window.isSignedIn()) return; const cut = Date.now() - 45 * 86400e3;
+for (const t of (window.tournamentsList || [])) {
+if (t.status !== 'finished' || t.purged || !window.isTournOwner(t)) continue;
+const end = t.finishedAt || t.endAt || window.postTimeValue({ createdAt: t.updatedAt || t.createdAt }); if (!end || end > cut) continue;
+try {
+await updateDoc(doc(window.db, 'tournaments', t.id), { matches: [], eliminated: [], purged: Date.now() }); Object.assign(t, { matches: [], purged: Date.now() });
+const s = await getDocs(query(collection(window.db, 'tournaments', t.id, 'log'), limit(300))); const jobs = []; s.forEach(d => jobs.push(deleteDoc(d.ref).catch(() => {}))); await Promise.all(jobs);
+} catch (e) {}
+}
+};
+setTimeout(() => { try { window.fxPurgeOld(); } catch (e) {} }, 40000);
+window.renderTournamentsTabDedicated = (function(b) {
+return function(...a) { const r = b.apply(this, a); try { const t = window.activeTournament, c = document.getElementById('tournamentsDedicatedContainer'); if (t && t.purged && c && !c.querySelector('[data-purged]')) c.insertAdjacentHTML('afterbegin', `<p data-purged class="text-[10px] text-gray-400 text-center mb-2">🧹 Match history was cleared 45 days after this tournament ended. Titles stay forever.</p>`); } catch (e) {} return r; };
+})(window.renderTournamentsTabDedicated);
+
+window.weekStartMs = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
+window.squadWars = function() {
+const ws = window.weekStartMs(), S = {};
+(window.tournamentsList || []).filter(t => t.squadId).forEach(t => (t.matches || []).forEach(m => {
+if (!window.isPlayedM(m) || !window.fxReal(m) || m.bothLost) return; const d = window.matchDate(t, m) || 0; if (d < ws) return;
+const s = S[t.squadId] = S[t.squadId] || { id: t.squadId, pts: 0, games: 0, goals: 0 }; s.games++; s.goals += (+m.s1 || 0) + (+m.s2 || 0); s.pts += 3 + Math.min(5, (+m.s1 || 0) + (+m.s2 || 0));
+}));
+return Object.values(S).map(s => ({ ...s, sq: (window.clansData || []).find(c => c.id === s.id) })).filter(s => s.sq).sort((a, b) => b.pts - a.pts);
+};
+window.openSquadWars = function() {
+const l = window.squadWars();
+window.openPanel('⚔️ Squad Wars · this week', `<p class="text-xs text-gray-400 mb-3">Squads earn points for every tournament match their members play this week (+ goals). Resets every Monday.</p>
+${l.length ? l.slice(0, 20).map((s, i) => `<button onclick="window.closePanel(); window.openSquadDetailsModal('${escapeHTML(s.id)}')" class="w-full flex items-center gap-3 p-3 rounded-2xl mb-2 text-left ${i === 0 ? 'border border-amber-300/60 bg-amber-400/10' : 'bg-gg-900 border border-white/10'}"><span class="w-6 text-center font-black ${i === 0 ? 'text-amber-300' : 'text-gray-400'}">${i === 0 ? '👑' : i + 1}</span><span class="flex-1 min-w-0"><b class="block text-sm text-white truncate">${escapeHTML(s.sq.name || '')}</b><span class="text-[10px] text-gray-400">${s.games} matches · ${s.goals} goals</span></span><b class="text-cyan-300">${s.pts}</b></button>`).join('') : '<p class="text-xs text-gray-400 text-center py-6">No squad matches played yet this week. Start a tournament in your squad! 🏆</p>'}`);
+};
+window.openSquadTools = (function(b) { return function(...a) { const r = b.apply(this, a); try { const items = window.actionSheetItems; if (items && !items.some(x => /Squad Wars/.test(x.label))) { items.push({ icon: 'fa-shield', label: '⚔️ Squad Wars (this week)', run: () => window.openSquadWars() }); window.openActionSheet((window.activeSquadDetails || {}).name || 'Squad', items); } } catch (e) {} return r; }; })(window.openSquadTools);
+
+window.addXP = (function(b) {
+return function(n, reason, ...rest) {
+if (reason === 'game' && (n === 10 || n === 15)) {
+const g = window.game, me = window.uidNow();
+let people = 0;
+if (g && g.online) { const ps = g.olPlayers || (window.olRoom && window.olRoom.players) || []; people = ps.filter(p => p && !p.ai && p.uid && p.uid !== me).length || (n === 15 ? 1 : 0); }
+n = people ? 20 + 10 * (people - 1) : 5; window._lastGamePts = n;
+setTimeout(() => showToast(`🏆 +${n} points${people ? ` · beat ${people === 1 ? 'a real player' : people + ' real players'}` : ' · win vs AI'}`), 900);
+}
+return b.call(this, n, reason, ...rest);
+};
+})(window.addXP);
+
+window.GAMES.snake = { name: 'Snake', emoji: '🐍', desc: 'Classic Snake! Swipe (or use arrow keys) to turn. Eat the glowing balls and grow. Don’t hit the walls or yourself.', color: 'from-emerald-400 to-cyan-400' };
+window.snakeInit = function(g) {
+g.cell = Math.floor(Math.min(g.W, g.H) / 17); g.cols = Math.floor(g.W / g.cell); g.rows = Math.floor(g.H / g.cell);
+g.ox = Math.floor((g.W - g.cols * g.cell) / 2); g.oy = Math.floor((g.H - g.rows * g.cell) / 2);
+g.reset = function() {
+const cy = Math.floor(g.rows / 2), cx = Math.floor(g.cols / 2);
+g.body = [{ x: cx, y: cy }, { x: cx - 1, y: cy }, { x: cx - 2, y: cy }]; g.dir = { x: 1, y: 0 }; g.next = [];
+g.acc = 0; g.step = 0.16; g.grow = 0; g.eaten = 0; g.place(); window.setGameScore(0);
+};
+g.place = function() { const free = []; for (let x = 0; x < g.cols; x++) for (let y = 0; y < g.rows; y++) if (!g.body.some(s => s.x === x && s.y === y)) free.push({ x, y }); g.food = free[Math.floor(Math.random() * free.length)] || { x: 0, y: 0 }; g.gold = g.eaten > 0 && g.eaten % 7 === 6; };
+g.turn = function(dx, dy) { const last = g.next.length ? g.next[g.next.length - 1] : g.dir; if ((dx && dx === -last.x) || (dy && dy === -last.y) || (dx === last.x && dy === last.y)) return; if (g.next.length < 3) g.next.push({ x: dx, y: dy }); };
+g.tap = function() {};
+g.tapTurn = function(x, y) { const h = g.body[0], hx = g.ox + (h.x + 0.5) * g.cell, hy = g.oy + (h.y + 0.5) * g.cell, d = g.next.length ? g.next[g.next.length - 1] : g.dir; if (d.x) g.turn(0, y < hy ? -1 : 1); else g.turn(x < hx ? -1 : 1, 0); };
+g.swipe = function() {};
+g.update = function(dt) {
+g.acc += dt; if (g.acc < g.step) return; g.acc -= g.step;
+if (g.next.length) g.dir = g.next.shift();
+const h = { x: g.body[0].x + g.dir.x, y: g.body[0].y + g.dir.y };
+if (h.x < 0 || h.y < 0 || h.x >= g.cols || h.y >= g.rows || g.body.slice(0, g.grow ? g.body.length : g.body.length - 1).some(s => s.x === h.x && s.y === h.y)) { if (navigator.vibrate) try { navigator.vibrate(120); } catch (e) {} window.gameOver('crash'); return; }
+g.body.unshift(h);
+if (h.x === g.food.x && h.y === g.food.y) {
+const pts = g.gold ? 5 : 1; window.setGameScore(g.score + pts); g.grow += g.gold ? 3 : 1; g.eaten++;
+window.fxText(g, g.gold ? '+5 ⭐' : '+1', g.ox + h.x * g.cell, g.oy + h.y * g.cell, g.gold ? '#facc15' : '#22d3ee', 20, 0.6);
+g.step = Math.max(0.065, 0.16 - g.eaten * 0.0035); g.place(); if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
+}
+if (g.grow > 0) g.grow--; else g.body.pop();
+};
+g.draw = function() {
+const x = g.ctx, c = g.cell; x.fillStyle = '#060a1c'; x.fillRect(0, 0, g.W, g.H);
+x.fillStyle = 'rgba(168,85,247,.06)'; for (let i = 0; i < g.cols; i++) for (let j = 0; j < g.rows; j++) if ((i + j) % 2) x.fillRect(g.ox + i * c, g.oy + j * c, c, c);
+x.save(); x.strokeStyle = 'rgba(34,211,238,.55)'; x.lineWidth = 2; x.shadowColor = '#22d3ee'; x.shadowBlur = 10; x.strokeRect(g.ox + 1, g.oy + 1, g.cols * c - 2, g.rows * c - 2); x.restore();
+const fx = g.ox + (g.food.x + 0.5) * c, fy = g.oy + (g.food.y + 0.5) * c, pulse = 1 + Math.sin(Date.now() / 160) * 0.12;
+x.save(); x.shadowColor = g.gold ? '#facc15' : '#ff2d95'; x.shadowBlur = 18; x.fillStyle = g.gold ? '#facc15' : '#ff2d95'; x.beginPath(); x.arc(fx, fy, c * 0.36 * pulse, 0, Math.PI * 2); x.fill(); x.restore();
+const n = g.body.length;
+g.body.forEach((s, i) => {
+const t = i / Math.max(1, n - 1), col = t < 0.5 ? `rgb(${Math.round(34 + (168 - 34) * t * 2)},${Math.round(211 - (211 - 85) * t * 2)},${Math.round(238 + (247 - 238) * t * 2)})` : `rgb(${Math.round(168 + (255 - 168) * (t - 0.5) * 2)},${Math.round(85 - (85 - 45) * (t - 0.5) * 2)},${Math.round(247 - (247 - 149) * (t - 0.5) * 2)})`;
+const pad = i === 0 ? 1 : 2.5; x.fillStyle = col; if (i === 0) { x.save(); x.shadowColor = '#22d3ee'; x.shadowBlur = 14; }
+x.beginPath(); x.roundRect ? x.roundRect(g.ox + s.x * c + pad, g.oy + s.y * c + pad, c - pad * 2, c - pad * 2, c * 0.3) : x.rect(g.ox + s.x * c + pad, g.oy + s.y * c + pad, c - pad * 2, c - pad * 2); x.fill(); if (i === 0) x.restore();
+});
+const h = g.body[0], ex = g.ox + (h.x + 0.5) * c, ey = g.oy + (h.y + 0.5) * c; x.fillStyle = '#0b0f24';
+[-1, 1].forEach(k => { x.beginPath(); x.arc(ex + g.dir.x * c * 0.18 + (g.dir.y ? k * c * 0.18 : 0), ey + g.dir.y * c * 0.18 + (g.dir.x ? k * c * 0.18 : 0), c * 0.08, 0, Math.PI * 2); x.fill(); });
+};
+g.reset();
+};
+window.openGame = (function(b) {
+return function(id, ...rest) {
+if (id !== 'snake') return b.call(this, id, ...rest);
+const saved = window.keepyInit, savedInfo = window.GAMES.keepy;
+window.keepyInit = window.snakeInit; window.GAMES.keepy = window.GAMES.snake;
+try { window._baseOpenGame21('keepy'); } finally { window.keepyInit = saved; if (savedInfo) window.GAMES.keepy = savedInfo; else delete window.GAMES.keepy; }
+const g = window.game; g.id = 'snake';
+document.getElementById('gameTitle').innerText = '🐍 Snake'; window.showGameOverlay('ready');
+};
+})(window.openGame);
+(function snakeControls() {
+let sx = null, sy = 0;
+document.addEventListener('pointerdown', (e) => { const g = window.game; if (g && g.id === 'snake' && g.state === 'play') { sx = e.clientX; sy = e.clientY; } }, true);
+document.addEventListener('pointerup', (e) => { const g = window.game; if (!g || g.id !== 'snake' || g.state !== 'play' || sx === null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+if (Math.max(Math.abs(dx), Math.abs(dy)) < 28) { const cv = document.querySelector('#gameModal canvas'); if (cv) { const r = cv.getBoundingClientRect(); g.tapTurn((e.clientX - r.left) * (g.W / r.width), (e.clientY - r.top) * (g.H / r.height)); } return; }
+if (Math.abs(dx) > Math.abs(dy)) g.turn(dx > 0 ? 1 : -1, 0); else g.turn(0, dy > 0 ? 1 : -1); }, true);
+document.addEventListener('keydown', (e) => { const g = window.game; if (!g || g.id !== 'snake' || g.state !== 'play') return; const k = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] }[e.key]; if (k) { e.preventDefault(); g.turn(k[0], k[1]); } });
+})();
+
+window.TC_THEMES = [...window.TC_THEMES.filter(t => !['nframe', 'heart', 'dglass'].includes(t.k)), { k: 'nframe', name: '⚡ Neon frame' }, { k: 'heart', name: '🖤 Minimal' }, { k: 'dglass', name: '🌌 Dark glass' }];
+window.makeTextCard = (function(b) {
+return async function(p, themeK) {
+if (!['nframe', 'heart', 'dglass'].includes(themeK)) return b(p, themeK);
+const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+const F = (w, s) => `${w} ${s}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+const neon = (x0, x1, y0 = 0, y1 = 0) => { const g = x.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, '#22d3ee'); g.addColorStop(0.5, '#a855f7'); g.addColorStop(1, '#ff2d95'); return g; };
+const rr = (X, Y, w, h, r) => { x.beginPath(); x.roundRect ? x.roundRect(X, Y, w, h, r) : x.rect(X, Y, w, h); };
+const blob = (cx, cy, r, col) => { const g = x.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, W, H); };
+const logo = await window.loadSgLogo();
+const prof = (window.profileFor && window.profileFor(p.user)) || {}, pfpUrl = prof.pfp ? (window.cldSized ? window.cldSized(prof.pfp, 240) : prof.pfp) : '';
+const pfp = pfpUrl ? await window.loadImg(pfpUrl, true) : null;
+const name = (window.dnText ? window.dnText(p.user) : (p.user || '')).slice(0, 26), hd = ('@' + (window.hnd ? window.hnd(p.user || '') : (p.user || ''))).slice(0, 30);
+const text = String(p.caption || p.text || '').trim().slice(0, 600), ggN = +p.ggsCount || 0, ggTxt = `${window.formatCount ? window.formatCount(ggN) : ggN} GG${ggN === 1 ? '' : 's'}`;
+const fit = (top, bottom, maxW, maxFs, minFs, weight) => {
+let fs = maxFs, lines = []; for (; fs >= minFs; fs -= 4) { x.font = F(weight, fs); lines = window.tcWrap(x, text, maxW); if (lines.length * fs * 1.28 <= bottom - top) break; }
+const maxL = Math.max(1, Math.floor((bottom - top) / (fs * 1.28))); if (lines.length > maxL) { lines = lines.slice(0, maxL); lines[maxL - 1] = lines[maxL - 1].replace(/\s*\S*$/, '') + '…'; }
+return { fs, lines, y0: top + (bottom - top - lines.length * fs * 1.28) / 2 + fs * 0.62 };
+};
+const face = (X, Y, r, ring) => {
+x.save(); if (ring) { x.beginPath(); x.arc(X, Y, r + 6, 0, Math.PI * 2); x.fillStyle = neon(X - r, X + r); x.shadowColor = '#a855f7'; x.shadowBlur = 18; x.fill(); }
+x.restore(); x.save(); x.beginPath(); x.arc(X, Y, r, 0, Math.PI * 2); x.clip();
+if (pfp) { const s = Math.max(2 * r / pfp.width, 2 * r / pfp.height); x.drawImage(pfp, X - pfp.width * s / 2, Y - pfp.height * s / 2, pfp.width * s, pfp.height * s); }
+else { x.fillStyle = '#1e1b4b'; x.fillRect(X - r, Y - r, 2 * r, 2 * r); x.fillStyle = '#fff'; x.font = F(900, r); x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText((name || '?').charAt(0).toUpperCase(), X, Y + 2); }
+x.restore();
+};
+const heart = (cx, cy, s, fill) => { x.save(); x.beginPath(); x.moveTo(cx, cy + s * 0.35); x.bezierCurveTo(cx - s * 1.1, cy - s * 0.35, cx - s * 0.5, cy - s * 1.05, cx, cy - s * 0.45); x.bezierCurveTo(cx + s * 0.5, cy - s * 1.05, cx + s * 1.1, cy - s * 0.35, cx, cy + s * 0.35); x.closePath(); x.fillStyle = fill; x.shadowColor = '#ff2d95'; x.shadowBlur = 16; x.fill(); x.restore(); };
+const brand = (X, Y, sz, align) => { x.textBaseline = 'middle'; x.font = F(900, sz * 0.5); const tw = x.measureText('SINLESS GG').width, total = sz + 14 + tw, sx = align === 'center' ? X - total / 2 : align === 'right' ? X - total : X;
+if (logo) { x.save(); rr(sx, Y - sz / 2, sz, sz, sz * 0.26); x.clip(); x.drawImage(logo, sx, Y - sz / 2, sz, sz); x.restore(); }
+x.save(); x.textAlign = 'left'; x.shadowColor = 'rgba(168,85,247,.8)'; x.shadowBlur = 14; x.fillStyle = neon(sx + sz, sx + total); x.fillText('SINLESS GG', sx + sz + 14, Y + 2); x.restore(); };
+x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+
+if (themeK === 'nframe') {
+x.fillStyle = '#04050d'; x.fillRect(0, 0, W, H); blob(W / 2, H / 2, 800, 'rgba(168,85,247,.10)');
+[[44, 18, 34, 7], [64, 0, 0, 2]].forEach(([inset, glow, blur, lw]) => { x.save(); x.strokeStyle = neon(0, W, 0, H); x.lineWidth = lw; x.shadowColor = '#a855f7'; x.shadowBlur = blur; rr(inset, inset, W - inset * 2, H - inset * 2, 52 - inset / 4); x.stroke(); x.restore(); });
+face(170, 190, 54, true); x.fillStyle = '#fff'; x.font = F(800, 40); x.fillText(name, 246, 178); x.fillStyle = 'rgba(255,255,255,.6)'; x.font = F(700, 28); x.fillText(hd, 246, 220);
+const T = fit(300, H - 280, W - 240, 92, 34, 800); x.font = F(800, T.fs); x.fillStyle = '#fff'; x.save(); x.shadowColor = 'rgba(34,211,238,.35)'; x.shadowBlur = 12; T.lines.forEach((l, i) => x.fillText(l, 120, T.y0 + i * T.fs * 1.28)); x.restore();
+heart(150, H - 190, 30, neon(120, 180)); x.fillStyle = '#f9a8d4'; x.font = F(900, 36); x.textBaseline = 'middle'; x.fillText(ggTxt, 196, H - 196);
+brand(W - 120, H - 196, 64, 'right');
+x.textAlign = 'center'; x.fillStyle = 'rgba(255,255,255,.45)'; x.font = F(700, 26); x.fillText('sinlessgg.com', W / 2, H - 96);
+} else if (themeK === 'heart') {
+x.fillStyle = '#0a0a10'; x.fillRect(0, 0, W, H);
+x.fillStyle = '#12121c'; rr(70, 70, W - 140, H - 140, 48); x.fill(); x.strokeStyle = 'rgba(255,255,255,.06)'; x.lineWidth = 2; x.stroke();
+face(W / 2, 220, 62, false); x.textAlign = 'center'; x.fillStyle = '#fff'; x.font = F(800, 38); x.fillText(name, W / 2, 330); x.fillStyle = 'rgba(255,255,255,.45)'; x.font = F(600, 26); x.fillText(hd, W / 2, 370);
+const T = fit(430, H - 330, W - 300, 76, 32, 600); x.font = F(600, T.fs); x.fillStyle = 'rgba(255,255,255,.92)'; T.lines.forEach((l, i) => x.fillText(l, W / 2, T.y0 + i * T.fs * 1.28));
+heart(W / 2, H - 250, 44, '#ff2d95'); x.fillStyle = '#fff'; x.font = F(800, 32); x.textBaseline = 'middle'; x.fillText(ggTxt, W / 2, H - 185);
+brand(W / 2, H - 120, 46, 'center');
+} else {
+x.fillStyle = '#050616'; x.fillRect(0, 0, W, H);
+x.save(); x.filter = 'blur(60px)'; blob(200, 260, 520, 'rgba(34,211,238,.55)'); blob(900, 520, 520, 'rgba(168,85,247,.6)'); blob(560, 1180, 600, 'rgba(255,45,149,.5)'); x.restore();
+brand(W / 2, 140, 70, 'center');
+x.save(); rr(80, 230, W - 160, H - 380, 48); x.fillStyle = 'rgba(255,255,255,.07)'; x.shadowColor = 'rgba(0,0,0,.5)'; x.shadowBlur = 40; x.fill(); x.restore();
+x.save(); rr(80, 230, W - 160, H - 380, 48); x.strokeStyle = 'rgba(255,255,255,.18)'; x.lineWidth = 2; x.stroke(); x.restore();
+x.save(); rr(80, 230, W - 160, 4, 2); x.fillStyle = neon(80, W - 80); x.fill(); x.restore();
+face(186, 340, 52, true); x.fillStyle = '#fff'; x.font = F(800, 38); x.fillText(name, 262, 328); x.fillStyle = 'rgba(255,255,255,.6)'; x.font = F(700, 27); x.fillText(hd, 262, 368);
+const T = fit(440, H - 290, W - 300, 84, 32, 800); x.font = F(800, T.fs); x.fillStyle = '#fff'; T.lines.forEach((l, i) => x.fillText(l, 150, T.y0 + i * T.fs * 1.28));
+x.save(); x.strokeStyle = 'rgba(255,255,255,.12)'; x.beginPath(); x.moveTo(140, H - 250); x.lineTo(W - 140, H - 250); x.stroke(); x.restore();
+heart(170, H - 200, 26, neon(140, 200)); x.fillStyle = '#fff'; x.font = F(800, 32); x.textBaseline = 'middle'; x.fillText(ggTxt, 210, H - 206);
+x.textAlign = 'right'; x.fillStyle = 'rgba(255,255,255,.55)'; x.font = F(700, 26); x.fillText('sinlessgg.com', W - 140, H - 206);
+}
+return await new Promise((res, rej) => { try { c.toBlob(bl => bl ? res(bl) : rej(new Error('blob')), 'image/png'); } catch (e) { rej(e); } });
+};
+})(window.makeTextCard);
+window.openTextCard = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try { const row = [...document.querySelectorAll('#sgPanel button')].find(x => /openTextCard\(/.test(x.getAttribute('onclick') || ''))?.parentElement; if (row) { row.style.overflowX = 'auto'; row.style.flexWrap = 'nowrap'; row.querySelectorAll('button').forEach(x => { x.style.flex = '0 0 auto'; x.style.padding = '8px 12px'; }); } } catch (e) {}
+return r;
+};
+})(window.openTextCard);
+
+(function danceChannels() {
+const OUT = 'UCSWAzxal9yd3RH15d0a9nNw';   // removed (not clean enough for everyone)
+['EXTRA_CHANNELS', 'WATCH_DEFAULT', 'FUN_CHANNELS'].forEach(k => { const L = window[k]; if (Array.isArray(L)) { for (let i = L.length - 1; i >= 0; i--) if (L[i] && L[i].id === OUT) L.splice(i, 1); } });
+try { window.ytBlockedCh = window.ytBlockedCh || {}; window.ytBlockedCh[OUT] = 99; localStorage.setItem('sg_yt_blockch', JSON.stringify(window.ytBlockedCh)); } catch (e) {}
+const add = [{ id: 'UCv1KAghiY3O6XCEaEh_5NeQ', name: 'Dancegod Lloyd', cat: 'dance' }];
+add.forEach(c => ['EXTRA_CHANNELS', 'WATCH_DEFAULT', 'FUN_CHANNELS'].forEach(k => { const L = window[k]; if (Array.isArray(L) && !L.some(x => x.id === c.id)) L.push(c); }));
+})();
+setInterval(() => {
+document.querySelectorAll('a[href="about.html"]').forEach(a => { if (a.parentElement && !a.parentElement.querySelector('a[href="guides.html"]')) a.insertAdjacentHTML('beforebegin', `<a href="guides.html" class="${a.className}">Guides</a>${/·/.test(a.parentElement.textContent) ? ' · ' : ''}`); });
+}, 3000);
+
+window.SG_BAD = ['fuck', 'fucking', 'fucker', 'motherfucker', 'shit', 'bullshit', 'bitch', 'bastard', 'asshole', 'dickhead', 'dick', 'pussy', 'cunt', 'whore', 'slut', 'nigger', 'nigga', 'faggot', 'fag', 'retard', 'wanker', 'twat', 'porn', 'xxx', 'nude', 'nudes', 'sex', 'sexy', 'boobs', 'etwe', 'kote'];
+window.SG_BAD_RE = new RegExp('(^|[^\\p{L}\\p{N}_])(' + window.SG_BAD.map(w => w.split('').map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '+').join('[\\s._*-]{0,1}')).join('|') + ')(?=$|[^\\p{L}\\p{N}_])', 'giu');
+window.sgFilterText = function(s) {
+if (typeof s !== 'string' || !s) return s;
+return s.replace(window.SG_BAD_RE, (m, pre, w) => pre + w.charAt(0) + '*'.repeat(Math.max(2, w.length - 1)));
+};
+window.sgHasBad = (s) => typeof s === 'string' && (window.SG_BAD_RE.lastIndex = 0, window.SG_BAD_RE.test(s));
+window.cleanForCloud = (function(b) {
+const KEYS = new Set(['text', 'caption', 'bio', 'q', 'desc', 'lastText', 'quote']);
+const walk = (o, depth) => { if (!o || typeof o !== 'object' || depth > 3 || Object.getPrototypeOf(o) !== Object.prototype) return o; for (const k of Object.keys(o)) { const v = o[k]; if (typeof v === 'string' && KEYS.has(k)) o[k] = window.sgFilterText(v); else if (k === 'o' && Array.isArray(v)) o[k] = v.map(x => window.sgFilterText(x)); else if (v && typeof v === 'object') walk(v, depth + 1); } return o; };
+return function(obj) { return b(walk(obj && typeof obj === 'object' && Object.getPrototypeOf(obj) === Object.prototype ? { ...obj } : obj, 0)); };
+})(window.cleanForCloud);
+(function boxFilter() {
+const clean = () => document.querySelectorAll('textarea, input[type="text"], input:not([type])').forEach(el => { if (el.value && window.sgHasBad(el.value)) el.value = window.sgFilterText(el.value); });
+document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('button,[onclick],[role="button"]')) clean(); }, true);
+document.addEventListener('keydown', (e) => { if (e.key === 'Enter') clean(); }, true);
+document.addEventListener('submit', clean, true);
+})();
+
+window.sendDmMessage = (function(b) {
+return async function(payload, ...rest) {
+if (payload && !payload.fwd) {
+const now = Date.now(); window._dmBurst = (window._dmBurst || []).filter(t => now - t < 10000);
+if (window._dmBurst.length >= 6) { showToast('⏳ Slow down a little'); return; }
+if (payload.text && !payload.isPoll && !payload.isOnce && payload.text === window._dmLastText && now - (window._dmLastAt || 0) < 15000) { showToast('Already sent'); return; }
+window._dmBurst.push(now); window._dmLastText = payload.text; window._dmLastAt = now;
+if (payload.text) payload = { ...payload, text: window.sgFilterText(payload.text) };
+}
+return b.call(this, payload, ...rest);
+};
+})(window.sendDmMessage);
+window.savePostCloud = (function(b) {
+return async function(payload, ...rest) {
+let h = []; try { h = JSON.parse(localStorage.getItem('sg_post_times') || '[]').filter(t => Date.now() - t < 3600e3); } catch (e) {}
+if (h.length >= 8 && !window.isAppAdmin) { const e = new Error('Too many posts in one hour. Try again a bit later.'); e.spam = true; throw e; }
+h.push(Date.now()); try { localStorage.setItem('sg_post_times', JSON.stringify(h)); } catch (e) {}
+return b.call(this, payload, ...rest);
+};
+})(window.savePostCloud);
+
+window.notify = (function(b) {
+const sent = new Map();
+return async function(toUid, type, extra = {}) {
+const k = [toUid, type, (extra && extra.postId) || '', ((extra && extra.text) || '').slice(0, 80)].join('|'), now = Date.now();
+if (sent.has(k) && now - sent.get(k) < 10 * 60000) return;
+sent.set(k, now); if (sent.size > 400) [...sent.keys()].slice(0, 200).forEach(x => sent.delete(x));
+return b.call(this, toUid, type, extra);
+};
+})(window.notify);
+
+window.ageGate = async function() {
+let v = null; try { v = localStorage.getItem('sg_age'); } catch (e) {}
+if (v === 'ok') return;
+if (v === 'u13') { if (!window.kidsMode) window.openKids(); return; }
+if (window.kidsMode || window._ageAsked) return; window._ageAsked = true;
+const ok = await window.sgConfirm('SINLESS GG is for people aged 13 and older. Are you 13 or older?', { title: '👋 Quick check', okText: "Yes, I'm 13+", cancelText: "No, I'm under 13" });
+try { localStorage.setItem('sg_age', ok ? 'ok' : 'u13'); } catch (e) {}
+if (!ok) { showToast('🧸 Welcome to Sinless Kids!'); window.openKids(); }
+else if (window.isSignedIn()) { try { await updateDoc(doc(window.db, 'users', window.uidNow()), { age13: true }); } catch (e) {} }
+};
+window.askKidsExit = (function(b) {
+return function(...a) {
+let v = null; try { v = localStorage.getItem('sg_age'); } catch (e) {}
+if (v === 'u13') { try { localStorage.removeItem('sg_age'); } catch (e) {} window._ageAsked = false; }
+return b.apply(this, a);
+};
+})(window.askKidsExit);
+setTimeout(() => { try { window.ageGate(); } catch (e) {} }, 2500);
+
+window._vHosts = null;
+window.loadVerifiedHosts = async function() { if (window._vHosts) return window._vHosts; window._vHosts = []; try { const s = await getDoc(doc(window.db, 'config', 'verifiedHosts')); window._vHosts = (s.exists() && s.data().uids) || []; } catch (e) {} return window._vHosts; };
+window.isVerifiedHost = function(uid) {
+if (!uid) return false; if ((window._vHosts || []).includes(uid)) return true;
+return (window.tournamentsList || []).filter(t => (t.hostUid === uid || t.hostId === uid) && t.status === 'finished' && (t.players || []).filter(p => window.isRealPlayer(p)).length >= 4).length >= 3;
+};
+window.vHostBadge = (uid) => window.isVerifiedHost(uid) ? `<span data-vhost class="inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md text-[9px] font-black" style="background:linear-gradient(90deg,rgba(34,211,238,.2),rgba(168,85,247,.2));color:#a5f3fc;border:1px solid rgba(34,211,238,.45)">✔ Verified Host</span>` : '';
+window.renderTournamentsTabDedicated = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try {
+const c = document.getElementById('tournamentsDedicatedContainer'), t = window.activeTournament; if (!c || !t) return r;
+const uid = t.hostUid || t.hostId;
+if (uid && !c.querySelector('[data-vhost]')) { const host = [...c.querySelectorAll('p,div')].find(el => /^Host:/.test((el.textContent || '').trim()) && el.children.length < 6); if (host && window.isVerifiedHost(uid)) { const a1 = host.querySelector('a,span,button'); (a1 || host).insertAdjacentHTML('afterend', window.vHostBadge(uid)); } }
+const adm = c.querySelector('[data-admtour]'); if (adm && uid && !adm.querySelector('[data-vh]')) adm.insertAdjacentHTML('beforeend', `<button data-vh onclick="window.toggleVerifiedHost('${escapeHTML(uid)}')" class="px-2 py-1 rounded-lg text-[10px] font-black bg-white/10 text-white">${(window._vHosts || []).includes(uid) ? '✖ Unverify host' : '✔ Verify host'}</button>`);
+if (window.isTournOwner(t)) { const bar = c.querySelector('[data-v38]'); if (bar && !bar.querySelector('[data-bk]')) bar.insertAdjacentHTML('beforeend', `<button data-bk onclick="window.openTournBackup('${t.id}')" class="px-2.5 py-1 rounded-lg bg-gg-900 text-white border border-white/15">💾 Backup</button>`); }
+} catch (e) { console.warn(e); }
+return r;
+};
+})(window.renderTournamentsTabDedicated);
+window.toggleVerifiedHost = async function(uid) {
+if (!window.isAppAdmin) return; const list = await window.loadVerifiedHosts(), on = list.includes(uid);
+const next = on ? list.filter(x => x !== uid) : [...list, uid];
+try { await setDoc(doc(window.db, 'config', 'verifiedHosts'), { uids: next }, { merge: true }); window._vHosts = next; showToast(on ? 'Host unverified' : '✔ Host verified'); window.renderTournamentsTabDedicated(); } catch (e) { showToast('⚠️ Paste the latest Firebase rules first'); }
+};
+setTimeout(() => window.loadVerifiedHosts(), 6000);
+
+window.openTournBackup = function(tid) {
+window.openActionSheet('💾 Backup', [
+{ icon: 'fa-download', label: '⬇️ Download a backup', run: () => window.backupTourn(tid) },
+{ icon: 'fa-upload', label: '♻️ Restore from a backup file', run: () => window.restoreTourn(tid) }]);
+};
+window.backupTourn = async function(tid) {
+const t = (window.tournamentsList || []).find(x => x.id === tid); if (!t) return;
+let log = []; try { const s = await getDocs(query(collection(window.db, 'tournaments', tid, 'log'), limit(500))); s.forEach(d => log.push(d.data())); } catch (e) {}
+const data = JSON.parse(JSON.stringify({ app: 'SINLESS GG', kind: 'tournament-backup', v: 1, at: Date.now(), id: tid, t, log }));
+window.saveBlobAs(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), `sinlessgg_${(t.title || 'tournament').replace(/[^\w]+/g, '_').slice(0, 30)}_${new Date().toISOString().slice(0, 10)}.json`);
+showToast('💾 Backup saved on your phone');
+};
+window.restoreTourn = function(tid) {
+const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json,.json';
+inp.onchange = async () => {
+const f = inp.files && inp.files[0]; if (!f) return;
+try {
+const d = JSON.parse(await f.text()); if (d.kind !== 'tournament-backup' || !d.t || !Array.isArray(d.t.matches)) throw new Error('not a SINLESS GG tournament backup');
+const t = (window.tournamentsList || []).find(x => x.id === tid); if (!t || !window.isTournOwner(t)) return;
+if (!(await window.sgConfirm(`Restore "${d.t.title}" from ${new Date(d.at).toLocaleString()}? Fixtures, results and the table go back to that moment.`, { okText: 'Restore', danger: true }))) return;
+const keep = ['players', 'matches', 'eliminated', 'gameIds', 'accepted', 'zones', 'playFrom', 'playTo', 'slotMin', 'mdDates', 'startAt', 'endAt', 'deadlineHrs'], upd = {};
+keep.forEach(k => { if (d.t[k] !== undefined) upd[k] = d.t[k]; });
+await updateDoc(doc(window.db, 'tournaments', tid), window.cleanForCloud({ ...upd, updatedAt: Date.now() })); Object.assign(t, upd);
+window.tlog(t, { type: 'decision', text: 'restored the tournament from a backup', why: new Date(d.at).toLocaleString() });
+window.renderTournamentsTabDedicated(); showToast('♻️ Restored');
+} catch (e) { showToast('⚠️ ' + e.message); }
+};
+inp.click();
+};
+
+window.SG_LIMITS = { storage: 3 * 1024 ** 3, views: 20 * 1024 ** 3 };
+window.fetchUsage = async function() {
+const url = (window.SG_PUSH && window.SG_PUSH.url) || ((await window.loadPushCfg()) || {}).url; if (!url) throw new Error('no helper');
+const r = await fetch(url.replace(/\/$/, '') + '/media/usage', { headers: { Authorization: 'Bearer ' + (await window.mediaIdToken()) } });
+const j = await r.json(); if (!r.ok || !j.ok) throw new Error(j.error || 'usage not available'); return j;
+};
+window.usageBar = (label, used, max) => { const pc = Math.min(100, Math.round(used / max * 100)), col = pc >= 90 ? '#ff2d95' : pc >= 70 ? '#a855f7' : '#22d3ee'; return `<div class="glass-panel rounded-2xl p-3 border border-cyan-500/15"><div class="flex justify-between text-[11px] font-black text-white"><span>${label}</span><span style="color:${col}">${pc}%</span></div><div class="h-2 rounded-full bg-white/10 mt-2 overflow-hidden"><div style="width:${pc}%;height:100%;background:${col};box-shadow:0 0 10px ${col}"></div></div><p class="text-[10px] text-gray-400 mt-1">${(used / 1024 ** 3).toFixed(2)} GB of ${(max / 1024 ** 3).toFixed(0)} GB${pc >= 90 ? ' · ⚠️ almost full' : pc >= 70 ? ' · getting full' : ''}</p></div>`; };
+window.renderAdminStats = (function(b) {
+return async function(...a) {
+await b.apply(this, a);
+const box = window.adminBoxFor('stats');
+const day0 = window.dayStartOf(Date.now()), count = async (q) => { try { return (await getCountFromServer(q)).data().count; } catch (e) { return '–'; } };
+const [active, live] = await Promise.all([count(query(collection(window.db, 'profiles'), where('lastSeen', '>=', day0))), count(query(collection(window.db, 'lives'), where('status', '==', 'live')))]);
+let played = 0, runs = 0; (window.tournamentsList || []).forEach(t => { if (t.status !== 'finished') runs++; (t.matches || []).forEach(m => { if (window.isPlayedM(m) && (window.matchDate(t, m) || 0) === day0) played++; }); });
+const tile = (l, v, c) => `<div class="glass-panel rounded-2xl p-3 border border-cyan-500/15"><p class="text-2xl font-black" style="color:${c || '#fff'}">${typeof v === 'number' ? window.formatCount(v) : v}</p><p class="text-[10px] text-gray-400 font-bold uppercase">${l}</p></div>`;
+box.innerHTML += `<p class="text-[10px] font-black uppercase tracking-wider text-gray-400 mt-4 mb-2">📈 Today</p><div class="grid grid-cols-2 gap-2">${tile('Active today', active, '#22d3ee')}${tile('Live right now', live, '#ff2d95')}${tile('Matches played today', played, '#a855f7')}${tile('Tournaments running', runs)}</div>
+<p class="text-[10px] font-black uppercase tracking-wider text-gray-400 mt-4 mb-2">📦 Storage (ImageKit free plan)</p><div id="admUsage" class="space-y-2"><p class="text-xs text-gray-500">Checking…</p></div>`;
+try { const u = await window.fetchUsage(), el = document.getElementById('admUsage'); if (el) el.innerHTML = window.usageBar('Photo & video space', u.storageBytes || 0, window.SG_LIMITS.storage) + window.usageBar('Views this month (bandwidth)', u.bandwidthBytes || 0, window.SG_LIMITS.views); }
+catch (e) { const el = document.getElementById('admUsage'); if (el) el.innerHTML = `<p class="text-xs text-gray-500">Storage meter needs the latest helper (worker). ${escapeHTML(e.message)}</p>`; }
+};
+})(window.renderAdminStats);
+window.usageAlert = async function() {
+if (!window.isAppAdmin) return; const k = 'sg_usage_' + window.sqDayKey(); try { if (localStorage.getItem(k)) return; localStorage.setItem(k, '1'); } catch (e) {}
+try {
+const u = await window.fetchUsage(), s = (u.storageBytes || 0) / window.SG_LIMITS.storage, v = (u.bandwidthBytes || 0) / window.SG_LIMITS.views, top = Math.max(s, v);
+if (top >= 0.7) window.islandShow(`<b>📦 Storage ${Math.round(top * 100)}% used</b><br><span style="opacity:.8">${s >= v ? 'Photo & video space' : 'Monthly views'} is ${top >= 0.9 ? 'almost full! Clean up old media or add another storage.' : 'getting full.'}</span>`, top >= 0.9 ? 'warn' : 'info', 12000, top >= 0.9);
+} catch (e) {}
+};
+setTimeout(() => { try { window.usageAlert(); } catch (e) {} }, 20000);
+
+(function growthCss() { const s = document.createElement('style'); s.textContent = `
+#sgQuestPill{position:fixed;left:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;display:flex;align-items:center;gap:8px;padding:8px 12px 8px 10px;border-radius:999px;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);color:#0b0f24;font-weight:900;font-size:12px;box-shadow:0 8px 24px -8px #a855f7}
+#sgQuestPill .x{width:20px;height:20px;border-radius:999px;background:rgba(11,15,36,.25);display:flex;align-items:center;justify-content:center;font-size:10px}
+.q-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:rgba(11,15,36,.6);border:1px solid rgba(255,255,255,.07);margin-top:7px}
+.q-row.done{border-color:rgba(34,211,238,.5);background:linear-gradient(90deg,rgba(34,211,238,.12),rgba(11,15,36,.6))}
+.q-row.lock{opacity:.45}
+.q-go{font-size:10px;font-weight:900;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.12)}
+.q-bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}.q-bar i{display:block;height:100%;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)}
+.tw-sec{margin-top:10px}.tw-h{font-size:11px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.tw-chips{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px}.tw-chips::-webkit-scrollbar{display:none}
+.tw-chip{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;background:rgba(11,15,36,.7);border:1px solid rgba(168,85,247,.35);color:#fff;font-size:11px;font-weight:800}
+.tw-row{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:14px;background:rgba(11,15,36,.6);border:1px solid rgba(255,255,255,.06);margin-top:6px;text-align:left;width:100%}
+.tw-n{width:20px;text-align:center;font-weight:900;font-size:12px;background:linear-gradient(90deg,#22d3ee,#ff2d95);-webkit-background-clip:text;background-clip:text;color:transparent}`; document.head.appendChild(s); })();
+
+window.qState = () => { try { return JSON.parse(localStorage.getItem('sg_quests') || 'null'); } catch (e) { return null; } };
+window.qSave = (s) => { try { localStorage.setItem('sg_quests', JSON.stringify(s)); } catch (e) {} };
+window.QUESTS = [
+['interests', '🎯', 'Pick what you love', () => window.qInterests()],
+['profile', '🖼️', 'Add a photo and a short bio', () => window.openEditProfileModal && window.openEditProfileModal()],
+['follow3', '➕', 'Follow 3 people', () => window.openSearch && window.openSearch()],
+['squads', '🛡️', 'Look around Squads (no need to join)', () => window.switchView('clans')],
+['trending', '🔥', 'See what is Trending', () => window.switchView('trending')],
+['game', '🎮', 'Play any game', () => window.switchView('play')],
+['trivia', '🧠', "Try today's trivia", () => window.openTrivia && window.openTrivia()],
+['gg', '💘', 'Give a GG or a comment', () => window.switchView('fyp')],
+['post', '✍️', 'Make your first post', () => window.openCreatePostModal && window.openCreatePostModal()],
+['clips', '🎬', 'Watch a few clips', () => window.openClips && window.openClips()]];
+window.WEEK = [
+[2, 'w_tourn', '🏆', 'Check out Tournaments', () => window.switchView('tournaments'), false],
+[3, 'w_invite', '📨', 'Invite a friend (optional)', () => window.shareInvite && window.shareInvite(), true],
+[4, 'w_card', '🖼️', 'Share a text post as a picture', () => window.switchView('fyp'), false],
+[5, 'w_real', '🤝', 'Win a game against a real player', () => window.switchView('play'), false],
+[6, 'w_trend', '🔴', 'Visit Trending and Live Now', () => window.switchView('trending'), false],
+[7, 'w_recap', '📊', 'Open your weekly recap', () => window.openWeeklyRecap && window.openWeeklyRecap(), false]];
+window.qStartIfNew = function() {
+if (!window.isSignedIn() || window.qState()) return;
+const xp = (window.myStats || {}).xp || 0; if (xp > 250) { window.qSave({ start: 0, done: {}, old: true }); return; }
+window.qSave({ start: Date.now(), done: {}, skipped: false, rewarded: false, weekDone: false });
+setTimeout(() => window.islandShow && window.islandShow('<b>🚀 Welcome to SINLESS GG!</b><br><span style="opacity:.8">10 quick starter quests = 🎖️ Rookie badge + 100 points. All optional.</span>', 'info', 8000), 4000);
+};
+window.qDayNo = (s) => Math.floor((Date.now() - s.start) / 864e5) + 1;
+window.qMark = function(k) {
+const s = window.qState(); if (!s || !s.start || s.done[k]) return;
+const w = window.WEEK.find(x => x[1] === k); if (w && window.qDayNo(s) < w[0]) return;     // welcome-week tasks unlock on their day
+s.done[k] = Date.now(); window.qSave(s);
+const isQ = window.QUESTS.some(q => q[0] === k), n = window.QUESTS.filter(q => s.done[q[0]]).length;
+if (isQ && !s.skipped) showToast(`✅ Quest done · ${n}/10`);
+window.qCheckRewards(); window.qPill();
+};
+window.qCheckRewards = async function() {
+const s = window.qState(); if (!s || !s.start || !window.isSignedIn()) return;
+if (!s.rewarded && window.QUESTS.every(q => s.done[q[0]])) {
+s.rewarded = true; window.qSave(s); window.addXP && window.addXP(100, 'quest');
+try { await setDoc(doc(window.db, 'profiles', window.meLower()), { qBadges: arrayUnion('rookie') }, { merge: true }); } catch (e) {}
+window.islandShow && window.islandShow('<b>🎖️ Rookie badge unlocked!</b><br><span style="opacity:.8">+100 points. Welcome to the family 💜</span>', 'info', 9000);
+}
+if (!s.weekDone && window.WEEK.filter(w => !w[5]).every(w => s.done[w[1]])) {
+s.weekDone = true; window.qSave(s); window.addXP && window.addXP(300, 'quest');
+try { await setDoc(doc(window.db, 'profiles', window.meLower()), { qBadges: arrayUnion('dayone') }, { merge: true }); } catch (e) {}
+window.islandShow && window.islandShow('<b>🌅 Day One badge + glowing profile ring!</b><br><span style="opacity:.8">+300 points for your first week 🔥</span>', 'info', 9000);
+}
+};
+window.qPill = function() {
+let el = document.getElementById('sgQuestPill'); const s = window.qState();
+const qn = s && s.start ? window.QUESTS.filter(q => s.done[q[0]]).length : 0, d = s && s.start ? window.qDayNo(s) : 0;
+const weekLeft = s && s.start && !s.weekDone && d >= 2 && d <= 10 && window.WEEK.some(w => !w[5] && w[0] <= d && !s.done[w[1]]);
+const show = s && s.start && window.isSignedIn() && !window.kidsMode && !(s.hideUntil > Date.now()) && ((!s.skipped && !s.rewarded) || weekLeft);
+if (!show) { el && el.remove(); return; }
+const label = !s.skipped && !s.rewarded ? `🚀 Starter quests ${qn}/10` : `🌅 Welcome week · day ${Math.min(7, d)}`;
+const html = `<div id="sgQuestPill"><span onclick="window.openQuests()" style="cursor:pointer">${label}</span><span class="x" onclick="window.qHide()">✕</span></div>`;
+if (el) el.outerHTML = html; else document.body.insertAdjacentHTML('beforeend', html);
+};
+window.qHide = function() { const s = window.qState(); if (!s) return; s.hideUntil = Date.now() + 6 * 3600e3; window.qSave(s); window.qPill(); showToast('Hidden for now. Find quests in your profile menu anytime.'); };
+window.openQuests = function() {
+const s = window.qState() || { start: Date.now(), done: {} }; if (!s.start) { s.start = Date.now(); s.done = s.done || {}; window.qSave(s); }
+const n = window.QUESTS.filter(q => s.done[q[0]]).length, d = window.qDayNo(s);
+const row = (k, ico, label, i, extra) => `<div class="q-row ${s.done[k] ? 'done' : extra && extra.lock ? 'lock' : ''}"><span class="text-lg">${s.done[k] ? '✅' : ico}</span><span class="flex-1 text-xs font-bold text-white">${label}${extra && extra.sub ? `<br><span class="text-[10px] text-gray-400">${extra.sub}</span>` : ''}</span>${s.done[k] || (extra && extra.lock) ? '' : `<button class="q-go" onclick="window.qGo('${k}')">Go</button>`}</div>`;
+window.openPanel('🚀 Your quests', `<p class="text-xs text-gray-400">All optional. Do them in any order.</p>
+<div class="mt-3 p-3 rounded-2xl" style="background:linear-gradient(135deg,rgba(34,211,238,.12),rgba(168,85,247,.12),rgba(255,45,149,.10));border:1px solid rgba(168,85,247,.35)">
+<div class="flex justify-between text-xs font-black text-white"><span>Starter quests</span><span>${n}/10</span></div><div class="q-bar mt-2"><i style="width:${n * 10}%"></i></div>
+<p class="text-[10px] text-gray-300 mt-1.5">Reward: 🎖️ Rookie badge + 100 points${s.rewarded ? ' · <b class="text-cyan-300">claimed ✓</b>' : ''}</p></div>
+${window.QUESTS.map(q => row(q[0], q[1], q[2])).join('')}
+<div class="mt-5 p-3 rounded-2xl" style="background:linear-gradient(135deg,rgba(250,204,21,.10),rgba(168,85,247,.10));border:1px solid rgba(250,204,21,.35)"><div class="flex justify-between text-xs font-black text-white"><span>🌅 Welcome week</span><span>Day ${Math.min(7, d)}</span></div>
+<p class="text-[10px] text-gray-300 mt-1">Reward: 🌅 Day One badge + 300 points + a glowing profile ring${s.weekDone ? ' · <b class="text-amber-300">claimed ✓</b>' : ''}</p></div>
+${window.WEEK.map(w => row(w[1], w[2], w[3], 0, { lock: d < w[0], sub: d < w[0] ? `Unlocks on day ${w[0]}` : '' })).join('')}
+${!s.skipped && !s.rewarded ? `<button onclick="window.qSkip()" class="w-full mt-4 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-gray-300 text-xs font-black">Skip starter quests</button>` : ''}`);
+};
+window.qGo = function(k) { const q = window.QUESTS.find(x => x[0] === k), w = window.WEEK.find(x => x[1] === k); window.closePanel(); setTimeout(() => { (q ? q[3] : w[4])(); }, 200); };
+window.qSkip = function() { const s = window.qState(); if (!s) return; s.skipped = true; window.qSave(s); window.closePanel(); window.qPill(); showToast('Skipped. You can still find them in your profile menu.'); };
+window.qInterests = function() {
+const cats = [['FOOTBALL', '⚽ Football'], ['FC MOBILE', '📱 FC Mobile'], ['EFOOTBALL', '🎮 eFootball'], ['DLS', '🏟️ DLS'], ['EA SPORTS FC', '🕹️ EA FC'], ['CALL OF DUTY', '🔫 Call of Duty'], ['WRESTLING', '🤼 Wrestling'], ['MOVIES', '🎬 Movies'], ['ANIME', '🍥 Anime'], ['BOOKS', '📚 Books'], ['OTHER GAMES', '🎲 Other games']];
+const on = window.categoryInterests || {};
+window.openPanel('🎯 What do you love?', `<p class="text-xs text-gray-400 mb-3">Pick a few. Your feed will show more of these.</p><div class="flex flex-wrap gap-2">${cats.map(([k, l]) => `<button data-int="${k}" onclick="this.classList.toggle('on'); this.style.background=this.classList.contains('on')?'linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)':''; this.style.color=this.classList.contains('on')?'#0b0f24':''" class="tw-chip ${(on[k] || 0) >= 5 ? 'on' : ''}" style="${(on[k] || 0) >= 5 ? 'background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);color:#0b0f24' : ''}">${l}</button>`).join('')}</div>
+<button onclick="window.qSaveInterests()" class="w-full mt-4 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-xs font-black uppercase">Save</button>`);
+};
+window.qSaveInterests = function() {
+const picked = [...document.querySelectorAll('[data-int].on')].map(b => b.dataset.int); if (!picked.length) { showToast('Pick at least one'); return; }
+window.categoryInterests = window.categoryInterests || {}; picked.forEach(k => { window.categoryInterests[k] = Math.max(8, window.categoryInterests[k] || 0); });
+try { localStorage.setItem('sinless_category_interests', JSON.stringify(window.categoryInterests)); } catch (e) {}
+window.closePanel(); window.qMark('interests'); showToast('🎯 Your feed is tuned');
+};
+
+window.switchView = (function(b) { return function(v, ...r) { const out = b.call(this, v, ...r); try { if (v === 'clans') window.qMark('squads'); if (v === 'trending') { window.qMark('trending'); window.qMark('w_trend'); setTimeout(window.renderTrendWorld, 60); } if (v === 'tournaments') window.qMark('w_tourn'); } catch (e) {} return out; }; })(window.switchView);
+window.addXP = (function(b) {
+return function(n, reason, ...r) {
+const out = b.call(this, n, reason, ...r);
+try { if (reason === 'post') window.qMark('post'); if (reason === 'gg' || reason === 'comment') window.qMark('gg'); if (reason === 'game') { window.qMark('game'); if ((n === 10 || n === 15) && (window._lastGamePts || 0) >= 20) window.qMark('w_real'); } } catch (e) {}
+return out;
+};
+})(window.addXP);
+window.startGame = (function(b) { return function(...a) { const r = b.apply(this, a); try { window.qMark('game'); } catch (e) {} return r; }; })(window.startGame);
+window.finishTrivia = (function(b) { return async function(...a) { const r = await b.apply(this, a); try { window.qMark('trivia'); } catch (e) {} return r; }; })(window.finishTrivia);
+window.openClips = (function(b) { return function(...a) { const r = b.apply(this, a); try { setTimeout(() => window.qMark('clips'), 15000); } catch (e) {} return r; }; })(window.openClips);
+window.shareInvite = (function(b) { return async function(...a) { try { window.qMark('w_invite'); } catch (e) {} return b.apply(this, a); }; })(window.shareInvite);
+window.openWeeklyRecap = (function(b) { return async function(...a) { try { window.qMark('w_recap'); } catch (e) {} return b.apply(this, a); }; })(window.openWeeklyRecap);
+['tcSave', 'tcShare'].forEach(fn => { const b = window[fn]; if (typeof b === 'function') window[fn] = function(...a) { try { window.qMark('w_card'); } catch (e) {} return b.apply(this, a); }; });
+setInterval(() => {
+try {
+window.qStartIfNew();
+const s = window.qState(); if (!s || !s.start) return;
+const p = window.profileFor && window.profileFor(window.me()); if (p && p.pfp && String(p.bio || '').trim()) window.qMark('profile');
+if (window.myFollowing && window.myFollowing.users && window.myFollowing.users.size >= 3) window.qMark('follow3');
+window.qPill();
+} catch (e) {}
+}, 8000);
+
+window.qBadgesOf = (tag) => { const p = window.profileFor && window.profileFor(tag); return (p && p.qBadges) || []; };
+window.getProfileBadges = (function(b) {
+return function(user, ...r) {
+let out = b.call(this, user, ...r) || ''; const qb = window.qBadgesOf(user);
+if (qb.includes('dayone')) out = `<span class="inline-flex items-center text-[9px] font-black px-1.5 py-0.5 rounded-md mr-1" style="background:rgba(250,204,21,.15);color:#fde68a;border:1px solid rgba(250,204,21,.4)">🌅 Day One</span>` + out;
+if (qb.includes('rookie')) out = `<span class="inline-flex items-center text-[9px] font-black px-1.5 py-0.5 rounded-md mr-1" style="background:rgba(34,211,238,.15);color:#a5f3fc;border:1px solid rgba(34,211,238,.4)">🎖️ Rookie</span>` + out;
+return out;
+};
+})(window.getProfileBadges);
+window.avatarHtml = (function(b) {
+return function(tag, ...r) { const h = b.call(this, tag, ...r); return window.qBadgesOf(tag).includes('dayone') ? h.replace('<img ', '<img style="box-shadow:0 0 0 2px #0b0f24,0 0 0 4px #a855f7,0 0 12px 2px rgba(255,45,149,.55)" ') : h; };
+})(window.avatarHtml);
+
+window.renderTrendWorld = function() {
+const view = document.getElementById('view-trending'); if (!view) return;
+let box = document.getElementById('sgTrendWorld');
+if (!box) { const first = view.firstElementChild; (first || view).insertAdjacentHTML(first ? 'afterend' : 'afterbegin', '<div id="sgTrendWorld" class="glass-panel p-3.5 rounded-2xl" style="border:1px solid rgba(168,85,247,.35)"></div>'); box = document.getElementById('sgTrendWorld'); }
+const now = Date.now(), ms = (p) => window.postTimeValue(p) || 0, posts = (window.fypposts || []).filter(p => p && p.id && !p.isLocalFallback && !window.isBlocked(p.user));
+const hot = posts.filter(p => now - ms(p) < 864e5).map(p => ({ p, s: ((+p.ggsCount || 0) * 3 + (+p.commentsCount || 0) * 4 + (+p.viewsCount || 0) * 0.2 + 1) / Math.pow((now - ms(p)) / 3600e3 + 2, 0.8) })).sort((a, b) => b.s - a.s).slice(0, 5);
+const tags = {}; posts.filter(p => now - ms(p) < 3 * 864e5).forEach(p => (String(p.caption || p.text || '').match(/#[\p{L}\p{N}_]{2,30}/gu) || []).forEach(t => { const k = t.toLowerCase(); tags[k] = (tags[k] || 0) + 1; }));
+const topTags = Object.entries(tags).sort((a, b) => b[1] - a[1]).slice(0, 10);
+const sqScore = (s) => (s.memberUids || []).length + (window.tournamentsList || []).filter(t => t.squadId === s.id && t.status !== 'finished').length * 5 + ((window.squadWars ? window.squadWars() : []).find(w => w.id === s.id) || { pts: 0 }).pts;
+const squads = (window.clansData || []).filter(s => s.isPublic !== false && (!s.isOfficial || (s.memberUids || []).length)).map(s => ({ s, k: sqScore(s) })).sort((a, b) => b.k - a.k).slice(0, 5);
+const tourns = (window.tournamentsList || []).filter(t => t.status !== 'finished' && !(window.isPrivateTourn && window.isPrivateTourn(t))).map(t => ({ t, k: (t.matches || []).filter(m => window.isPlayedM(m)).length * 2 + (t.players || []).filter(p => window.isRealPlayer(p)).length })).sort((a, b) => b.k - a.k).slice(0, 5);
+const cre = {}; posts.filter(p => now - ms(p) < 3 * 864e5).forEach(p => { const k = String(p.user || '').toLowerCase(); if (!k) return; (cre[k] = cre[k] || { u: p.user, g: 0, n: 0 }); cre[k].g += +p.ggsCount || 0; cre[k].n++; });
+const rising = Object.values(cre).filter(c => !(window.isOfficial && window.isOfficial(c.u))).sort((a, b) => (b.g + b.n * 2) - (a.g + a.n * 2)).slice(0, 8);
+const lives = (window.livesList || []).filter(l => window.liveIsOn && window.liveIsOn(l)).slice(0, 8);
+const sec = (h, body) => body ? `<div class="tw-sec"><p class="tw-h">${h}</p>${body}</div>` : '';
+box.innerHTML = `<div class="flex items-center justify-between"><p class="text-sm font-black text-white">🌍 Trending worldwide</p><button onclick="window.openSquadWars()" class="q-go">⚔️ Squad Wars</button></div>
+${sec('🔴 Live now', lives.length ? `<div class="tw-chips">${lives.map(l => `<button class="tw-chip" onclick="window.openLiveRoom('${escapeHTML(l.id)}')"><span style="width:7px;height:7px;border-radius:9px;background:#ff2d95;box-shadow:0 0 8px #ff2d95"></span>${escapeHTML(window.dnText(l.host || l.user || 'Live'))}${l.title ? ' · ' + escapeHTML(String(l.title).slice(0, 24)) : ''}</button>`).join('')}</div>` : '')}
+${sec('🔥 Hot right now', hot.length ? hot.map((x, i) => `<button class="tw-row" onclick="window.openPostDetail('${escapeHTML(x.p.id)}')"><span class="tw-n">${i + 1}</span><span class="flex-1 min-w-0"><span class="block text-xs font-bold text-white truncate">${escapeHTML(String(x.p.caption || x.p.text || (x.p.mediaList && x.p.mediaList.length ? '📸 New post' : '')).slice(0, 80))}</span><span class="block text-[10px] text-gray-400 truncate">${escapeHTML(window.dnText(x.p.user || ''))} · 💘 ${window.formatCount(+x.p.ggsCount || 0)} · 💬 ${window.formatCount(+x.p.commentsCount || 0)}</span></span></button>`).join('') : '<p class="text-[11px] text-gray-500">Nothing hot yet today. Be the first 🔥</p>')}
+${sec('#️⃣ Top hashtags', topTags.length ? `<div class="tw-chips">${topTags.map(([t, n]) => `<button class="tw-chip" onclick="window.twTag('${escapeHTML(t)}')">${escapeHTML(t)} <span style="opacity:.6">${n}</span></button>`).join('')}</div>` : '')}
+${sec('⭐ Rising creators', rising.length ? `<div class="tw-chips">${rising.map(c => `<button class="tw-chip" onclick="window.openUserProfileModal('${escapeHTML(c.u)}')">${window.avatarHtml(c.u, 'w-5 h-5', 'rounded-full', 'text-[7px]').replace(/onclick="[^"]*"/, '')}${escapeHTML(window.dnText(c.u))}</button>`).join('')}</div>` : '')}
+${sec('🛡️ Most active squads', squads.length ? squads.map((x, i) => `<button class="tw-row" onclick="window.openSquadDetailsModal('${escapeHTML(x.s.id)}')"><span class="tw-n">${i + 1}</span><span class="flex-1 min-w-0 text-xs font-bold text-white truncate">${escapeHTML(x.s.name || '')}</span><span class="text-[10px] text-gray-400">${(x.s.memberUids || []).length} member${(x.s.memberUids || []).length === 1 ? '' : 's'}</span></button>`).join('') : '')}
+${sec('🏆 Hottest tournaments', tourns.length ? tourns.map((x, i) => `<button class="tw-row" onclick="window.switchView('tournaments'); window.openTournamentById('${escapeHTML(x.t.id)}')"><span class="tw-n">${i + 1}</span><span class="flex-1 min-w-0 text-xs font-bold text-white truncate">${escapeHTML(x.t.title || '')}</span><span class="text-[10px] text-gray-400">${(x.t.players || []).filter(p => window.isRealPlayer(p)).length} players</span></button>`).join('') : '')}`;
+};
+window.twTag = function(t) { const inp = document.getElementById('globalSearchInput'); if (inp) { inp.value = t; window.handleGlobalSearch(t); inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); } };
+
+window.plDb = () => new Promise((res, rej) => { const r = indexedDB.open('sg_later', 1); r.onupgradeneeded = () => r.result.createObjectStore('posts', { keyPath: 'id' }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+window.plAll = async () => { try { const d = await window.plDb(); return await new Promise(res => { const q = d.transaction('posts').objectStore('posts').getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); }); } catch (e) { return []; } };
+window.plPut = async (x) => { const d = await window.plDb(); await new Promise((res, rej) => { const t = d.transaction('posts', 'readwrite'); t.objectStore('posts').put(x); t.oncomplete = res; t.onerror = () => rej(t.error); }); };
+window.plDel = async (id) => { try { const d = await window.plDb(); await new Promise(res => { const t = d.transaction('posts', 'readwrite'); t.objectStore('posts').delete(id); t.oncomplete = res; t.onerror = res; }); } catch (e) {} };
+window.plWeak = () => { const c = navigator.connection; return !navigator.onLine || !!(c && (c.saveData && false || /^(slow-2g|2g)$/.test(c.effectiveType || ''))); };
+window.plSave = async function(item) {
+try { await window.plPut(item); window.islandShow && window.islandShow('<b>📮 Saved to post later</b><br><span style="opacity:.8">It will post by itself when your network is better.</span>', 'info', 7000); return true; }
+catch (e) { showToast('⚠️ Could not save it on this phone'); return false; }
+};
+window.plFromComposer = () => ({ id: 'pl' + Date.now(), at: Date.now(), tries: 0, text: (document.getElementById('postTextContent') || {}).value || '', cat: (document.getElementById('postCategorySelect') || {}).value || 'GENERAL', audio: window.selectedAudioTrack || null, media: (window.uploadedMediaBlobs || []).map(m => ({ type: m.type, file: m.file || null, url: m.file ? '' : m.url, coverAt: m.coverAt || null })) });
+window.plClearComposer = () => { const t = document.getElementById('postTextContent'); if (t) t.value = ''; window.uploadedMediaBlobs = []; window.selectedAudioTrack = null; window.resetPostExtras && window.resetPostExtras(); const prev = document.getElementById('mediaPreviewThumbnails'); if (prev) prev.innerHTML = ''; const fi = document.getElementById('mediaFileInput'); if (fi) fi.value = ''; const ci = document.getElementById('mediaCountIndicator'); if (ci) ci.innerText = '0 / 10 selected'; window.closeCreatePostModal && window.closeCreatePostModal(); document.getElementById('createPostModal')?.classList.add('hidden'); };
+window.submitUniversalPost = (function(b) {
+return async function(...a) {
+if (window._plFlushing) return b.apply(this, a);
+const item = window.plFromComposer();
+if ((item.text.trim() || item.media.length) && window.plWeak()) {
+const off = !navigator.onLine;
+const later = await window.sgConfirm(off ? "You're offline right now. Save this post and send it automatically when you're back online?" : 'Your network is weak. Save this post and send it automatically when the network is better?', { title: '📶 Network', okText: '📮 Post later', cancelText: off ? 'Cancel' : 'Try now' });
+if (later) { if (await window.plSave(item)) window.plClearComposer(); return; }
+if (off) return;
+}
+window._psFailed = null;
+const r = await b.apply(this, a);
+if (window._psFailed && (item.text.trim() || item.media.length)) window.islandShow && window.islandShow(`<b>⚠️ Upload didn't finish</b><br><button onclick="window.plRetryLater()" style="margin-top:6px;padding:5px 12px;border-radius:999px;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);color:#0b0f24;font-weight:900;font-size:11px">📮 Post it later automatically</button>`, 'warn', 15000, true);
+window._plLastItem = item;
+return r;
+};
+})(window.submitUniversalPost);
+window.plRetryLater = async function() { const it = window._plLastItem; if (!it) return; window.islandHide && window.islandHide(); await window.plSave({ ...it, id: 'pl' + Date.now() }); };
+if (window.postStatus) { const f = window.postStatus.fail, d = window.postStatus.done; window.postStatus.fail = function(...a) { window._psFailed = String(a[0] || 'failed'); return f.apply(this, a); }; window.postStatus.done = function(...a) { window._psDone = Date.now(); return d.apply(this, a); }; }
+window.plFlush = async function() {
+if (window._plFlushing || window.plWeak() || !window.isSignedIn()) return;
+const modal = document.getElementById('createPostModal'); if (modal && !modal.classList.contains('hidden')) return;
+const list = (await window.plAll()).sort((x, y) => x.at - y.at); if (!list.length) return;
+const it = list[0]; window._plFlushing = true;
+try {
+const t = document.getElementById('postTextContent'), c = document.getElementById('postCategorySelect'); const oldT = t ? t.value : '', oldC = c ? c.value : '';
+if (t) t.value = it.text; if (c) c.value = it.cat;
+window.uploadedMediaBlobs = it.media.map(m => m.file ? { type: m.type, file: m.file, url: URL.createObjectURL(m.file), coverAt: m.coverAt } : { type: m.type, url: m.url });
+window.selectedAudioTrack = it.audio; window._psFailed = null; const t0 = Date.now();
+await window.submitUniversalPost();
+if (t) t.value = oldT; if (c) c.value = oldC;
+if (!window._psFailed && (window._psDone || 0) >= t0) { await window.plDel(it.id); showToast('📮 Your saved post is live!'); }
+else { it.tries = (it.tries || 0) + 1; if (it.tries >= 6) { await window.plDel(it.id); showToast('⚠️ A saved post could not be sent after many tries.'); } else await window.plPut(it); }
+} catch (e) { console.warn(e); } finally { window._plFlushing = false; }
+};
+window.addEventListener('online', () => setTimeout(() => window.plFlush(), 4000));
+setInterval(() => { try { window.plFlush(); } catch (e) {} }, 60000);
+
+window.SG_BUILD = 54;
+window.pushPing = async function(id) {
+const cfg = await window.loadPushCfg(); if (!cfg.url || !id) return;
+let tok = null; try { tok = await window.mediaIdToken(); } catch (e) {}
+try { await fetch(cfg.url + '/notify', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) }, body: JSON.stringify({ id }), keepalive: true }); } catch (e) {}
+};
