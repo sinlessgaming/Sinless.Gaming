@@ -25413,3 +25413,242 @@ try { return await b.apply(this, a); } finally { window.myHost = h0; window._tmE
 })(window.tmCrown);
 window.tmStrip = async function(i) { const x = (window._tmList || [])[i]; if (!x) return; await window.stripTitle(x); window.openTitlesManager(window._tmScope || undefined); };
 window.renderTournamentsTabDedicated = (function(b) { return function(...a) { const r = b.apply(this, a); try { const t = window.activeTournament, bar = document.querySelector('#tournamentsDedicatedContainer [data-v38]'); const sq = t && t.squadId && (window.clansData || []).find(c => c.id === t.squadId); if (bar && sq && !window.isAppAdmin && window.tmCanSquad(sq) && !bar.querySelector('[data-tm]')) bar.insertAdjacentHTML('beforeend', `<button data-tm onclick="window.openTitlesManager('${escapeHTML(sq.id)}')" class="px-2.5 py-1 rounded-lg font-black" style="background:rgba(250,204,21,.15);color:#fde68a;border:1px solid rgba(250,204,21,.4)">👑 Titles</button>`); } catch (e) {} return r; }; })(window.renderTournamentsTabDedicated);
+
+window.SG_BUILD = 56;
+(function newsCss() { const s = document.createElement('style'); s.textContent = `
+.nw-hub{display:flex;flex-direction:column;gap:10px}
+.nw-head{border-radius:22px;padding:12px 14px;background:linear-gradient(135deg,rgba(34,211,238,.14),rgba(168,85,247,.14) 55%,rgba(255,45,149,.12));border:1px solid rgba(168,85,247,.35)}
+.nw-live{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:900;color:#f9a8d4}.nw-live i{width:7px;height:7px;border-radius:9px;background:#ff2d95;box-shadow:0 0 8px #ff2d95;animation:nwp 1.4s infinite}
+@keyframes nwp{50%{opacity:.35}}
+.nw-row{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px}.nw-row::-webkit-scrollbar{display:none}
+.nw-tab,.nw-chip{flex-shrink:0;padding:7px 12px;border-radius:999px;font-size:11px;font-weight:900;background:rgba(255,255,255,.06);color:#cbd5e1;border:1px solid rgba(255,255,255,.08)}
+.nw-tab.on,.nw-chip.on{background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);color:#0b0f24;border-color:transparent}
+.nw-chip{font-size:10.5px;padding:6px 11px}
+.nw-card{border-radius:20px;padding:12px;background:rgba(11,15,36,.72);border:1px solid rgba(255,255,255,.07)}
+.nw-card.hl{border-color:#22d3ee;box-shadow:0 0 18px -6px #22d3ee}
+.nw-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:10px;color:#94a3b8;font-weight:700}
+.nw-badge{font-size:9.5px;font-weight:900;padding:2px 8px;border-radius:999px}
+.nw-o{background:rgba(52,211,153,.16);color:#6ee7b7}.nw-p{background:rgba(34,211,238,.16);color:#67e8f9}.nw-r{background:rgba(250,204,21,.16);color:#fde68a}
+.nw-l{background:rgba(255,45,149,.18);color:#f9a8d4}.nw-c{background:rgba(168,85,247,.18);color:#d8b4fe}.nw-v{background:rgba(168,85,247,.22);color:#e9d5ff}
+.nw-title{font-size:14.5px;line-height:1.35;font-weight:900;color:#fff;margin-top:6px}
+.nw-prev{font-size:12px;color:#cbd5e1;margin-top:5px;line-height:1.45}
+.nw-brief{margin-top:7px;padding:8px 10px;border-radius:12px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.25);font-size:12px;color:#e2e8f0}
+.nw-spoil{filter:blur(6px);cursor:pointer}
+.nw-tl{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:7px;font-size:9.5px;font-weight:900;color:#94a3b8}
+.nw-vid{position:relative;margin-top:8px;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:#000}
+.nw-vid img{width:100%;height:100%;object-fit:cover}.nw-vid b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:34px;color:#fff;text-shadow:0 2px 12px #000}
+.nw-acts{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px}
+.nw-act{font-size:11px;font-weight:900;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);color:#e2e8f0;border:1px solid rgba(255,255,255,.08)}
+.nw-act.on{border-color:#22d3ee;color:#67e8f9}
+.nw-more{width:100%;padding:11px;border-radius:16px;font-size:12px;font-weight:900;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+#nwBreak{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:16px;background:linear-gradient(90deg,rgba(255,45,149,.16),rgba(168,85,247,.12));border:1px solid rgba(255,45,149,.35);overflow:hidden}
+#nwBreak .lab{flex-shrink:0;font-size:10px;font-weight:900;color:#fff;background:#ff2d95;padding:3px 8px;border-radius:999px}
+#nwBreak .tk{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;font-weight:800;color:#fff}
+.nw-world{display:flex;flex-wrap:wrap;gap:7px}`; document.head.appendChild(s); })();
+
+window.NW_TOPICS = [['games', '🎮 Games'], ['fcmobile', '⚽ FC Mobile'], ['efootball', '🎮 eFootball'], ['eafc', '🕹️ EA FC'], ['cod', '🔫 Call of Duty'], ['dls', '🏟️ DLS'], ['gta', '🚓 GTA'], ['esports', '🏆 Esports'],
+['football', '⚽ Football'], ['transfers', '🔁 Transfers'], ['sports', '🏀 Sports'], ['nba', 'NBA'], ['f1', '🏎️ F1'], ['ufc', '🥊 UFC'], ['cricket', '🏏 Cricket'],
+['movies', '🎬 Movies'], ['series', '📺 Series'], ['trailers', '🎞️ Trailers'], ['kdrama', '🇰🇷 K-drama'], ['bollywood', '🇮🇳 Bollywood'], ['nollywood', '🇳🇬 Nollywood'], ['anime', '🍥 Anime'],
+['music', '🎵 Music'], ['kpop', 'K-pop'], ['afrobeats', 'Afrobeats'], ['latin', 'Latin'], ['phones', '📱 Phones'], ['tech', '💻 Tech'], ['ai', '🤖 AI'], ['cars', '🚗 Cars'],
+['fashion', '👗 Fashion'], ['food', '🍔 Food'], ['fitness', '💪 Fitness'], ['travel', '✈️ Travel'], ['wrestling', '🤼 Wrestling'], ['books', '📚 Books'], ['students', '🎓 Students & careers']];
+window.NW_KINDS = { o: ['🟢 Official', 'nw-o'], p: ['🔵 Reported', 'nw-p'], r: ['🟡 Rumour', 'nw-r'], l: ['💧 Leak', 'nw-l'], c: ['👥 Community', 'nw-c'], v: ['🎬 Video', 'nw-v'] };
+window.NW_SRC = { ign: 'IGN', gamespot: 'GameSpot', eurogamer: 'Eurogamer', pcgamer: 'PC Gamer', vgc: 'VGC', gematsu: 'Gematsu', polygon: 'Polygon', gamerant: 'Game Rant', dexerto: 'Dexerto', psblog: 'PlayStation Blog', xboxwire: 'Xbox Wire', charlieintel: 'Charlie INTEL', r_leaks: 'r/GamingLeaksAndRumours', r_fcm: 'r/FUTMobile', r_eafc: 'r/EASportsFC', r_efootball: 'r/eFootball', r_dls: 'r/DreamLeagueSoccer', r_codm: 'r/CallOfDutyMobile', esportsinsider: 'Esports Insider', bbcfootball: 'BBC Sport', skytransfers: 'Sky Sports', skyfootball: 'Sky Sports', guardianfootball: 'The Guardian', espnfc: 'ESPN', ghanasoccernet: 'GhanaSoccernet', espnnba: 'ESPN', espnmma: 'ESPN', espntennis: 'ESPN', f1: 'Formula 1', cricinfo: 'ESPNcricinfo', deadline: 'Deadline', variety: 'Variety', collider: 'Collider', screenrant: 'Screen Rant', soompi: 'Soompi', htbollywood: 'Hindustan Times', bellanaija: 'BellaNaija', ann: 'Anime News Network', crunchyroll: 'Crunchyroll', mal: 'MyAnimeList', billboard: 'Billboard', rollingstone: 'Rolling Stone', notjustok: 'NotJustOk', remezcla: 'Remezcla', gsmarena: 'GSMArena', macrumors: 'MacRumors', '9to5mac': '9to5Mac', '9to5google': '9to5Google', sammobile: 'SamMobile', androidauthority: 'Android Authority', gizmochina: 'Gizmochina', xda: 'XDA', verge: 'The Verge', techcrunch: 'TechCrunch', engadget: 'Engadget', applenews: 'Apple Newsroom', samsungnews: 'Samsung Newsroom', electrek: 'Electrek', motor1: 'Motor1', carscoops: 'Carscoops', hypebeast: 'Hypebeast', vogue: 'Vogue', bonappetit: 'Bon Appétit', menshealth: "Men's Health", cntraveler: 'Condé Nast Traveler', cageside: 'Cageside Seats', wrestlinginc: 'Wrestling Inc', bookriot: 'Book Riot', lithub: 'Literary Hub', oppdesk: 'Opportunity Desk' };
+window.nwSrcName = (n) => window.NW_SRC[n] || (String(n).startsWith('yt_') ? 'YouTube · ' + n.slice(3) : n);
+window.NW_REGION = (() => { const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || ''), lang = (navigator.language || 'en').toLowerCase();
+if (/^Africa\//.test(tz)) return 'africa'; if (/Kolkata|Calcutta|Karachi|Dhaka|Colombo|Kathmandu/.test(tz)) return 'india'; if (/Riyadh|Dubai|Qatar|Kuwait|Baghdad|Amman|Beirut|Cairo/.test(tz) || lang.startsWith('ar')) return 'arab';
+if (/Moscow|Volgograd|Samara|Yekaterinburg|Novosibirsk|Vladivostok/.test(tz)) return 'russia'; if (/^Asia\//.test(tz)) return 'asia'; if (/^America\/(Sao_Paulo|Argentina|Bogota|Lima|Santiago|Mexico|Caracas|Montevideo)/.test(tz)) return 'latam';
+if (/^America\//.test(tz)) return 'us'; if (/^Europe\//.test(tz)) return 'europe'; return 'global'; })();
+window.nwWorld = () => { try { return JSON.parse(localStorage.getItem('sg_world') || 'null'); } catch (e) { return null; } };
+window.nwSt = { tab: 'foryou', topic: '', items: [], at: 0, hour: 0, loading: false, more: true };
+window.nwUrl = async () => { const u = (window.SG_PUSH && window.SG_PUSH.url) || ((await window.loadPushCfg()) || {}).url; return u ? u.replace(/\/$/, '') : ''; };
+window.nwFetch = async function(params) {
+const base = await window.nwUrl(); if (!base) throw new Error('helper link missing');
+const qs = new URLSearchParams(params).toString(), key = 'nw:' + qs, c = (window._nwCache = window._nwCache || {})[key];
+if (c && Date.now() - c.at < 60000) return c.d;
+const r = await fetch(base + '/news?' + qs); const d = await r.json(); if (!d.ok) throw new Error('news not ready');
+window._nwCache[key] = { at: Date.now(), d }; try { if (!params.before && !params.id) localStorage.setItem('sg_nw_last', JSON.stringify({ qs, d })); } catch (e) {}
+return d;
+};
+window.nwParams = function() {
+const st = window.nwSt, w = window.nwWorld(), p = { limit: 40 };
+if (st.topic) p.t = st.topic;
+else if (st.tab === 'foryou' && w && (w.topics || []).length) p.t = w.topics.join(',');
+if (st.tab === 'official') p.k = 'o';
+if (st.tab === 'rumours') p.k = 'r,l,c';
+if (st.tab === 'videos') p.k = 'v';
+if (st.tab === 'country') p.rg = (w && w.region) || window.NW_REGION;
+return p;
+};
+window.nwAgo = (ms) => { const m = Math.max(0, Math.round((Date.now() - ms) / 60000)); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago'; };
+window.nwCard = function(it, hl) {
+const K = window.NW_KINDS[it.k] || window.NW_KINDS.p, src = it.src || [], first = src[0] || {};
+const tp = (it.tp || []).map(z => (window.NW_TOPICS.find(x => x[0] === z) || [])[1]).filter(Boolean)[0] || '';
+const mine = (window.nwMyReact || {})[it.id], rc = (window._nwReactCounts || {})[it.id] || {};
+const tracked = (window.nwFollows().tr || []).includes(it.id), tl = it.tl && it.tl.length > 1 ? `<div class="nw-tl">${it.tl.slice(-4).map(x => `<span>${(window.NW_KINDS[x.k] || [''])[0]}</span>`).join('<span>→</span>')}</div>` : '';
+const body = it.br ? `<div class="nw-brief ${it.sp ? 'nw-spoil' : ''}" ${it.sp ? 'onclick="this.classList.remove(\'nw-spoil\')"' : ''}><b style="color:#67e8f9">⚡ GG Brief</b> · ${escapeHTML(it.br)}<span style="display:block;font-size:9.5px;color:#94a3b8;margin-top:3px">Short summary by GG AI from the sources below. Check the original for details.</span></div>`
+: it.s ? `<p class="nw-prev ${it.sp ? 'nw-spoil' : ''}" ${it.sp ? 'onclick="this.classList.remove(\'nw-spoil\')"' : ''}>${escapeHTML(it.s)}${it.s.length >= 199 ? '…' : ''}</p>` : '';
+const vid = it.y ? `<div class="nw-vid" data-nwy="${escapeHTML(it.y)}" onclick="window.nwPlay(this)"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/${escapeHTML(it.y)}/${window.dataSaver ? 'default' : 'mqdefault'}.jpg"><b>▶</b></div>` : '';
+return `<div class="nw-card ${hl ? 'hl' : ''}" data-nwid="${escapeHTML(it.id)}">
+<div class="nw-meta"><span class="nw-badge ${K[1]}">${K[0]}</span>${tp ? `<span>${escapeHTML(tp)}</span>` : ''}<span>· ${escapeHTML(window.nwSrcName(first.n))}${src.length > 1 ? ` + ${src.length - 1} more` : ''}</span><span>· ${window.nwAgo(it.ts)}</span>${it.sp ? '<span class="nw-badge nw-l">⚠️ Spoilers</span>' : ''}</div>
+<p class="nw-title">${escapeHTML(it.t)}</p>${tl}${body}${vid}
+<div class="nw-acts">
+${[['fire', '🔥'], ['cap', '🧢'], ['wow', '🤯']].map(([k, e]) => `<button class="nw-act ${mine === k ? 'on' : ''}" onclick="window.nwReact('${escapeHTML(it.id)}','${k}')">${e} ${rc[k] || ''}</button>`).join('')}
+<button class="nw-act" onclick="window.nwDiscuss('${escapeHTML(it.id)}')">💬 Discuss</button>
+${['r', 'l', 'c'].includes(it.k) ? `<button class="nw-act ${tracked ? 'on' : ''}" onclick="window.nwTrack('${escapeHTML(it.id)}')">${tracked ? '🔔 Tracking' : '🔔 Track this rumour'}</button>` : ''}
+<button class="nw-act" onclick="window.nwShare('${escapeHTML(it.id)}')">↗ Share</button>
+${it.y ? '' : `<a class="nw-act" href="${escapeHTML(first.u || it.u)}" target="_blank" rel="noopener nofollow">Read at ${escapeHTML(window.nwSrcName(first.n))} ›</a>`}
+</div></div>`;
+};
+window.nwPlay = function(el) { const y = el.getAttribute('data-nwy'); if (!/^[\w-]{11}$/.test(y)) return; el.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${y}?autoplay=1&playsinline=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="width:100%;height:100%;border:0"></iframe>`; el.onclick = null; };
+
+window.nwRender = function() {
+const view = document.getElementById('view-news'); if (!view) return;
+let hub = document.getElementById('nwHub'); if (!hub) { view.insertAdjacentHTML('afterbegin', '<div id="nwHub" class="nw-hub"></div>'); hub = document.getElementById('nwHub'); }
+const st = window.nwSt, w = window.nwWorld();
+const tabs = [['foryou', '✨ For You'], ['latest', '⚡ Latest'], ['official', '🟢 Official'], ['rumours', '📡 Rumour Radar'], ['videos', '🎬 Videos'], ['country', '📍 My Country']];
+const topics = (st.tab === 'foryou' && w && (w.topics || []).length) ? window.NW_TOPICS.filter(t => w.topics.includes(t[0])) : window.NW_TOPICS;
+hub.innerHTML = `<div class="nw-head"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0"><p style="font-size:15px;font-weight:900;color:#fff">🌍 Discover</p><span class="nw-live"><i></i>${st.hour ? `${st.hour} new in the last hour` : 'Live from everywhere'}</span></div>
+<button class="nw-act" onclick="window.nwChooseWorld()">🌍 My world</button><button class="nw-act" onclick="window.nwLoad(true)">↻</button></div>
+<p style="font-size:10px;color:#94a3b8;margin-top:5px">Games, football, movies, anime, music, phones, cars and more, from sources worldwide. Every story shows who reported it.</p></div>
+<div class="nw-row">${tabs.map(([k, l]) => `<button class="nw-tab ${st.tab === k ? 'on' : ''}" onclick="window.nwSetTab('${k}')">${l}</button>`).join('')}</div>
+<div class="nw-row"><button class="nw-chip ${!st.topic ? 'on' : ''}" onclick="window.nwSetTopic('')">All</button>${topics.map(([k, l]) => `<button class="nw-chip ${st.topic === k ? 'on' : ''}" onclick="window.nwSetTopic('${k}')">${l}</button>`).join('')}</div>
+<div id="nwList" style="display:flex;flex-direction:column;gap:10px">${st.items.length ? st.items.map(it => window.nwCard(it, it.id === window._nwHl)).join('') : `<p style="text-align:center;font-size:12px;color:#94a3b8;padding:24px">${st.loading ? 'Loading the latest…' : st.err ? '⚠️ ' + escapeHTML(st.err) : 'Nothing here yet. Try another topic.'}</p>`}</div>
+${st.items.length && st.more ? `<button class="nw-more" onclick="window.nwLoadMore()">Show more</button>` : ''}
+<p style="font-size:9.5px;color:#64748b;text-align:center">Headlines and short previews link to the original publishers. <a href="editorial.html" style="color:#67e8f9">How we pick & credit news</a></p>
+<p style="font-size:11px;font-weight:900;color:#94a3b8;margin-top:6px">More stories</p>`;
+window.nwLoadReacts(st.items.slice(0, 40).map(i => i.id));
+};
+window.nwLoad = async function(force) {
+const st = window.nwSt; st.loading = true; st.err = ''; if (force) window._nwCache = {};
+if (!st.items.length) { try { const l = JSON.parse(localStorage.getItem('sg_nw_last') || 'null'); if (l && l.d) { st.items = l.d.items || []; st.hour = l.d.hour || 0; } } catch (e) {} }
+window.nwRender();
+try { const d = await window.nwFetch(window.nwParams()); st.items = d.items || []; st.hour = d.hour || 0; st.more = (d.items || []).length >= 40; }
+catch (e) { st.err = navigator.onLine ? 'News is warming up. Pull to refresh in a minute.' : 'You are offline. Showing what you saw last.'; }
+st.loading = false; window.nwRender(); window.nwBreakRender();
+};
+window.nwLoadMore = async function() { const st = window.nwSt, last = st.items[st.items.length - 1]; if (!last) return; try { const d = await window.nwFetch({ ...window.nwParams(), before: last.ts }); const have = new Set(st.items.map(i => i.id)); (d.items || []).forEach(i => { if (!have.has(i.id)) st.items.push(i); }); st.more = (d.items || []).length >= 40; } catch (e) {} window.nwRender(); };
+window.nwSetTab = function(k) { window.nwSt.tab = k; window.nwSt.topic = ''; window.nwSt.items = []; window.nwLoad(); };
+window.nwSetTopic = function(k) { window.nwSt.topic = k; window.nwSt.items = []; window.nwLoad(); };
+window.switchView = (function(b) { return function(v, ...r) { const out = b.call(this, v, ...r); try { if (v === 'news') { if (!window.nwWorld() && !window._nwAsked && !document.querySelector('#sgPanel:not(.hidden)')) { window._nwAsked = 1; setTimeout(() => window.nwChooseWorld(true), 600); } window.nwLoad(); } } catch (e) { console.warn(e); } return out; }; })(window.switchView);
+
+window.nwChooseWorld = function(first) {
+const w = window.nwWorld() || { topics: [], region: window.NW_REGION };
+window.openPanel('🌍 Choose your world', `<p class="text-xs text-gray-400 mb-3">${first ? 'Welcome! ' : ''}Pick what you love. Your "For You" shows these first. You can change this anytime.</p>
+<div class="nw-world">${window.NW_TOPICS.map(([k, l]) => `<button data-nwt="${k}" class="nw-chip ${(w.topics || []).includes(k) ? 'on' : ''}" onclick="this.classList.toggle('on')">${l}</button>`).join('')}</div>
+<p class="text-[10px] font-black uppercase text-gray-400 mt-4 mb-1">📍 My part of the world</p>
+<select id="nwRegion" class="w-full bg-gg-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white">${[['global', '🌍 Worldwide'], ['africa', '🌍 Africa'], ['europe', '🇪🇺 Europe'], ['us', '🇺🇸 North America'], ['latam', '🌎 Latin America'], ['india', '🇮🇳 India & South Asia'], ['asia', '🌏 East & Southeast Asia'], ['arab', '🕌 Arab world'], ['russia', '🇷🇺 Russia & neighbours']].map(([k, l]) => `<option value="${k}" ${(w.region || window.NW_REGION) === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+<div class="grid grid-cols-2 gap-2 mt-4"><button onclick="window.nwSaveWorld(true)" class="py-3 rounded-2xl bg-white/5 border border-white/10 text-white text-xs font-black">Show me everything</button>
+<button onclick="window.nwSaveWorld()" class="py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-xs font-black uppercase">Save my world</button></div>`);
+};
+window.nwSaveWorld = function(all) {
+const topics = all ? [] : [...document.querySelectorAll('[data-nwt].on')].map(b => b.dataset.nwt), region = (document.getElementById('nwRegion') || {}).value || window.NW_REGION;
+try { localStorage.setItem('sg_world', JSON.stringify({ topics, region, at: Date.now() })); } catch (e) {}
+topics.forEach(t => window.boostCategoryInterest && window.boostCategoryInterest(t));
+window.closePanel(); window.nwSt.items = []; window.nwSt.tab = 'foryou'; window.nwSt.topic = ''; window.nwLoad(); showToast(all ? '🌍 Showing everything' : '🌍 Your world is saved');
+window.qMark && window.qMark('interests');
+};
+
+window.nwMyReact = (() => { try { return JSON.parse(localStorage.getItem('sg_nw_react') || '{}'); } catch (e) { return {}; } })();
+window._nwReactCounts = {};
+window.nwLoadReacts = async function(ids) {
+const need = ids.filter(id => !(id in window._nwReactCounts)).slice(0, 25); if (!need.length) return;
+need.forEach(id => window._nwReactCounts[id] = {});
+await Promise.all(need.map(async id => { try { const s = await getDoc(doc(window.db, 'newsReact', id)); if (s.exists()) window._nwReactCounts[id] = (s.data().r || {}); } catch (e) {} }));
+document.querySelectorAll('#nwList [data-nwid]').forEach(card => { const id = card.getAttribute('data-nwid'), rc = window._nwReactCounts[id] || {}; card.querySelectorAll('.nw-act').forEach(b => { const m = (b.getAttribute('onclick') || '').match(/nwReact\('[^']+','(\w+)'\)/); if (m) b.textContent = `${{ fire: '🔥', cap: '🧢', wow: '🤯' }[m[1]]} ${rc[m[1]] || ''}`; }); });
+};
+window.nwReact = async function(id, k) {
+if (window.needSignIn('react')) return;
+if (window.nwMyReact[id]) { showToast('You already reacted to this one'); return; }
+window.nwMyReact[id] = k; try { localStorage.setItem('sg_nw_react', JSON.stringify(window.nwMyReact)); } catch (e) {}
+const rc = window._nwReactCounts[id] = window._nwReactCounts[id] || {}; rc[k] = (rc[k] || 0) + 1; window.nwRender();
+try { await setDoc(doc(window.db, 'newsReact', id), { r: { [k]: increment(1) } }, { merge: true }); } catch (e) {}
+window.addXP && window.addXP(1, 'gg');
+};
+
+window.NW_HUB = { fcmobile: 'cat_squad_fcmobile', efootball: 'cat_squad_efootball', eafc: 'cat_squad_eafc', dls: 'cat_squad_dls', cod: 'cat_squad_cod', football: 'cat_squad_football', transfers: 'cat_squad_football', movies: 'cat_squad_movies', series: 'cat_squad_movies', kdrama: 'cat_squad_movies', bollywood: 'cat_squad_movies', nollywood: 'cat_squad_movies', trailers: 'cat_squad_movies', anime: 'cat_squad_anime', wrestling: 'cat_squad_wrestling', books: 'cat_squad_books', games: 'cat_squad_other' };
+window.nwFind = (id) => window.nwSt.items.find(i => i.id === id) || (window._nwOne && window._nwOne.id === id ? window._nwOne : null);
+window.nwLink = (id) => `https://sinlessgg.com/#news=${encodeURIComponent(id)}`;
+window.nwDiscuss = function(id) {
+const it = window.nwFind(id); if (!it) return;
+const hub = (it.tp || []).map(t => window.NW_HUB[t]).find(Boolean) || 'cat_squad_general';
+const go = (window.clansData || []).some(c => c.id === hub) ? hub : 'cat_squad_general';
+window.openSquadDetailsModal(go);
+setTimeout(() => { const inp = document.getElementById('squadSubRoomInput'); if (inp) { inp.value = `📰 ${it.t} — ${window.nwLink(id)}`; inp.focus(); } }, 900);
+};
+window.nwShare = function(id) {
+const it = window.nwFind(id); if (!it) return; const url = window.nwLink(id), text = `${it.t} · via SINLESS GG`;
+if (navigator.share) navigator.share({ title: 'SINLESS GG', text, url }).catch(() => {}); else { window.copyText ? window.copyText(text + ' ' + url) : navigator.clipboard && navigator.clipboard.writeText(text + ' ' + url); showToast('🔗 Link copied'); }
+};
+
+window.nwFollows = () => { try { return JSON.parse(localStorage.getItem('sg_nw_follow') || '{"t":[],"tr":[]}'); } catch (e) { return { t: [], tr: [] }; } };
+window.nwFollowCall = async function(topic, on) {
+if (window.needSignIn('get alerts')) return false;
+const base = await window.nwUrl(); if (!base) return false;
+const go = async () => { const r = await fetch(base + '/news/follow', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await window.mediaIdToken()) }, body: JSON.stringify({ topic, on }) }); return { s: r.status, j: await r.json().catch(() => ({})) }; };
+let r = await go();
+if (r.s === 409 && window.registerPushToken) { showToast('🔔 Allow alerts first'); await window.registerPushToken(false); r = await go(); }
+if (!r.j.ok) { showToast(r.s === 409 ? '🔔 Turn on phone alerts first (Notifications → bell)' : '⚠️ Could not save the alert'); return false; }
+return true;
+};
+window.nwTrack = async function(id) {
+const f = window.nwFollows(), on = !(f.tr || []).includes(id);
+if (!(await window.nwFollowCall('tr_' + id, on))) return;
+f.tr = on ? [...(f.tr || []), id].slice(-60) : (f.tr || []).filter(x => x !== id); try { localStorage.setItem('sg_nw_follow', JSON.stringify(f)); } catch (e) {}
+showToast(on ? '🔔 We\'ll tell you once it\'s confirmed or denied' : 'Stopped tracking'); window.nwRender();
+};
+window.nwFollowTopic = async function(t) {
+const f = window.nwFollows(), on = !(f.t || []).includes(t);
+if (!(await window.nwFollowCall('n_' + t, on))) return;
+f.t = on ? [...(f.t || []), t] : (f.t || []).filter(x => x !== t); try { localStorage.setItem('sg_nw_follow', JSON.stringify(f)); } catch (e) {}
+showToast(on ? `🔔 Alerts on for ${t} (max 3 a day)` : `Alerts off for ${t}`); window.nwRender();
+};
+window.nwRender = (function(b) { return function(...a) { const r = b.apply(this, a); try { const t = window.nwSt.topic, row = document.querySelectorAll('#nwHub .nw-row')[1]; if (t && row && !row.querySelector('[data-nwf]')) { const on = (window.nwFollows().t || []).includes(t); row.insertAdjacentHTML('afterbegin', `<button data-nwf class="nw-chip ${on ? 'on' : ''}" onclick="window.nwFollowTopic('${t}')">${on ? '🔔 Following' : '🔔 Follow'}</button>`); } } catch (e) {} return r; }; })(window.nwRender);
+
+window.nwBreakRender = async function() {
+const feed = document.getElementById('fypFeedContainer'); if (!feed) return;
+let items = window.nwSt.items; if (!items.length) { try { items = (await window.nwFetch({ limit: 40 })).items || []; } catch (e) { return; } }
+const big = items.filter(i => i.k === 'o' || i.sc >= 2 || /here we go|leak|official|trailer|release/i.test(i.t)).slice(0, 5); if (!big.length) return;
+let el = document.getElementById('nwBreak'); const it = big[(window._nwBi = ((window._nwBi || 0) + 1) % big.length)];
+const html = `<div id="nwBreak" onclick="window.nwOpen('${escapeHTML(it.id)}')"><span class="lab">🔴 ${it.k === 'l' ? 'LEAK' : it.k === 'r' ? 'RUMOUR' : 'BREAKING'}</span><span class="tk">${escapeHTML(it.t)}</span><span style="font-size:10px;color:#f9a8d4;font-weight:900">${window.nwAgo(it.ts)}</span></div>`;
+if (el) el.outerHTML = html; else feed.insertAdjacentHTML('beforebegin', html);
+};
+setInterval(() => { try { if (!document.getElementById('view-fyp')?.classList.contains('hidden')) window.nwBreakRender(); } catch (e) {} }, 8000);
+setTimeout(() => { try { window.nwBreakRender(); } catch (e) {} }, 6000);
+window.nwOpen = async function(id) {
+window._nwHl = id; window.switchView('news');
+if (!window.nwFind(id)) { try { const d = await window.nwFetch({ id }); const it = (d.items || [])[0]; if (it) { window._nwOne = it; window.nwSt.items = [it, ...window.nwSt.items.filter(x => x.id !== id)]; window.nwRender(); } } catch (e) {} }
+setTimeout(() => document.querySelector(`#nwList [data-nwid="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 500);
+};
+window.addEventListener('hashchange', () => { const m = location.hash.match(/^#news=([\w%-]+)/); if (m) window.nwOpen(decodeURIComponent(m[1])); });
+setTimeout(() => { const m = location.hash.match(/^#news=([\w%-]+)/); if (m) window.nwOpen(decodeURIComponent(m[1])); }, 2500);
+
+window.renderTournamentsTabDedicated = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try {
+const t = window.activeTournament; if (!t || !window.canManageTourn(t)) return r;
+(t.matches || []).forEach(m => {
+if (!(m.s1 !== null && m.s1 !== undefined && m.s1 !== '')) return;
+document.querySelectorAll(`#tournamentsDedicatedContainer [onclick*="openMatchReportModal('${m.id}')"]`).forEach(card => { if (card.querySelector('[data-fix]') || card.closest('[data-fxboard]')) return; card.insertAdjacentHTML('beforeend', `<button data-fix onclick="event.stopPropagation(); window.openMatchReportModal('${m.id}'); setTimeout(()=>document.querySelector('#matchReportModal [data-x55]')?.scrollIntoView({behavior:'smooth'}),400)" style="margin-top:6px;font-size:10px;font-weight:900;padding:4px 10px;border-radius:999px;background:rgba(168,85,247,.2);color:#e9d5ff;border:1px solid rgba(168,85,247,.5)">✏️ Fix / ❌ Reject result</button>`); });
+});
+} catch (e) {}
+return r;
+};
+})(window.renderTournamentsTabDedicated);
+window.openCommandCentre = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try {
+const ts = (window.tournamentsList || []).filter(t => t.status !== 'finished' && window.canManageTourn(t)), recent = [];
+ts.forEach(t => (t.matches || []).forEach(m => { if (window.isPlayedM(m) && window.fxReal && window.fxReal(m)) recent.push({ t, m, at: m.editedAt || m.approvedAt || window.matchDate(t, m) || 0 }); }));
+recent.sort((x, y) => y.at - x.at);
+const body = document.getElementById('sgPanelBody'); if (!body || !recent.length) return r;
+body.insertAdjacentHTML('beforeend', `<div class="space-y-1.5 mt-3"><p class="text-[10px] font-black uppercase tracking-wider text-gray-400 px-1">🛠️ Results to check (latest)</p>${recent.slice(0, 15).map(x => `<div class="p-2.5 rounded-xl bg-gg-900 border border-white/10 flex items-center gap-2"><div class="flex-1 min-w-0"><p class="text-xs font-black text-white truncate">${escapeHTML(window.dnText(x.m.p1))} ${escapeHTML(x.m.s1)}–${escapeHTML(x.m.s2)} ${escapeHTML(window.dnText(x.m.p2))}</p><p class="text-[9px] text-gray-500 truncate">${escapeHTML(x.t.title || '')} · ${escapeHTML(x.m.stage || '')}</p></div><button onclick="window.hostEditResult('${x.t.id}','${escapeHTML(x.m.id)}')" class="px-2 py-1 rounded-lg text-[10px] font-black" style="background:rgba(34,211,238,.18);color:#67e8f9">✏️ Edit</button><button onclick="window.hostRejectResult('${x.t.id}','${escapeHTML(x.m.id)}')" class="px-2 py-1 rounded-lg text-[10px] font-black" style="background:rgba(255,45,149,.18);color:#f9a8d4">❌ Reject</button></div>`).join('')}</div>`);
+} catch (e) {}
+return r;
+};
+})(window.openCommandCentre);
+
+window.NW_LOVE_MAP = { football: 'football', gaming: 'games', movies: 'movies', anime: 'anime', music: 'music', wrestling: 'wrestling', books: 'books', tech: 'tech', science: 'tech' };
+window.nwWorld = (function(b) { return function() { const w = b(); if (w) return w; try { const l = JSON.parse(localStorage.getItem('sg_love_done') || 'null'); if (Array.isArray(l)) return { topics: [...new Set(l.map(k => window.NW_LOVE_MAP[k]).filter(Boolean))], region: window.NW_REGION, fromLove: 1 }; if (l === 'skip') return { topics: [], region: window.NW_REGION, fromLove: 1 }; } catch (e) {} return null; }; })(window.nwWorld);
+window.nwSaveWorld = (function(b) { return function(...a) { try { if (!localStorage.getItem('sg_love_done')) localStorage.setItem('sg_love_done', 'skip'); } catch (e) {} return b.apply(this, a); }; })(window.nwSaveWorld);
