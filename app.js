@@ -25073,3 +25073,343 @@ const cfg = await window.loadPushCfg(); if (!cfg.url || !id) return;
 let tok = null; try { tok = await window.mediaIdToken(); } catch (e) {}
 try { await fetch(cfg.url + '/notify', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) }, body: JSON.stringify({ id }), keepalive: true }); } catch (e) {}
 };
+
+window.SG_BUILD = 55;
+
+window.adminLog = async function(action, target, why) {
+if (!window.isSignedIn()) return;
+try { await addDoc(collection(window.db, 'adminLog'), window.cleanForCloud({ action: String(action).slice(0, 80), target: String(target || '').slice(0, 160), why: String(why || '').slice(0, 220), by: window.me(), byUid: window.uidNow(), at: Date.now() })); } catch (e) {}
+};
+[['adminBan', 'banned user'], ['adminDeletePost', 'deleted post'], ['adminRemovePost', 'removed post'], ['adminDeleteStory', 'deleted story'], ['adminDeleteTournament', 'deleted tournament']].forEach(([fn, label]) => {
+const b = window[fn]; if (typeof b !== 'function') return;
+window[fn] = async function(...a) { const r = await b.apply(this, a); try { window.adminLog(label, a.filter(x => typeof x === 'string').join(' · ')); } catch (e) {} return r; };
+});
+
+window.submitMatchScoreReport = (function(b) {
+return async function(...a) {
+const t = window.activeTournament, m = window.activeMatchForReporting;
+const s1 = parseInt(document.getElementById('reportP1ScoreInput')?.value), s2 = parseInt(document.getElementById('reportP2ScoreInput')?.value);
+if (t && m && !isNaN(s1) && !isNaN(s2) && !window.canManageTourn(t)) {
+const ok = await window.sgConfirm(`${window.dnText(m.p1)}  ${s1} – ${s2}  ${window.dnText(m.p2)}\n${m.stage || 'Round ' + (m.round || 1)} · ${t.title || ''}\n\nCheck the names: is this the match you really played?`, { title: '✅ Right match?', okText: 'Yes, send it', cancelText: 'No, go back' });
+if (!ok) return;
+}
+return b.apply(this, a);
+};
+})(window.submitMatchScoreReport);
+
+window.openMatchReportModal = (function(b) {
+return function(matchId, ...rest) {
+const r = b.call(this, matchId, ...rest);
+try {
+const t = window.activeTournament, m = window.activeMatchForReporting, modal = document.getElementById('matchReportModal'); if (!t || !m || !modal || !window.canManageTourn(t)) return r;
+const card = modal.firstElementChild; card.querySelectorAll('[data-x55]').forEach(x => x.remove());
+const has = m.s1 !== null && m.s1 !== undefined && m.s1 !== '';
+if (!has && !window.isPlayedM(m)) return r;
+card.insertAdjacentHTML('beforeend', `<div data-x55 class="mt-3 p-3 rounded-2xl" style="border:1px solid rgba(168,85,247,.45);background:rgba(168,85,247,.08)">
+<p class="text-[10px] font-black uppercase tracking-wider text-fuchsia-200 mb-2">🛠️ Host: fix this result</p>
+<div class="grid grid-cols-2 gap-2"><button onclick="window.hostEditResult('${t.id}','${escapeHTML(m.id)}')" class="py-2.5 rounded-xl text-xs font-black text-slate-950" style="background:linear-gradient(90deg,#22d3ee,#a855f7)">✏️ Edit score</button>
+<button onclick="window.hostRejectResult('${t.id}','${escapeHTML(m.id)}')" class="py-2.5 rounded-xl text-xs font-black text-white" style="background:rgba(255,45,149,.25);border:1px solid rgba(255,45,149,.6)">❌ Reject (back to unplayed)</button></div>
+<p class="text-[9px] text-gray-400 mt-1.5">Both players are told, and the change is saved in the match history with your reason.</p></div>`);
+} catch (e) { console.warn(e); }
+return r;
+};
+})(window.openMatchReportModal);
+window.koFollowOn = function(t, m, oldW, newW) {
+if (t.format === 'LEAGUE' || !oldW || window.tagEq(oldW, newW)) return 0; let n = 0;
+(t.matches || []).forEach(x => { if ((x.round || 0) <= (m.round || 0) || window.isPlayedM(x)) return; if (window.tagEq(x.p1, oldW)) { x.p1 = newW || 'TBD'; n++; } if (window.tagEq(x.p2, oldW)) { x.p2 = newW || 'TBD'; n++; } });
+return n;
+};
+window.hostEditResult = async function(tid, mid) {
+const t = (window.tournamentsList || []).find(x => x.id === tid), m = t && (t.matches || []).find(x => x.id === mid); if (!m || !window.canManageTourn(t)) return;
+const v = await window.sgPrompt(`New score for ${window.dnText(m.p1)} vs ${window.dnText(m.p2)} (like 2-1)`, { title: '✏️ Edit score', defaultValue: m.s1 != null ? `${m.s1}-${m.s2}` : '', okText: 'Next' });
+if (v == null) return; const mm = String(v).match(/^\s*(\d{1,2})\s*[-–:]\s*(\d{1,2})\s*$/); if (!mm) { showToast('Type the score like 2-1'); return; }
+const s1 = +mm[1], s2 = +mm[2];
+if (t.format !== 'LEAGUE' && s1 === s2) { showToast('A knockout match needs a winner. Use a forfeit or reject it.'); return; }
+const why = await window.askReason('Wrong score was reported'); if (why === null) return;
+const oldTxt = m.s1 != null ? `${m.s1}–${m.s2}` : 'no score', oldW = m.winner && m.winner !== 'DRAW' && m.winner !== 'NONE' ? m.winner : null;
+const winner = s1 > s2 ? m.p1 : s2 > s1 ? m.p2 : 'DRAW';
+Object.assign(m, { s1, s2, winner, status: 'approved', approvedBy: window.me(), forfeit: null, forfeitBy: null, bothLost: false, conflict: null, editedBy: window.me(), editedAt: Date.now() });
+const moved = window.koFollowOn(t, m, oldW, winner === 'DRAW' ? null : winner);
+window.renderTournamentsTabDedicated && window.renderTournamentsTabDedicated();
+await window.saveTournament(t);
+window.tlog(t, { type: 'decision', mid, text: `changed the score ${oldTxt} → ${s1}–${s2}`, why });
+window.adminLog('edited result', `${t.title}: ${m.p1} ${oldTxt} → ${s1}–${s2} ${m.p2}`, why);
+[m.p1, m.p2].forEach(p => window.notifyTag(p, `✏️ ${t.title}: the host changed ${window.dnText(m.p1)} vs ${window.dnText(m.p2)} to ${s1}–${s2}. Reason: ${why}`));
+window.closeMatchReportModal && window.closeMatchReportModal();
+showToast(`✅ Score changed to ${s1}–${s2}${moved ? ' · next round updated' : ''}`);
+};
+window.hostRejectResult = async function(tid, mid) {
+const t = (window.tournamentsList || []).find(x => x.id === tid), m = t && (t.matches || []).find(x => x.id === mid); if (!m || !window.canManageTourn(t)) return;
+const why = await window.askReason('Wrong match or wrong score reported'); if (why === null) return;
+const oldTxt = m.s1 != null ? `${m.s1}–${m.s2}` : 'no score', oldW = m.winner && m.winner !== 'DRAW' && m.winner !== 'NONE' ? m.winner : null;
+['s1', 's2'].forEach(k => m[k] = null);
+Object.assign(m, { winner: null, status: 'approved', forfeit: null, forfeitBy: null, bothLost: false, conflict: null, approvedBy: null, reportedBy: null, reports: null, proof: null, rejectedBy: window.me(), rejectedAt: Date.now() });
+window.koFollowOn(t, m, oldW, null);
+window.renderTournamentsTabDedicated && window.renderTournamentsTabDedicated();
+await window.saveTournament(t);
+window.tlog(t, { type: 'decision', mid, text: `rejected the result ${oldTxt}; the match is back to unplayed`, why });
+window.adminLog('rejected result', `${t.title}: ${m.p1} ${oldTxt} ${m.p2}`, why);
+[m.p1, m.p2].forEach(p => window.notifyTag(p, `❌ ${t.title}: the result of ${window.dnText(m.p1)} vs ${window.dnText(m.p2)} was rejected. Please play / report it again. Reason: ${why}`));
+window.closeMatchReportModal && window.closeMatchReportModal();
+showToast('❌ Result rejected. The match is back on the fixtures.');
+};
+
+window.openTitlesManager = async function() {
+if (!window.isAppAdmin) { showToast('Admins only'); return; }
+window._titles = null; const list = await window.loadTitles();
+const host = await (window.loadMyHost ? window.loadMyHost() : null);
+const comps = ((host && host.comps) || []).map(c => ({ id: c.id, name: c.name, kind: c.kind, tier: c.tier || 0 }));
+window._tmComps = comps;
+const f = 'w-full bg-gg-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white';
+const names = [...new Set(Object.values(window.allProfilesMap || {}).map(p => p && p.gamertag).filter(Boolean))].slice(0, 2000);
+const sorted = [...list].sort((a, b) => String(a.compName || '').localeCompare(String(b.compName || '')) || (b.season || 0) - (a.season || 0));
+window._tmList = sorted;
+window.openPanel('👑 Titles manager', `<div class="p-3 rounded-2xl" style="border:1px solid rgba(250,204,21,.45);background:rgba(250,204,21,.07)">
+<p class="text-xs font-black text-amber-200 mb-2">👑 Crown a champion (past seasons too)</p>
+<datalist id="tmNames">${names.map(n => `<option value="${escapeHTML(n)}">`).join('')}</datalist>
+<input id="tmPlayer" list="tmNames" placeholder="Player gamertag" class="${f}">
+<select id="tmComp" onchange="window.tmCompChange()" class="${f} mt-2">${comps.map((c, i) => `<option value="${i}">${escapeHTML(c.name)}</option>`).join('')}<option value="other">✍️ Another competition (type the name)</option></select>
+<div id="tmOther" class="${comps.length ? 'hidden' : ''} space-y-2 mt-2"><input id="tmName" maxlength="60" placeholder="Competition name, e.g. Sinless Super League" class="${f}">
+<select id="tmKind" class="${f}"><option value="league1">League · top division</option><option value="league2">League · 2nd division</option><option value="league3">League · 3rd division</option><option value="cup">Cup</option><option value="ucl">Champions League</option></select></div>
+<div class="grid grid-cols-2 gap-2 mt-2"><input id="tmSeasonN" type="number" min="0" max="99" placeholder="Season no. (e.g. 1)" class="${f}"><input id="tmSeasonL" maxlength="30" placeholder="Season name (e.g. AUG–SEP)" class="${f}"></div>
+<input id="tmRunner" list="tmNames" placeholder="Runner-up (optional)" class="${f} mt-2">
+<button onclick="window.tmCrown()" class="w-full mt-3 py-3 rounded-2xl text-xs font-black uppercase text-slate-950" style="background:linear-gradient(90deg,#fde68a,#f59e0b)">👑 Crown champion</button>
+<p class="text-[10px] text-amber-100/70 mt-1.5">Two-time champions: just crown them again for the other season. Titles go into their trophy cabinet and count in the power ranking.</p></div>
+<p class="text-[10px] font-black uppercase tracking-wider text-gray-400 mt-4 mb-1">🏆 All titles · ${sorted.length}</p>
+${sorted.length ? sorted.map((x, i) => `<div class="flex items-center gap-2 p-2.5 rounded-xl bg-gg-900 border border-white/10 mb-1.5"><span class="flex-1 min-w-0"><b class="block text-xs text-white truncate">${escapeHTML(window.dnText(x.user || x.tag))}</b><span class="block text-[10px] text-amber-200 truncate">${escapeHTML(x.title || '')}${x.seasonLabel ? ' · ' + escapeHTML(x.seasonLabel) : x.season ? ' · Season ' + escapeHTML(x.season) : ''}</span></span><button onclick="window.tmStrip(${i})" class="fx-act" style="border-color:rgba(255,45,149,.6)">🚫 Remove</button></div>`).join('') : '<p class="text-xs text-gray-500 py-3 text-center">No titles yet</p>'}`);
+window.tmCompChange();
+};
+window.tmCompChange = function() { const v = (document.getElementById('tmComp') || {}).value; const o = document.getElementById('tmOther'); if (o) o.classList.toggle('hidden', v !== 'other' && (window._tmComps || []).length > 0); };
+window.tmCrown = async function() {
+const raw = (document.getElementById('tmPlayer').value || '').trim().replace(/^@/, ''); if (!raw) { showToast('Type the player'); return; }
+const prof = (window.allProfilesMap || {})[raw.toLowerCase()]; const user = prof && prof.gamertag || raw;
+if (!prof && !(await window.sgConfirm(`"${raw}" is not a SINLESS GG gamertag I know. Crown anyway?`, { okText: 'Crown anyway' }))) return;
+const sel = document.getElementById('tmComp').value, c = sel === 'other' || !(window._tmComps || []).length ? null : window._tmComps[+sel];
+let compName, compKind, tier, compId, isUcl = false;
+if (c) { compName = c.name; compKind = c.kind; tier = c.tier || 0; compId = c.id; isUcl = /champions league/i.test(c.name); }
+else { compName = (document.getElementById('tmName').value || '').trim(); if (!compName) { showToast('Type the competition name'); return; } const k = document.getElementById('tmKind').value; compKind = /^league/.test(k) ? 'league' : 'cup'; tier = /^league(\d)/.test(k) ? +k.slice(-1) : 0; isUcl = k === 'ucl'; compId = 'legacy_' + compName.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40); if (isUcl && !/champions league/i.test(compName)) compName += ' Champions League'; }
+const seasonN = parseInt(document.getElementById('tmSeasonN').value), seasonL = (document.getElementById('tmSeasonL').value || '').trim().slice(0, 30);
+const runner = (document.getElementById('tmRunner').value || '').trim().replace(/^@/, '');
+const runnerTag = runner ? (((window.allProfilesMap || {})[runner.toLowerCase()] || {}).gamertag || runner) : null;
+const host = window.myHost || {};
+const data = { tag: user.toLowerCase(), user, title: `${compName} Champion`.slice(0, 80), compId, compName, compKind, tier, format: compKind === 'league' ? 'LEAGUE' : 'KNOCKOUT', season: isNaN(seasonN) ? 0 : seasonN, seasonLabel: seasonL || null, runnerUp: runnerTag, hostUid: window.uidNow(), hostOrg: host.org || 'SINLESS GG', legacy: true, tournId: null, at: serverTimestamp() };
+if (!(await window.sgConfirm(`Crown ${window.dnText(user)} as ${data.title}${seasonL ? ' (' + seasonL + ')' : !isNaN(seasonN) ? ' (Season ' + seasonN + ')' : ''}?`, { title: '👑 Crown', okText: 'Crown' }))) return;
+try {
+await addDoc(collection(window.db, 'titles'), { ...data, ...(window._tmExtra || {}) });
+window.adminLog('crowned champion', `${user} · ${data.title}${seasonL ? ' · ' + seasonL : ''}`);
+window.notifyTag(user, `👑 You are crowned ${data.title}${seasonL ? ' (' + seasonL + ')' : ''}! It's in your trophy cabinet.`);
+showToast('👑 Crowned!'); window.openTitlesManager(window._tmScope || undefined);
+} catch (e) { showToast('⚠️ Not saved. Paste the latest Firebase rules first (admin).'); }
+};
+window.tmStrip = async function(i) { const x = (window._tmList || [])[i]; if (!x) return; await window.stripTitle(x); window.openTitlesManager(); };
+window.stripTitle = async function(x) {
+const why = await window.askReason('Cheating confirmed'); if (why === null) return;
+try {
+const s = await getDocs(query(collection(window.db, 'titles'), where('tag', '==', x.tag), limit(100))); const jobs = [];
+s.forEach(d => { const v = d.data(); if ((v.tournId || null) === (x.tournId || null) && v.title === x.title && (v.season || 0) === (x.season || 0) && (v.seasonLabel || null) === (x.seasonLabel || null) && (window.isAppAdmin || v.hostUid === window.uidNow() || (window._tmScope && window.tmInScope && window.tmInScope(v, window._tmScope)))) jobs.push(deleteDoc(doc(window.db, 'titles', d.id))); });
+await Promise.all(jobs); window._titles = null; await window.loadTitles();
+const t = x.tournId && (window.tournamentsList || []).find(y => y.id === x.tournId); if (t) window.tlog(t, { type: 'decision', text: `removed the title "${x.title}" from ${x.user || x.tag}`, why });
+window.adminLog('removed title', `${x.user || x.tag} · ${x.title}`, why);
+window.notifyTag(x.user || x.tag, `🚫 Your title "${x.title}" was removed. Reason: ${why}`);
+showToast(jobs.length ? '🚫 Title removed' : 'Nothing removed');
+} catch (e) { showToast('⚠️ Not removed'); }
+};
+window.titlesFor = (function(b) { return function(u) { return b(u).map(x => x.seasonLabel && !x._lab ? { ...x, _lab: 1 } : x); }; })(window.titlesFor);
+
+['shareTableCard', 'shareFixturesCard'].forEach(fn => {
+const b = window[fn]; if (typeof b !== 'function') return;
+window[fn] = function(...a) {
+const t = (window.tournamentsList || []).find(x => x.id === a[0]) || window.activeTournament || {}, cs = window.compShort, sv = t.season;
+const full = (x) => { const ti = String((x && x.title) || '').trim(); if (ti.includes('·')) return ti; const nm = (x && (x.compName || x.title)) || ''; return x && x.season ? `${nm} · Season ${x.season}` : nm; };
+window.compShort = full; if (t) t.season = undefined;
+let r; try { r = b.apply(this, a); } finally { window.compShort = cs; if (t) t.season = sv; }
+return r;
+};
+});
+
+window.uploadToCloudinary = (function(b) {
+return async function(f, ...rest) {
+const isAudio = f && typeof f !== 'string' && /^audio\//.test(f.type || '');
+if (isAudio && (window.SG_MEDIA.videos || []).includes('b2') && window.MEDIA_HOSTS && window.MEDIA_HOSTS.b2) {
+try { const r = await window.MEDIA_HOSTS.b2(f, rest[0]); return { ...r, type: 'audio' }; } catch (e) { console.warn('voice → B2 failed, trying the next place', e); }
+}
+return b.call(this, f, ...rest);
+};
+})(window.uploadToCloudinary);
+
+window.renderTrendWorld = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try { const box = document.getElementById('sgTrendWorld'), strip = document.getElementById('liveMatchesStrip'), live = strip && strip.closest('#view-trending > *'); if (box && live && live.nextElementSibling !== box) live.insertAdjacentElement('afterend', box); } catch (e) {}
+return r;
+};
+})(window.renderTrendWorld);
+
+window.renderSquadMembers = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a);
+try {
+const box = document.getElementById('squadRoomMsgsBox'); if (!box) return r;
+let on = 0; box.querySelectorAll('[onclick^="window.openMemberActions("]').forEach(row => {
+const tag = (row.getAttribute('onclick').match(/openMemberActions\('([^']+)'/) || [])[1]; if (!tag) return;
+const live = window.isOnline && window.isOnline(tag); if (live) on++;
+const ls = row.querySelector('.sg-ls'); if (live) { if (ls) { ls.textContent = '🟢 Online'; ls.className = 'sg-ls text-[10px] font-bold text-emerald-300'; } else { const nm = row.querySelector('p,span'); nm && nm.insertAdjacentHTML('afterend', '<p class="sg-ls text-[10px] font-bold text-emerald-300">🟢 Online</p>'); } }
+else if (ls && /Online/.test(ls.textContent)) ls.remove();
+});
+const n = box.querySelector('.sg-online-n'); if (n) n.textContent = n.textContent.replace(/^🟢 \d+ online now/, `🟢 ${on} online now`);
+} catch (e) {}
+return r;
+};
+})(window.renderSquadMembers);
+
+(function liteCss() { const s = document.createElement('style'); s.textContent = `body.data-saver *{animation-duration:.001s!important;animation-iteration-count:1!important;transition-duration:.05s!important}body.data-saver .glass-panel,body.data-saver [class*="backdrop-blur"]{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}`; document.head.appendChild(s); })();
+window.netSlow = () => { const c = navigator.connection; return !!(c && (c.saveData || /^(slow-2g|2g|3g)$/.test(c.effectiveType || ''))); };
+window.applyAutoSaver = function() {
+let pref = null; try { pref = localStorage.getItem('sg_datasaver'); } catch (e) {}
+if (pref !== null) return;                      // the person chose themselves → respect it
+const want = window.netSlow(); if (want === !!window.dataSaver) return;
+window.dataSaver = want; document.body.classList.toggle('data-saver', want);
+if (want && !window._autoSaverSaid) { window._autoSaverSaid = 1; showToast('📶 Slow network: Data Saver switched on (smaller pictures, tap to play videos)'); }
+};
+try { navigator.connection && navigator.connection.addEventListener('change', () => window.applyAutoSaver()); } catch (e) {}
+setTimeout(() => window.applyAutoSaver(), 3000);
+
+window.SG_SW = { videoUploads: true, posting: true, ai: true, voice: true };
+window.loadSwitches = async function() { try { const s = await getDoc(doc(window.db, 'config', 'switches')); if (s.exists()) window.SG_SW = { ...window.SG_SW, ...s.data() }; } catch (e) {} return window.SG_SW; };
+setTimeout(() => window.loadSwitches(), 4000); setInterval(() => window.loadSwitches(), 5 * 60000);
+window.uploadToCloudinary = (function(b) {
+return async function(f, ...rest) {
+const t = f && typeof f !== 'string' ? f.type || '' : '';
+if (/^video\//.test(t) && window.SG_SW.videoUploads === false) throw new Error('Video uploads are paused for a short time. Please try again later.');
+if (/^audio\//.test(t) && window.SG_SW.voice === false) throw new Error('Voice notes are paused for a short time.');
+return b.call(this, f, ...rest);
+};
+})(window.uploadToCloudinary);
+window.submitUniversalPost = (function(b) { return async function(...a) { if (window.SG_SW.posting === false && !window.isAppAdmin) { showToast('⏸️ Posting is paused for a short time. Please try again later.'); return; } return b.apply(this, a); }; })(window.submitUniversalPost);
+window.askGgAi = (function(b) { return async function(...a) { if (window.SG_SW.ai === false) { showToast('🧠 GG AI is taking a break right now'); return; } return b.apply(this, a); }; })(window.askGgAi);
+
+(function toolsTab() {
+const add = () => { const last = document.querySelector('[data-admintab="official"]') || document.querySelector('[data-admintab="push"]'); if (last && !document.querySelector('[data-admintab="tools"]')) last.insertAdjacentHTML('afterend', `<button data-admintab="tools" onclick="window.setAdminTab('tools')" class="flex-1 py-2 text-xs font-black">🛠️ Tools</button>`); };
+setInterval(add, 2000); add();
+})();
+window.setAdminTab = (function(b) {
+return function(tab) {
+if (tab !== 'tools') return b(tab);
+window.adminTab = 'tools';
+document.querySelectorAll('[data-admintab]').forEach(x => { x.className = `flex-1 py-2 text-xs font-black border-b-2 ${x.dataset.admintab === tab ? 'text-white border-cyan-400' : 'text-gray-500 border-transparent'}`; });
+window.renderAdminTools();
+};
+})(window.setAdminTab);
+window.renderAdminTools = async function() {
+const box = document.getElementById('adminBody'); if (!box) return; await window.loadSwitches();
+const sw = window.SG_SW, row = (k, l, d) => `<label class="flex items-center gap-3 p-3 rounded-2xl bg-gg-900 border border-white/10 mb-2"><input type="checkbox" data-sw="${k}" ${sw[k] !== false ? 'checked' : ''} onchange="window.saveSwitch('${k}', this.checked)" class="w-5 h-5 accent-fuchsia-500"><span><b class="text-sm text-white">${l}</b><br><span class="text-[11px] text-gray-400">${d}</span></span></label>`;
+box.innerHTML = `<div class="space-y-4 p-1">
+<div><p class="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-2">🚨 Emergency switches (untick = paused for everyone)</p>
+${row('posting', '📝 New posts', 'Pause if spam or bad content is flooding in')}${row('videoUploads', '🎬 Video uploads', 'Pause if storage is nearly full')}${row('voice', '🎤 Voice notes', 'Pause if voice storage has problems')}${row('ai', '🧠 GG AI', 'Pause the squad AI')}</div>
+<button onclick="window.closeAdminPanel(); window.openTitlesManager()" class="w-full py-3 rounded-2xl text-xs font-black uppercase text-slate-950" style="background:linear-gradient(90deg,#fde68a,#f59e0b)">👑 Titles manager (crown / remove)</button>
+<div><p class="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-2">🧾 Admin & host actions (latest 60)</p><div id="admLogList"><p class="text-xs text-gray-500">Loading…</p></div></div></div>`;
+try {
+const s = await getDocs(query(collection(window.db, 'adminLog'), orderBy('at', 'desc'), limit(60))); const rows = []; s.forEach(d => rows.push(d.data()));
+const el = document.getElementById('admLogList'); if (el) el.innerHTML = rows.length ? rows.map(x => `<div class="p-2.5 rounded-xl bg-gg-900 border border-white/5 mb-1.5"><p class="text-[11px] text-white"><b>${escapeHTML(window.dnText(x.by || ''))}</b> ${escapeHTML(x.action || '')}</p><p class="text-[10px] text-gray-400">${escapeHTML(x.target || '')}${x.why ? ' · “' + escapeHTML(x.why) + '”' : ''}</p><p class="text-[9px] text-gray-500">${new Date(x.at || 0).toLocaleString()}</p></div>`).join('') : '<p class="text-xs text-gray-500">Nothing yet</p>';
+} catch (e) { const el = document.getElementById('admLogList'); if (el) el.innerHTML = '<p class="text-xs text-gray-500">Paste the latest Firebase rules to see the log.</p>'; }
+};
+window.saveSwitch = async function(k, on) {
+window.SG_SW[k] = on;
+try { await setDoc(doc(window.db, 'config', 'switches'), { [k]: on, at: Date.now() }, { merge: true }); window.adminLog(on ? 'switched ON' : 'PAUSED', k); showToast(on ? `✅ ${k} back on` : `⏸️ ${k} paused for everyone`); }
+catch (e) { showToast('⚠️ Not saved. Paste the latest Firebase rules first.'); }
+};
+window.renderTournamentsTabDedicated = (function(b) { return function(...a) { const r = b.apply(this, a); try { const bar = document.querySelector('#tournamentsDedicatedContainer [data-v38]'); if (bar && window.isAppAdmin && !bar.querySelector('[data-tm]')) bar.insertAdjacentHTML('beforeend', `<button data-tm onclick="window.openTitlesManager()" class="px-2.5 py-1 rounded-lg font-black" style="background:rgba(250,204,21,.15);color:#fde68a;border:1px solid rgba(250,204,21,.4)">👑 Titles</button>`); } catch (e) {} return r; }; })(window.renderTournamentsTabDedicated);
+
+window.sendSquadMessage = (function(b) { return async function(payload, ...rest) { if (payload && typeof payload.text === 'string' && /(^|\s)@gg\s?ai\b/i.test(payload.text) && !/(^|\s)@ai\b/i.test(payload.text)) { const r = await b.call(this, payload, ...rest); try { const sq = window.activeSquadDetails; if (sq && window.sqBots(sq).ai) window.askGgAi(sq, payload.text); } catch (e) {} return r; } return b.call(this, payload, ...rest); }; })(window.sendSquadMessage);
+window.askGgAi = (function(b) {
+return async function(sq, text) {
+if (window.SG_SW.ai === false) return b(sq, text);
+const url = (window.SG_PUSH && window.SG_PUSH.url) || ((await window.loadPushCfg()) || {}).url; if (!url) { showToast('🧠 GG AI: the helper link is missing (Admin → Push)'); return; }
+const me = window.me(), ctx = `Squad: ${sq.name}. Asker: ${me}. Squad rules: ${(sq.rules || window.SQ_RULES_DEFAULT).slice(0, 400)}. ${window.sqFixturesCtx ? window.sqFixturesCtx(sq) : ''}`;
+try {
+const res = await fetch(url.replace(/\/$/, '') + '/ai', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await window.mediaIdToken()) }, body: JSON.stringify({ sid: sq.id, room: window.activeSquadSubRoom, q: String(text).replace(/@gg\s?ai/ig, '@ai').slice(0, 500), ctx: ctx.slice(0, 2500), asker: me }) });
+const j = await res.json().catch(() => ({}));
+if (res.ok) return;
+const why = j.limit ? "today's GG AI limit for this squad is used up" : res.status === 404 ? 'the helper (worker) needs the latest code' : res.status === 401 ? 'please sign in again' : res.status === 403 ? (j.error === 'not allowed' ? 'GG AI is off in this squad, or you are not a member' : 'not allowed') : res.status === 503 ? 'no AI key or AI binding in Cloudflare' : (j.error || 'error ' + res.status);
+showToast('🧠 GG AI: ' + why);
+} catch (e) { showToast('🧠 GG AI: no connection to the helper'); }
+};
+})(window.askGgAi);
+window.finishVoiceNote = (function(b) { return async function(...a) { return b.apply(this, a); }; })(window.finishVoiceNote);
+
+window.cldSized = (function(b) {
+return function(url, width, kind = 'image') {
+if (typeof url === 'string' && /ik\.imagekit\.io\//.test(url) && kind !== 'video' && !url.includes('#p=')) {
+const clean = url.split('#')[0]; if (/\?tr=/.test(clean)) return clean;
+const dpr = Math.min(2, window.devicePixelRatio || 1), saver = !!window.dataSaver;
+let w = Math.ceil(((width || 720) * (saver ? 1 : dpr)) / 120) * 120; w = Math.max(120, Math.min(saver ? 720 : 1440, w));
+return `${clean}?tr=w-${w},q-${saver ? 55 : 72},f-auto`;
+}
+return b(url, width, kind);
+};
+})(window.cldSized);
+(function lazyMedia() {
+const fix = (root) => {
+(root.querySelectorAll ? root.querySelectorAll('img:not([loading])') : []).forEach(i => { if (!i.closest('#sgIsland,header,.drawer-menu')) { i.loading = 'lazy'; i.decoding = 'async'; } });
+(root.querySelectorAll ? root.querySelectorAll('video:not([preload])') : []).forEach(v => { if (!v.autoplay) v.preload = window.dataSaver ? 'none' : 'metadata'; });
+};
+const mo = new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) fix(n); })));
+const start = () => { fix(document); mo.observe(document.body, { childList: true, subtree: true }); };
+document.body ? start() : document.addEventListener('DOMContentLoaded', start);
+})();
+
+window.tmCanSquad = (sq) => !!sq && (window.isAppAdmin || (window.isSquadOwner && window.isSquadOwner(sq)));
+window.openSquadTools = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try { const sq = window.activeSquadDetails, items = window.actionSheetItems; if (sq && items && window.tmCanSquad(sq) && !items.some(x => /Titles/.test(x.label))) { items.splice(1, 0, { icon: 'fa-crown', label: '👑 Titles (crown / remove)', run: () => window.openTitlesManager(sq.id) }); window.openActionSheet(sq.name || 'Squad', items); } } catch (e) {}
+return r;
+};
+})(window.openSquadTools);
+window.tmSquadTourns = (sid) => (window.tournamentsList || []).filter(t => t.squadId === sid);
+window.tmInScope = function(x, sid) {
+if (!sid) return true;
+if (x.squadId === sid) return true;
+return !!(x.tournId && window.tmSquadTourns(sid).some(t => t.id === x.tournId));
+};
+window.openTitlesManager = (function(adminVersion) {
+return async function(sid) {
+if (!sid) return adminVersion();
+const sq = (window.clansData || []).find(c => c.id === sid) || window.activeSquadDetails; if (!window.tmCanSquad(sq)) { showToast('Only the squad owner can do this'); return; }
+window._tmScope = sq.id;
+window._titles = null; const all = await window.loadTitles(), list = all.filter(x => window.tmInScope(x, sq.id));
+const seen = {}, comps = [];
+window.tmSquadTourns(sq.id).forEach(t => { const nm = String(t.compName || t.title || '').split('·')[0].trim(); if (!nm || seen[nm.toLowerCase()]) return; seen[nm.toLowerCase()] = 1; comps.push({ id: t.compId || ('sq_' + nm.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40)), name: nm, kind: t.format === 'LEAGUE' ? 'league' : 'cup', tier: t.tier || (t.format === 'LEAGUE' ? 1 : 0) }); });
+window._tmComps = comps;
+const f = 'w-full bg-gg-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white';
+const names = [...new Set((sq.members || []).concat(Object.values(window.allProfilesMap || {}).map(p => p && p.gamertag)).filter(Boolean))].slice(0, 2000);
+const sorted = [...list].sort((a, b) => String(a.compName || '').localeCompare(String(b.compName || '')) || (b.season || 0) - (a.season || 0));
+window._tmList = sorted;
+window.openPanel('👑 ' + (sq.name || 'Squad') + ' titles', `<div class="p-3 rounded-2xl" style="border:1px solid rgba(250,204,21,.45);background:rgba(250,204,21,.07)">
+<p class="text-xs font-black text-amber-200 mb-2">👑 Crown a champion (past seasons too)</p>
+<datalist id="tmNames">${names.map(n => `<option value="${escapeHTML(n)}">`).join('')}</datalist>
+<input id="tmPlayer" list="tmNames" placeholder="Player gamertag" class="${f}">
+<select id="tmComp" onchange="window.tmCompChange()" class="${f} mt-2">${comps.map((c, i) => `<option value="${i}">${escapeHTML(c.name)}</option>`).join('')}<option value="other">✍️ Another competition (type the name)</option></select>
+<div id="tmOther" class="${comps.length ? 'hidden' : ''} space-y-2 mt-2"><input id="tmName" maxlength="60" placeholder="Competition name, e.g. Sinless Super League" class="${f}">
+<select id="tmKind" class="${f}"><option value="league1">League · top division</option><option value="league2">League · 2nd division</option><option value="league3">League · 3rd division</option><option value="cup">Cup</option><option value="ucl">Champions League</option></select></div>
+<div class="grid grid-cols-2 gap-2 mt-2"><input id="tmSeasonN" type="number" min="0" max="99" placeholder="Season no. (e.g. 1)" class="${f}"><input id="tmSeasonL" maxlength="30" placeholder="Season name (e.g. AUG–SEP)" class="${f}"></div>
+<input id="tmRunner" list="tmNames" placeholder="Runner-up (optional)" class="${f} mt-2">
+<button onclick="window.tmCrown()" class="w-full mt-3 py-3 rounded-2xl text-xs font-black uppercase text-slate-950" style="background:linear-gradient(90deg,#fde68a,#f59e0b)">👑 Crown champion</button>
+<p class="text-[10px] text-amber-100/70 mt-1.5">Two-time champions: crown them again for the other season. Titles go into their trophy cabinet with your squad's name.</p></div>
+<p class="text-[10px] font-black uppercase tracking-wider text-gray-400 mt-4 mb-1">🏆 ${escapeHTML(sq.name || 'Squad')} titles · ${sorted.length}</p>
+${sorted.length ? sorted.map((x, i) => `<div class="flex items-center gap-2 p-2.5 rounded-xl bg-gg-900 border border-white/10 mb-1.5"><span class="flex-1 min-w-0"><b class="block text-xs text-white truncate">${escapeHTML(window.dnText(x.user || x.tag))}</b><span class="block text-[10px] text-amber-200 truncate">${escapeHTML(x.title || '')}${x.seasonLabel ? ' · ' + escapeHTML(x.seasonLabel) : x.season ? ' · Season ' + escapeHTML(x.season) : ''}</span></span><button onclick="window.tmStrip(${i})" class="fx-act" style="border-color:rgba(255,45,149,.6)">🚫 Remove</button></div>`).join('') : '<p class="text-xs text-gray-500 py-3 text-center">No titles yet</p>'}`);
+window.tmCompChange();
+};
+})(window.openTitlesManager);
+window.openTitlesManager = (function(b) { return async function(sid) { if (!sid) window._tmScope = null; return b(sid); }; })(window.openTitlesManager);
+window.tmCrown = (function(b) {
+return async function(...a) {
+const sid = window._tmScope; if (!sid) return b.apply(this, a);
+const sq = (window.clansData || []).find(c => c.id === sid) || window.activeSquadDetails;
+const h0 = window.myHost; window.myHost = { ...(h0 || {}), org: sq.name || 'Squad' };
+window._tmExtra = { squadId: sq.id, squadName: sq.name || '' };
+try { return await b.apply(this, a); } finally { window.myHost = h0; window._tmExtra = null; }
+};
+})(window.tmCrown);
+window.tmStrip = async function(i) { const x = (window._tmList || [])[i]; if (!x) return; await window.stripTitle(x); window.openTitlesManager(window._tmScope || undefined); };
+window.renderTournamentsTabDedicated = (function(b) { return function(...a) { const r = b.apply(this, a); try { const t = window.activeTournament, bar = document.querySelector('#tournamentsDedicatedContainer [data-v38]'); const sq = t && t.squadId && (window.clansData || []).find(c => c.id === t.squadId); if (bar && sq && !window.isAppAdmin && window.tmCanSquad(sq) && !bar.querySelector('[data-tm]')) bar.insertAdjacentHTML('beforeend', `<button data-tm onclick="window.openTitlesManager('${escapeHTML(sq.id)}')" class="px-2.5 py-1 rounded-lg font-black" style="background:rgba(250,204,21,.15);color:#fde68a;border:1px solid rgba(250,204,21,.4)">👑 Titles</button>`); } catch (e) {} return r; }; })(window.renderTournamentsTabDedicated);
