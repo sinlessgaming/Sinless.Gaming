@@ -23539,10 +23539,11 @@ const N = window.sgNav;
 if (N.ignore > 0) { N.ignore--; return; }
 while (N.stack.length) {
 const e = N.stack[N.stack.length - 1];
-if ((e.ov && !window.navIsOpen(e.ov)) || (e.panelRestore && !window.navIsOpen('sgPanel'))) { N.stack.pop(); continue; }
+if ((e.ov && !window.navIsOpen(e.ov)) || (e.panelRestore && !window.navIsOpen('sgPanel')) || (e.undo && e.alive && !e.alive())) { N.stack.pop(); continue; }
 N.stack.pop(); N.fromBack = true;
 try {
-if (e.ov) window.navClose(e.ov);
+if (e.undo) e.undo();
+else if (e.ov) window.navClose(e.ov);
 else if (e.view) window.switchView(e.view);
 else if (e.panelRestore) { if (window.navIsOpen('sgPanel')) { const t = document.getElementById('sgPanelTitle'), bd = document.getElementById('sgPanelBody'); if (t && bd) { t.innerHTML = e.panelRestore.t; bd.innerHTML = e.panelRestore.h; } } else { N.fromBack = false; return window.dispatchEvent(new PopStateEvent('popstate', { state: history.state })); } }
 }
@@ -26016,7 +26017,7 @@ return r;
 
 window.SG_GROUPS = { fyp: 'home', news: 'home', watch: 'home', trending: 'home', tournaments: 'compete', standings: 'compete', predict: 'compete', popular: 'compete', clans: 'squads', chat: 'squads', play: 'play', market: 'market' };
 window.SG_TABS = [['home', 'fyp', 'fa-house', 'Home'], ['compete', 'tournaments', 'fa-trophy', 'Compete'], ['squads', 'clans', 'fa-shield-halved', 'Squads'], ['play', 'play', 'fa-gamepad', 'Play'], ['market', 'market', 'fa-store', 'Market']];
-window.SG_SUB = { compete: [['tournaments', '🏆 Tournaments'], ['standings', '📊 Tables'], ['predict', '🎯 Predict'], ['popular', '👑 Top Rank']] };
+window.SG_SUB = { compete: [['tournaments', '🏆 Tourneys'], ['standings', '📊 Tables'], ['predict', '🎯 Predict'], ['popular', '👑 Top Rank']] };
 window.sgLastIn = { compete: 'tournaments' };
 (function simpleCss() { const s = document.createElement('style'); s.textContent = `
 #sg5nav{display:flex;gap:4px}
@@ -26384,14 +26385,14 @@ if (can(k)) put(x); else if ((count[k] || 0) < max) wait.push(x);
 wait.forEach(x => { if (can(window.srcOf(x))) put(x); });
 return out;
 };
-window.feedExtras = (function(b) { return function(nc) { const r = b(nc); try { return window.spreadSources(r || [], 12, 3); } catch (e) { return r; } }; })(window.feedExtras);
+window.feedExtras = (function(b) { return function(nc) { const r = b(nc); try { return window.spreadSources(r || [], 20, 2); } catch (e) { return r; } }; })(window.feedExtras);
 
 window.WV_CAT = (it) => { const k = String(it.k || '') + ',' + String(it.c || '');
 if (/kdrama|cdrama/.test(k)) return 'asian'; if (/nollywood/.test(k)) return 'nolly'; if (/dance/.test(k)) return 'dance'; if (/comedy/.test(k)) return 'fun';
 if (/anime/.test(k)) return 'anime'; if (/wrestling/.test(k)) return 'wrestling'; if (/music|kpop|afrobeats/.test(k)) return 'music';
 if (/football|sports|cricket/.test(k) && !/games|gaming/.test(k)) return 'football'; if (/games|gaming|esports|fcmobile|efootball|dls|cod|eafc|gta/.test(k)) return 'gaming';
 if (/movies|series|trailers|bollywood|turkish|telenovela/.test(k)) return 'movies'; if (/docs|tech|phones|wow/.test(k)) return 'wow'; return 'fun'; };
-window.wvToV = (it) => ({ vid: it.v, title: it.t, date: it.d, cat: window.WV_CAT(it), full: !!it.f, wv: 1, ch: { id: it.ci, name: it.n || it.h, short: it.n || it.h, flag: '' } });
+window.wvToV = (it) => ({ vid: it.v, title: it.t, date: it.d, cat: window.WV_CAT(it), full: !!it.f, wv: 1, kd: it.kd || 'o', k: it.k || '', ch: { id: it.ci, name: it.n || it.h, short: it.n || it.h, flag: '' } });
 window.wv = { at: 0, list: [] };
 window.wvLoad = async function(force) {
 if (!force && Date.now() - window.wv.at < 10 * 60000 && window.wv.list.length) return window.wv.list;
@@ -26478,7 +26479,7 @@ window.openPanel('📺 Channels', '<p class="text-xs text-gray-400 text-center p
 const j = await window.chApi('/channels?st=' + st), c = j.count || {}, box = document.getElementById('sgPanelBody'); if (!box) return;
 if (!j.ok) { box.innerHTML = `<p class="text-xs text-amber-300 text-center py-6">⚠️ ${escapeHTML(j.error || 'Upload the new worker first')}</p>`; return; }
 box.innerHTML = `<div class="grid grid-cols-3 gap-2 text-center mb-3">${[['✅', c.o, 'shown'], ['🔎', c.c, 'to check'], ['⏳', c.waiting, 'not looked up'], ['➕', c.u || 0, 'by followers'], ['❌', c.bad, 'not found'], ['🗑️', c.x || 0, 'removed']].map(([e, n, l]) => `<div class="v57-card" style="padding:8px"><p class="text-lg">${e}</p><p class="text-sm font-black text-white">${n || 0}</p><p class="text-[9px] text-gray-400">${l}</p></div>`).join('')}</div>
-<div class="flex gap-2 mb-2"><input id="chAddH" class="v57-in" placeholder="@handle to add"><select id="chAddC" class="v57-in" style="max-width:120px">${['gaming', 'football', 'movies', 'anime', 'music', 'fun', 'wrestling', 'wow'].map(x => `<option>${x}</option>`).join('')}</select><button class="nw-act" onclick="window.chAdd()">Add</button></div>
+<div class="flex gap-2 mb-2"><input id="chAddH" class="v57-in" placeholder="@handle or YouTube channel link"><select id="chAddC" class="v57-in" style="max-width:120px">${['gaming', 'football', 'movies', 'anime', 'music', 'fun', 'wrestling', 'wow'].map(x => `<option>${x}</option>`).join('')}</select><button class="nw-act" onclick="window.chAdd()">Add</button></div>
 <div class="grid grid-cols-2 gap-2 mb-3"><button class="v57-btn2" onclick="window.chSet({ all: 'found', st: 'o' })">✅ Approve all found</button><button class="v57-btn2" onclick="window.chSet({ all: 'bad', st: 'x' })">🗑️ Delete not-found</button></div>
 <div class="nw-row mb-2">${[['c', '🔎 To check'], ['u', '➕ By followers'], ['o', '✅ Shown'], ['bad', '❌ Not found']].map(([k, l]) => `<button class="nw-chip ${st === k ? 'on' : ''}" onclick="window.openChannelsAdmin('${k}')">${l}</button>`).join('')}</div>
 ${(j.list || []).map(x => `<div class="v57-card flex items-center gap-2 mb-2">${x.v ? `<img src="https://i.ytimg.com/vi/${escapeHTML(x.v)}/default.jpg" class="w-16 h-12 rounded-lg object-cover" loading="lazy">` : '<div class="w-16 h-12 rounded-lg bg-black/40"></div>'}
@@ -26820,12 +26821,11 @@ else if (e === 'f_blush') { ctx.save(); ctx.globalAlpha = 0.38; ctx.fillStyle = 
 window.clipKey = (x) => !x ? '' : (x.kind === 'post' || x.kind === 'embed') ? 'u:' + String((x.p && x.p.user) || '').toLowerCase() : 'c:' + String((x.v && x.v.ch && (x.v.ch.id || x.v.ch.name)) || '').toLowerCase();
 window.spreadClips = function(list, gap) {
 if (!list || list.length < 3) return list;
-const out = [list[0]], pool = list.slice(1);
+const out = [list[0]], pool = list.slice(1), last = {}; last[window.clipKey(list[0])] = 0;
 while (pool.length) {
-const recent = new Set(out.slice(-gap).map(window.clipKey));
-let i = pool.findIndex(x => !recent.has(window.clipKey(x)));
-if (i < 0) { const recent2 = new Set(out.slice(-Math.max(2, Math.floor(gap / 3))).map(window.clipKey)); i = pool.findIndex(x => !recent2.has(window.clipKey(x))); if (i < 0) i = 0; }
-out.push(pool.splice(i, 1)[0]);
+let best = 0, bestD = -1;
+for (let i = 0; i < Math.min(pool.length, 400); i++) { const k = window.clipKey(pool[i]), d = last[k] === undefined ? 1e9 : out.length - last[k]; if (d > bestD) { bestD = d; best = i; } if (d >= gap && i > 40) break; if (d === 1e9) break; }
+const x = pool.splice(best, 1)[0]; last[window.clipKey(x)] = out.length; out.push(x);
 }
 return out;
 };
@@ -26836,8 +26836,168 @@ try {
 const have = new Set(list.map(x => x.id)), seenX = window.seenExtras || new Set();
 const extra = (window.wv.list || []).filter(v => !have.has(v.vid) && !seenX.has('v:' + v.vid) && !(window.chBlocked && window.chBlocked(v.ch.id))).slice(0, 120).map(v => ({ kind: 'short', id: v.vid, v, cat: v.cat, date: v.date }));
 if (extra.length) { const first = list[0], rest = list.slice(1), mixed = []; let i = 0, j = 0; while (i < rest.length || j < extra.length) { if (i < rest.length) mixed.push(rest[i++]); if (j < extra.length && mixed.length % 3 === 2) mixed.push(extra[j++]); else if (i >= rest.length && j < extra.length) mixed.push(extra[j++]); } list = first ? [first, ...mixed] : mixed; }
-return window.spreadClips(list, 8);
+return window.spreadClips(list, 20);
 } catch (e) { return list; }
 };
 })(window.buildClipsList);
 window.clipScore = (function(b) { return function(it) { const s = b(it); try { const who = 'yt:' + ((it.v && it.v.ch && (it.v.ch.id || it.v.ch.name)) || ''), c = (window.clipTaste && window.clipTaste.c && window.clipTaste.c[who]) || 0; return s - 1.5 * c + Math.min(1.5, 0.4 * c); } catch (e) { return s; } }; })(window.clipScore);
+
+window.clipSlideHtml = (function(b) {
+return function(c, i) {
+let h = b(c, i);
+try {
+const v = c && c.v; if (!v || !v.ch || !/^UC[\w-]{22}$/.test(v.ch.id || '')) return h;
+if (v.wv && !v.short) h = h.replace('style="aspect-ratio:9/16"', 'style="aspect-ratio:16/9;width:100%;height:auto"').replace('· SHORTS', '· VIDEO');
+const id = escapeHTML(v.ch.id), nm = escapeHTML(String(v.ch.name || '').replace(/'/g, ''));
+h = h.replace(/(<span class="text-\[9px\] text-red-300 font-black">· (?:SHORTS|VIDEO|OFFICIAL)<\/span>)/, `$1 <button data-ytf="${id}" onclick="event.stopPropagation(); window.ytFollow('${id}', '${nm}', '${escapeHTML(v.cat || '')}')" class="ml-1 px-2.5 py-1 rounded-full text-[10px] font-black text-slate-950" style="background:linear-gradient(90deg,#22d3ee,#a855f7)">${window.isYtFollowed(v.ch.id) ? '✓ Following' : '+ Follow'}</button>`);
+} catch (e) {}
+return h;
+};
+})(window.clipSlideHtml);
+
+window.kdLabel = (v) => v && v.kd === 'tp' ? '· 🎵 TOPIC' : v && v.kd === 'cr' ? '· ⭐ CREATOR' : null;
+window.feedVideoCardHtml = (function(b) { return function(v) { let h = b(v); const L = window.kdLabel(v); if (L) h = h.replace(/>· (OFFICIAL|SHORTS)</, '>' + L + '<'); return h; }; })(window.feedVideoCardHtml);
+window.clipSlideHtml = (function(b) { return function(c, i) { let h = b(c, i); const L = window.kdLabel(c && c.v); if (L) h = h.replace(/>· (SHORTS|VIDEO|OFFICIAL)</, '>' + L + '<'); return h; }; })(window.clipSlideHtml);
+
+(function cleanCss() { const s = document.createElement('style'); s.textContent = `
+header p.tracking-\\[0\\.2em\\]{white-space:nowrap;font-size:clamp(6px,1.9vw,8px)!important;letter-spacing:.12em!important}
+header h1{white-space:nowrap}
+#sgSub{flex-wrap:nowrap;overflow:hidden}#sgSub button{min-width:0;flex:1 1 0;padding:7px 4px;font-size:clamp(9px,2.7vw,11px);overflow:hidden;text-overflow:ellipsis}
+.fx-more{display:block;width:100%;margin-top:6px;padding:8px;border-radius:12px;font-size:11px;font-weight:900;color:#67e8f9;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.3)}
+[data-fix]{padding:2px 8px!important;font-size:11px!important}
+#profileStoriesBar.sg-empty{padding:6px 10px!important;min-height:0!important}
+#profileStoriesBar.sg-empty > *{transform:scale(.72);transform-origin:left center;margin:-8px 0}
+.sq-ico{width:36px;height:36px;flex:none;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:15px;background:rgba(255,255,255,.06);color:#fff}`; document.head.appendChild(s); })();
+
+window._fxOpen = window._fxOpen || {};
+window.fxBoardHtml = (function(b) {
+return function(ts, key) {
+const h = b(ts, key);
+try {
+const tpl = document.createElement('div'); tpl.innerHTML = h; const board = tpl.firstElementChild, rows = [...board.querySelectorAll(':scope > .fx-row')];
+if (rows.length <= 4) return h;
+const mine = rows.filter(r => r.classList.contains('me')), order = [...mine, ...rows.filter(r => !r.classList.contains('me'))];
+const open = !!window._fxOpen[key];
+order.forEach((r, i) => { r.parentNode.appendChild(r); if (!open && i >= 4) r.style.display = 'none'; });
+const note = board.querySelector(':scope > p.text-\\[9px\\]'); if (note) board.appendChild(note);
+board.insertAdjacentHTML('beforeend', `<button class="fx-more" onclick="event.stopPropagation(); window._fxOpen['${escapeHTML(key)}']=${open ? 'false' : 'true'}; window.fxRefresh()">${open ? 'Show less ▲' : `Show all matches (${rows.length}) ▼`}</button>`);
+return tpl.innerHTML;
+} catch (e) { return h; }
+};
+})(window.fxBoardHtml);
+
+window._lfOpen = {};
+window.renderTournamentsTabDedicated = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try {
+const c = document.getElementById('tournamentsDedicatedContainer'), t = window.activeTournament; if (!c || !t) return r;
+c.querySelectorAll('[data-fix]').forEach(x => { x.textContent = '✏️ Fix'; x.title = 'Fix or reject this result'; });
+const head = [...c.querySelectorAll('h3,h4,p,div')].find(el => el.children.length === 0 && /^league fixtures & results$/i.test((el.textContent || '').trim()));
+const list = head && (head.nextElementSibling || head.parentElement.nextElementSibling);
+if (list && !list._lf) { const cards = [...list.children].filter(x => !/add league fixture/i.test(x.textContent)); if (cards.length > 6) { list._lf = 1; const open = !!window._lfOpen[t.id]; cards.forEach((x, i) => { if (!open && i < cards.length - 6) x.style.display = 'none'; }); list.insertAdjacentHTML('afterbegin', `<button class="fx-more" style="margin:0 0 8px" onclick="window._lfOpen['${t.id}']=${open ? 'false' : 'true'}; window.renderTournamentsTabDedicated()">${open ? 'Show only the latest ▲' : `Show all ${cards.length} results & fixtures ▼`}</button>`); } }
+const bar = c.querySelector('[data-v38]');
+if (bar && !bar.querySelector('[data-mng]')) {
+const extra = [...c.querySelectorAll('button')].filter(x => /FINISH & CROWN|REMOVE PLAYER/i.test(x.textContent) && x.offsetParent !== null);
+const inBar = [...bar.querySelectorAll('button')].filter(x => !/COMMAND CENTRE/i.test(x.textContent));
+const all = [...extra, ...inBar]; if (all.length > 2) {
+window._mngBtns = all; all.forEach(x => { x.style.display = 'none'; });
+bar.insertAdjacentHTML('beforeend', `<button data-mng onclick="window.openManage()" class="px-3 py-1.5 rounded-lg text-[11px] font-black text-slate-950" style="background:linear-gradient(90deg,#22d3ee,#a855f7)">⚙️ Manage (${all.length})</button>`);
+}
+}
+} catch (e) { console.warn(e); }
+return r;
+};
+})(window.renderTournamentsTabDedicated);
+window.openManage = function() {
+const L = (window._mngBtns || []).filter(x => x.isConnected);
+window.openActionSheet('⚙️ Manage tournament', L.map(x => ({ icon: 'fa-gear', label: x.textContent.trim().replace(/\s+/g, ' '), run: () => { x.style.display = ''; x.click(); x.style.display = 'none'; } })));
+};
+
+window.SQ_HDR = [['', 'Invite', '➕ Invite friends'], ['hostSquadTournamentBtn', '', '🏆 Host a league'], ['squadMuteBtn', '', '🔔 Alerts on/off'], ['squadEventsBtn', '', '📅 Events'], ['squadMoreBtn', '', '🧰 Squad tools'], ['squadSettingsBtn', '', '⚙️ Squad settings']];
+window.sqTidy = function() {
+const m = document.getElementById('squadDetailsModal'); if (!m) return; const row = m.querySelector('#squadDetailTitle')?.closest('.shrink-0'); if (!row) return;
+const btns = [...row.querySelectorAll('button')];
+window.SQ_HDR.forEach(([id, title]) => { const x = btns.find(b => (id && b.id === id) || (title && b.title === title)); if (x) { x.dataset.sqh = '1'; x.style.display = 'none'; } });
+if (!row.querySelector('[data-sqhome]')) { const back = btns.find(b => /closeSquadDetailsModal/.test(b.getAttribute('onclick') || '')); back && back.insertAdjacentHTML('afterend', `<button data-sqhome class="sq-ico" title="Home" onclick="window.closeSquadDetailsModal(); window.switchView('fyp')">🏠</button>`); row.insertAdjacentHTML('beforeend', `<button data-sqmenu class="sq-ico" title="More" onclick="window.openSqMenu()">⋯</button>`); }
+};
+window.openSqMenu = function() {
+const m = document.getElementById('squadDetailsModal'), sq = window.activeSquadDetails, items = [];
+window.SQ_HDR.forEach(([id, title, label]) => { const x = [...m.querySelectorAll('button[data-sqh]')].find(b => (id && b.id === id) || (title && b.title === title)); if (x && !x.classList.contains('hidden')) items.push({ icon: 'fa-circle', label, run: () => x.click() }); });
+if (sq && window.isSquadMember && window.isSquadMember(sq) && !window.isSquadOwner(sq)) items.push({ icon: 'fa-door-open', label: '🚪 Leave squad', run: async () => { if (await window.sgConfirm(`Leave ${sq.name}?`, { okText: 'Leave', danger: true })) { window.closeSquadDetailsModal(); window.toggleSquadMembership(sq.id); } } });
+window.openActionSheet((sq && sq.name) || 'Squad', items);
+};
+window.openSquadDetailsModal = (function(b) { return function(...a) { const r = b.apply(this, a); setTimeout(window.sqTidy, 60); setTimeout(window.sqTidy, 800); return r; }; })(window.openSquadDetailsModal);
+
+window.sqListTidy = function() {
+const v = document.getElementById('view-clans'); if (!v) return; const seen = new Set();
+v.querySelectorAll('button').forEach(x => { if (/^\s*leave\s*$/i.test(x.textContent) && /toggleSquadMembership/.test(x.getAttribute('onclick') || '')) x.style.display = 'none'; });
+[...v.querySelectorAll('[onclick*="openSquadDetailsModal("]')].forEach(card => { if (card.closest('[data-rank],.sg-rank') || /Squad rankings/i.test(card.parentElement?.textContent?.slice(0, 40) || '')) return; const id = ((card.getAttribute('onclick') || '').match(/openSquadDetailsModal\('([^']+)'/) || [])[1]; if (!id) return; if (seen.has(id)) card.style.display = 'none'; else seen.add(id); });
+};
+window.switchView = (function(b) { return function(v, ...a) { const r = b.call(this, v, ...a); if (v === 'clans') { setTimeout(window.sqListTidy, 100); setTimeout(window.sqListTidy, 1200); } return r; }; })(window.switchView);
+(function sqObs() { const go = () => { const v = document.getElementById('view-clans'); if (!v) return setTimeout(go, 1500); let t = 0; new MutationObserver(() => { clearTimeout(t); t = setTimeout(window.sqListTidy, 120); }).observe(v, { childList: true, subtree: true }); }; go(); })();
+
+window.SG_TABS[0][3] = 'Feeds';
+(function renameTab() { const go = () => { const b = document.querySelector('#sg5nav button[data-g="home"]'); if (!b) return setTimeout(go, 500); b.innerHTML = '<i class="fa-solid fa-house"></i>Feeds'; }; go(); })();
+window.openExploreGrid = window.openExplore;
+window.openExplore = function() { window.switchView('trending'); setTimeout(window.trendTools, 150); };
+window.trendTools = function() { const v = document.getElementById('view-trending'); if (!v || v.querySelector('[data-ttools]')) return; v.insertAdjacentHTML('afterbegin', `<div data-ttools class="flex gap-2"><button onclick="window.openExploreGrid()" class="flex-1 py-2.5 rounded-2xl text-xs font-black text-white" style="background:linear-gradient(90deg,rgba(34,211,238,.18),rgba(168,85,247,.18));border:1px solid rgba(168,85,247,.4)">🧰 Tools & more</button><button onclick="window.switchView('news')" class="flex-1 py-2.5 rounded-2xl text-xs font-black text-white bg-white/5 border border-white/10">🌍 All news</button></div>`); };
+window.switchView = (function(b) { return function(v, ...a) { const r = b.call(this, v, ...a); if (v === 'trending') setTimeout(window.trendTools, 150); return r; }; })(window.switchView);
+(function exploreBtn() { const go = () => { const x = document.getElementById('sgExploreBtn'); if (!x) return setTimeout(go, 800); x.title = 'Trending'; x.setAttribute('aria-label', 'Trending'); x.innerHTML = '<i class="fa-solid fa-fire"></i>'; }; go(); })();
+
+window.switchSquadSubRoom = (function(b) {
+return function(room, ...a) {
+const prev = window.activeSquadSubRoom, sid = (window.activeSquadDetails || {}).id, open = window.navIsOpen && window.navIsOpen('squadDetailsModal');
+const r = b.call(this, room, ...a);
+try { if (open && prev && room && prev !== room && !window.sgNav.fromBack) window.navPush({ undo: () => window.switchSquadSubRoom(prev), alive: () => window.navIsOpen('squadDetailsModal') && (window.activeSquadDetails || {}).id === sid }); } catch (e) {}
+return r;
+};
+})(window.switchSquadSubRoom);
+window.openTournamentById = (function(b) {
+return function(id, ...a) {
+const was = window.tourBrowse !== false, r = b.call(this, id, ...a);
+try { if (was && !window.sgNav.fromBack && window._sgView === 'tournaments') window.navPush({ undo: () => { window.tourBrowse = true; window.renderTournamentsTabDedicated(); window.scrollTo({ top: 0 }); }, alive: () => window._sgView === 'tournaments' && window.tourBrowse === false }); } catch (e) {}
+return r;
+};
+})(window.openTournamentById);
+
+window.openNotification = (function(b) {
+return function(id) {
+const n = (window.notifList || []).find(x => x.id === id);
+try {
+if (n && !String(n.postId || '').startsWith('squad:') && (n.type === 'mention' || n.type === 'tournament' || n.type === 'squad')) {
+const txt = String(n.text || ''), sq = (window.clansData || []).filter(s => s && s.name && txt.toLowerCase().includes(String(s.name).toLowerCase())).sort((x, y) => y.name.length - x.name.length)[0];
+const room = (txt.match(/#([\w-]{2,40})/) || [])[1];
+if (sq && /mentioned you|tagged you|in .+[:#]/i.test(txt) && !(window.tournamentsList || []).some(t => t.title && txt.toLowerCase().includes(String(t.title).toLowerCase()) && n.type === 'tournament')) {
+window.closeNotifications && window.closeNotifications(); n.read = true; updateDoc(doc(window.db, 'notifications', n.id), { read: true }).catch(() => {}); window.updateNotifBadge && window.updateNotifBadge();
+window.switchView('clans'); window.openSquadDetailsModal(sq.id); if (room) setTimeout(() => { try { window.switchSquadSubRoom(room); } catch (e) {} }, 700);
+return;
+}
+}
+} catch (e) {}
+return b(id);
+};
+})(window.openNotification);
+
+window.feedExtras = (function(b) {
+return function(nc) {
+const r = b(nc); if (nc || !r || r.length < 4) return r;
+try {
+let tops = []; try { tops = JSON.parse(localStorage.getItem('sg_tops') || '[]'); } catch (e) {}
+const keyOf = (x) => x.type === 'video' ? 'v:' + (x.v && x.v.vid) : 'n:' + String((x.n && x.n.title) || '').slice(0, 40);
+const i = r.slice(0, 12).findIndex(x => !tops.includes(keyOf(x)));
+if (i > 0) r.unshift(r.splice(i, 1)[0]);
+if (r[0]) { tops = [keyOf(r[0]), ...tops.filter(k => k !== keyOf(r[0]))].slice(0, 8); try { localStorage.setItem('sg_tops', JSON.stringify(tops)); } catch (e) {} }
+} catch (e) {}
+return r;
+};
+})(window.feedExtras);
+window.addEventListener('message', (e) => {
+if (!/youtube/.test(String(e.origin))) return; let d; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (er) { return; }
+if (!d || d.event !== 'onError' || ![100, 101, 150, 153].includes(+d.info)) return;
+const f = [...document.querySelectorAll('#fypFeedContainer iframe')].find(x => x.contentWindow === e.source); const card = f && (f.closest('[data-vid-card]') || f.closest('.glass-panel')); if (card) card.style.display = 'none';
+});
+document.addEventListener('load', (e) => { const im = e.target; if (im && im.tagName === 'IMG' && /i\.ytimg\.com\/vi\/[^/]+\/(hq|mq)default/.test(im.src) && im.naturalWidth === 120 && im.closest('#fypFeedContainer')) { /* YouTube's grey 'video missing' picture */ const card = im.closest('[data-vid-card]') || im.closest('.glass-panel'); if (card && !card.querySelector('[data-post-id]')) card.style.display = 'none'; } }, true);
+
+window.renderStoriesBar = (function(b) { return function(...a) { const r = b.apply(this, a); try { const bar = document.getElementById('profileStoriesBar'); if (bar) bar.classList.toggle('sg-empty', bar.children.length <= 1); } catch (e) {} return r; }; })(window.renderStoriesBar);
+setTimeout(() => { try { window.renderStoriesBar(); } catch (e) {} }, 3000);
