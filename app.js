@@ -27001,3 +27001,18 @@ document.addEventListener('load', (e) => { const im = e.target; if (im && im.tag
 
 window.renderStoriesBar = (function(b) { return function(...a) { const r = b.apply(this, a); try { const bar = document.getElementById('profileStoriesBar'); if (bar) bar.classList.toggle('sg-empty', bar.children.length <= 1); } catch (e) {} return r; }; })(window.renderStoriesBar);
 setTimeout(() => { try { window.renderStoriesBar(); } catch (e) {} }, 3000);
+
+window.SG_GROUPS.trending = 'trending';
+if (!window.SG_TABS.some(t => t[0] === 'trending')) window.SG_TABS.splice(1, 0, ['trending', 'trending', 'fa-fire', 'Trending']);
+(function sixTabsCss() { const s = document.createElement('style'); s.textContent = `
+#sg5nav{gap:2px!important}
+#sg5nav button{min-width:0;flex:1 1 0;padding:7px 0!important;font-size:clamp(8.5px,2.45vw,10px)!important;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:clip}
+#sg5nav button i{font-size:clamp(12px,3.6vw,14px)!important}`; document.head.appendChild(s); })();
+window.sgRebuildNav = function() {
+const nav = document.getElementById('sg5nav'); if (!nav) return setTimeout(window.sgRebuildNav, 400);
+nav.innerHTML = window.SG_TABS.map(([g, v, ic, l]) => `<button data-g="${g}" onclick="window.sgGo('${g}')"><i class="fa-solid ${ic}"></i>${l}</button>`).join('');
+window.sgMark(window._sgView || 'fyp');
+};
+setTimeout(window.sgRebuildNav, 0); setTimeout(window.sgRebuildNav, 1600);
+window.openExplore = function() { window.openExploreGrid(); };
+(function toolsBtn() { const go = () => { const x = document.getElementById('sgExploreBtn'); if (!x || !/fa-fire/.test(x.innerHTML)) return setTimeout(go, 700); x.title = 'Tools'; x.setAttribute('aria-label', 'Tools'); x.innerHTML = '<i class="fa-solid fa-compass"></i>'; }; setTimeout(go, 900); })();

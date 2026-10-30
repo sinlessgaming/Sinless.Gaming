@@ -1,0 +1,12 @@
+# SINLESS GG worker settings (GitHub sends worker.js to Cloudflare by itself)
+name = "sinlessggpush"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+workers_dev = true
+keep_vars = true
+
+[ai]
+binding = "AI"
+
+[triggers]
+crons = ["*/5 * * * *", "2-59/5 * * * *", "0 8 * * *", "0 18 * * *"]
