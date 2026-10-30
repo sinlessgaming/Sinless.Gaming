@@ -26816,3 +26816,28 @@ ctx.fillStyle = '#ff6b9a'; ctx.beginPath(); ctx.ellipse(mouth.x, mouth.y + eyeD 
 else if (e === 'f_blush') { ctx.save(); ctx.globalAlpha = 0.38; ctx.fillStyle = '#ff5d8f'; [eR, eL].forEach((p, i) => { const g = ctx.createRadialGradient(p.x, p.y + eyeD * 0.55, 1, p.x, p.y + eyeD * 0.55, eyeD * 0.38); g.addColorStop(0, '#ff5d8f'); g.addColorStop(1, 'rgba(255,93,143,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x + (i ? 1 : -1) * eyeD * 0.1, p.y + eyeD * 0.55, eyeD * 0.38, 0, Math.PI * 2); ctx.fill(); }); ctx.restore(); emo('✨', mid.x + up.x * fh * 0.7 + fw * 0.35, mid.y + up.y * fh * 0.7, fw * 0.18, 0); }
 };
 })(window.camDrawEffect);
+
+window.clipKey = (x) => !x ? '' : (x.kind === 'post' || x.kind === 'embed') ? 'u:' + String((x.p && x.p.user) || '').toLowerCase() : 'c:' + String((x.v && x.v.ch && (x.v.ch.id || x.v.ch.name)) || '').toLowerCase();
+window.spreadClips = function(list, gap) {
+if (!list || list.length < 3) return list;
+const out = [list[0]], pool = list.slice(1);
+while (pool.length) {
+const recent = new Set(out.slice(-gap).map(window.clipKey));
+let i = pool.findIndex(x => !recent.has(window.clipKey(x)));
+if (i < 0) { const recent2 = new Set(out.slice(-Math.max(2, Math.floor(gap / 3))).map(window.clipKey)); i = pool.findIndex(x => !recent2.has(window.clipKey(x))); if (i < 0) i = 0; }
+out.push(pool.splice(i, 1)[0]);
+}
+return out;
+};
+window.buildClipsList = (function(b) {
+return function(...a) {
+let list = b.apply(this, a) || [];
+try {
+const have = new Set(list.map(x => x.id)), seenX = window.seenExtras || new Set();
+const extra = (window.wv.list || []).filter(v => !have.has(v.vid) && !seenX.has('v:' + v.vid) && !(window.chBlocked && window.chBlocked(v.ch.id))).slice(0, 120).map(v => ({ kind: 'short', id: v.vid, v, cat: v.cat, date: v.date }));
+if (extra.length) { const first = list[0], rest = list.slice(1), mixed = []; let i = 0, j = 0; while (i < rest.length || j < extra.length) { if (i < rest.length) mixed.push(rest[i++]); if (j < extra.length && mixed.length % 3 === 2) mixed.push(extra[j++]); else if (i >= rest.length && j < extra.length) mixed.push(extra[j++]); } list = first ? [first, ...mixed] : mixed; }
+return window.spreadClips(list, 8);
+} catch (e) { return list; }
+};
+})(window.buildClipsList);
+window.clipScore = (function(b) { return function(it) { const s = b(it); try { const who = 'yt:' + ((it.v && it.v.ch && (it.v.ch.id || it.v.ch.name)) || ''), c = (window.clipTaste && window.clipTaste.c && window.clipTaste.c[who]) || 0; return s - 1.5 * c + Math.min(1.5, 0.4 * c); } catch (e) { return s; } }; })(window.clipScore);
