@@ -26129,3 +26129,54 @@ try { if (/belongs to another account/.test(String(msg))) { const k = 'sg_tagwar
 return b.call(this, msg, ...a);
 };
 })(window.showToast);
+
+window.tagMemo = (uid, tag) => { try { if (tag) localStorage.setItem('sg_tag_' + uid, tag); return localStorage.getItem('sg_tag_' + uid); } catch (e) { return null; } };
+window.sgWait = (ms) => new Promise(r => setTimeout(r, ms));
+window.resolveGamertag = async function(user) {
+let sure = false;                       // true only when the server really answered
+for (let i = 0; i < 4; i++) {
+if (i) await window.sgWait([0, 1200, 3000, 6000][i]);
+try {
+const u = await getDoc(doc(window.db, 'users', user.uid));
+if (u.exists() && u.data().gamertag) return window.tagMemo(user.uid, u.data().gamertag);
+const s = await getDocs(query(collection(window.db, 'profiles'), where('uid', '==', user.uid), limit(1)));
+if (s.metadata && s.metadata.fromCache) throw new Error('offline');
+let found = null; s.forEach(d => { found = d.data().gamertag || d.id; });
+if (found) { setDoc(doc(window.db, 'users', user.uid), { gamertag: found }, { merge: true }).catch(() => {}); return window.tagMemo(user.uid, found); }
+sure = true; break;
+} catch (e) { /* weak network: try again */ }
+}
+if (!sure) {
+const known = window.tagMemo(user.uid);
+if (known) return known;            // we know this person on this phone: carry on, no questions
+if (!window._weakTold) { window._weakTold = 1; showToast('📶 Weak connection. Loading your account…'); }
+await new Promise(r => { const t = setInterval(() => { if (navigator.onLine) { clearInterval(t); r(); } }, 2000); });
+return window.resolveGamertag(user);
+}
+return window.tagMemo(user.uid, await window.askForGamertag(user));
+};
+window.askForGamertag = (function(b) {
+return async function(user, ...a) {
+let tries = 0; const hook = () => {
+const input = document.getElementById('gamertagInput'), btn = document.getElementById('gamertagSaveBtn');
+if (!input || !btn) return; if (++tries > 100) return;
+if (!btn.onclick || btn.onclick._own) return setTimeout(hook, 100);
+const orig = btn.onclick;
+const mine = async (ev) => {
+const t = (input.value || '').trim();
+try { const s = await getDoc(doc(window.db, 'profiles', t.toLowerCase())); if (s.exists() && s.data().uid === user.uid) { await setDoc(doc(window.db, 'users', user.uid), { gamertag: s.data().gamertag || t }, { merge: true }); document.getElementById('gamertagModal').classList.add('hidden'); showToast(`👋 Welcome back, @${window.hnd(s.data().gamertag || t)}!`); window._ownTagResolve && window._ownTagResolve(s.data().gamertag || t); return; } } catch (e) {}
+return orig.call(btn, ev);
+};
+mine._own = 1; btn.onclick = mine;
+};
+setTimeout(hook, 50);
+return new Promise((res) => { window._ownTagResolve = (t) => { window._ownTagResolve = null; res(t); }; b.call(this, user, ...a).then(t => { if (window._ownTagResolve) { window._ownTagResolve = null; res(t); } }); });
+};
+})(window.askForGamertag);
+window.ensureMyProfile = (function(b) {
+return async function(...a) {
+if (!window.isSignedIn()) return;
+try { const s = await getDoc(doc(window.db, 'profiles', window.meLower())); if (s.exists() && s.data().uid && s.data().uid !== window.uidNow()) { console.warn('tag owner mismatch', window.meLower(), s.data().uid); window._tagMismatch = { tag: window.meLower(), owner: s.data().uid, me: window.uidNow() }; } } catch (e) { return; }
+return b.apply(this, a);
+};
+})(window.ensureMyProfile);
