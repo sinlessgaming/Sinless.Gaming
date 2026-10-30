@@ -14007,7 +14007,7 @@ const side = (icon, label, act) => `<button onclick="event.stopPropagation(); ${
 if (c.kind === 'post') {
 const p = c.p, on = (p.ggsBy || []).includes(window.uidNow && window.uidNow());
 return `<section data-clip="${i}" class="relative w-full shrink-0 snap-start bg-black flex items-center justify-center" style="height:100dvh">
-<video data-clip-video src="${window.cldSized(c.url, 720, 'video')}" poster="${window.cldPoster ? window.cldPoster(c.url) : ''}" class="w-full h-full object-contain" playsinline loop muted preload="none" onclick="window.clipTap(this)"></video>
+<video data-clip-video src="${window.cldSized(c.url, 720, 'video')}" poster="${window.cldPoster ? window.cldPoster(c.url) : ''}" class="w-full h-full object-contain" playsinline muted preload="none" onclick="window.clipTap(this)"></video>
 <div class="absolute right-3 bottom-28 flex flex-col gap-4">${side(on ? '💖' : '👍', window.formatCount(p.ggsCount || 0), `window.clipGG('${c.id}', this)`)}${side('💬', window.formatCount(p.commentsCount || 0), `window.closeClips(); window.openPostDetail('${c.id}', true)`)}${side('↗️', 'Share', `window.sharePost && window.sharePost('${c.id}')`)}</div>
 <div class="absolute left-3 right-20 bottom-8 text-white space-y-1"><p class="text-sm font-black drop-shadow">${window.dn(p.user)} <span class="text-[11px] text-gray-300">@${escapeHTML(window.hnd(p.user))}</span></p>${p.caption ? `<p class="text-xs leading-snug line-clamp-3 drop-shadow">${escapeHTML(p.caption)}</p>` : ''}</div></section>`;
 }
@@ -14053,7 +14053,7 @@ const v = s.querySelector('video[data-clip-video]'), yt = s.querySelector('[data
 if (v) { if (cur) { v.preload = 'auto'; v.muted = window.feedMuted; v.play().catch(() => {}); } else { if (!v.paused) v.pause(); if (k === i + 1) v.preload = 'auto'; } }
 if (yt) {
 const f = yt.querySelector('iframe');
-if (cur && !f) { const id = yt.getAttribute('data-clip-yt'); const fr = document.createElement('iframe'); fr.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=0&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&controls=0&iv_load_policy=3&fs=0&disablekb=1&loop=1&playlist=${id}`; fr.className = 'absolute inset-0 w-full h-full border-0'; fr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; fr.setAttribute('data-clip-frame', '1'); yt.appendChild(fr); }
+if (cur && !f) { const id = yt.getAttribute('data-clip-yt'); const fr = document.createElement('iframe'); fr.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=0&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&controls=0&iv_load_policy=3&fs=0&disablekb=1`; fr.className = 'absolute inset-0 w-full h-full border-0'; fr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; fr.setAttribute('data-clip-frame', '1'); yt.appendChild(fr); }
 else if (!cur && f) f.remove();
 }
 });
@@ -14965,13 +14965,15 @@ const body = document.getElementById('sgPanelBody'); if (!body) return;
 body.innerHTML = tags.length ? tags.map(t => window.personRowHtml(t)).join('') : `<p class="text-xs text-gray-500 text-center py-10">No GGs yet. Be the first! 👍</p>`;
 };
 window.findPost = (function(b) { return function(id) { return b(id) || (window.postFetchCache || {})[id] || null; }; })(window.findPost);
-document.addEventListener('click', (e) => {
-const s = e.target.closest && e.target.closest('button[onclick^="window.toggleGGPost("] span');
-if (!s || !/GG/.test(s.textContent)) return;
-const id = (s.parentElement.getAttribute('onclick').match(/'([^']+)'/) || [])[1]; if (!id) return;
-const p = window.findPost(id); if (!p || !(p.ggsCount > 0)) return;
-e.stopPropagation(); e.preventDefault(); window.openWhoGG(id);
-}, true);
+(function ggLongPress() {
+let t = null, fired = false;
+const btnOf = (e) => e.target.closest && e.target.closest('button[onclick^="window.toggleGGPost("], button[onclick^="window.clipGG("]');
+const idOf = (b) => (b.getAttribute('onclick').match(/'([^']+)'/) || [])[1];
+document.addEventListener('pointerdown', (e) => { const b = btnOf(e); if (!b) return; fired = false; clearTimeout(t); t = setTimeout(() => { const id = idOf(b); const p = id && window.findPost(id); if (p && p.ggsCount > 0) { fired = true; try { navigator.vibrate && navigator.vibrate(15); } catch (x) {} window.openWhoGG(id); } }, 550); }, true);
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => document.addEventListener(ev, () => clearTimeout(t), true));
+document.addEventListener('click', (e) => { if (fired && btnOf(e)) { fired = false; e.stopPropagation(); e.preventDefault(); } }, true);
+document.addEventListener('contextmenu', (e) => { if (btnOf(e)) e.preventDefault(); }, true);
+})();
 
 window._baseEnhanceProfileView32 = window._baseEnhanceProfileView32 || window.enhanceProfileView;
 window.enhanceProfileView = async function(tag) {
@@ -21241,8 +21243,8 @@ const sq = window.activeSquadDetails, text = (payload && payload.text) || '';
 if (sq && text && !window.ALL_RE.test(text)) {
 const tags = [...new Set((text.match(/@([A-Za-z0-9_]{2,30})/g) || []).map(x => x.slice(1).toLowerCase()))];
 tags.forEach(k => {
-const member = (sq.members || []).find(t => t.toLowerCase() === k || window.hnd(t).toLowerCase() === k);
-if (member && member.toLowerCase() !== window.meLower()) window.notifyTag(member, `💬 ${window.dnText(window.me())} mentioned you in ${sq.name}: ${text.slice(0, 90)}`);
+const member = (sq.members || []).find(t => t.toLowerCase() === k || window.hnd(t).toLowerCase() === k) || k;   // members AND people outside the squad
+if (member && member.toLowerCase() !== window.meLower()) window.notifyMention(member, sq.id, `🏷️ tagged YOU in ${sq.name}: ${text.slice(0, 90)}`);
 });
 }
 return r;
@@ -26180,3 +26182,637 @@ try { const s = await getDoc(doc(window.db, 'profiles', window.meLower())); if (
 return b.apply(this, a);
 };
 })(window.ensureMyProfile);
+
+window.SG_BUILD = 58;
+
+window.notifyMention = async function(tag, sid, text) {
+try { const pr = await window.getProfile(String(tag).replace('@', '')); if (pr && pr.uid && pr.uid !== window.uidNow()) window.notify(pr.uid, 'mention', { text, postId: 'squad:' + sid }); } catch (e) {}
+};
+window.sendSquadMessage = (function(b) {
+return async function(payload, ...a) {
+const text = (payload && payload.text) || '', skip = new Set();
+(text.match(/@([A-Za-z0-9_]{2,30})/g) || []).forEach(x => { const p = (window.allProfilesMap || {})[x.slice(1).toLowerCase()]; if (p && p.uid) skip.add(p.uid); });
+if (!/@/.test(text)) return b.call(this, payload, ...a);
+const n0 = window.notify; window.notify = (u, type, ex) => ((type === 'squad' && skip.has(u)) || (type === 'mention' && /^mentioned you in a /.test((ex && ex.text) || ''))) ? Promise.resolve() : n0(u, type, ex);
+try { return await b.call(this, payload, ...a); } finally { window.notify = n0; }
+};
+})(window.sendSquadMessage);
+
+window.alertedKey = () => 'sg_alerted_' + (window.uidNow() || 'x');
+window.wasAlerted = (id) => { try { return (JSON.parse(localStorage.getItem(window.alertedKey()) || '[]')).includes(id); } catch (e) { return false; } };
+window.markAlerted = (id) => { try { const k = window.alertedKey(), L = JSON.parse(localStorage.getItem(k) || '[]'); if (!L.includes(id)) { L.push(id); localStorage.setItem(k, JSON.stringify(L.slice(-400))); } } catch (e) {} };
+window.listenToNotifications = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+window._seenNotifIds = null; window.notifPrimed = false;     // the first load after sign-in is "old news": no alerts for it
+return r;
+};
+})(window.listenToNotifications);
+window.phoneAlert = (function(b) { return async function(title, body, tag) { if (tag && window.wasAlerted(tag)) return; if (tag) window.markAlerted(tag); return b(title, body, tag); }; })(window.phoneAlert);
+
+window.inSquadNow = (sid) => { const m = document.getElementById('squadDetailsModal'); return !!(sid && window.activeSquadDetails && window.activeSquadDetails.id === sid && m && !m.classList.contains('hidden') && document.visibilityState === 'visible'); };
+window.updateNotifBadge = (function(b) {
+return function(...a) {
+try {
+(window.notifList || []).forEach(n => {
+if (n.read) return;
+const sid = String(n.postId || '').startsWith('squad:') ? String(n.postId).slice(6) : '';
+if (sid && window.inSquadNow(sid) && n.type !== 'mention') { n.read = true; window.markAlerted(n.id); updateDoc(doc(window.db, 'notifications', n.id), { read: true }).catch(() => {}); }
+});
+} catch (e) {}
+return b.apply(this, a);
+};
+})(window.updateNotifBadge);
+window.showToast = (function(b) { return function(msg, ...a) { try { const sq = window.activeSquadDetails; if (sq && /^🔔 /.test(String(msg)) && String(msg).includes(`in ${sq.name}:`) && window.inSquadNow(sq.id)) return; } catch (e) {} return b.call(this, msg, ...a); }; })(window.showToast);
+
+(function vnCss() { const s = document.createElement('style'); s.textContent = `
+.vn{display:flex;align-items:center;gap:8px;margin-top:4px;min-width:190px;max-width:240px}
+.vn button{flex:none;width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:13px;color:#0b0f24;background:linear-gradient(135deg,#22d3ee,#a855f7)}
+.vn .bar{flex:1;height:4px;border-radius:9px;background:rgba(255,255,255,.18);overflow:hidden;cursor:pointer}.vn .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#ff2d95)}
+.vn.mine .bar{background:rgba(15,23,42,.25)}.vn span{font-size:10px;font-weight:800;opacity:.75;font-variant-numeric:tabular-nums}
+#vnFloat{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 78px);z-index:2147482000;width:min(92vw,380px);display:none;align-items:center;gap:10px;padding:8px 12px;border-radius:18px;background:rgba(11,15,36,.94);border:1px solid rgba(168,85,247,.5);box-shadow:0 12px 30px -10px rgba(0,0,0,.7);backdrop-filter:blur(12px)}
+#vnFloat.on{display:flex}#vnFloat b{font-size:11px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+#vnFloat button{flex:none;width:30px;height:30px;border-radius:999px;font-size:12px;font-weight:900;color:#fff;background:rgba(255,255,255,.08)}
+#vnFloat .pp{color:#0b0f24;background:linear-gradient(135deg,#22d3ee,#a855f7)}#vnFloat .bar{flex:1;height:4px;border-radius:9px;background:rgba(255,255,255,.15);overflow:hidden}#vnFloat .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#ff2d95)}`; document.head.appendChild(s); })();
+window.vnAudio = new Audio(); window.vnAudio.preload = 'none'; window.vnWho = '';
+window.vnFmt = (s) => `${Math.floor((s || 0) / 60)}:${String(Math.floor((s || 0) % 60)).padStart(2, '0')}`;
+window.audioMsgHtml = function(m, mine) {
+const src = window.audioSrc(m.audioUrl), d = Math.round(m.duration || 0), who = window.dnText ? window.dnText(m.sender || m.fromUser || '') : '';
+return `<div class="vn ${mine ? 'mine' : ''}" data-vn="${escapeHTML(src)}" data-who="${escapeHTML(who)}" data-d="${d}" onclick="event.stopPropagation()"><button onclick="window.vnToggle(this)" aria-label="Play voice note">▶</button><div class="bar" onclick="window.vnSeek(event, this)"><i></i></div><span>${window.vnFmt(d)}</span></div>`;
+};
+window.vnToggle = function(btn) {
+const box = btn.closest('[data-vn]'), src = box.dataset.vn, A = window.vnAudio;
+if (A.src === src || A.getAttribute('data-src') === src) { if (A.paused) A.play().catch(() => {}); else A.pause(); return; }
+A.pause(); A.setAttribute('data-src', src); A.src = src; window.vnWho = box.dataset.who || 'Voice note'; A.play().catch(() => showToast('⚠️ Could not play this voice note'));
+window.pauseFeedVideos && window.pauseFeedVideos();
+};
+window.vnSeek = function(e, bar) { const box = bar.closest('[data-vn]'), A = window.vnAudio; if (A.getAttribute('data-src') !== box.dataset.vn || !A.duration) return; const r = bar.getBoundingClientRect(); A.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * A.duration; };
+window.vnPaint = function() {
+const A = window.vnAudio, src = A.getAttribute('data-src'), pct = A.duration ? (A.currentTime / A.duration * 100) : 0, playing = !A.paused && !A.ended;
+document.querySelectorAll('[data-vn]').forEach(b => { const me = b.dataset.vn === src; b.querySelector('button').textContent = me && playing ? '❚❚' : '▶'; b.querySelector('.bar i').style.width = (me ? pct : 0) + '%'; b.querySelector('span').textContent = me && A.currentTime ? window.vnFmt(A.currentTime) : window.vnFmt(+b.dataset.d); });
+let f = document.getElementById('vnFloat');
+if (!f) { document.body.insertAdjacentHTML('beforeend', `<div id="vnFloat"><button class="pp" onclick="window.vnAudio.paused ? window.vnAudio.play() : window.vnAudio.pause()">▶</button><b></b><div class="bar"><i></i></div><button onclick="window.vnSpeed()" data-sp>1×</button><button onclick="window.vnClose()">✕</button></div>`); f = document.getElementById('vnFloat'); }
+const show = !!src && !A.ended && (playing || A.currentTime > 0);
+f.classList.toggle('on', show); if (!show) return;
+f.querySelector('.pp').textContent = playing ? '❚❚' : '▶'; f.querySelector('b').textContent = '🎤 ' + window.vnWho; f.querySelector('.bar i').style.width = pct + '%';
+};
+window.vnSpeed = function() { const A = window.vnAudio, L = [1, 1.5, 2], n = L[(L.indexOf(A.playbackRate) + 1) % L.length]; A.playbackRate = n; document.querySelector('#vnFloat [data-sp]').textContent = n + '×'; };
+window.vnClose = function() { const A = window.vnAudio; A.pause(); A.removeAttribute('data-src'); A.removeAttribute('src'); A.load(); window.vnPaint(); };
+['play', 'pause', 'timeupdate', 'ended', 'loadedmetadata'].forEach(ev => window.vnAudio.addEventListener(ev, () => window.vnPaint()));
+window.vnAudio.addEventListener('ended', () => {     // next voice note in the same chat plays by itself
+const all = [...document.querySelectorAll('[data-vn]')], i = all.findIndex(b => b.dataset.vn === window.vnAudio.getAttribute('data-src'));
+const next = i >= 0 ? all[i + 1] : null; if (next) setTimeout(() => window.vnToggle(next.querySelector('button')), 400); else setTimeout(() => window.vnClose(), 600);
+});
+
+window.clipNext = function() { const sc = document.getElementById('sgClipsScroll'); if (sc) sc.scrollBy({ top: sc.clientHeight, behavior: 'smooth' }); };
+document.addEventListener('ended', (e) => {
+const v = e.target; if (!(v instanceof HTMLVideoElement)) return;
+if (v.matches('#sgClipsScroll video[data-clip-video]')) { const s = v.closest('[data-clip]'); if (s && +s.getAttribute('data-clip') === window.clipCur) window.clipNext(); return; }
+if (v.matches('video[data-feed-video]') && !window.feedMuted) {    // feed: only when you were really watching (sound on)
+const card = v.closest('[data-post-id]'); let n = card && card.nextElementSibling; while (n && !n.matches('[data-post-id]')) n = n.nextElementSibling;
+if (n) n.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+}, true);
+document.addEventListener('play', (e) => { const v = e.target; if (v instanceof HTMLVideoElement && v.matches('video[data-feed-video]')) v.loop = !!window.feedMuted; }, true);
+window.addEventListener('message', (e) => {
+if (!/youtube/.test(String(e.origin))) return;
+let d; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (er) { return; }
+const st = d && (d.event === 'onStateChange' ? +d.info : d.event === 'infoDelivery' && d.info && typeof d.info.playerState === 'number' ? d.info.playerState : null);
+if (st !== 0) return;
+const f = [...document.querySelectorAll('#sgClipsScroll iframe')].find(x => x.contentWindow === e.source); if (!f || f._ended) return;
+const s = f.closest('[data-clip]'); if (s && +s.getAttribute('data-clip') === window.clipCur) { f._ended = 1; window.clipNext(); }
+});
+
+window.pushState = function() { const sup = 'Notification' in window && 'serviceWorker' in navigator, perm = sup ? Notification.permission : 'unsupported'; return { sup, perm, on: perm === 'granted' && window._pushOk !== false }; };
+window.openAlertSettings = function() {
+const s = window.pushState();
+window.openPanel('🔔 Alert settings', `<div class="rounded-2xl p-3 flex items-center gap-3 ${s.on ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-amber-500/10 border border-amber-500/40'}">
+<span class="text-2xl">${s.on ? '🔔' : '🔕'}</span><div class="flex-1 min-w-0"><p class="text-xs font-black text-white">${!s.sup ? 'This browser has no alerts' : s.on ? 'Phone alerts are on' : s.perm === 'denied' ? 'Alerts are blocked on this phone' : 'Phone alerts are off'}</p>
+<p class="text-[10px] text-gray-300">${s.on ? 'Sound & vibration, even when the app is closed.' : s.perm === 'denied' ? 'Phone Settings → Apps → Chrome → Notifications → allow sinlessgg.com' : 'Get messages, tags and match alerts when the app is closed.'}</p></div>
+${s.sup ? `<button onclick="${s.on ? 'window.selfTestPush()' : 'window.setupPushNotifications().then(()=>window.openAlertSettings())'}" class="shrink-0 px-3 py-2 rounded-xl text-[10px] font-black ${s.on ? 'bg-gg-900 border border-emerald-500/40 text-emerald-300' : 'bg-amber-400 text-slate-950'}">${s.on ? 'Test' : 'Turn on'}</button>` : ''}</div>
+<button onclick="window.openNotifSettings()" class="mt-3 w-full py-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-black text-white">⚙️ Choose which alerts you get</button>`);
+};
+window.renderPushStatus = function() {
+const list = document.getElementById('notifList'); if (!list) return;
+let bar = document.getElementById('sgPushBar'); if (!bar) { bar = document.createElement('div'); bar.id = 'sgPushBar'; list.parentElement.insertBefore(bar, list); }
+const s = window.pushState();
+bar.className = 'max-w-xl w-full mx-auto px-3 pt-2';
+bar.innerHTML = !s.sup || s.on ? '' : `<button onclick="window.closeNotifications && window.closeNotifications(); window.openAlertSettings()" class="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] font-black text-amber-200">🔕 Phone alerts are off <span class="ml-auto text-white">Turn on ›</span></button>`;
+};
+(function moveAlertMenu() {
+const go = () => { const li = [...document.querySelectorAll('#sideDrawer .drawer-menu-item, .drawer-menu-item')].find(x => /setupPushNotifications/.test(x.getAttribute('onclick') || '')); if (!li) return setTimeout(go, 800);
+li.remove();   // one menu item only: "Alert Settings" (opens the new page)
+document.querySelectorAll('.drawer-menu-item').forEach(x => { if (/openNotifSettings/.test(x.getAttribute('onclick') || '')) x.setAttribute('onclick', 'toggleDrawer(false); window.openAlertSettings();'); }); };
+go();
+})();
+
+window.gameAudioBtn = function() {
+if (document.getElementById('gameMenuBtn')) { document.getElementById('gameAudioBtn')?.remove(); return; }
+document.getElementById('gameAudioBtn')?.remove();
+const top = document.getElementById('gameScoreTop'); if (!top) return;
+top.insertAdjacentHTML('afterend', `<button id="gameMenuBtn" onclick="window.openGameMenu()" class="w-9 h-9 ml-1 rounded-xl bg-gg-800 text-white text-base font-black" aria-label="Game menu">⋯</button>`);
+};
+window.paintGameAudioBtn = function() {};
+window.openGameMenu = function() {
+const A = window.sgAudio, set = (m) => () => { A.mode = m; try { localStorage.setItem('sg_game_audio', m); } catch (e) {} if (m === 'all' && window.game) A.start(window.game.id); else A.fadeOut(); showToast({ all: '🔊 Music & sounds on', sfx: '🎵 Sounds only', off: '🔇 Silent' }[m]); };
+const mark = (m) => A.mode === m ? ' ✓' : '';
+window.openActionSheet('🎮 Game', [
+{ icon: 'fa-volume-high', label: '🔊 Music & sounds' + mark('all'), run: set('all') },
+{ icon: 'fa-music', label: '🎵 Sounds only' + mark('sfx'), run: set('sfx') },
+{ icon: 'fa-volume-xmark', label: '🔇 Silent' + mark('off'), run: set('off') },
+{ icon: 'fa-arrow-left', label: 'Exit game', run: () => window.closeGame() }
+]);
+};
+
+window.storyLive = () => { const now = Date.now(); return (window.profileStories || []).filter(s => s && s.user && (!window.storyExpiresAt || window.storyExpiresAt(s) > now) && !(window.isBlocked && window.isBlocked(s.user))); };
+window.storySeen = () => { try { return JSON.parse(localStorage.getItem('sinless_seen_stories') || '{}'); } catch (e) { return {}; } };
+window.storyUserMap = function() {
+if (window._sumAt && Date.now() - window._sumAt < 8000) return window._sum;
+const seen = window.storySeen(), m = {};
+window.storyLive().forEach(s => { const k = s.user.toLowerCase(); const e = m[k] = m[k] || { user: s.user, latest: 0, unseen: false }; e.latest = Math.max(e.latest, s.timestamp || 0); if (!seen[s.id]) e.unseen = true; });
+window._sum = m; window._sumAt = Date.now(); return m;
+};
+window.storyOrder = function() { const me = window.meLower ? window.meLower() : ''; return Object.values(window.storyUserMap()).filter(e => e.user.toLowerCase() !== me).sort((a, b) => (b.unseen - a.unseen) || (b.latest - a.latest)).map(e => e.user); };
+window.avatarHtml = (function(b) {
+return function(tag, ...r) {
+let h = b.call(this, tag, ...r);
+try {
+const t = String(tag || '').replace('@', ''), e = window.storyUserMap()[t.toLowerCase()]; if (!e) return h;
+const ring = e.unseen ? '0 0 0 2px #0b0f24,0 0 0 4px #ff2d95,0 0 10px 2px rgba(168,85,247,.6)' : '0 0 0 2px #0b0f24,0 0 0 4px rgba(148,163,184,.55)';
+h = h.replace(/style="box-shadow:[^"]*"\s*/, '').replace('<img ', `<img data-story-ring style="box-shadow:${ring}" `)
+.replace(/onclick="event\.stopPropagation\(\); window\.openUserProfileModal\('[^']*', event\)"/, `onclick="event.stopPropagation(); window.openStoryViewer('${escapeHTML(e.user)}', { single: true })"`);
+} catch (er) {}
+return h;
+};
+})(window.avatarHtml);
+window.openStoryViewer = (function(b) {
+return function(user, opts) {
+opts = opts || {};
+const single = !!opts.single || !!(document.getElementById('userProfileModal') && !document.getElementById('userProfileModal').classList.contains('hidden'));
+if (!opts.keepChain) window._storyChain = single ? null : { order: window.storyOrder(), at: user };
+else if (window._storyChain) window._storyChain.at = user;
+return b.call(this, user);
+};
+})(window.openStoryViewer);
+window.storyHop = function(dir) {
+const c = window._storyChain; if (!c) return false;
+const i = c.order.findIndex(u => u.toLowerCase() === String(c.at).toLowerCase());
+let k = i + dir; while (c.order[k] && !(window.profileStories || []).some(s => s.user === c.order[k])) k += dir;   // skip people whose story just expired
+const nu = c.order[k]; if (!nu) return false;
+clearTimeout(window.storyViewer.timer); const v = document.getElementById('storyVideo'); if (v) v.pause();
+window.openStoryViewer(nu, { keepChain: true }); return true;
+};
+window.nextStory = (function(b) { return function(...a) { const sv = window.storyViewer; if (sv && sv.index + 1 >= sv.list.length && window.storyHop(1)) return; return b.apply(this, a); }; })(window.nextStory);
+window.prevStory = (function(b) { return function(...a) { const sv = window.storyViewer; if (sv && sv.index === 0 && window.storyHop(-1)) return; return b.apply(this, a); }; })(window.prevStory);
+window.closeStoryViewer = (function(b) { return function(...a) { window._storyChain = null; window._sumAt = 0; return b.apply(this, a); }; })(window.closeStoryViewer);
+(function storySwipe() {
+const go = () => { const m = document.getElementById('storyViewerModal'); if (!m) return setTimeout(go, 1000); let x0 = null, y0 = null;
+m.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+m.addEventListener('touchend', (e) => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null; if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) { if (!window.storyHop(dx < 0 ? 1 : -1) && dx < 0) window.closeStoryViewer(); } }, { passive: true }); };
+go();
+})();
+
+window.spreadSources = function(list, gap, max) {
+const out = [], wait = [], count = {}, last = {};
+const can = (k) => (count[k] || 0) < max && (last[k] === undefined || out.length - last[k] > gap);
+const put = (x) => { const k = window.srcOf(x); count[k] = (count[k] || 0) + 1; last[k] = out.length; out.push(x); };
+for (const x of list) {
+for (let j = 0; j < wait.length; j++) if (can(window.srcOf(wait[j]))) { put(wait.splice(j, 1)[0]); break; }
+const k = window.srcOf(x); if (k.length < 3) { out.push(x); continue; }
+if (can(k)) put(x); else if ((count[k] || 0) < max) wait.push(x);
+}
+wait.forEach(x => { if (can(window.srcOf(x))) put(x); });
+return out;
+};
+window.feedExtras = (function(b) { return function(nc) { const r = b(nc); try { return window.spreadSources(r || [], 12, 3); } catch (e) { return r; } }; })(window.feedExtras);
+
+window.WV_CAT = (it) => { const k = String(it.k || '') + ',' + String(it.c || '');
+if (/kdrama|cdrama/.test(k)) return 'asian'; if (/nollywood/.test(k)) return 'nolly'; if (/dance/.test(k)) return 'dance'; if (/comedy/.test(k)) return 'fun';
+if (/anime/.test(k)) return 'anime'; if (/wrestling/.test(k)) return 'wrestling'; if (/music|kpop|afrobeats/.test(k)) return 'music';
+if (/football|sports|cricket/.test(k) && !/games|gaming/.test(k)) return 'football'; if (/games|gaming|esports|fcmobile|efootball|dls|cod|eafc|gta/.test(k)) return 'gaming';
+if (/movies|series|trailers|bollywood|turkish|telenovela/.test(k)) return 'movies'; if (/docs|tech|phones|wow/.test(k)) return 'wow'; return 'fun'; };
+window.wvToV = (it) => ({ vid: it.v, title: it.t, date: it.d, cat: window.WV_CAT(it), full: !!it.f, wv: 1, ch: { id: it.ci, name: it.n || it.h, short: it.n || it.h, flag: '' } });
+window.wv = { at: 0, list: [] };
+window.wvLoad = async function(force) {
+if (!force && Date.now() - window.wv.at < 10 * 60000 && window.wv.list.length) return window.wv.list;
+if (window._wvBusy) return window._wvBusy;
+window._wvBusy = (async () => {
+try { const base = await window.nwUrl(); if (!base) return window.wv.list;
+const main = fetch(base + '/vids?limit=200').then(r => r.json()).catch(() => ({ items: [] }));
+const fol = window.ytFollows().slice(0, 6).map(f => fetch(base + '/vids?limit=8&ch=' + f.id).then(r => r.json()).catch(() => ({ items: [] })));
+const all = await Promise.all([main, ...fol]); const seen = new Set(), out = [];
+all.forEach(j => (j.items || []).forEach(it => { if (!seen.has(it.v)) { seen.add(it.v); out.push(window.wvToV(it)); } }));
+window.wv = { at: Date.now(), list: out };
+} catch (e) {}
+return window.wv.list;
+})().finally(() => { window._wvBusy = null; });
+return window._wvBusy;
+};
+setTimeout(() => window.wvLoad().then(() => { if (window.isFeedNearTop && window.isFeedNearTop() && !document.getElementById('view-fyp')?.classList.contains('hidden')) { window._forceFeed = true; window.renderFypFeed(); } }), 2500);
+window.videosForFeed = (function(b) {
+return function(cat) {
+const base = b(cat) || [];
+try {
+const have = new Set(base.map(v => v.vid)), t = (window.taste && window.taste.news) || {}, fol = new Set(window.ytFollows().map(f => f.id));
+const ok = (v) => !have.has(v.vid) && !(window.seenVids && window.seenVids.has(v.vid)) && (!window.vidOk || window.vidOk(v)) && !(window.chBlocked && window.chBlocked(v.ch.id));
+const fresh = (d) => Math.max(0, 3 - (Date.now() - (d || 0)) / 864e5);
+const extra = window.wv.list.filter(v => (!cat || v.cat === cat) && ok(v)).map(v => ({ v, s: (fol.has(v.ch.id) ? 6 : 0) + (t[v.cat] || 0) / 10 + fresh(v.date) + Math.random() * 2 })).sort((x, y) => y.s - x.s).map(x => x.v).slice(0, 60);
+const out = []; let i = 0, j = 0; while (i < base.length || j < extra.length) { if (j < extra.length) out.push(extra[j++]); if (i < base.length) out.push(base[i++]); }
+return out;
+} catch (e) { return base; }
+};
+})(window.videosForFeed);
+
+window.ytFollows = () => { try { return JSON.parse(localStorage.getItem('sg_ytf') || '[]'); } catch (e) { return []; } };
+window.isYtFollowed = (id) => window.ytFollows().some(f => f.id === id);
+window.ytFollow = async function(id, name, cat) {
+if (!/^UC[\w-]{22}$/.test(id || '')) { showToast('This channel can’t be followed'); return; }
+const L = window.ytFollows(), on = !L.some(f => f.id === id);
+const next = on ? [...L, { id, n: name || '', c: cat || '' }].slice(-100) : L.filter(f => f.id !== id);
+try { localStorage.setItem('sg_ytf', JSON.stringify(next)); } catch (e) {}
+document.querySelectorAll(`[data-ytf="${id}"]`).forEach(b => b.textContent = on ? '✓ Following' : (b.textContent.includes('➕') ? '➕ Follow' : '+ Follow'));
+showToast(on ? `📺 Following ${name || 'this channel'}. Its new videos show first.` : `Unfollowed ${name || 'channel'}`);
+if (!window.isSignedIn()) return;
+try { const base = await window.nwUrl(); const r = await fetch(base + '/channels/follow', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await window.mediaIdToken()) }, body: JSON.stringify({ id, on, n: name, c: cat }) }); const j = await r.json().catch(() => ({}));
+if (on && j.ok && !j.alerts) showToast('🔔 Turn on phone alerts to hear when it posts'); } catch (e) {}
+window.wv.at = 0;
+};
+window.ytSeries = function(id, name, full) {
+if (!/^UC[\w-]{22}$/.test(id || '')) return;
+let idx = 1; try { idx = +(localStorage.getItem('sg_ser_' + id) || 1); } catch (e) {}
+window._serId = id;
+window.openPanel(`${full ? '📺 Full episodes' : '▶ More from'} · ${name || 'channel'}`, `<div style="aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000"><iframe id="serFrame" src="https://www.youtube-nocookie.com/embed/videoseries?list=UU${escapeHTML(id.slice(2))}&index=${idx}&playsinline=1&rel=0&enablejsapi=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="width:100%;height:100%;border:0"></iframe></div>
+<p class="text-[11px] text-gray-400 mt-2">Plays everything from this official channel, one after another. We remember where you stopped.</p>
+<div class="grid grid-cols-2 gap-2 mt-3"><button class="v57-btn2" data-ytf="${escapeHTML(id)}" onclick="window.ytFollow('${escapeHTML(id)}', '${escapeHTML(String(name || '').replace(/'/g, ''))}')">${window.isYtFollowed(id) ? '✓ Following' : '➕ Follow'}</button>${idx > 1 ? `<button class="v57-btn2" onclick="try{localStorage.removeItem('sg_ser_${escapeHTML(id)}')}catch(e){}; window.ytSeries('${escapeHTML(id)}', '${escapeHTML(String(name || '').replace(/'/g, ''))}', ${full ? 1 : 0})">⏮ Start again</button>` : ''}</div>`);
+setTimeout(() => { const f = document.getElementById('serFrame'); if (f && window.ytListen) window.ytListen(f); }, 300);
+};
+window.addEventListener('message', (e) => {     // remember which episode you were on
+if (!/youtube/.test(String(e.origin)) || !window._serId) return; let d; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (er) { return; }
+const f = document.getElementById('serFrame'); if (!f || f.contentWindow !== e.source || !d || !d.info || typeof d.info.playlistIndex !== 'number') return;
+try { localStorage.setItem('sg_ser_' + window._serId, String(d.info.playlistIndex + 1)); } catch (er) {}
+});
+window.feedVideoCardHtml = (function(b) {
+return function(v) {
+let h = b(v); if (!v || !v.ch || !/^UC[\w-]{22}$/.test(v.ch.id || '')) return h;
+const id = escapeHTML(v.ch.id), nm = escapeHTML(String(v.ch.name || '').replace(/'/g, ''));
+h = h.replace(/<span class="text-\[9px\] text-red-300 font-black">· (OFFICIAL|SHORTS)<\/span>/, `<span class="text-[9px] text-red-300 font-black">· $1</span> <button data-ytf="${id}" onclick="event.stopPropagation(); window.ytFollow('${id}', '${nm}', '${escapeHTML(v.cat || '')}')" class="ml-1 px-2 py-0.5 rounded-full text-[9px] font-black bg-white/10 text-white">${window.isYtFollowed(v.ch.id) ? '✓ Following' : '+ Follow'}</button>`);
+h = h.replace(/<button onclick="window\.watchCat='[^']*'; window\.switchView\('watch'\)" class="([^"]*)">More in Watch ›<\/button>/, `<button onclick="event.stopPropagation(); window.ytSeries('${id}', '${nm}', ${v.full ? 1 : 0})" class="$1">${v.full ? '📺 Full episodes' : '▶ More from them'}</button>`);
+return h;
+};
+})(window.feedVideoCardHtml);
+window.nwOpen = (function(b) { return function(id) { const m = String(id).match(/^v_([\w-]{11})$/); if (!m) return b(id); window.hlRegistry = window.hlRegistry || []; const it = window.wv.list.find(v => v.vid === m[1]) || { vid: m[1], title: '', date: Date.now(), ch: { name: 'YouTube', short: 'YouTube', flag: '' } }; window.hlRegistry.push(it); window.playHighlight(window.hlRegistry.length - 1); }; })(window.nwOpen);
+window.openYtFollows = function() {
+const L = window.ytFollows();
+window.openPanel('📺 Channels I follow', L.length ? L.map(f => `<div class="v57-card flex items-center gap-2 mb-2"><p class="flex-1 text-sm font-black text-white truncate">${escapeHTML(f.n || f.id)}</p><button class="nw-act" onclick="window.ytSeries('${escapeHTML(f.id)}', '${escapeHTML(String(f.n || '').replace(/'/g, ''))}')">▶ Watch</button><button class="nw-act" onclick="window.ytFollow('${escapeHTML(f.id)}', '${escapeHTML(String(f.n || '').replace(/'/g, ''))}'); window.openYtFollows()">Unfollow</button></div>`).join('') : '<p class="text-xs text-gray-400 text-center py-8">Tap ➕ Follow on any video in your feed to follow its channel here.</p>');
+};
+window.openExplore = (function(b) { return function(...a) { const r = b.apply(this, a); try { const g = document.querySelector('#sgPanelBody .sg-ex'); if (g && !g.querySelector('[data-ytfl]')) g.insertAdjacentHTML('beforeend', `<button data-ytfl onclick="window.closePanel(); setTimeout(()=>window.openYtFollows(),120)"><b>📺</b>Channels I follow</button>`); } catch (e) {} return r; }; })(window.openExplore);
+
+window.chApi = async function(path, body) {
+const base = await window.nwUrl(), tok = await window.mediaIdToken();
+const r = await fetch(base + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok }, body: JSON.stringify(body) } : { headers: { Authorization: 'Bearer ' + tok } });
+return r.json().catch(() => ({ ok: false }));
+};
+window.openChannelsAdmin = async function(st) {
+if (!window.isAppAdmin) return; st = st || 'c';
+window.openPanel('📺 Channels', '<p class="text-xs text-gray-400 text-center py-6">Loading…</p>');
+const j = await window.chApi('/channels?st=' + st), c = j.count || {}, box = document.getElementById('sgPanelBody'); if (!box) return;
+if (!j.ok) { box.innerHTML = `<p class="text-xs text-amber-300 text-center py-6">⚠️ ${escapeHTML(j.error || 'Upload the new worker first')}</p>`; return; }
+box.innerHTML = `<div class="grid grid-cols-3 gap-2 text-center mb-3">${[['✅', c.o, 'shown'], ['🔎', c.c, 'to check'], ['⏳', c.waiting, 'not looked up'], ['➕', c.u || 0, 'by followers'], ['❌', c.bad, 'not found'], ['🗑️', c.x || 0, 'removed']].map(([e, n, l]) => `<div class="v57-card" style="padding:8px"><p class="text-lg">${e}</p><p class="text-sm font-black text-white">${n || 0}</p><p class="text-[9px] text-gray-400">${l}</p></div>`).join('')}</div>
+<div class="flex gap-2 mb-2"><input id="chAddH" class="v57-in" placeholder="@handle to add"><select id="chAddC" class="v57-in" style="max-width:120px">${['gaming', 'football', 'movies', 'anime', 'music', 'fun', 'wrestling', 'wow'].map(x => `<option>${x}</option>`).join('')}</select><button class="nw-act" onclick="window.chAdd()">Add</button></div>
+<div class="grid grid-cols-2 gap-2 mb-3"><button class="v57-btn2" onclick="window.chSet({ all: 'found', st: 'o' })">✅ Approve all found</button><button class="v57-btn2" onclick="window.chSet({ all: 'bad', st: 'x' })">🗑️ Delete not-found</button></div>
+<div class="nw-row mb-2">${[['c', '🔎 To check'], ['u', '➕ By followers'], ['o', '✅ Shown'], ['bad', '❌ Not found']].map(([k, l]) => `<button class="nw-chip ${st === k ? 'on' : ''}" onclick="window.openChannelsAdmin('${k}')">${l}</button>`).join('')}</div>
+${(j.list || []).map(x => `<div class="v57-card flex items-center gap-2 mb-2">${x.v ? `<img src="https://i.ytimg.com/vi/${escapeHTML(x.v)}/default.jpg" class="w-16 h-12 rounded-lg object-cover" loading="lazy">` : '<div class="w-16 h-12 rounded-lg bg-black/40"></div>'}
+<div class="flex-1 min-w-0"><p class="text-xs font-black text-white truncate">${escapeHTML(x.yt || x.n || '')}</p><p class="text-[10px] text-gray-400 truncate">@${escapeHTML(x.h || '?')} · ${escapeHTML(x.c || '')}${x.fol ? ' · ' + x.fol + ' following' : ''}</p>
+${x.id ? `<a class="text-[10px] text-cyan-300" href="https://www.youtube.com/channel/${escapeHTML(x.id)}" target="_blank" rel="noopener">Open on YouTube ›</a>` : ''}</div>
+${st !== 'o' ? `<button class="nw-act" onclick="window.chSet({ id: '${escapeHTML(x.id || '')}', h: '${escapeHTML(x.h || '')}', st: 'o' })">✅</button>` : ''}<button class="nw-act" onclick="window.chSet({ id: '${escapeHTML(x.id || '')}', h: '${escapeHTML(x.h || '')}', st: 'x' })">🗑️</button></div>`).join('') || '<p class="text-xs text-gray-500 text-center py-4">Nothing here right now.</p>'}`;
+};
+window.chSet = async function(b) { const j = await window.chApi('/channels/set', b); showToast(j.ok ? `✅ Done (${j.changed})` : '⚠️ ' + (j.error || 'failed')); window.adminLog && window.adminLog('channels ' + (b.all || b.st), b.h || b.id || b.all || '', ''); window.openChannelsAdmin(); };
+window.chAdd = async function() { const h = (document.getElementById('chAddH').value || '').trim(), c = document.getElementById('chAddC').value; if (!h) return; showToast('🔎 Looking it up…'); const j = await window.chApi('/channels/add', { h, c }); showToast(j.ok ? '✅ Added! Its videos show within the hour.' : '⚠️ ' + (j.error || 'failed')); if (j.ok) window.openChannelsAdmin('o'); };
+window.renderAdminTools = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a);
+try { const box = document.getElementById('adminBody'); if (box && window.isAppAdmin && !box.querySelector('[data-chadm]')) box.insertAdjacentHTML('afterbegin', `<button data-chadm onclick="window.closeAdminPanel(); window.openChannelsAdmin()" class="w-full py-3 mb-3 rounded-2xl text-xs font-black uppercase text-slate-950" style="background:linear-gradient(90deg,#22d3ee,#a855f7)">📺 Channels (approve · remove · add)</button>`); } catch (e) {}
+return r;
+};
+})(window.renderAdminTools);
+
+window.tzOff = function(tz, ms) { try { const p = {}; new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(ms)).forEach(x => p[x.type] = x.value); return (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - ms) / 60000; } catch (e) { return -new Date(ms).getTimezoneOffset(); } };
+window.zonedMs = function(y, mo, d, mins, tz) { const guess = Date.UTC(y, mo, d, 0, mins); const off = window.tzOff(tz, guess); const r = guess - off * 60000; return r - (window.tzOff(tz, r) - off) * 60000; };
+window.myTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } };
+window.ffOn = (t) => !!(t && t.autoFF !== false && t.playFrom && t.playTo && t.status !== 'finished');
+window.ffWin = function(t, m) {
+const d = window.matchDate(t, m); if (d === null || !window.ffOn(t)) return null;
+const dt = new Date(d), y = dt.getFullYear(), mo = dt.getMonth(), da = dt.getDate(), tz = t.tz || window.myTz();
+return { from: window.zonedMs(y, mo, da, window.fxHM(t.playFrom), tz), to: window.zonedMs(y, mo, da, window.fxHM(t.playTo), tz), end: window.zonedMs(y, mo, da, 23 * 60 + 59, tz) + 59000 };
+};
+window.ffTime = (ms) => new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+window.dueAt = (function(b) { return function(t, m) { const w = window.ffWin(t, m); return w ? w.end : b(t, m); }; })(window.dueAt);
+window.ffPostponed = (m) => !!(m.resch && (m.resch.st === 'asked' || m.resch.st === 'agreed'));
+window.ffProof = function(t, m) { const w = window.ffWin(t, m), r = m.rdy || {}, inWin = (L) => (L || []).filter(x => w && x >= w.from && x <= w.to); return { w, a: inWin(r[String(m.p1).toLowerCase()]), b: inWin(r[String(m.p2).toLowerCase()]) }; };
+window.ffMyMatchesToday = function() {
+const out = [], now = Date.now(); if (!window.isSignedIn()) return out;
+(window.tournamentsList || []).forEach(t => { if (!window.ffOn(t)) return; (t.matches || []).forEach(m => { if (!window.fxReal || !window.fxReal(m) || window.isPlayedM(m) || !window.fxMine(m) || window.ffPostponed(m)) return; const w = window.ffWin(t, m); if (w && now >= w.from - 12 * 3600e3 && now <= w.end) out.push({ t, m, w }); }); });
+return out;
+};
+window.ffReady = async function(tid, mid, quiet) {
+const t = (window.tournamentsList || []).find(x => x.id === tid), m = t && (t.matches || []).find(x => x.id === mid); if (!m || !window.fxMine(m)) return;
+const w = window.ffWin(t, m), now = Date.now(); if (!w) return;
+if (now < w.from || now > w.to) { if (!quiet) showToast(`📣 "Ready" counts in play time: ${window.ffTime(w.from)}–${window.ffTime(w.to)} (your time)`); return; }
+const me = window.me().toLowerCase(), opp = window.tagEq(m.p1, window.me()) ? m.p2 : m.p1;
+m.rdy = m.rdy || {}; const L = m.rdy[me] = (m.rdy[me] || []).filter(x => now - x > 0).slice(-4);
+if (L.length && now - L[L.length - 1] < 10 * 60000) { if (!quiet) showToast('✅ Already marked ready. Tag your opponent in the squad chat too.'); return; }
+L.push(now);
+try { await window.saveTournament(t); } catch (e) {}
+window.tlog(t, { type: 'ready', mid, text: `📣 ${window.me()} is ready to play ${opp}` });
+window.notifyTag(opp, `📣 is ready to play you now in ${t.title}! Play time ends ${window.ffTime(w.to)}.`);
+if (!quiet) showToast(`📣 Ready! We told ${window.dnText(opp)}. Your proof is saved.`);
+window.ffBanner();
+};
+window.sendSquadMessage = (function(b) {
+return async function(payload, ...a) {
+const r = await b.call(this, payload, ...a);
+try { const tags = ((payload && payload.text) || '').match(/@([A-Za-z0-9_]{2,30})/g) || []; if (tags.length) window.ffMyMatchesToday().forEach(({ t, m, w }) => { const opp = window.tagEq(m.p1, window.me()) ? m.p2 : m.p1; if (tags.some(x => window.tagEq(x.slice(1), opp)) && Date.now() >= w.from && Date.now() <= w.to) window.ffReady(t.id, m.id, true); }); } catch (e) {}
+return r;
+};
+})(window.sendSquadMessage);
+window.ffDecide = function(t, m) {
+if (!window.ffOn(t) || window.isPlayedM(m) || !window.fxReal(m) || window.ffPostponed(m) || m.autoUndone || m.status === 'disputed') return null;
+const { w, a, b } = window.ffProof(t, m); if (!w || Date.now() < w.end) return null;
+const A = a.length > 0, B = b.length > 0, league = t.format === 'LEAGUE';
+if (A && !B) return { kind: 'win', winner: m.p1, loser: m.p2, s1: 3, s2: 0 };
+if (B && !A) return { kind: 'win', winner: m.p2, loser: m.p1, s1: 0, s2: 3 };
+if (!league) return null;                       // knockout: the host decides
+if (A && B) return { kind: 'draw' };
+return { kind: 'both' };
+};
+window.ffSweep = async function() {
+if (!window.isSignedIn() || window._ffBusy) return; window._ffBusy = true;
+try {
+for (const t of (window.tournamentsList || [])) {
+if (!window.ffOn(t) || !(window.canManageTourn(t) || (t.players || []).some(p => window.tagEq(p, window.me())))) continue;
+let changed = [];
+(t.matches || []).forEach(m => {
+const d = window.ffDecide(t, m); if (!d) return;
+const by = '🤖 SINLESS GG bot', at = Date.now();
+if (d.kind === 'win') { const oldW = m.winner; Object.assign(m, { s1: d.s1, s2: d.s2, winner: d.winner, status: 'approved', forfeit: d.loser, forfeitBy: by, auto: { at, kind: 'win' } }); if (t.format !== 'LEAGUE') { t.eliminated = t.eliminated || []; if (!t.eliminated.includes(d.loser)) t.eliminated.push(d.loser); try { if (typeof advanceWinnerInBracket === 'function') advanceWinnerInBracket(t, m); } catch (e) {} } }
+else if (d.kind === 'draw') Object.assign(m, { s1: 0, s2: 0, winner: 'DRAW', status: 'approved', approvedBy: by, auto: { at, kind: 'draw' } });
+else Object.assign(m, { s1: 0, s2: 0, winner: 'NONE', bothLost: true, status: 'approved', approvedBy: by, auto: { at, kind: 'both' } });
+changed.push({ m, d });
+});
+if (!changed.length) continue;
+await window.saveTournament(t);
+changed.forEach(({ m, d }) => {
+const txt = d.kind === 'win' ? `🤖 Auto result: ${d.winner} wins (${d.loser} didn't show up in play time)` : d.kind === 'draw' ? '🤖 Auto result: 0–0 draw (both were ready but the match wasn\'t played)' : '🤖 Auto result: both lose (nobody showed up in play time)';
+window.tlog(t, { type: 'decision', mid: m.id, text: txt, why: 'auto-forfeit at 11:59 pm' });
+if (window.canManageTourn(t)) [m.p1, m.p2].forEach(p => window.notifyTag(p, `${txt} · ${t.title}. The host can change it within 12 hours.`));
+});
+}
+} catch (e) { console.warn('ffSweep', e); } finally { window._ffBusy = false; }
+};
+setInterval(() => { try { window.ffSweep(); } catch (e) {} }, 5 * 60000); setTimeout(() => { try { window.ffSweep(); } catch (e) {} }, 15000);
+window.ffUndo = async function(tid, mid) {
+const t = (window.tournamentsList || []).find(x => x.id === tid), m = t && (t.matches || []).find(x => x.id === mid); if (!m || !m.auto || !window.canManageTourn(t)) return;
+if (Date.now() - m.auto.at > 12 * 3600e3) { showToast('The 12 hours to undo have passed. Use ✏️ Fix instead.'); return; }
+const why = await window.askReason('The auto result was wrong'); if (why === null) return;
+['s1', 's2'].forEach(k => m[k] = null); Object.assign(m, { winner: null, status: 'approved', autoUndone: true }); delete m.bothLost; delete m.forfeit; delete m.forfeitBy; delete m.auto;
+if (t.format !== 'LEAGUE' && t.eliminated) t.eliminated = t.eliminated.filter(p => !window.tagEq(p, m.p1) && !window.tagEq(p, m.p2));
+await window.saveTournament(t); window.tlog(t, { type: 'decision', mid, text: '↩ Host undid the auto result', why });
+[m.p1, m.p2].forEach(p => window.notifyTag(p, `↩ The host undid the auto result of your ${t.title} match. Reason: ${why}`));
+showToast('↩ Undone. Decide it in the Command centre.'); window.adminLog && window.adminLog('undo auto result', t.title + ' ' + m.p1 + ' v ' + m.p2, why);
+};
+window.ffBanner = function() {
+const feed = document.getElementById('fypFeedContainer'); if (!feed) return;
+const L = window.ffMyMatchesToday(); let el = document.getElementById('ffBanner');
+if (!L.length) { el && el.remove(); return; }
+const now = Date.now(), html = `<div id="ffBanner" class="rounded-2xl p-3 space-y-2" style="background:linear-gradient(135deg,rgba(34,211,238,.14),rgba(168,85,247,.16));border:1px solid rgba(34,211,238,.45)">${L.slice(0, 3).map(({ t, m, w }) => {
+const opp = window.tagEq(m.p1, window.me()) ? m.p2 : m.p1, mine = ((m.rdy || {})[window.me().toLowerCase()] || []).some(x => x >= w.from && x <= w.to), live = now >= w.from && now <= w.to;
+return `<div class="flex items-center gap-2"><div class="flex-1 min-w-0"><p class="text-xs font-black text-white truncate">⚽ ${now < w.from ? 'Match today' : 'Your match'} vs ${window.dn(opp)}</p><p class="text-[10px] text-cyan-200 truncate">${escapeHTML(t.title)} · ${window.ffTime(w.from)}–${window.ffTime(w.to)} your time${live ? ' · 🔴 play time now' : ''}</p></div>
+<button onclick="window.ffReady('${t.id}','${escapeHTML(m.id)}')" class="shrink-0 px-3 py-2 rounded-xl text-[11px] font-black ${mine ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/50' : 'text-slate-950'}" style="${mine ? '' : 'background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)'}">${mine ? '✅ Ready' : '📣 I\'m ready'}</button></div>`; }).join('')}</div>`;
+if (el) el.outerHTML = html; else feed.insertAdjacentHTML('beforebegin', html);
+};
+window.renderFypFeed = (function(b) { return function(...a) { const r = b.apply(this, a); try { setTimeout(window.ffBanner, 80); } catch (e) {} return r; }; })(window.renderFypFeed);
+setInterval(() => { try { if (!document.getElementById('view-fyp')?.classList.contains('hidden')) window.ffBanner(); } catch (e) {} }, 60000);
+window.ffDayAlert = function() {
+window.ffMyMatchesToday().forEach(({ t, m, w }) => {
+const k = 'sg_ffa_' + t.id + '_' + m.id + '_' + new Date(w.from).toDateString(); try { if (localStorage.getItem(k)) return; localStorage.setItem(k, '1'); } catch (e) { return; }
+const opp = window.tagEq(m.p1, window.me()) ? m.p2 : m.p1, msg = `⚽ Match today vs ${window.dnText(opp)} · ${window.ffTime(w.from)}–${window.ffTime(w.to)} (your time). Tap 📣 I'm ready when you're on.`;
+showToast(msg); try { if (Notification.permission === 'granted') navigator.serviceWorker.ready.then(reg => reg.showNotification('⚽ Match day · ' + t.title, { body: msg, icon: 'icon-192.png', tag: 'ffa' + m.id })); } catch (e) {}
+});
+};
+setTimeout(() => { try { window.ffDayAlert(); } catch (e) {} }, 9000); setInterval(() => { try { window.ffDayAlert(); } catch (e) {} }, 30 * 60000);
+window.fxPlayTimes = (function(b) { return function(tid) { const r = b(tid); try { const t = (window.tournamentsList || []).find(x => x.id === tid), body = document.getElementById('sgPanelBody'); if (t && body && !body.querySelector('#ffAuto')) { const anchor = [...body.querySelectorAll('div.grid')].pop(); anchor && anchor.insertAdjacentHTML('beforebegin', `<label class="flex items-start gap-3 p-3 mt-3 rounded-2xl bg-gg-900 border border-cyan-500/30"><input id="ffAuto" type="checkbox" ${t.autoFF === false ? '' : 'checked'} class="mt-1"><span class="text-[11px] text-gray-200"><b class="text-white">🤖 Auto-forfeit at 11:59 pm</b><br>Players tap 📣 I'm ready (or tag their opponent) during play time. Not played by 11:59 pm? One showed = win · both showed = draw · nobody = both lose (league). Knockout: one showed = win. You can undo within 12 hours.<br><span class="text-cyan-300">Times use your time zone (${escapeHTML(window.myTz())}); players see them in theirs.</span></span></label>`); } } catch (e) {} return r; }; })(window.fxPlayTimes);
+window.fxSaveTimes = (function(b) { return async function(tid, off) { const t = (window.tournamentsList || []).find(x => x.id === tid), cb = document.getElementById('ffAuto'); if (t) { const v = { tz: window.myTz(), autoFF: cb ? cb.checked : true }; Object.assign(t, v); try { await updateDoc(doc(window.db, 'tournaments', t.id), v); } catch (e) {} } return b(tid, off); }; })(window.fxSaveTimes);
+window.openMatchReportModal = (function(b) {
+return function(mid, ...a) {
+const r = b.call(this, mid, ...a);
+try {
+const t = window.activeTournament, m = t && (t.matches || []).find(x => x.id === mid), box = document.getElementById('matchReportModal'); if (!t || !m || !box || !window.ffOn(t)) return r;
+box.querySelector('[data-ff]')?.remove();
+const { w, a: A, b: B } = window.ffProof(t, m); if (!w) return r;
+const rows = [...A.map(x => [x, m.p1]), ...B.map(x => [x, m.p2])].sort((x, y) => x[0] - y[0]).map(([x, p]) => `<p class="text-[11px] text-gray-200">✅ ${window.ffTime(x)} · ${window.dn(p)} was ready</p>`).join('') || '<p class="text-[11px] text-gray-400">Nobody has marked ready yet.</p>';
+const canUndo = m.auto && window.canManageTourn(t) && Date.now() - m.auto.at < 12 * 3600e3;
+const host = box.querySelector('[data-x55]') || box.querySelector('.space-y-3') || box.firstElementChild;
+host && host.insertAdjacentHTML('beforebegin', `<div data-ff class="mx-3 mt-3 p-3 rounded-2xl" style="background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.35)"><p class="text-xs font-black text-white">🤖 Play time ${window.ffTime(w.from)}–${window.ffTime(w.to)} <span class="text-gray-400 font-bold">(your time)</span></p><p class="text-[10px] text-gray-400 mb-2">Not played by ${window.ffTime(w.end)}? The bot decides from this proof.</p>${rows}
+${m.auto ? `<p class="text-[11px] text-amber-200 mt-2">🤖 Decided automatically ${window.timeAgo ? window.timeAgo(m.auto.at) : ''}</p>` : ''}
+<div class="flex gap-2 mt-2">${window.fxMine(m) && !window.isPlayedM(m) ? `<button onclick="window.ffReady('${t.id}','${escapeHTML(m.id)}')" class="flex-1 py-2 rounded-xl text-[11px] font-black text-slate-950" style="background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)">📣 I'm ready</button>` : ''}${canUndo ? `<button onclick="window.ffUndo('${t.id}','${escapeHTML(m.id)}')" class="flex-1 py-2 rounded-xl text-[11px] font-black bg-white/10 text-white">↩ Undo auto result</button>` : ''}</div></div>`);
+} catch (e) {}
+return r;
+};
+})(window.openMatchReportModal);
+
+window.myLang = () => String(navigator.language || 'en').slice(0, 2).toLowerCase();
+window.LANG_NAME = (c) => { try { return new Intl.DisplayNames([window.myLang()], { type: 'language' }).of(c) || c; } catch (e) { return c; } };
+window.aiCall = async function(path, body) {
+if (window.needSignIn('translate')) return null;
+const base = await window.nwUrl(); if (!base) return null;
+try { const r = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await window.mediaIdToken()) }, body: JSON.stringify({ to: window.myLang(), ...body }) }); const j = await r.json().catch(() => ({}));
+if (!j.ok) { showToast('⚠️ ' + (j.limit ? 'Daily limit reached. Try again tomorrow.' : j.error || 'Not available right now')); return null; } return j; } catch (e) { showToast('⚠️ No connection'); return null; }
+};
+window.trCache = (k, v) => { try { const C = JSON.parse(localStorage.getItem('sg_tr') || '{}'); if (v === undefined) return C[k]; C[k] = v; const keys = Object.keys(C); if (keys.length > 120) delete C[keys[0]]; localStorage.setItem('sg_tr', JSON.stringify(C)); } catch (e) {} return v; };
+window.trKey = (s) => { let h = 0; s = String(s); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return window.myLang() + ':' + h; };
+window.translateText = async function(text) {
+text = String(text || '').trim(); if (!text) return;
+const k = window.trKey(text); let out = window.trCache(k);
+if (!out) { showToast('🌍 Translating…'); const j = await window.aiCall('/ai/translate', { text }); if (!j) return; out = window.trCache(k, j.text); }
+window.openPanel(`🌍 In ${window.LANG_NAME(window.myLang())}`, `<div class="v57-card"><p class="text-sm text-white" style="white-space:pre-wrap">${escapeHTML(out)}</p></div><p class="text-[10px] text-gray-500 mt-2">Original:</p><p class="text-xs text-gray-400" style="white-space:pre-wrap">${escapeHTML(text.slice(0, 600))}</p><p class="text-[9px] text-gray-500 mt-2">Translated by AI. It can make mistakes.</p>`);
+};
+window.openPostActions = (function(b) { return function(postId) { const p = window.findPost(postId) || (window.postFetchCache || {})[postId], txt = p && (p.caption || p.text); if (!txt) return b.call(this, postId); const orig = window.openActionSheet; window.openActionSheet = (title, items) => orig(title, [...items, { icon: 'fa-language', label: '🌍 Translate', run: () => window.translateText(txt) }]); try { return b.call(this, postId); } finally { window.openActionSheet = orig; } }; })(window.openPostActions);
+window.openSquadMessageActions = (function(b) { return function(id) { const m = window.findSquadMsg && window.findSquadMsg(id); const orig = window.openActionSheet; if (m && m.text) window.openActionSheet = (title, items) => orig(title, [...items, { icon: 'fa-language', label: '🌍 Translate', run: () => window.translateText(m.text) }]); try { return b(id); } finally { window.openActionSheet = orig; } }; })(window.openSquadMessageActions);
+document.addEventListener('click', (e) => { const bub = e.target.closest && e.target.closest('#dmMessagesContainer .dm-bubble'); const id = bub && bub.closest('.dm-row')?.dataset.mid; window._dmTrText = id && (window.dmMsgsById || {})[id] ? (window.dmMsgsById[id].text || '') : ''; }, true);
+window.openActionSheet = (function(b) { return function(title, items, ...a) { if (title === 'Message' && window._dmTrText && Array.isArray(items) && !items.some(x => /Translate/.test(x.label))) { const t = window._dmTrText; items = [...items, { icon: 'fa-language', label: '🌍 Translate', run: () => window.translateText(t) }]; window._dmTrText = ''; } return b.call(this, title, items, ...a); }; })(window.openActionSheet);
+window.audioMsgHtml = (function(b) { return function(m, mine) { const h = b(m, mine), src = window.audioSrc(m.audioUrl), have = window.trCache('vn:' + window.trKey(src)); return h.replace(/<\/div>$/, `<button onclick="event.stopPropagation(); window.vnWords(this)" class="text-[10px] font-black px-1.5 py-1 rounded-lg bg-white/10" title="Show the words">Aa</button></div>${have ? `<p class="vn-tx text-[11px] mt-1 opacity-90" style="max-width:240px">“${escapeHTML(have)}”</p>` : ''}`); }; })(window.audioMsgHtml);
+window.vnWords = async function(btn) {
+const box = btn.closest('[data-vn]'), src = box.dataset.vn, k = 'vn:' + window.trKey(src); let t = window.trCache(k);
+if (!t) { btn.textContent = '…'; const j = await window.aiCall('/ai/transcribe', { url: src }); btn.textContent = 'Aa'; if (!j) return; t = window.trCache(k, j.text || '(no words heard)'); }
+if (!box.nextElementSibling || !box.nextElementSibling.classList.contains('vn-tx')) box.insertAdjacentHTML('afterend', `<p class="vn-tx text-[11px] mt-1 opacity-90" style="max-width:240px">“${escapeHTML(t)}”</p>`);
+};
+window.subsMode = () => { try { return localStorage.getItem('sg_subs') || 'auto'; } catch (e) { return 'auto'; } };
+window.FOREIGN_RE = /[぀-ヿ㐀-鿿가-힯؀-ۿऀ-ॿ฀-๿Ѐ-ӿ]/;
+window.vidMeta = (vid) => (window.wv.list || []).find(v => v.vid === vid) || (window.feedVidReg || []).find(v => v && v.vid === vid) || (window.hlRegistry || []).find(v => v && v.vid === vid) || null;
+window.vidForeign = (vid) => { const v = window.vidMeta(vid); if (!v) return false; return window.FOREIGN_RE.test(v.title || '') || ['asian', 'anime'].includes(v.cat) || /cdrama|kdrama|bollywood|turkish|telenovela/.test(String(v.k || '')); };
+window.subsParams = (src) => {
+const mode = window.subsMode(), vid = (String(src).match(/embed\/([\w-]{11})/) || [])[1]; if (mode === 'off' || /cc_load_policy/.test(src)) return null;
+if (mode === 'auto' && !(vid && window.vidForeign(vid)) && !/videoseries/.test(src)) return null;
+const L = window.myLang(); return `cc_load_policy=1&cc_lang_pref=${L}&hl=${L}`;
+};
+new MutationObserver((muts) => { muts.forEach(mu => mu.addedNodes.forEach(n => { const fr = n.tagName === 'IFRAME' ? [n] : n.querySelectorAll ? [...n.querySelectorAll('iframe')] : []; fr.forEach(f => { const s = f.getAttribute('src') || ''; if (!/youtube(-nocookie)?\.com\/embed\//.test(s)) return; const p = window.subsParams(s); if (p) f.setAttribute('src', s + (s.includes('?') ? '&' : '?') + p); }); })); }).observe(document.documentElement, { childList: true, subtree: true });
+window.openSubsSettings = function() {
+const m = window.subsMode();
+window.openPanel('🎬 Subtitles', `<p class="text-xs text-gray-400 mb-3">YouTube videos show subtitles in <b class="text-white">${escapeHTML(window.LANG_NAME(window.myLang()))}</b> when YouTube has them. SINLESS GG videos get a <b class="text-white">CC</b> button that writes subtitles with AI.</p>
+${[['auto', '✨ Auto', 'Only for foreign shows (Chinese, Korean, Indian, Turkish, anime…)'], ['on', '✅ Always', 'Every video'], ['off', '🚫 Off', 'No subtitles']].map(([k, l, d]) => `<button onclick="try{localStorage.setItem('sg_subs','${k}')}catch(e){}; window.openSubsSettings(); showToast('🎬 Subtitles: ${l.replace(/^\S+ /, '')}')" class="w-full text-left p-3 mb-2 rounded-2xl border ${m === k ? 'border-cyan-400 bg-cyan-400/10' : 'border-white/10 bg-white/5'}"><p class="text-sm font-black text-white">${l}</p><p class="text-[10px] text-gray-400">${d}</p></button>`).join('')}`);
+};
+window.openExplore = (function(b) { return function(...a) { const r = b.apply(this, a); try { const g = document.querySelector('#sgPanelBody .sg-ex'); if (g && !g.querySelector('[data-subs]')) g.insertAdjacentHTML('beforeend', `<button data-subs onclick="window.closePanel(); setTimeout(()=>window.openSubsSettings(),120)"><b>🎬</b>Subtitles</button>`); } catch (e) {} return r; }; })(window.openExplore);
+(function ccCss() { const s = document.createElement('style'); s.textContent = `.sg-cc{position:absolute;left:8px;right:8px;bottom:14px;z-index:6;text-align:center;pointer-events:none}.sg-cc span{display:inline-block;max-width:100%;padding:5px 10px;border-radius:10px;font:800 13px/1.35 system-ui,sans-serif;color:#fff;background:rgba(11,15,36,.78);border:1px solid rgba(168,85,247,.55);box-shadow:0 0 14px -4px #ff2d95;text-shadow:0 1px 2px #000}.sg-ccb{position:absolute;top:8px;left:8px;z-index:7;padding:3px 8px;border-radius:8px;font:900 10px system-ui;color:#0b0f24;background:linear-gradient(90deg,#22d3ee,#a855f7)}`; document.head.appendChild(s); })();
+window.ccAttach = function() {
+document.querySelectorAll('video[data-feed-video]').forEach(v => { const box = v.parentElement; if (!box || box.querySelector('.sg-ccb')) return; if (getComputedStyle(box).position === 'static') box.style.position = 'relative'; box.insertAdjacentHTML('beforeend', '<button class="sg-ccb" onclick="event.stopPropagation(); window.ccToggle(this)">CC</button>'); });
+};
+window.ccToggle = async function(btn) {
+const box = btn.parentElement, v = box.querySelector('video'); if (!v) return;
+const old = box.querySelector('.sg-cc'); if (old) { old.remove(); v._cc = null; btn.textContent = 'CC'; return; }
+const src = v.getAttribute('data-src-raw') || v.currentSrc, k = 'cc:' + window.trKey(src); let segs = window.trCache(k);
+if (!segs) { btn.textContent = '…'; const j = await window.aiCall('/ai/transcribe', { url: src }); btn.textContent = 'CC'; if (!j) return; segs = window.trCache(k, (j.segs && j.segs.length ? j.segs : [{ a: 0, b: 9999, t: j.text || '' }])); }
+box.insertAdjacentHTML('beforeend', '<div class="sg-cc"><span></span></div>'); const span = box.querySelector('.sg-cc span'); btn.textContent = 'CC ✓';
+const paint = () => { const s = segs.find(x => v.currentTime >= x.a && v.currentTime <= x.b + 0.2); span.textContent = s ? s.t : ''; span.style.visibility = s ? 'visible' : 'hidden'; };
+v._cc = paint; v.addEventListener('timeupdate', paint); paint();
+};
+window.renderFypFeed = (function(b) { return function(...a) { const r = b.apply(this, a); try { setTimeout(window.ccAttach, 120); } catch (e) {} return r; }; })(window.renderFypFeed);
+
+(function miniCss() { const s = document.createElement('style'); s.textContent = `#sgMini{position:fixed;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);z-index:2147481000;width:min(46vw,220px);border-radius:14px;overflow:hidden;background:#000;box-shadow:0 14px 34px -10px rgba(0,0,0,.8),0 0 0 1px rgba(168,85,247,.6)}
+#sgMini .fr{position:relative;aspect-ratio:16/9}#sgMini .fr.tall{aspect-ratio:9/16;max-height:42vh}#sgMini iframe,#sgMini video{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain}
+#sgMini .bar{display:flex;gap:4px;padding:4px;background:rgba(11,15,36,.95)}#sgMini .bar button{flex:1;padding:5px 0;border-radius:8px;font:900 11px system-ui;color:#fff;background:rgba(255,255,255,.08)}
+.sg-minib{position:absolute;top:12px;right:60px;z-index:11;width:40px;height:40px;border-radius:999px;background:rgba(0,0,0,.5);color:#fff;font-size:16px}`; document.head.appendChild(s); })();
+window.clipMini = function() {
+const c = (window.clipsList || [])[window.clipCur], slide = document.querySelector(`#sgClipsScroll [data-clip="${window.clipCur}"]`); if (!c || !slide) return;
+const yt = slide.querySelector('[data-clip-yt]'), f = yt && yt.querySelector('iframe'), v = slide.querySelector('video[data-clip-video]');
+let inner = '';
+if (yt) { const id = yt.getAttribute('data-clip-yt'), t = Math.floor((f && f._ytT) || 0); inner = `<iframe src="https://www.youtube-nocookie.com/embed/${escapeHTML(id)}?autoplay=1&playsinline=1&rel=0&start=${t}&enablejsapi=1" allow="autoplay; encrypted-media; picture-in-picture"></iframe>`; }
+else if (v) inner = `<video src="${escapeHTML(v.currentSrc || v.src)}" autoplay playsinline ${window.feedMuted ? 'muted' : ''}></video>`;
+if (!inner) return;
+const tall = (c.v && c.v.short) || (c.kind === 'post');
+window._miniAt = window.clipCur; window._miniTime = v ? v.currentTime : 0;
+window.closeClips();
+document.getElementById('sgMini')?.remove();
+document.body.insertAdjacentHTML('beforeend', `<div id="sgMini"><div class="fr ${tall ? 'tall' : ''}">${inner}</div><div class="bar"><button onclick="window.miniBack()">⤢ Open</button><button onclick="document.getElementById('sgMini').remove()">✕</button></div></div>`);
+const mv = document.querySelector('#sgMini video'); if (mv) mv.addEventListener('loadedmetadata', () => { try { mv.currentTime = window._miniTime || 0; } catch (e) {} }, { once: true });
+};
+window.miniBack = function() { const i = window._miniAt, c = (window.clipsList || [])[i]; document.getElementById('sgMini')?.remove(); if (c) { window.openClipsAt && window.openClipsAt(c); } };
+window.openClips = (function(b) { return function(...a) { document.getElementById('sgMini')?.remove(); const r = b.apply(this, a); setTimeout(() => { const m = document.getElementById('sgClipsMute'); if (m && !document.querySelector('.sg-minib')) m.insertAdjacentHTML('beforebegin', '<button class="sg-minib" title="Mini player" onclick="window.clipMini()">⧉</button>'); }, 200); return r; }; })(window.openClips);
+
+window.CAM_LOOKS2 = {
+none:   { n: 'Natural' },
+glow:   { n: '✨ Glow',    wb: [0.02, 0.01, 0.0],  lift: [0.04, 0.03, 0.04], gain: [1.06, 1.03, 1.03], con: 0.94, sat: 1.1, hi: [0.03, 0.01, 0.02], vig: 0.12 },
+golden: { n: '🌅 Golden',  wb: [0.05, 0.02, -0.04], lift: [0.0, 0.01, 0.02], gain: [1.08, 1.02, 0.94], con: 1.06, sat: 1.18, sh: [-0.01, 0.02, 0.03], hi: [0.06, 0.03, -0.02], vig: 0.22 },
+cinema: { n: '🎬 Cinema',  wb: [0.0, 0.0, 0.0],   lift: [0.0, 0.02, 0.03], gain: [1.05, 1.0, 0.95], con: 1.16, sat: 1.06, sh: [-0.03, 0.04, 0.07], hi: [0.07, 0.03, -0.04], vig: 0.35 },
+rose:   { n: '🌸 Rosé',    wb: [0.03, -0.01, 0.02], lift: [0.04, 0.02, 0.04], gain: [1.05, 0.99, 1.03], con: 0.97, sat: 1.04, hi: [0.05, 0.0, 0.04], vig: 0.15 },
+cool:   { n: '🧊 Cool',    wb: [-0.04, 0.0, 0.06], lift: [0.0, 0.01, 0.03], gain: [0.98, 1.01, 1.06], con: 1.07, sat: 1.04, sh: [0.0, 0.01, 0.04], vig: 0.18 },
+vivid:  { n: '🔥 Vivid',   wb: [0.01, 0.0, 0.0],  lift: [0.0, 0.0, 0.0], gain: [1.04, 1.03, 1.03], con: 1.2, sat: 1.5, vig: 0.15 },
+retro:  { n: '📼 Retro',   wb: [0.03, 0.03, -0.04], lift: [0.09, 0.08, 0.06], gain: [0.98, 0.98, 0.92], con: 0.9, sat: 0.8, sh: [0.0, 0.03, 0.0], hi: [0.04, 0.03, -0.02], vig: 0.32, grain: 0.035 },
+noir:   { n: '🖤 Noir',    lift: [0.0, 0.0, 0.0], gain: [1.05, 1.05, 1.05], con: 1.38, sat: 0.0, vig: 0.45, grain: 0.02 }
+};
+window.CAM_FILTERS = Object.entries(window.CAM_LOOKS2).map(([k, L]) => [k, L.n, { none: '', glow: 'brightness(1.06) saturate(1.1) contrast(.95)', golden: 'sepia(.18) saturate(1.3) contrast(1.06)', cinema: 'contrast(1.16) saturate(1.05) hue-rotate(-6deg)', rose: 'brightness(1.05) saturate(1.05) hue-rotate(-8deg)', cool: 'saturate(1.04) hue-rotate(8deg) contrast(1.07)', vivid: 'saturate(1.5) contrast(1.2)', retro: 'sepia(.35) saturate(.85) contrast(.9) brightness(1.05)', noir: 'grayscale(1) contrast(1.38)' }[k]]);
+window.camCss = (k) => ((window.CAM_FILTERS.find(x => x[0] === k) || [])[2]) || 'none';
+try { if (window.cam && !window.CAM_LOOKS2[window.cam.filter]) window.cam.filter = 'none'; } catch (e) {}
+window.sgGL = (function() {
+let gl = null, cv = null, prog = null, tex = null, U = {}, ok = null;
+const VS = 'attribute vec2 p;varying vec2 uv;void main(){uv=vec2((p.x+1.)/2.,1.-(p.y+1.)/2.);gl_Position=vec4(p,0.,1.);}';
+const FS = `precision mediump float;varying vec2 uv;uniform sampler2D t;uniform vec2 px;uniform float beauty,con,sat,vig,grain,seed;uniform vec3 wb,lift,gain,sh,hi;
+float lum(vec3 c){return dot(c,vec3(.299,.587,.114));}
+float skin(vec3 c){float y=lum(c);float cb=(c.b-y)*.564+.5;float cr=(c.r-y)*.713+.5;return smoothstep(.06,.0,abs(cb-.43))*smoothstep(.08,.0,abs(cr-.6))*smoothstep(.08,.2,y);}
+void main(){vec3 c=texture2D(t,uv).rgb;
+if(beauty>0.){vec3 acc=c;float wsum=1.;for(int i=0;i<12;i++){float a=float(i)*.5236;float r=(i<6?2.5:5.);vec2 o=vec2(cos(a),sin(a))*r*px*(1.+beauty);vec3 s=texture2D(t,uv+o).rgb;float d=length(s-c);float w=exp(-d*d*120.)*(i<6?1.:.6);acc+=s*w;wsum+=w;}
+vec3 sm=acc/wsum;float m=clamp(skin(c)*1.3,0.,1.);c=mix(c,sm,beauty*(.15+.85*m));c+=vec3(.025,.018,.015)*beauty*m;}
+c+=wb;c=lift+c*(gain-lift);c=(c-.5)*con+.5;float l=lum(c);c=mix(vec3(l),c,sat);l=clamp(lum(c),0.,1.);c+=sh*(1.-l)*(1.-l)+hi*l*l;
+vec2 d=uv-.5;c*=1.-vig*smoothstep(.25,.85,length(d)*1.25);
+if(grain>0.){float n=fract(sin(dot(uv*vec2(1234.5,987.6)+seed,vec2(12.9898,78.233)))*43758.5453);c+=(n-.5)*grain;}
+gl_FragColor=vec4(clamp(c,0.,1.),1.);}`;
+function init() {
+if (ok !== null) return ok;
+try {
+cv = document.createElement('canvas'); gl = cv.getContext('webgl', { preserveDrawingBuffer: true, premultipliedAlpha: false }) || cv.getContext('experimental-webgl');
+if (!gl) return ok = false;
+const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog); gl.useProgram(prog);
+const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex); [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T].forEach(p => gl.texParameteri(gl.TEXTURE_2D, p, gl.CLAMP_TO_EDGE)); [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach(p => gl.texParameteri(gl.TEXTURE_2D, p, gl.LINEAR));
+['t', 'px', 'beauty', 'con', 'sat', 'vig', 'grain', 'seed', 'wb', 'lift', 'gain', 'sh', 'hi'].forEach(n => U[n] = gl.getUniformLocation(prog, n));
+return ok = true;
+} catch (e) { console.warn('camera GL off', e); return ok = false; }
+}
+function run(src, key, beauty, w, h) {
+if (!init()) return null;
+const L = window.CAM_LOOKS2[key] || window.CAM_LOOKS2.none, z = [0, 0, 0];
+w = Math.max(2, Math.round(w)); h = Math.max(2, Math.round(h)); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } gl.viewport(0, 0, w, h);
+try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, src); } catch (e) { return null; }
+gl.uniform1i(U.t, 0); gl.uniform2f(U.px, 1 / w, 1 / h); gl.uniform1f(U.beauty, beauty || 0);
+gl.uniform1f(U.con, L.con === undefined ? 1 : L.con); gl.uniform1f(U.sat, L.sat === undefined ? 1 : L.sat); gl.uniform1f(U.vig, L.vig || 0); gl.uniform1f(U.grain, L.grain || 0); gl.uniform1f(U.seed, (performance.now() % 1000) / 1000);
+gl.uniform3fv(U.wb, L.wb || z); gl.uniform3fv(U.lift, L.lift || z); gl.uniform3fv(U.gain, L.gain || [1, 1, 1]); gl.uniform3fv(U.sh, L.sh || z); gl.uniform3fv(U.hi, L.hi || z);
+gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); return cv;
+}
+return { run, ok: () => init() };
+})();
+window.camBeautyAmt = (c) => c.beauty === 0 ? 0 : c.beauty === 1 ? 0.55 : 0.9;
+window.camLoop = (function(old) {
+return function() {
+const c = window.cam; if (!c) return;
+const cv = document.getElementById('camCv'); if (!cv) return;
+const v = c.v;
+if (c.mode === 'text' || !v || !v.videoWidth || !window.sgGL.ok()) return old();
+const ctx = cv.getContext('2d'), [W, H] = window.camSize(); if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+const mir = c.facing === 'user', vw = v.videoWidth, vh = v.videoHeight, sc = Math.min(1, 960 / Math.max(vw, vh));
+const g = window.sgGL.run(v, c.filter, window.camBeautyAmt(c), vw * sc, vh * sc);
+if (!g) return old();
+ctx.filter = 'none'; window.camCover(ctx, g, g.width, g.height, W, H, mir);
+window.camDrawEffect(ctx, W, H);
+const now = Date.now();
+if (c.tab === 'filters' && !c.rec && now - (window._camThumbAt || 0) > 300) {
+window._camThumbAt = now;
+document.querySelectorAll('#camStrip canvas[data-thumb]').forEach(tc => { const k = tc.dataset.thumb, x = tc.getContext('2d'), s = window.sgGL.run(v, k, 0, 96, 96 * vh / vw); if (s) window.camCover(x, s, s.width, s.height, 72, 72, mir); });
+}
+c.raf = requestAnimationFrame(window.camLoop);
+};
+})(window.camLoop);
+window.edPaintFrame = (function(old) { return function(ctx, src, W, H, key) { const g = window.CAM_LOOKS2[key] ? window.sgGL.run(src, key, 0, W, H) : null; if (!g) return old(ctx, src, W, H, key); ctx.drawImage(g, 0, 0, W, H); }; })(window.edPaintFrame);
+
+window.FACE_FX = [['f_glasses', '🕶️', 'Shades'], ['f_crown', '👑', 'Crown'], ['f_puppy', '🐶', 'Puppy'], ['f_hearts', '😍', 'Heart eyes'], ['f_fire', '🔥', 'On fire'], ['f_blush', '😊', 'Blush']];
+window.FACE_FX.slice().reverse().forEach(f => { if (!window.CAM_EFFECTS.some(x => x[0] === f[0])) window.CAM_EFFECTS.splice(1, 0, f); });
+window.faceDet = { st: 'off', det: null, last: null, at: 0 };
+window.faceLoad = async function() {
+const F = window.faceDet; if (F.st !== 'off') return; F.st = 'loading';
+showToast('😎 Getting face stickers ready (one time, about 10 MB)…');
+try {
+const V = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const m = await import(V + '/vision_bundle.mjs');
+const files = await m.FilesetResolver.forVisionTasks(V + '/wasm');
+F.det = await m.FaceDetector.createFromOptions(files, { baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite', delegate: 'GPU' }, runningMode: 'VIDEO', minDetectionConfidence: 0.5 });
+F.st = 'ready'; showToast('😎 Face stickers ready!');
+} catch (e) { console.warn('face', e); F.st = 'fail'; showToast('⚠️ Face stickers could not load on this phone'); }
+};
+window.camEffect = (function(b) { return function(k) { const r = b(k); if (String(k).startsWith('f_')) window.faceLoad(); return r; }; })(window.camEffect);
+window.camDrawEffect = (function(b) {
+return function(ctx, W, H) {
+const c = window.cam, e = c && c.effect; if (!e || !String(e).startsWith('f_')) return b(ctx, W, H);
+const F = window.faceDet, v = c.v; if (F.st !== 'ready' || !v || !v.videoWidth) return;
+const now = performance.now();
+if (now - F.at > 60) { F.at = now; try { const r = F.det.detectForVideo(v, now); F.last = (r && r.detections && r.detections[0]) || null; } catch (er) {} }
+const d = F.last; if (!d || !d.keypoints || d.keypoints.length < 6) return;
+const vw = v.videoWidth, vh = v.videoHeight, sc = Math.max(W / vw, H / vh), dx = (W - vw * sc) / 2, dy = (H - vh * sc) / 2, mir = c.facing === 'user';
+const P = (k) => { let x = dx + k.x * vw * sc; const y = dy + k.y * vh * sc; if (mir) x = W - x; return { x, y }; };
+const [eR, eL, nose, mouth, earR, earL] = d.keypoints.map(P), bb = d.boundingBox || { width: vw * 0.3, height: vh * 0.3 };
+const fw = bb.width * sc, fh = bb.height * sc, ang = Math.atan2(eL.y - eR.y, eL.x - eR.x), eyeD = Math.hypot(eL.x - eR.x, eL.y - eR.y), mid = { x: (eR.x + eL.x) / 2, y: (eR.y + eL.y) / 2 };
+const emo = (ch, x, y, size, rot) => { ctx.save(); ctx.translate(x, y); ctx.rotate(rot || 0); ctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ch, 0, 0); ctx.restore(); };
+const up = { x: Math.sin(ang), y: -Math.cos(ang) };
+if (e === 'f_glasses') emo('🕶️', mid.x, mid.y + eyeD * 0.05, eyeD * 2.3, ang);
+else if (e === 'f_crown') emo('👑', mid.x + up.x * fh * 0.95, mid.y + up.y * fh * 0.95, fw * 0.85, ang);
+else if (e === 'f_hearts') { emo('❤️', eR.x, eR.y, eyeD * 0.75, ang); emo('❤️', eL.x, eL.y, eyeD * 0.75, ang); }
+else if (e === 'f_fire') { for (let i = -1; i <= 1; i++) emo('🔥', mid.x + up.x * fh * 0.9 + Math.cos(ang) * i * fw * 0.32, mid.y + up.y * fh * 0.9 + Math.sin(ang) * i * fw * 0.32, fw * 0.36 * (i === 0 ? 1.25 : 1), ang); }
+else if (e === 'f_puppy') {
+ctx.save(); ctx.fillStyle = '#8b5a2b';
+[[earR, -1], [earL, 1]].forEach(([p, s]) => { ctx.beginPath(); ctx.ellipse(p.x + up.x * fh * 0.55 + Math.cos(ang) * s * fw * 0.08, p.y + up.y * fh * 0.55, fw * 0.16, fh * 0.3, ang + s * 0.5, 0, Math.PI * 2); ctx.fill(); });
+ctx.fillStyle = '#1f1307'; ctx.beginPath(); ctx.ellipse(nose.x, nose.y, eyeD * 0.28, eyeD * 0.2, ang, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.beginPath(); ctx.ellipse(nose.x - eyeD * 0.08, nose.y - eyeD * 0.06, eyeD * 0.07, eyeD * 0.04, ang, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#ff6b9a'; ctx.beginPath(); ctx.ellipse(mouth.x, mouth.y + eyeD * 0.28, eyeD * 0.16, eyeD * 0.24, ang, 0, Math.PI); ctx.fill(); ctx.restore();
+}
+else if (e === 'f_blush') { ctx.save(); ctx.globalAlpha = 0.38; ctx.fillStyle = '#ff5d8f'; [eR, eL].forEach((p, i) => { const g = ctx.createRadialGradient(p.x, p.y + eyeD * 0.55, 1, p.x, p.y + eyeD * 0.55, eyeD * 0.38); g.addColorStop(0, '#ff5d8f'); g.addColorStop(1, 'rgba(255,93,143,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x + (i ? 1 : -1) * eyeD * 0.1, p.y + eyeD * 0.55, eyeD * 0.38, 0, Math.PI * 2); ctx.fill(); }); ctx.restore(); emo('✨', mid.x + up.x * fh * 0.7 + fw * 0.35, mid.y + up.y * fh * 0.7, fw * 0.18, 0); }
+};
+})(window.camDrawEffect);
