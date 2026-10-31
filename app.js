@@ -3,7 +3,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import {
 getFirestore, collection, addDoc, doc, deleteDoc, updateDoc,
 arrayUnion, arrayRemove, increment, query, orderBy, limit,
-onSnapshot as _fsOnSnapshot, serverTimestamp, where, getDocs as _fsGetDocs, getDoc as _fsGetDoc, setDoc, getCountFromServer
+onSnapshot as _fsOnSnapshot, serverTimestamp, where, getDocs as _fsGetDocs, getDoc as _fsGetDoc, setDoc, getCountFromServer, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
 getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
@@ -25333,7 +25333,7 @@ try {
 const res = await fetch(url.replace(/\/$/, '') + '/ai', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await window.mediaIdToken()) }, body: JSON.stringify({ sid: sq.id, room: window.activeSquadSubRoom, q: String(text).replace(/@gg\s?ai/ig, '@ai').slice(0, 500), ctx: ctx.slice(0, 2500), asker: me }) });
 const j = await res.json().catch(() => ({}));
 if (res.ok) return;
-const why = j.limit ? "today's GG AI limit for this squad is used up" : res.status === 404 ? 'the helper (worker) needs the latest code' : res.status === 401 ? 'please sign in again' : res.status === 403 ? (j.error === 'not allowed' ? 'GG AI is off in this squad, or you are not a member' : 'not allowed') : res.status === 503 ? 'no AI key or AI binding in Cloudflare' : (j.error || 'error ' + res.status);
+const why = j.limit ? "today's GG AI limit for this squad is used up" : res.status === 404 ? 'the helper (worker) needs the latest code' : res.status === 401 ? 'please sign in again' : res.status === 403 ? (j.error === 'ai off' ? 'GG AI is switched off in this squad. Owner: ⋯ → Settings → GG AI & bots' : j.error === 'not allowed' ? 'GG AI is off in this squad, or you are not a member' : 'not allowed') : res.status === 503 ? 'no AI key or AI binding in Cloudflare' : (j.error || 'error ' + res.status);
 showToast('🧠 GG AI: ' + why);
 } catch (e) { showToast('🧠 GG AI: no connection to the helper'); }
 };
@@ -27016,3 +27016,282 @@ window.sgMark(window._sgView || 'fyp');
 setTimeout(window.sgRebuildNav, 0); setTimeout(window.sgRebuildNav, 1600);
 window.openExplore = function() { window.openExploreGrid(); };
 (function toolsBtn() { const go = () => { const x = document.getElementById('sgExploreBtn'); if (!x || !/fa-fire/.test(x.innerHTML)) return setTimeout(go, 700); x.title = 'Tools'; x.setAttribute('aria-label', 'Tools'); x.innerHTML = '<i class="fa-solid fa-compass"></i>'; }; setTimeout(go, 900); })();
+
+window.SG_BUILD = 59;
+
+window.sqIsMember = function(sq, tag) { const k = String(tag || '').replace('@', '').toLowerCase(); return !!(sq && k && (sq.members || []).some(t => String(t).toLowerCase() === k || window.hnd(t).toLowerCase() === k)); };
+window.mentionCandidates = (function(b) {
+return function(q) {
+const out = b(q), el = window._mentionEl, sq = window.activeSquadDetails;
+if (el && el.id === 'squadSubRoomInput' && sq) return out.filter(x => x.all || window.sqIsMember(sq, x.tag));
+return out;
+};
+})(window.mentionCandidates);
+window.notifyMention = (function(b) {
+return async function(tag, sid, text) {
+const sq = window.activeSquadDetails && window.activeSquadDetails.id === sid ? window.activeSquadDetails : (window.clansData || []).find(s => s && s.id === sid);
+if (sq && !window.sqIsMember(sq, tag)) return;
+return b(tag, sid, text);
+};
+})(window.notifyMention);
+
+window.openUniversalCreateModal = (function(b) {
+return function(...a) {
+const m = document.getElementById('universalCreateModal'), box = m && m.firstElementChild;
+if (box && !box.hasAttribute('data-v59')) {
+box.setAttribute('data-v59', '1');
+box.innerHTML = `<div class="flex items-center justify-between border-b border-cyan-500/15 pb-2"><h3 class="text-xs font-black text-white uppercase tracking-wider">Create</h3><button onclick="closeUniversalCreateModal()" class="text-gray-400 hover:text-white text-xs font-bold">✕</button></div>
+<button onclick="closeUniversalCreateModal(); openCreatePostModal()" class="cf-hub"><b style="background:linear-gradient(135deg,#22d3ee,#a855f7)"><i class="fa-solid fa-pen-to-square"></i></b><span><h4>Post</h4><p>Photo, video, camera, text · or 🤫 anonymous</p></span></button>
+<button onclick="closeUniversalCreateModal(); openLiveBroadcastModal()" class="cf-hub"><b style="background:linear-gradient(135deg,#ff2d95,#a855f7)"><i class="fa-solid fa-tower-broadcast"></i></b><span><h4>Go Live</h4><p>Camera or stream link</p></span></button>
+<p class="text-[9px] text-gray-500">🏆 Hosting a tournament? Compete → + Host Tournament</p>`;
+}
+return b.apply(this, a);
+};
+})(window.openUniversalCreateModal);
+
+(function cfCss() {
+const s = document.createElement('style');
+s.textContent = `.cf-hub{display:flex;align-items:center;gap:12px;padding:14px;border-radius:14px;background:#0b1024;border:1px solid rgba(34,211,238,.3);text-align:left;width:100%}
+.cf-hub b{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0}.cf-hub h4{font-size:13px;font-weight:900;color:#fff}.cf-hub p{font-size:10px;color:#94a3b8}
+.cf-card{background:linear-gradient(160deg,rgba(168,85,247,.16),rgba(11,16,36,.95) 60%);border:1px solid rgba(168,85,247,.35);border-radius:16px;padding:12px 14px}
+.cf-top{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:900;color:#c4b5fd}.cf-top i{color:#64748b;font-style:normal;font-weight:700}
+.cf-txt{font-size:14px;color:#f1f5f9;line-height:1.55;margin-top:6px;white-space:pre-wrap;word-break:break-word}.cf-clamp{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.cf-bar{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}.cf-bar button{padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.06);font-size:11px;font-weight:800;color:#e2e8f0}
+.cf-bar button.on{background:rgba(255,45,149,.22);color:#ff8cc6}.cf-more{margin-left:auto;color:#22d3ee!important;background:rgba(34,211,238,.1)!important}
+.cf-q{background:linear-gradient(160deg,rgba(34,211,238,.18),rgba(11,16,36,.95) 60%);border-color:rgba(34,211,238,.45)}
+.cf-cm{padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.04);margin-top:6px}.cf-cm p{font-size:13px;color:#e2e8f0;white-space:pre-wrap;word-break:break-word}
+.cf-cm b{font-size:10px;font-weight:900;color:#a5b4fc}.cf-cm.op b{color:#ff8cc6}.cf-cm.ai b{color:#22d3ee}
+.cf-moods{display:flex;gap:6px;flex-wrap:wrap}.cf-moods button{padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.06);font-size:11px;font-weight:800;color:#cbd5e1;border:1px solid transparent}
+.cf-moods button.on{border-color:#a855f7;background:rgba(168,85,247,.2);color:#fff}
+.cf-switch{display:flex;gap:6px;margin-bottom:2px}.cf-switch button{flex:1;padding:8px;border-radius:10px;font-size:11px;font-weight:900;background:rgba(255,255,255,.05);color:#94a3b8}.cf-switch button.on{background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24}
+body.sg-kids [data-cffeed],body.sg-kids [data-cfentry]{display:none!important}`;
+document.head.appendChild(s);
+})();
+window.CF_MOODS = [['c', '🤫', 'Confession'], ['q', '❓', 'Question'], ['l', '💔', 'Love'], ['f', '😂', 'Funny'], ['r', '😤', 'Rant']];
+window.CF_ANIMALS = ['🦊 Anon Fox', '🐼 Anon Panda', '🦉 Anon Owl', '🐯 Anon Tiger', '🐧 Anon Penguin', '🦁 Anon Lion', '🐨 Anon Koala', '🦄 Anon Unicorn', '🐙 Anon Octopus', '🐸 Anon Frog', '🦋 Anon Butterfly', '🐬 Anon Dolphin', '🦅 Anon Eagle', '🐺 Anon Wolf', '🐢 Anon Turtle', '🦒 Anon Giraffe', '🐝 Anon Bee', '🦓 Anon Zebra', '🐳 Anon Whale', '🦜 Anon Parrot'];
+window.cfSt = { mode: 'new', list: [], done: false, busy: false, feed: [], feedAt: 0, cache: {} };
+window.cfMood = (m) => window.CF_MOODS.find(x => x[0] === m) || window.CF_MOODS[0];
+window.cfAgo = (t) => window.nwAgo ? window.nwAgo(t) : '';
+window.cfHidden = (c) => (c.reports || 0) >= 3;
+window.cfLS = (k, v) => { try { if (v === undefined) return JSON.parse(localStorage.getItem(k) || '{}'); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { return {}; } };
+window.cfCheck = function(t) {
+if (/@[A-Za-z0-9_]{2,}/.test(t)) return 'No @tags here. Confessions stay about you, not other people 🙏';
+if (/(\+?\d[\d\s().-]{7,}\d)/.test(t)) return 'No phone numbers please 🙏';
+if (/[\w.+-]+@[\w-]+\.[\w.]+/.test(t)) return 'No emails please 🙏';
+if (/(https?:\/\/|www\.|\b[\w-]+\.(com|net|org|gg|io|me|ly|co)\b)/i.test(t)) return 'No links please 🙏';
+if (window.hasBadWords && window.hasBadWords(t)) return 'Please keep it clean 🙏';
+return '';
+};
+window.cfCare = (t) => /(kill myself|suicid|end my life|self.?harm|cut myself|want to die|no reason to live)/i.test(t);
+window.cfCareNote = () => `<div class="cf-card cf-q mt-3"><p class="text-sm font-black text-white">💙 You matter</p><p class="text-xs text-gray-300 mt-1">If you're going through something heavy, please talk to someone you trust or a local helpline. You don't have to carry it alone.</p></div>`;
+
+window.cfCardHtml = function(c, feed) {
+const [, e, l] = window.cfMood(c.mood), liked = window.cfLS('sg_cf_like')[c.id];
+const top = c.sys ? `<span>🤫 TODAY'S QUESTION</span><i>· SINLESS GG</i>` : `<span>${e} ANONYMOUS ${l.toUpperCase()}</span><i>· ${window.cfAgo(c.at)}</i>`;
+const hid = window.cfHidden(c) ? `<p class="text-[10px] font-black text-amber-400 mt-1">🚩 Hidden after reports${window.isAppAdmin ? ' · only you can see it' : ''}</p>` : '';
+return `<div class="cf-card ${c.sys ? 'cf-q' : ''}" data-cfid="${c.id}"><div class="cf-top">${top}</div>${hid}
+<div class="cf-txt ${feed ? 'cf-clamp' : ''}" onclick="window.openConfession('${c.id}')">${escapeHTML(c.text || '')}</div>
+<div class="cf-bar"><button class="${liked ? 'on' : ''}" onclick="window.cfLike('${c.id}')">${liked ? '❤️' : '🤍'} ${c.likes || 0}</button>
+<button onclick="window.openConfession('${c.id}')">💬 ${c.replies || 0}</button>
+<button class="cf-more" onclick="window.openConfession('${c.id}')">${c.sys ? 'Answer anonymously →' : 'Read more →'}</button></div></div>`;
+};
+
+window.cfLoad = async function(more) {
+const st = window.cfSt; if (st.busy) return; st.busy = true;
+try {
+let q;
+if (st.mode === 'top') q = query(collection(window.db, 'confessions'), orderBy('likes', 'desc'), limit(more ? st.list.length + 30 : 30));
+else if (st.mode === 'hidden') q = query(collection(window.db, 'confessions'), where('reports', '>=', 3), limit(60));
+else { const last = more && st.list.length ? st.list[st.list.length - 1].at : null; q = last ? query(collection(window.db, 'confessions'), orderBy('at', 'desc'), where('at', '<', last), limit(20)) : query(collection(window.db, 'confessions'), orderBy('at', 'desc'), limit(20)); }
+const qs = await getDocs(q), L = qs.docs.map(d => ({ id: d.id, ...d.data() }));
+L.forEach(c => st.cache[c.id] = c);
+if (st.mode === 'new' && more) { st.list = st.list.concat(L.filter(c => !st.list.some(x => x.id === c.id))); st.done = L.length < 20; }
+else { st.done = st.mode === 'top' ? (L.length <= st.list.length || L.length < 30) : st.mode === 'new' ? L.length < 20 : true; st.list = L; }
+} catch (e) { console.warn('confessions', e); }
+st.busy = false;
+};
+window.cfVisibleList = () => window.cfSt.list.filter(c => window.cfSt.mode === 'hidden' || !window.cfHidden(c) || window.isAppAdmin);
+window.cfRenderList = function() {
+const box = document.getElementById('cfList'); if (!box) return;
+const L = window.cfVisibleList();
+box.innerHTML = L.length ? L.map(c => window.cfCardHtml(c, true)).join('') : `<p class="text-xs text-gray-500 text-center py-8">${window.cfSt.mode === 'mine' ? "You haven't confessed yet. Nobody will ever know it's you 🤫" : 'No confessions yet. Be the first! 🤫'}</p>`;
+const more = document.getElementById('cfMore'); if (more) more.style.display = window.cfSt.done || window.cfSt.mode === 'mine' || window.cfSt.mode === 'hidden' ? 'none' : '';
+};
+window.openConfessRoom = async function(mode) {
+if (window.needSignIn && window.needSignIn('read confessions')) return;
+const st = window.cfSt; st.mode = mode || st.mode || 'new'; if (!mode) st.mode = 'new';
+const chip = (m, l) => `<button class="nw-chip ${st.mode === m ? 'on' : ''}" onclick="window.openConfessRoom('${m}')">${l}</button>`;
+window.openPanel('🤫 Confession Room', `<p class="text-xs text-gray-400 mb-2">Say it without a name. Nobody can see who wrote a confession or a comment. Be kind 💜</p>
+<button class="v57-btn mb-3" onclick="window.openConfessForm()">🤫 Confess anonymously</button>
+<div class="nw-row mb-2">${chip('new', '🆕 Latest')}${chip('top', '🔥 Top')}${chip('mine', '🙈 My confessions')}${window.isAppAdmin ? chip('hidden', '🚩 Hidden') : ''}</div>
+<div id="cfList" class="space-y-3"><p class="text-xs text-gray-500 text-center py-8">Loading…</p></div>
+<button id="cfMore" class="v57-btn2 mt-3" onclick="window.cfMore()">⬇️ Read more confessions</button><div id="cfSentinel" style="height:1px"></div>`);
+if (st.mode === 'mine') await window.cfLoadMine(); else await window.cfLoad(false);
+window.cfRenderList();
+try { const sen = document.getElementById('cfSentinel'); if (sen && 'IntersectionObserver' in window) { const io = new IntersectionObserver((en) => { if (en[0].isIntersecting && !window.cfSt.done && window.cfSt.mode !== 'mine' && document.getElementById('cfList')) window.cfMore(); else if (!document.getElementById('cfList')) io.disconnect(); }); io.observe(sen); } } catch (e) {}
+};
+window.cfMore = async function() { if (window.cfSt.busy || window.cfSt.done) return; const btn = document.getElementById('cfMore'); if (btn) btn.textContent = 'Loading…'; await window.cfLoad(true); window.cfRenderList(); if (btn) btn.textContent = '⬇️ Read more confessions'; };
+window.cfLoadMine = async function() {
+const st = window.cfSt; st.done = true;
+try {
+const qs = await getDocs(query(collection(window.db, 'confessOwners'), where('uid', '==', window.uidNow()), limit(50)));
+const ids = qs.docs.map(d => d.id), out = [];
+await Promise.all(ids.map(async id => { try { const s = await getDoc(doc(window.db, 'confessions', id)); if (s.exists()) out.push({ id, ...s.data() }); } catch (e) {} }));
+out.sort((a, b) => (b.at || 0) - (a.at || 0)); out.forEach(c => st.cache[c.id] = c); st.list = out;
+} catch (e) { st.list = []; }
+};
+
+window.cfDraftMood = 'c';
+window.openConfessForm = function(text) {
+if (window.needSignIn && window.needSignIn('confess')) return;
+window.openPanel('🤫 Confess anonymously', `<div class="cf-moods mb-2">${window.CF_MOODS.map(([k, e, l]) => `<button data-m="${k}" class="${window.cfDraftMood === k ? 'on' : ''}" onclick="window.cfDraftMood='${k}';document.querySelectorAll('.cf-moods button').forEach(b=>b.classList.toggle('on',b.dataset.m==='${k}'))">${e} ${l}</button>`).join('')}</div>
+<textarea id="cfText" maxlength="1000" rows="7" class="v57-in" placeholder="What do you want to get off your chest? Nobody will know it's you…" oninput="document.getElementById('cfCount').textContent=this.value.length+' / 1000'">${escapeHTML(text || '')}</textarea>
+<p id="cfCount" class="text-[10px] text-gray-500 text-right">${(text || '').length} / 1000</p>
+<p class="text-[10px] text-gray-400 my-2">🔒 Your name, photo and username are never shown. No @tags, names of real people, phone numbers or links. Bullying, threats or adult content get removed.</p>
+<button class="v57-btn" onclick="window.cfPost()">🤫 Post anonymously</button>`);
+};
+window.cfPost = async function() {
+const t = (document.getElementById('cfText').value || '').trim().slice(0, 1000);
+if (t.length < 3) { showToast('Write a little more 🙂'); return; }
+const bad = window.cfCheck(t); if (bad) { showToast(bad); return; }
+const day = new Date().toISOString().slice(0, 10), lim = window.cfLS('sg_cf_day'); if (lim.d === day && lim.n >= 5 && !window.isAppAdmin) { showToast('5 confessions a day max. Come back tomorrow 🤫'); return; }
+try {
+const own = doc(collection(window.db, 'confessOwners')), id = own.id, at = Date.now(), b = writeBatch(window.db);
+b.set(own, { uid: window.uidNow(), at });
+b.set(doc(window.db, 'confessions', id), { text: t, mood: window.cfDraftMood || 'c', at, likes: 0, replies: 0, reports: 0 });
+await b.commit();
+window.cfLS('sg_cf_day', { d: day, n: (lim.d === day ? lim.n || 0 : 0) + 1 });
+window.cfSt.cache[id] = { id, text: t, mood: window.cfDraftMood || 'c', at, likes: 0, replies: 0, reports: 0 }; window.cfSt.feedAt = 0;
+showToast('🤫 Posted anonymously'); window.openConfession(id, window.cfCare(t));
+} catch (e) { console.warn(e); showToast('⚠️ Could not post. Try again.'); }
+};
+
+window.openConfession = async function(id, care) {
+if (window.needSignIn && window.needSignIn('read confessions')) return;
+let c = window.cfSt.cache[id];
+try { const s = await getDoc(doc(window.db, 'confessions', id)); if (s.exists()) { c = { id, ...s.data() }; window.cfSt.cache[id] = c; } else c = null; } catch (e) {}
+if (!c) { showToast('This confession was removed'); return; }
+let mine = false; try { const o = await getDoc(doc(window.db, 'confessOwners', id)); mine = o.exists() && o.data().uid === window.uidNow(); } catch (e) {}
+let cms = []; try { const qs = await getDocs(query(collection(window.db, 'confessions', id, 'comments'), orderBy('at', 'asc'), limit(200))); cms = qs.docs.map(d => ({ id: d.id, ...d.data() })); } catch (e) {}
+window.cfSt.cms = cms; window.cfSt.openId = id;
+const cmHtml = cms.filter(m => !window.cfHidden(m) || window.isAppAdmin).map(m => `<div class="cf-cm ${m.op ? 'op' : ''} ${m.ai ? 'ai' : ''}"><div class="flex items-center gap-2"><b>${escapeHTML(m.alias || '🙈 Anon')}</b><span class="text-[9px] text-gray-500">${window.cfAgo(m.at)}</span>
+<button class="ml-auto text-[10px] text-gray-500" onclick="window.cfCmMenu('${id}','${m.id}')">⋯</button></div>${window.cfHidden(m) ? '<p class="text-[10px] text-amber-400">🚩 hidden after reports</p>' : ''}<p>${escapeHTML(m.text || '')}</p></div>`).join('');
+window.openPanel(c.sys ? "🤫 Today's question" : '🤫 Confession', `${window.cfCardHtml(c, false)}
+<div class="grid grid-cols-3 gap-2 mt-2"><button class="v57-btn2" onclick="window.cfShare('${id}')">↗ Share</button>
+${mine || window.isAppAdmin ? `<button class="v57-btn2" onclick="window.cfDelete('${id}')">🗑️ Delete</button>` : `<button class="v57-btn2" onclick="window.cfReport('${id}')">🚩 Report</button>`}
+${window.isAppAdmin ? `<button class="v57-btn2" onclick="window.cfAdmin('${id}')">🛡️ Admin</button>` : `<button class="v57-btn2" onclick="window.openConfessForm()">🤫 Confess</button>`}</div>
+${care ? window.cfCareNote() : ''}
+<p class="text-[11px] font-black text-gray-300 mt-4">💬 ${cms.length ? cms.length + ' anonymous ' + (cms.length === 1 ? 'reply' : 'replies') : 'No replies yet. Be the first!'}</p>
+<div>${cmHtml}</div>
+<div class="flex gap-2 mt-3"><input id="cfReply" maxlength="500" class="v57-in flex-1" placeholder="${mine ? 'Reply as ✍️ Author…' : 'Reply anonymously…'}" onkeydown="if(event.key==='Enter')window.cfComment('${id}')"><button class="v57-btn" style="width:auto;padding:0 16px" onclick="window.cfComment('${id}')">Send</button></div>
+<p class="text-[9px] text-gray-500 mt-1">🔒 You show up as a random animal name. Nobody sees who you are.</p>
+<p class="text-[11px] font-black text-gray-300 mt-5">🤫 More confessions</p><div id="cfNext" class="space-y-3 mt-2"></div>
+<button class="v57-btn2 mt-3" onclick="window.openConfessRoom()">🤫 Open the Confession Room →</button>`);
+try { if (!window.cfSt.list.length) { window.cfSt.mode = 'new'; await window.cfLoad(false); } const nx = window.cfSt.list.filter(x => x.id !== id && !window.cfHidden(x)).slice(0, 5); const box = document.getElementById('cfNext'); if (box) box.innerHTML = nx.map(x => window.cfCardHtml(x, true)).join(''); } catch (e) {}
+};
+window.cfComment = async function(id) {
+if (window.needSignIn && window.needSignIn('reply')) return;
+const inp = document.getElementById('cfReply'), t = ((inp && inp.value) || '').trim().slice(0, 500); if (!t) return;
+const bad = window.cfCheck(t); if (bad) { showToast(bad); return; }
+try {
+let mine = false; try { const o = await getDoc(doc(window.db, 'confessOwners', id)); mine = o.exists() && o.data().uid === window.uidNow(); } catch (e) {}
+let alias = mine ? '✍️ Author' : '';
+if (!alias) { try { const qs = await getDocs(query(collection(window.db, 'confessCmtOwners'), where('uid', '==', window.uidNow()), where('cid', '==', id), limit(1))); if (!qs.empty) alias = qs.docs[0].data().alias; } catch (e) {} }
+if (!alias) { const used = new Set((window.cfSt.cms || []).map(m => m.alias)); const free = window.CF_ANIMALS.filter(a => !used.has(a)); alias = (free.length ? free : window.CF_ANIMALS)[Math.floor(Math.random() * (free.length || window.CF_ANIMALS.length))]; }
+const cref = doc(collection(window.db, 'confessions', id, 'comments')), at = Date.now(), b = writeBatch(window.db);
+b.set(doc(window.db, 'confessCmtOwners', id + '_' + cref.id), { uid: window.uidNow(), cid: id, mid: cref.id, alias, at });
+b.set(cref, { text: t, alias, op: mine, at, reports: 0 });
+b.update(doc(window.db, 'confessions', id), { replies: increment(1) });
+await b.commit();
+if (inp) inp.value = '';
+if (!mine) { try { const url = (window.SG_PUSH && window.SG_PUSH.url) || ((await window.loadPushCfg()) || {}).url; if (url) fetch(url.replace(/\/$/, '') + '/confess/alert', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await window.mediaIdToken()) }, body: JSON.stringify({ cid: id }) }).catch(() => {}); } catch (e) {} }
+window.openConfession(id);
+} catch (e) { console.warn(e); showToast('⚠️ Could not send. Try again.'); }
+};
+window.cfLike = async function(id) {
+if (window.needSignIn && window.needSignIn('like')) return;
+const L = window.cfLS('sg_cf_like'); if (L[id]) return; L[id] = 1; window.cfLS('sg_cf_like', L);
+const c = window.cfSt.cache[id]; if (c) c.likes = (c.likes || 0) + 1;
+document.querySelectorAll(`[data-cfid="${id}"] .cf-bar button:first-child`).forEach(b0 => { b0.classList.add('on'); b0.textContent = '❤️ ' + ((c && c.likes) || 1); });
+try { await updateDoc(doc(window.db, 'confessions', id), { likes: increment(1), likedBy: arrayUnion(window.uidNow()) }); } catch (e) {}
+};
+window.cfShare = function(id) { const url = `https://sinlessgg.com/#confess=${id}`; if (navigator.share) navigator.share({ title: 'SINLESS GG · Confession Room', text: '🤫 An anonymous confession on SINLESS GG', url }).catch(() => {}); else { try { navigator.clipboard.writeText(url); } catch (e) {} showToast('🔗 Link copied'); } };
+window.cfReport = async function(id, mid) {
+if (window.needSignIn && window.needSignIn('report')) return;
+if (!(await window.sgConfirm('Report this as harmful? After 3 reports it hides until we check it.'))) return;
+const ref = mid ? doc(window.db, 'confessions', id, 'comments', mid) : doc(window.db, 'confessions', id);
+try { await updateDoc(ref, { reports: increment(1), reportedBy: arrayUnion(window.uidNow()) }); showToast("🛡️ Thanks, we'll check it"); } catch (e) { showToast('You already reported this 👍'); }
+};
+window.cfDelete = async function(id) {
+if (!(await window.sgConfirm('Delete this confession for everyone?'))) return;
+try { await deleteDoc(doc(window.db, 'confessions', id)); try { await deleteDoc(doc(window.db, 'confessOwners', id)); } catch (e) {} window.isAppAdmin && window.adminLog && window.adminLog('delete confession', id, ''); window.cfSt.list = window.cfSt.list.filter(x => x.id !== id); window.cfSt.feed = window.cfSt.feed.filter(x => x.id !== id); document.querySelectorAll(`[data-cffeed][data-id="${id}"]`).forEach(x => x.remove()); showToast('Deleted'); window.openConfessRoom(); } catch (e) { showToast('⚠️ Could not delete'); }
+};
+window.cfCmMenu = async function(id, mid) {
+let mine = false; try { const o = await getDoc(doc(window.db, 'confessCmtOwners', id + '_' + mid)); mine = o.exists() && o.data().uid === window.uidNow(); } catch (e) {}
+if (mine || window.isAppAdmin) { if (await window.sgConfirm('Delete this reply?')) { try { await deleteDoc(doc(window.db, 'confessions', id, 'comments', mid)); window.openConfession(id); } catch (e) { showToast('⚠️ Could not delete'); } } return; }
+window.cfReport(id, mid);
+};
+window.cfAdmin = async function(id) {
+if (!window.isAppAdmin) return;
+let who = 'unknown';
+try { const o = await getDoc(doc(window.db, 'confessOwners', id)); if (o.exists()) { const uid = o.data().uid, p = Object.values(window.allProfilesMap || {}).find(x => x && x.uid === uid); who = p ? '@' + window.hnd(p.username || p.gamertag || p.tag || '') : uid; } } catch (e) {}
+const c = window.cfSt.cache[id] || {};
+window.openPanel('🛡️ Admin · confession', `<p class="text-xs text-gray-300">Writer: <b class="text-white">${escapeHTML(who)}</b></p><p class="text-[10px] text-amber-400 mt-1">Only for threats, bullying or illegal posts. Never share this.</p>
+<p class="text-xs text-gray-300 mt-3">Reports: ${c.reports || 0}</p>
+<div class="grid grid-cols-2 gap-2 mt-3">${(c.reports || 0) ? `<button class="v57-btn2" onclick="window.cfRestore('${id}')">✅ Restore</button>` : ''}<button class="v57-btn2" onclick="window.cfDelete('${id}')">🗑️ Delete</button></div>
+<button class="v57-btn2 mt-2" onclick="window.openConfession('${id}')">← Back</button>`);
+window.adminLog && window.adminLog('view confession writer', id, '');
+};
+window.cfRestore = async function(id) { try { await updateDoc(doc(window.db, 'confessions', id), { reports: 0, reportedBy: [] }); showToast('✅ Restored'); window.openConfession(id); } catch (e) { showToast('⚠️ Could not restore'); } };
+
+window.cfFeedLoad = async function() {
+const st = window.cfSt; if (Date.now() - st.feedAt < 180000 && st.feed.length) return st.feed;
+try { const qs = await getDocs(query(collection(window.db, 'confessions'), orderBy('at', 'desc'), limit(30))); st.feed = qs.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => !window.cfHidden(c)); st.feed.forEach(c => st.cache[c.id] = c); st.feedAt = Date.now();
+const day = new Date(); day.setHours(0, 0, 0, 0); st.today = st.feed.filter(c => !c.sys && c.at >= day.getTime()).length;
+st.feed.sort((a, b) => (b.sys && Date.now() - b.at < 864e5 ? 1 : 0) - (a.sys && Date.now() - a.at < 864e5 ? 1 : 0)); } catch (e) {}
+return st.feed;
+};
+window.cfFeedInject = async function() {
+if (window.kidsMode || !window.isSignedIn || !window.isSignedIn()) return;
+const box = document.getElementById('fypFeedContainer'); if (!box) return;
+const L = await window.cfFeedLoad(); if (!L.length) return;
+const used = new Set([...box.querySelectorAll('[data-cffeed]')].map(x => x.getAttribute('data-id')));
+const kids = [...box.children].filter(x => !x.hasAttribute('data-cffeed') && x.style.display !== 'none');
+for (let i = 4; i < kids.length; i += 12) {
+const el = kids[i], nx = el.nextElementSibling; if (nx && nx.hasAttribute('data-cffeed')) continue;
+const c = L.find(x => !used.has(x.id)); if (!c) break; used.add(c.id);
+const n = window.cfSt.today || 0;
+el.insertAdjacentHTML('afterend', `<div data-cffeed data-id="${c.id}" class="my-3">${window.cfCardHtml(c, true)}<button onclick="window.openConfessRoom()" class="w-full text-[10px] font-black text-gray-400 mt-1">🤫 Confession Room${n > 1 ? ` · 🔥 ${n} confessed today` : ''} · tap to read more</button></div>`);
+}
+};
+window.renderFypFeed = (function(b) { return function(...a) { const r = b.apply(this, a); try { setTimeout(() => window.cfFeedInject(), 300); } catch (e) {} return r; }; })(window.renderFypFeed);
+(function watchCfFeed() { const go = () => { const box = document.getElementById('fypFeedContainer'); if (!box) return setTimeout(go, 1500); let t = 0; new MutationObserver((ms) => { if (ms.every(m => [...m.addedNodes].every(n => n.nodeType !== 1 || n.hasAttribute('data-cffeed')))) return; clearTimeout(t); t = setTimeout(() => window.cfFeedInject(), 600); }).observe(box, { childList: true }); }; go(); })();
+
+window.openCreatePostModal = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try {
+const ta = document.getElementById('postTextContent');
+if (ta && !document.getElementById('cfSwitch') && !window.kidsMode) ta.insertAdjacentHTML('beforebegin', `<div id="cfSwitch" data-cfentry class="cf-switch"><button class="on" type="button">📝 Post</button><button type="button" onclick="const t=document.getElementById('postTextContent').value; window.closeCreatePostModal(); window.openConfessForm(t)">🤫 Anonymous</button></div>`);
+} catch (e) {}
+return r;
+};
+})(window.openCreatePostModal);
+
+window.openExploreGrid = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try { const g = document.querySelector('#sgPanel .sg-ex'); if (g && !g.querySelector('[data-cfentry]') && !window.kidsMode) g.insertAdjacentHTML('afterbegin', `<button data-cfentry onclick="window.closePanel(); setTimeout(()=>{window.openConfessRoom()},120)"><b>🤫</b>Confession Room</button>`); } catch (e) {}
+return r;
+};
+})(window.openExploreGrid);
+
+window.openNotification = (function(b) {
+return function(id) {
+const n = (window.notifList || []).find(x => x.id === id);
+if (n && String(n.postId || '').startsWith('confess:')) { window.closeNotifications && window.closeNotifications(); try { updateDoc(doc(window.db, 'notifications', n.id), { read: true }); n.read = true; window.updateNotifBadge && window.updateNotifBadge(); } catch (e) {} window.openConfession(String(n.postId).slice(8)); return; }
+return b(id);
+};
+})(window.openNotification);
+window.addEventListener('hashchange', () => { const m = location.hash.match(/^#confess(?:=([\w-]+))?/); if (m) m[1] ? window.openConfession(m[1]) : window.openConfessRoom(); });
+setTimeout(() => { const m = location.hash.match(/^#confess(?:=([\w-]+))?/); if (m) m[1] ? window.openConfession(m[1]) : window.openConfessRoom(); }, 2800);
