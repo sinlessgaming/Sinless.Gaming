@@ -201,6 +201,15 @@ export default {
       return json({ ok: true, ...(await vidsRun(env, ctx, 30)) });
     }
     // 🔧 which news sources work (open in a browser)
+    // 🤫 v59 Confession Room: tell the writer "someone replied" without saying who (the writer stays hidden too)
+    if (url.pathname === '/confess/alert' && req.method === 'POST') {
+      const uid = await firebaseUid(req, env); if (!uid) return json({ ok: false, error: 'sign in' }, 401);
+      if (tooFast('cf:' + uid, 12, 60000)) return json({ ok: false, error: 'slow down' }, 429);
+      let b = {}; try { b = await req.json(); } catch (e) {}
+      const cid = String(b.cid || ''); if (!/^[A-Za-z0-9]{10,40}$/.test(cid)) return json({ ok: false, error: 'bad id' }, 400);
+      ctx.waitUntil(confessAlert(env, cid, uid).catch(() => {}));
+      return json({ ok: true });
+    }
     if (url.pathname === '/newscheck') {
       const { items, st } = await newsLoad(env);
       const src = NEWS_SOURCES.map(s => { const x = (st.src || {})[s[0]]; return `${x ? (x.ok ? '✅' : '❌') : '⏳'} ${s[0]} ${x ? (x.ok ? x.n + ' items' : x.e) : 'not checked yet'}`; });
@@ -246,7 +255,12 @@ export default {
       let body = {}; try { body = await req.json(); } catch (e) {}
       const sid = String(body.sid || ''); if (!/^[\w-]{3,80}$/.test(sid)) return json({ ok: false, error: 'bad squad' }, 400);
       const sq = await getDocument(env, `squads/${sid}`);
-      if (!sq || !(sq.memberUids || []).includes(uid) || (sq.bots && sq.bots.ai === false)) return json({ ok: false, error: 'not allowed' }, 403);
+      if (!sq) return json({ ok: false, error: 'not allowed' }, 403);
+      if (sq.bots && sq.bots.ai === false) return json({ ok: false, error: 'ai off' }, 403);
+      // v58.7: older squads keep members by name only, so also accept the owner, squad admins, app admins and members listed by name
+      let okMember = (sq.memberUids || []).includes(uid) || sq.ownerUid === uid || (sq.adminUids || []).includes(uid);
+      if (!okMember) { const u = await getDocument(env, `users/${uid}`).catch(() => null); const names = [u && u.username, u && u.gamertag].filter(Boolean).map(x => String(x).replace('@', '').toLowerCase()); okMember = names.some(n => (sq.members || []).some(m => String(m).replace('@', '').toLowerCase() === n)) || await isAdminUid(env, uid); }
+      if (!okMember) return json({ ok: false, error: 'not allowed' }, 403);
       const day = new Date().toISOString().slice(0, 10).replace(/-/g, ''), uKey = `aiUsage/${sid}_${day}`, mKey = `aiUsage/u_${uid}_${day}`;
       const [su, mu] = await Promise.all([getDocument(env, uKey), getDocument(env, mKey)]);
       const sN = (su && su.n) || 0, mN = (mu && mu.n) || 0, SQ_MAX = +(env.AI_SQUAD_DAILY || 50), ME_MAX = +(env.AI_USER_DAILY || 10);
@@ -358,6 +372,7 @@ export default {
     const cron = String(event.cron || '');
     // 📺 videos: their own schedule "2-59/5 * * * *" (40 channels a run); without it, the news run checks 12 channels too
     if (cron.startsWith('2-59/5')) { ctx.waitUntil(vidsRun(env, ctx, 36).catch(() => {})); return; }
+    if (cron.includes('/5') || cron.includes('/10')) ctx.waitUntil(confessRun(env).catch(() => {}));   // 🤫 daily question + GG AI replies
     if (cron.includes('/5') || cron.includes('/10')) { ctx.waitUntil(newsRun(env, ctx).then(async () => { const d = await getDocument(env, CH_DOC).catch(() => null); const st = (() => { try { return JSON.parse((d && d.st) || '{}'); } catch (e) { return {}; } })(); if (!st.last || Date.now() - st.last > 12 * 60000) await vidsRun(env, ctx, 12); }).catch(() => {})); return; }
     if (new Date(event.scheduledTime || Date.now()).getUTCHours() >= 15) ctx.waitUntil(streakReminders(env).catch(() => {}));
     else ctx.waitUntil(matchDayReminders(env).catch(() => {}));
@@ -2684,4 +2699,71 @@ async function buildSitemap(env) {
     .forEach(s => urls.push([`https://sinlessgg.com/?s=${encodeURIComponent(s.id)}`, iso(s.createdAt), 'weekly', '0.5']));
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.slice(0, 45000).map(([loc, lm, cf, pr]) => `  <url><loc>${esc(loc)}</loc>${lm ? `<lastmod>${lm}</lastmod>` : ''}<changefreq>${cf}</changefreq><priority>${pr}</priority></url>`).join('\n') + '\n</urlset>\n';
+}
+
+
+// =====================================================================
+// 🤫 v59 CONFESSION ROOM helpers
+// • confessAlert: "💬 Someone replied to your confession" (max one alert per confession every 20 min)
+// • confessRun (every 5 min): one fresh "Today's question" a day + GG AI replies (clearly labelled 🧠 GG AI)
+// Nobody's name is ever written on a confession. Only confessOwners (locked, admin-only) links a post to its writer.
+// =====================================================================
+async function confessAlert(env, cid, fromUid) {
+  const own = await getDocument(env, `confessOwners/${cid}`); if (!own || !own.uid || own.uid === fromUid) return;
+  if (own.lastAlert && Date.now() - own.lastAlert < 20 * 60000) return;
+  await patchDocument(env, `confessOwners/${cid}`, { lastAlert: { integerValue: String(Date.now()) } });
+  await createDocument(env, 'notifications', { toUid: { stringValue: own.uid }, fromUid: { stringValue: 'confess' }, fromUser: { stringValue: 'Confession Room' }, type: { stringValue: 'confess' },
+    postId: { stringValue: 'confess:' + cid }, text: { stringValue: '💬 Someone replied to your confession' }, read: { booleanValue: false }, createdAt: { timestampValue: new Date().toISOString() } });
+  await pushToUser(env, own.uid, '🤫 Confession Room', '💬 Someone replied to your confession', 'https://sinlessgg.com/#confess=' + cid, 'cf_' + cid).catch(() => {});
+}
+async function aiText(env, system, user, max) {
+  if (env.GEMINI_API_KEY) {
+    for (const m of [env.GEMINI_MODEL || 'gemini-flash-latest', 'gemini-2.5-flash']) {
+      try {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+          body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { maxOutputTokens: max || 200, temperature: 0.9 },
+            safetySettings: ['HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH', 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'HARM_CATEGORY_DANGEROUS_CONTENT'].map(category => ({ category, threshold: 'BLOCK_LOW_AND_ABOVE' })) }) });
+        if (r.status === 404) continue; if (!r.ok) break;
+        const j = await r.json(), t = ((((j.candidates || [])[0] || {}).content || {}).parts || []).map(p => p.text || '').join('').trim(); if (t) return t; break;
+      } catch (e) { break; }
+    }
+  }
+  if (env.AI) {
+    for (const m of ['@cf/meta/llama-3.1-8b-instruct-fp8', '@cf/meta/llama-3.2-3b-instruct']) {
+      try { const r = await env.AI.run(m, { messages: [{ role: 'system', content: system }, { role: 'user', content: user }], max_tokens: max || 200, temperature: 0.9 }); const t = String((r && (r.response || (r.result && r.result.response))) || '').trim(); if (t) return t; } catch (e) {}
+    }
+  }
+  return null;
+}
+const CF_SEED_Q = ['Confess the worst rage-quit you have ever done 🎮', 'What game do you pretend to be good at? 😅', 'Confess your most embarrassing football moment ⚽', 'What song do you secretly love but never admit? 🎵',
+  'Confess something you did in school that nobody knows 📚', 'Who was your first gaming rival and did you ever beat them? 🏆', 'What is the pettiest reason you stopped talking to someone? 😂', 'Confess a time you blamed lag when it was really you 📶',
+  'What is your guilty pleasure TV show or anime? 📺', 'Confess the most money you wasted on a game 💸', 'What is a small thing that makes your whole day better? ☀️', 'Confess your worst cooking disaster 🍳',
+  'What did you believe as a kid that was totally wrong? 🤯', 'Confess the longest you stayed up gaming 🌙', 'What is the funniest lie you told your parents? 🙊', 'Confess a team you secretly support 🤫',
+  'What is a skill you wish you had? ✨', 'Confess your most dramatic group chat moment 💬', 'What is the weirdest food combo you love? 🍟', 'Confess a time you were too shy to talk to your crush 💔',
+  'What is a goal you are quietly working on? 🎯', 'Confess the silliest thing you got angry about this week 😤', 'What fictional character are you most like? 🦸', 'Confess the worst haircut you ever had 💇'];
+async function confessRun(env) {
+  const sw = await getDocument(env, 'config/switches').catch(() => null); if (sw && sw.confess === false) return;
+  const now = Date.now(), day = new Date().toISOString().slice(0, 10), cfg = (await getDocument(env, 'config/confess').catch(() => null)) || {};
+  // 1) today's question (once a day, after 07:00 UTC)
+  if (cfg.qday !== day && new Date().getUTCHours() >= 7) {
+    let used = []; try { used = JSON.parse(cfg.used || '[]'); } catch (e) {}
+    let q = (await aiText(env, 'You write ONE short, fun, safe question for an anonymous confession wall on SINLESS GG, a worldwide gaming, football and fun community. It must invite people to confess something light: gaming, football, music, movies, school, food, friends or everyday life. Max 110 characters. One emoji at the end. No names, no brands of alcohol or drugs, nothing sexual, nothing about self-harm, nothing political. Reply with the question only.', 'Write today\'s question. Do not repeat any of these: ' + used.slice(-40).join(' | '), 80) || '').split('\n')[0].replace(/^["“\s]+|["”\s]+$/g, '').slice(0, 140);
+    if (!q || q.length < 12 || used.some(u => u.toLowerCase() === q.toLowerCase())) q = CF_SEED_Q.find(x => !used.includes(x)) || CF_SEED_Q[Math.floor(now / 864e5) % CF_SEED_Q.length];
+    used.push(q);
+    await patchDocument(env, 'confessions/q' + day.replace(/-/g, '') + 'sgdaily', { text: { stringValue: q }, mood: { stringValue: 'q' }, at: { integerValue: String(now) }, likes: { integerValue: '0' }, replies: { integerValue: '0' }, reports: { integerValue: '0' }, sys: { booleanValue: true }, ai: { booleanValue: true } });
+    await patchDocument(env, 'config/confess', { qday: { stringValue: day }, used: { stringValue: JSON.stringify(used.slice(-120)) } });
+  }
+  // 2) GG AI replies to new confessions (max 2 a run, after 3 minutes so people can reply first)
+  if (sw && sw.ai === false) return;
+  const rows = await runQuery(env, { from: [{ collectionId: 'confessions' }], orderBy: [{ field: { fieldPath: 'at' }, direction: 'DESCENDING' }], limit: 15 });
+  let n = 0;
+  for (const c of rows) {
+    if (n >= 2) break; if (c.ai || c.sys || (c.reports || 0) >= 3 || now - (c.at || 0) < 3 * 60000 || now - (c.at || 0) > 2 * 864e5) continue;
+    n++;
+    await patchDocument(env, `confessions/${c.id}`, { ai: { booleanValue: true } });
+    const t = await aiText(env, 'You are GG AI, the friendly bot of the anonymous Confession Room on SINLESS GG (a worldwide gaming and football community). Reply to the confession in ONE or TWO short sentences, like a fun, kind friend. Be warm, playful or supportive. Never judge harshly, never ask for names, photos or personal details, never guess who wrote it. If it mentions self-harm, suicide, abuse or danger, reply with care and encourage them to talk to someone they trust or a local helpline. Nothing sexual. Reply with the message only.', 'Confession: ' + String(c.text || '').slice(0, 900), 120);
+    if (!t) continue;
+    await patchDocument(env, `confessions/${c.id}/comments/gga${c.id}`, { text: { stringValue: t.slice(0, 400) }, alias: { stringValue: '🧠 GG AI' }, op: { booleanValue: false }, ai: { booleanValue: true }, at: { integerValue: String(Date.now()) }, reports: { integerValue: '0' } });
+    await patchDocument(env, `confessions/${c.id}`, { replies: { integerValue: String((c.replies || 0) + 1) } });
+  }
 }
