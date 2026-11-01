@@ -201,6 +201,19 @@ export default {
       return json({ ok: true, ...(await vidsRun(env, ctx, 30)) });
     }
     // 🔧 which news sources work (open in a browser)
+    // ⭐ v60 server-side XP: phones send what they did, the worker checks the daily limits and adds the points
+    if (url.pathname === '/xp' && req.method === 'POST') {
+      const uid = await firebaseUid(req, env); if (!uid) return json({ ok: false, error: 'sign in' }, 401);
+      if (tooFast('xp:' + uid, 20, 60000)) return json({ ok: false, error: 'slow down' }, 429);
+      let b = {}; try { b = await req.json(); } catch (e) {}
+      const ev = Array.isArray(b.events) ? b.events.slice(0, 80) : [];
+      const r = await xpGrant(env, uid, ev);
+      return json({ ok: true, ...r });
+    }
+    // 🛡️ v60 public app settings (App Check site key lives in Cloudflare → Variables: APPCHECK_SITE_KEY)
+    if (url.pathname === '/cfg' && req.method === 'GET') {
+      return json({ ok: true, appCheckKey: String(env.APPCHECK_SITE_KEY || '').trim() });
+    }
     // 🤫 v59 Confession Room: tell the writer "someone replied" without saying who (the writer stays hidden too)
     if (url.pathname === '/confess/alert' && req.method === 'POST') {
       const uid = await firebaseUid(req, env); if (!uid) return json({ ok: false, error: 'sign in' }, 401);
@@ -371,7 +384,7 @@ export default {
     // 🌍 the news engine has its own 5-minute schedule; the reminders keep their own times
     const cron = String(event.cron || '');
     // 📺 videos: their own schedule "2-59/5 * * * *" (40 channels a run); without it, the news run checks 12 channels too
-    if (cron.startsWith('2-59/5')) { ctx.waitUntil(vidsRun(env, ctx, 36).catch(() => {})); return; }
+    if (cron.startsWith('2-59/5')) { ctx.waitUntil((async () => { const g = await goalsRun(env).catch(() => 0); await vidsRun(env, ctx, g ? 24 : 36).catch(() => {}); })()); return; }   // ⚽ v60 goal alerts first, then videos
     if (cron.includes('/5') || cron.includes('/10')) ctx.waitUntil(confessRun(env).catch(() => {}));   // 🤫 daily question + GG AI replies
     if (cron.includes('/5') || cron.includes('/10')) { ctx.waitUntil(newsRun(env, ctx).then(async () => { const d = await getDocument(env, CH_DOC).catch(() => null); const st = (() => { try { return JSON.parse((d && d.st) || '{}'); } catch (e) { return {}; } })(); if (!st.last || Date.now() - st.last > 12 * 60000) await vidsRun(env, ctx, 12); }).catch(() => {})); return; }
     if (new Date(event.scheduledTime || Date.now()).getUTCHours() >= 15) ctx.waitUntil(streakReminders(env).catch(() => {}));
@@ -557,11 +570,13 @@ async function newsSave(env, items, st) {
   await patchDocument(env, NEWS_DOC, { json: { stringValue: JSON.stringify(items) }, st: { stringValue: JSON.stringify(st) }, at: { integerValue: String(Date.now()) } });
 }
 async function ytFeedUrl(env, handle, st) {
-  st.yt = st.yt || {}; if (st.yt[handle]) return st.yt[handle] === 'x' ? null : `https://www.youtube.com/feeds/videos.xml?channel_id=${st.yt[handle]}`;
+  st.yt = st.yt || {}; if (st.ytv !== 1) { st.ytv = 1; Object.keys(st.yt).forEach(k => { if (st.yt[k] === 'x') delete st.yt[k]; }); }
+  if (st.yt[handle]) return st.yt[handle] === 'x' ? null : `https://www.youtube.com/feeds/videos.xml?channel_id=${st.yt[handle]}`;
   try {
-    const r = await fetch(`https://www.youtube.com/${handle}`, { headers: { 'Accept-Language': 'en', 'User-Agent': 'Mozilla/5.0 SinlessGG' } }); const t = (await r.text()).slice(0, 400000);
-    const m = t.match(/"externalId":"(UC[\w-]{22})"/) || t.match(/channel\/(UC[\w-]{22})/); st.yt[handle] = m ? m[1] : 'x';
-  } catch (e) { st.yt[handle] = 'x'; }
+    const r = await fetch(`https://www.youtube.com/${handle}`, { headers: YT_HEAD }); const t = (await r.text()).slice(0, 400000);
+    const m = t.match(/"externalId":"(UC[\w-]{22})"/) || t.match(/channel\/(UC[\w-]{22})/);
+    if (m) st.yt[handle] = m[1]; else if (r.status === 404) st.yt[handle] = 'x';   // v60: only a real 404 counts as "not found"; otherwise try again next time
+  } catch (e) {}
   return st.yt[handle] === 'x' ? null : `https://www.youtube.com/feeds/videos.xml?channel_id=${st.yt[handle]}`;
 }
 async function newsRun(env, ctx) {
@@ -2275,7 +2290,31 @@ OlympiqueLyonnais|Olympique Lyonnais|fun|creators|global||c|cr
 TheF2|The F2|fun|creators|global||c|cr
 AJShabeel|AJ Shabeel|fun|creators|global||c|cr
 TheoBaker|Theo Baker|fun|creators|global||c|cr
-NikoOmilana|Niko Omilana|fun|creators|global||c|cr`;
+NikoOmilana|Niko Omilana|fun|creators|global||c|cr
+CaseyNeistat|Casey Neistat|fun|vlogs,creators|global||c|cr
+DavidDobrik|David Dobrik|fun|vlogs,creators|global||c|cr
+emmachamberlain|emma chamberlain|fun|vlogs,creators|global||c|cr
+PeterMcKinnon|Peter McKinnon|fun|vlogs,creators|global||c|cr
+KaraandNate|Kara and Nate|fun|vlogs,creators|global||c|cr
+lostleblanc|Lost LeBlanc|fun|vlogs,creators|global||c|cr
+FunForLouis|FunForLouis|fun|vlogs,creators|global||c|cr
+EvaZubeck|Eva zu Beck|fun|vlogs,creators|global||c|cr
+TheBucketListFamily|The Bucket List Family|fun|vlogs,creators|global||c|cr
+aliabdaal|Ali Abdaal|fun|vlogs,creators|global||c|cr
+mattdavella|Matt DAvella|fun|vlogs,creators|global||c|cr
+KaiCenat|Kai Cenat|fun|vlogs,creators|global||c|cr
+StokesTwins|Stokes Twins|fun|vlogs,creators|global||c|cr
+ImpaulsiveShow|IMPAULSIVE|fun|vlogs,creators|global||c|cr
+nelkboys|NELK|fun|vlogs,creators|global||c|cr
+zackdfilms|Zack D. Films|fun|vlogs,creators|global||c|cr
+FaZeRug|FaZe Rug|fun|vlogs,creators|global||c|cr
+Behzinga|Behzinga|fun|vlogs,creators|global||c|cr
+TBJZL|TBJZL|fun|vlogs,creators|global||c|cr
+IndigoTraveller|Indigo Traveller|fun|vlogs,creators|global||c|cr
+Davidsbeenhere|Davidsbeenhere|fun|vlogs,creators|global||c|cr
+SamuelandAudrey|Samuel and Audrey|fun|vlogs,creators|global||c|cr
+BrooklynandBailey|Brooklyn and Bailey|fun|vlogs,creators|global||c|cr
+TheAceFamily|The ACE Family|fun|vlogs,creators|global||c|cr`;
 function seedChannels() { return CH_SEED.split('\n').filter(Boolean).map(l => { const [h, n, c, t, rg, f, st, kd] = l.split('|'); return { h, n, c, t, rg: rg || 'global', f: f === '1' ? 1 : 0, st: st || 'c', kd: kd || 'o' }; }); }
 // ✅ auto-approve: the channel's real YouTube name matches the name on our list ("Shirrako" = "Shirrako Official")
 function nameKey(s) { return String(s || '').toLowerCase().replace(/\s*-\s*topic$/, '').replace(/official|channel|tv|vevo|music|hq|yt|the /g, '').replace(/[^\p{L}\p{N}]+/gu, ''); }
@@ -2284,6 +2323,7 @@ async function chLoad(env) {
   const d = await getDocument(env, CH_DOC).catch(() => null); let L = null, st = {};
   try { L = JSON.parse((d && d.json) || 'null'); } catch (e) {} try { st = JSON.parse((d && d.st) || '{}'); } catch (e) {}
   if (!Array.isArray(L) || !L.length) L = seedChannels();
+  if ((st.seedv || 1) < 2) { const have = new Set(L.map(c => String(c.h || '').toLowerCase())); seedChannels().forEach(c => { if (!have.has(String(c.h).toLowerCase())) L.push(c); }); st.seedv = 2; }   // v60: new channels (vlog creators) join the saved list
   if (!st.kdv) { const m = {}; seedChannels().forEach(c => m[String(c.h).toLowerCase()] = c.kd); L.forEach(c => { if (!c.kd) c.kd = m[String(c.h || '').toLowerCase()] || 'o'; }); st.kdv = 1; }   // v58.2: label creators vs official
   return { L, st };
 }
@@ -2298,7 +2338,7 @@ async function readStart(r, max) {
   return s;
 }
 async function resolveHandle(h) {
-  const r = await fetch(`https://www.youtube.com/@${encodeURIComponent(h)}`, { headers: { 'Accept-Language': 'en', 'User-Agent': 'Mozilla/5.0 SinlessGG' } });
+  const r = await fetch(`https://www.youtube.com/@${encodeURIComponent(h)}`, { headers: YT_HEAD });
   if (r.status === 404) return 'x';
   if (!r.ok) return null;
   let id = null;
@@ -2312,8 +2352,9 @@ async function resolveHandle(h) {
     const t = await readStart(r, 700000);
     const m = t.match(/"externalId":"(UC[\w-]{22})"/) || t.match(/channel\/(UC[\w-]{22})/); id = m ? m[1] : null;
   }
-  return id || 'x';
+  return id || null;   // v60: a page without the channel link = YouTube said "not now" (consent / busy), so try again later
 }
+const YT_HEAD = { 'Accept-Language': 'en-US,en;q=0.9', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', Cookie: 'SOCS=CAI; CONSENT=YES+1' };
 function parseYt(xml) {
   const out = []; let i = 0; const ttl = (xml.match(/<title>([^<]{1,120})<\/title>/) || [])[1] || '';
   for (let k = 0; k < 6; k++) {
@@ -2326,12 +2367,13 @@ function parseYt(xml) {
 }
 async function vidsRun(env, ctx, budget) {
   const { L, st } = await chLoad(env), items = await vidLoad(env), now = Date.now(), day = new Date().toISOString().slice(0, 10);
+  if (st.rv !== 1) { st.rv = 1; L.forEach(c => { if (c.id === 'x') { delete c.id; c.tries = 0; c.nt = 0; c.e = ''; } }); }   // v60: retry everything YouTube refused before
   st.i = st.i || 0; st.ya = st.ya && st.day === day ? st.ya : {}; st.day = day;
   const live = L.filter(c => c.st !== 'x' && c.id !== 'x');
   // followed channels first (every hour), then everyone in turns
   const pick = live.filter(c => c.fol > 0 && c.id && now - (c.last || 0) > 3600e3).slice(0, Math.floor(budget / 3));
   // still looking channels up? spend most of this run on that (approved ones first) — everything is found within a few hours
-  const unresolved = live.filter(c => !c.id).sort((a, b) => (a.st === 'o' ? 0 : 1) - (b.st === 'o' ? 0 : 1));
+  const unresolved = live.filter(c => !c.id && (!c.nt || now >= c.nt)).sort((a, b) => (a.st === 'o' ? 0 : 1) - (b.st === 'o' ? 0 : 1));
   const maxRes = unresolved.length ? Math.max(3, Math.floor(budget * 0.6)) : 0;
   unresolved.slice(0, maxRes).forEach(c => { if (pick.length < budget) pick.push(c); });
   const known = live.filter(c => c.id);
@@ -2340,7 +2382,10 @@ async function vidsRun(env, ctx, budget) {
   let resolves = 0; const have = new Set(items.map(x => x.v)), alerts = [];
   await Promise.all(pick.map(async (c) => {
     try {
-      if (!c.id) { if (resolves >= maxRes) return; resolves++; const id = await resolveHandle(c.h); if (id) { c.id = id; if (id === 'x') c.e = 'not found'; } return; }   // its videos come on the next turn (keeps each run small)
+      if (!c.id) { if (resolves >= maxRes) return; resolves++; const id = await resolveHandle(c.h);
+        if (id) { c.id = id; c.tries = 0; c.nt = 0; if (id === 'x') c.e = 'not found'; }
+        else { c.tries = (c.tries || 0) + 1; c.nt = now + Math.min(24, 2 * c.tries) * 3600e3; c.e = 'retry ' + c.tries; if (c.tries >= 6) { c.id = 'x'; c.e = 'not found'; } }   // v60: 6 tries over ~2 days before "not found"
+        return; }   // its videos come on the next turn (keeps each run small)
       const r = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${c.id}`, { cf: { cacheTtl: 300 } });
       c.last = now; if (!r.ok) { c.e = 'HTTP ' + r.status; return; }
       const { ttl, list } = parseYt((await r.text()).slice(0, 40000));
@@ -2766,4 +2811,79 @@ async function confessRun(env) {
     await patchDocument(env, `confessions/${c.id}/comments/gga${c.id}`, { text: { stringValue: t.slice(0, 400) }, alias: { stringValue: '🧠 GG AI' }, op: { booleanValue: false }, ai: { booleanValue: true }, at: { integerValue: String(Date.now()) }, reports: { integerValue: '0' } });
     await patchDocument(env, `confessions/${c.id}`, { replies: { integerValue: String((c.replies || 0) + 1) } });
   }
+}
+
+
+// =====================================================================
+// ⭐ v60 SERVER-SIDE XP — the phone only says WHAT happened; the worker decides the points.
+// Each action has a fair amount and a daily limit, plus a total limit per day, so nobody can cheat their level.
+// =====================================================================
+const XP_SERVER = { daily: [5, 1], post: [20, 5], comment: [5, 10], gg: [1, 20], predict: [3, 20], lounge: [1, 20], live: [30, 2], story: [10, 3], poll: [2, 10], share: [2, 10], tournament: [10, 5], follow: [2, 10],
+  chat: [1, 40], react: [1, 30], watch: [2, 30], quiz: [10, 5], game: [5, 30], win: [20, 10], challenge: [100, 6], invite: [50, 5], streak: [10, 1], read: [2, 20], confess: [2, 10],
+  quest: [300, 3], news: [1, 30], clip: [1, 40], time: [1, 30], play: [1, 30] };
+const XP_DAY_MAX = 1500;
+async function xpGrant(env, uid, events) {
+  const day = new Date().toISOString().slice(0, 10).replace(/-/g, ''), key = `xpDay/${uid}_${day}`;
+  const d = (await getDocument(env, key).catch(() => null)) || {}; let used = {}; try { used = JSON.parse(d.used || '{}'); } catch (e) {}
+  let total = used._t || 0, add = 0;
+  for (const e of events) {
+    const r = String((e && e.r) || '').replace(/[^\w]/g, '').slice(0, 20) || 'other', want = Math.max(0, Math.floor(Number(e && e.n) || 0));
+    const known = XP_SERVER[r], [per, cap] = known || [2, 10];
+    if ((used[r] || 0) >= cap || !want) continue;
+    const n = Math.min(want, known ? per * (r === 'challenge' || r === 'quest' ? 1 : 2) : per, XP_DAY_MAX - total); if (n <= 0) break;
+    used[r] = (used[r] || 0) + 1; total += n; add += n;
+  }
+  if (!add) return { added: 0 };
+  used._t = total;
+  const rows = await runQuery(env, { from: [{ collectionId: 'profiles' }], where: { fieldFilter: { field: { fieldPath: 'uid' }, op: 'EQUAL', value: { stringValue: uid } } }, limit: 1 });
+  const prof = rows[0]; if (!prof) return { added: 0, error: 'no profile' };
+  await patchDocument(env, key, { used: { stringValue: JSON.stringify(used) }, at: { integerValue: String(Date.now()) } });
+  const name = `projects/${sa(env).project_id}/databases/(default)/documents/profiles/${prof.id}`;
+  await fetch(`${fsBase(env)}:commit`, { method: 'POST', headers: { Authorization: `Bearer ${await accessToken(env)}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ writes: [{ transform: { document: name, fieldTransforms: [{ fieldPath: 'xp', increment: { integerValue: String(add) } }] } }] }) });
+  return { added: add, xp: (Number(prof.xp) || 0) + add };
+}
+
+// =====================================================================
+// ⚽ v60 GOAL ALERTS — big matches only, sent to everyone who has match alerts on (topic "n_goals"), even with the app closed.
+// Uses ESPN's public scoreboard; max 8 matches a day so nobody gets spammed.
+// =====================================================================
+const GOAL_LEAGUES = ['uefa.champions', 'uefa.europa', 'eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'fifa.world', 'caf.nations', 'caf.champions'];
+const GOAL_ALWAYS = /^(uefa\.champions|fifa\.world|caf\.nations)$/;
+const GOAL_BIG = /arsenal|chelsea|liverpool|manchester|man utd|man city|tottenham|newcastle|real madrid|barcelona|atl[eé]tico|bayern|dortmund|leverkusen|juventus|inter|milan|napoli|roma|psg|paris saint|marseille|monaco|benfica|porto|sporting|ajax|celtic|galatasaray|al ahly|zamalek|mamelodi|esp[eé]rance|wydad|raja/i;
+async function goalsRun(env) {
+  const h = new Date().getUTCHours(); if (h < 10 && h > 3) return 0;          // no football in the quiet hours (UTC 04–09)
+  const day = new Date().toISOString().slice(0, 10), st0 = (await getDocument(env, 'config/goalAlerts').catch(() => null)) || {};
+  let st = {}; try { st = JSON.parse(st0.json || '{}'); } catch (e) {}
+  if (st.day !== day) st = { day, m: {}, n: 0 };
+  let liveAny = 0;
+  const boards = await Promise.all(GOAL_LEAGUES.map(lg => fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg}/scoreboard`, { cf: { cacheTtl: 60 } }).then(r => r.ok ? r.json() : null).catch(() => null)));
+  const pushes = [];
+  boards.forEach((j, i) => {
+    const lg = GOAL_LEAGUES[i];
+    ((j && j.events) || []).forEach(ev => {
+      const c = ((ev.competitions || [])[0] || {}), cs = c.competitors || [], st8 = ((ev.status || {}).type || {}).state;
+      if (st8 !== 'in' && st8 !== 'post') return;
+      const hm = cs.find(x => x.homeAway === 'home') || cs[0], aw = cs.find(x => x.homeAway === 'away') || cs[1]; if (!hm || !aw) return;
+      const hn = (hm.team || {}).shortDisplayName || (hm.team || {}).displayName || 'Home', an = (aw.team || {}).shortDisplayName || (aw.team || {}).displayName || 'Away';
+      const big = GOAL_ALWAYS.test(lg) || GOAL_BIG.test(hn + ' ' + an + ' ' + ((hm.team || {}).displayName || '') + ' ' + ((aw.team || {}).displayName || ''));
+      if (!big) return;
+      if (st8 === 'in') liveAny = 1;
+      const sc = `${hm.score || 0}-${aw.score || 0}`, prev = st.m[ev.id];
+      if (!prev) { if (st.n >= 8 || st8 !== 'in') return; st.n++; st.m[ev.id] = { s: sc }; if (sc !== '0-0') return; return; }   // first time we see it: remember, no alert (we may have missed the moment)
+      if (prev.s === sc || st8 !== 'in') { prev.s = sc; return; }
+      const [h1, a1] = prev.s.split('-').map(Number), [h2, a2] = sc.split('-').map(Number); prev.s = sc;
+      if (h2 + a2 <= h1 + a1) return;                                                  // only when a goal is added (not VAR take-backs)
+      const who = h2 > h1 ? hn : an, clock = ((ev.status || {}).displayClock || '').replace(/\s/g, '');
+      pushes.push(['⚽ GOAL! ' + who, `${hn} ${h2}–${a2} ${an}${clock ? ' · ' + clock : ''}`, ev.id]);
+    });
+  });
+  for (const [t, b, id] of pushes.slice(0, 6)) await sendGoalPush(env, t, b, id).catch(() => {});
+  await patchDocument(env, 'config/goalAlerts', { json: { stringValue: JSON.stringify(st) }, at: { integerValue: String(Date.now()) } });
+  return liveAny;
+}
+async function sendGoalPush(env, title, body, id) {
+  const project = sa(env).project_id;
+  await fetch(`https://fcm.googleapis.com/v1/projects/${project}/messages:send`, { method: 'POST', headers: { Authorization: `Bearer ${await accessToken(env)}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: { topic: 'n_goals', webpush: { headers: { Urgency: 'high', TTL: '1800' }, data: { title: String(title).slice(0, 60), body: String(body).slice(0, 160), url: SITE + '#scores', tag: 'goal_' + id } } } }) });
 }

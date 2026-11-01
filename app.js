@@ -2969,15 +2969,7 @@ mediaHtml = `
 </div>`;
 }
 } else {
-mediaHtml = `
-<div class="grid grid-cols-2 gap-1.5 rounded-2xl overflow-hidden border border-cyan-500/20">
-${p.mediaList.slice(0, 4).map((m, i) => {
-const more = (i === 3 && p.mediaList.length > 4) ? `<div class="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-black text-lg">+${p.mediaList.length - 4}</div>` : '';
-return m.type === 'video'
-? `<div class="relative h-40 bg-black"><img src="${window.cldPoster(m.url, 480)}" class="w-full h-40 object-cover" loading="lazy" onerror="this.style.display='none'"><i class="fa-solid fa-circle-play absolute inset-0 m-auto w-8 h-8 text-3xl text-white/90 flex items-center justify-center"></i>${more}</div>`
-: `<div class="relative h-40"><img src="${window.cldSized(m.url, 600)}" loading="lazy" class="w-full h-40 object-cover bg-black">${more}</div>`;
-}).join('')}
-</div>`;
+mediaHtml = window.sgCarousel ? window.sgCarousel(p.mediaList, pId, 'feed') : '';
 }
 }
 
@@ -3063,7 +3055,7 @@ if (window.activeCategoryFilter && window.activeCategoryFilter !== 'ALL') {
 if (window.activeCategoryFilter === 'LIVE STREAM') {
 posts = posts.filter(p => p.isLive || p.game === 'LIVE STREAM');
 } else {
-posts = posts.filter(p => (p.game || '').toUpperCase() === window.activeCategoryFilter);
+posts = posts.filter(p => window.catMatch ? window.catMatch(p.game, window.activeCategoryFilter) : (p.game || '').toUpperCase() === window.activeCategoryFilter);
 }
 }
 
@@ -3213,7 +3205,7 @@ const isOwner = (p.user || '').toLowerCase() === me;
 const badges = window.getFeedBadges ? window.getFeedBadges(p.user) : '';
 const when = new Date(window.postTimeValue(p));
 
-const media = (p.mediaList || []).map(m => m.type === 'video'
+const media = (p.mediaList || []).length > 1 && window.sgCarousel ? window.sgCarousel(p.mediaList, pId, 'detail') : (p.mediaList || []).map(m => m.type === 'video'
 ? `<div class="relative bg-black rounded-2xl overflow-hidden border border-cyan-500/20">
 <video src="${window.cldSized(m.url, 1280, 'video')}" poster="${window.cldPoster(m.url, 1080)}" class="w-full max-h-[75vh] object-contain bg-black" controls autoplay playsinline controlsList="nodownload"></video>
 <button onclick="window.floatVideo('${pId}', '${m.url}', this)" class="absolute top-2 right-2 px-2.5 py-1.5 rounded-full bg-black/70 text-white text-[10px] font-bold"><i class="fa-solid fa-clone mr-1"></i>Float</button>
@@ -26875,10 +26867,12 @@ return function(ts, key) {
 const h = b(ts, key);
 try {
 const tpl = document.createElement('div'); tpl.innerHTML = h; const board = tpl.firstElementChild, rows = [...board.querySelectorAll(':scope > .fx-row')];
-if (rows.length <= 4) return h;
 const mine = rows.filter(r => r.classList.contains('me')), order = [...mine, ...rows.filter(r => !r.classList.contains('me'))];
+if (rows.length <= 1 || (!mine.length && rows.length <= 3)) return h;
 const open = !!window._fxOpen[key];
-order.forEach((r, i) => { r.parentNode.appendChild(r); if (!open && i >= 4) r.style.display = 'none'; });
+/* v60: folded = only YOUR matches (or the first 3 if you have none) */
+order.forEach((r, i) => { r.parentNode.appendChild(r); if (!open && (mine.length ? !r.classList.contains('me') : i >= 3)) r.style.display = 'none'; });
+if (!open && mine.length) board.insertAdjacentHTML('afterbegin', '');
 const note = board.querySelector(':scope > p.text-\\[9px\\]'); if (note) board.appendChild(note);
 board.insertAdjacentHTML('beforeend', `<button class="fx-more" onclick="event.stopPropagation(); window._fxOpen['${escapeHTML(key)}']=${open ? 'false' : 'true'}; window.fxRefresh()">${open ? 'Show less ▲' : `Show all matches (${rows.length}) ▼`}</button>`);
 return tpl.innerHTML;
@@ -27154,7 +27148,7 @@ window.cfPost = async function() {
 const t = (document.getElementById('cfText').value || '').trim().slice(0, 1000);
 if (t.length < 3) { showToast('Write a little more 🙂'); return; }
 const bad = window.cfCheck(t); if (bad) { showToast(bad); return; }
-const day = new Date().toISOString().slice(0, 10), lim = window.cfLS('sg_cf_day'); if (lim.d === day && lim.n >= 5 && !window.isAppAdmin) { showToast('5 confessions a day max. Come back tomorrow 🤫'); return; }
+const day = new Date().toISOString().slice(0, 10), lim = window.cfLS('sg_cf_day'); if (lim.d === day && lim.n >= 20 && !window.isAppAdmin) { showToast('20 confessions a day max. Come back tomorrow 🤫'); return; }
 try {
 const own = doc(collection(window.db, 'confessOwners')), id = own.id, at = Date.now(), b = writeBatch(window.db);
 b.set(own, { uid: window.uidNow(), at });
@@ -27295,3 +27289,529 @@ return b(id);
 })(window.openNotification);
 window.addEventListener('hashchange', () => { const m = location.hash.match(/^#confess(?:=([\w-]+))?/); if (m) m[1] ? window.openConfession(m[1]) : window.openConfessRoom(); });
 setTimeout(() => { const m = location.hash.match(/^#confess(?:=([\w-]+))?/); if (m) m[1] ? window.openConfession(m[1]) : window.openConfessRoom(); }, 2800);
+
+window.SG_BUILD = 60;
+
+(function v60Css() {
+const s = document.createElement('style');
+s.textContent = `
+#fypFeedContainer > div > .glass-panel,#fypFeedContainer > .glass-panel{border:1px solid transparent!important;border-radius:20px!important;
+background:linear-gradient(rgba(10,14,32,.92),rgba(10,14,32,.92)) padding-box,linear-gradient(135deg,rgba(34,211,238,.55),rgba(168,85,247,.45),rgba(255,45,149,.5)) border-box!important;
+box-shadow:0 0 18px rgba(168,85,247,.12),0 6px 22px rgba(0,0,0,.35)}
+#fypFeedContainer > *{content-visibility:auto;contain-intrinsic-size:auto 520px}
+#fypFeedContainer [data-yt-auto],#fypFeedContainer video[data-feed-video],.sg-car{border-radius:16px;box-shadow:0 0 22px rgba(34,211,238,.28),0 0 46px rgba(168,85,247,.22),0 0 70px rgba(255,45,149,.12)}
+#fypFeedContainer [data-yt-auto]{overflow:hidden;margin:0 10px}
+#fypFeedContainer [data-yt-auto] .bg-red-600\\/90,#fypFeedContainer [data-yt-auto] .bg-red-600{background:linear-gradient(135deg,#22d3ee,#a855f7,#ff2d95)!important;box-shadow:0 0 22px rgba(168,85,247,.7)}
+#fypFeedContainer [data-vid-card] .bg-red-600{background:linear-gradient(135deg,#ff2d95,#a855f7)!important}
+#fypFeedContainer button.rounded-xl{padding-left:14px;padding-right:14px}
+header > div:last-child{gap:8px!important}header > div:last-child > *{margin:0!important}
+header > div:last-child > button:not([onclick*="openUniversalCreateModal"]){width:34px!important;height:34px!important;border-radius:12px!important}
+header button[onclick*="openUniversalCreateModal"]{border-radius:999px!important;padding:7px 14px!important;font-weight:900!important;color:#0b0f24!important;
+background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)!important;box-shadow:0 0 16px rgba(34,211,238,.55),0 0 26px rgba(255,45,149,.35)!important}
+#profileStoriesBar{padding-top:6px!important;padding-bottom:6px!important;min-height:0!important}
+#nwBreak .tk{text-overflow:clip!important;mask-image:linear-gradient(90deg,#000 88%,transparent);-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent)}
+#nwBreak .tk > b{display:inline-block;padding-right:40px;animation:sgTick var(--d,14s) linear infinite;font-weight:800}
+@keyframes sgTick{0%,12%{transform:translateX(0)}100%{transform:translateX(calc(-100% + 40px))}}
+.sg-car{position:relative;overflow:hidden;background:#000;border:1px solid rgba(34,211,238,.25)}
+.sg-car-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.sg-car-track::-webkit-scrollbar{display:none}
+.sg-car-it{flex:0 0 100%;scroll-snap-align:center;display:flex;align-items:center;justify-content:center;background:#000;position:relative}
+.sg-car-it img{width:100%;max-height:28rem;object-fit:contain}
+.sg-car.detail .sg-car-it img,.sg-car.detail .sg-car-it video{max-height:75vh}
+.sg-car-n{position:absolute;top:8px;right:8px;font-size:10px;font-weight:900;color:#fff;background:rgba(0,0,0,.55);padding:3px 8px;border-radius:999px}
+.sg-car-dots{position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:5px;pointer-events:none}
+.sg-car-dots i{width:6px;height:6px;border-radius:99px;background:rgba(255,255,255,.45)}.sg-car-dots i.on{width:16px;background:linear-gradient(90deg,#22d3ee,#ff2d95)}
+#sgTopBtn{position:fixed;right:14px;bottom:88px;z-index:60;width:44px;height:44px;border-radius:999px;color:#0b0f24;font-weight:900;font-size:18px;
+background:linear-gradient(135deg,#22d3ee,#a855f7,#ff2d95);box-shadow:0 0 18px rgba(168,85,247,.6);opacity:0;transform:translateY(20px);pointer-events:none;transition:.25s}
+#sgTopBtn.on{opacity:1;transform:none;pointer-events:auto}
+#categoryFilterBar{gap:6px}#categoryFilterBar > *{margin:0!important}
+.sg-sqcats{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 6px}.sg-sqcats::-webkit-scrollbar{display:none}
+.sg-sqcats button{flex-shrink:0;padding:6px 11px;border-radius:999px;font-size:10px;font-weight:900;color:#cbd5e1;background:rgba(255,255,255,.06);border:1px solid rgba(34,211,238,.18)}
+.sg-sqcats button.on{color:#0b0f24;background:linear-gradient(90deg,#22d3ee,#a855f7);border-color:transparent}
+.sg-muted-hide{display:none!important}
+.sg-wn li{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;color:#e2e8f0}.sg-wn li b{font-size:16px}
+.sg-hunter{display:inline-block;margin-left:4px;font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;color:#0b0f24;background:linear-gradient(90deg,#22d3ee,#a855f7);vertical-align:middle}`;
+document.head.appendChild(s);
+})();
+
+window.nwBreakRender = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a);
+try { const tk = document.querySelector('#nwBreak .tk'); if (tk && !tk.querySelector('b')) { const t = tk.textContent; tk.innerHTML = `<b>${escapeHTML(t)}</b>`; const inner = tk.firstElementChild; if (inner.scrollWidth <= tk.clientWidth + 4) inner.style.animation = 'none'; else inner.style.setProperty('--d', Math.max(8, Math.round(t.length / 6)) + 's'); } } catch (e) {}
+return r;
+};
+})(window.nwBreakRender);
+
+try { const m = localStorage.getItem('sg_feed_muted'); if (m !== null) window.feedMuted = m === '1'; } catch (e) {}
+window.toggleFeedMute = (function(b) { return function(...a) { const r = b.apply(this, a); try { localStorage.setItem('sg_feed_muted', window.feedMuted ? '1' : '0'); } catch (e) {} return r; }; })(window.toggleFeedMute);
+
+window.sgLiteImg = function(root) {
+(root || document).querySelectorAll('#fypFeedContainer img:not([data-lite]), .sg-car img:not([data-lite])').forEach(img => {
+img.setAttribute('data-lite', '1'); if (!img.getAttribute('loading')) img.loading = 'lazy'; img.decoding = 'async';
+const src = img.getAttribute('src') || '';
+if (/^https:\/\/ik\.imagekit\.io\//.test(src) && !/[?&]tr=/.test(src)) img.src = src + (src.includes('?') ? '&' : '?') + `tr=w-${window.dataSaver ? 480 : 900},q-${window.dataSaver ? 45 : 65},f-auto`;
+});
+};
+
+window.sgCarousel = function(list, pId, mode) {
+const n = list.length, det = mode === 'detail';
+const items = list.map((m, i) => m.type === 'video'
+? (det ? `<div class="sg-car-it"><video src="${window.cldSized(m.url, 1280, 'video')}" poster="${window.cldPoster(m.url, 1080)}" class="w-full object-contain bg-black" controls playsinline preload="none" controlsList="nodownload"></video></div>`
+: `<div class="sg-car-it" style="min-height:16rem"><img src="${window.cldPoster(m.url, 720)}" alt="" onerror="this.style.visibility='hidden'"><span class="absolute inset-0 flex items-center justify-center"><span class="w-14 h-14 rounded-full text-white text-xl flex items-center justify-center" style="background:linear-gradient(135deg,#22d3ee,#a855f7,#ff2d95)"><i class="fa-solid fa-play"></i></span></span></div>`)
+: `<div class="sg-car-it"><img src="${window.cldSized(m.url, det ? 1600 : 1080)}" alt="" ${det ? `onclick="window.openMediaZoomModal('image', '${m.url}', '${pId}')"` : ''}></div>`).join('');
+return `<div class="sg-car ${det ? 'detail' : ''} rounded-2xl" data-car><div class="sg-car-track" onscroll="window.carDots(this)">${items}</div>
+<span class="sg-car-n">1/${n}</span><div class="sg-car-dots">${list.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div></div>`;
+};
+window.carDots = function(tr) {
+const i = Math.round(tr.scrollLeft / Math.max(1, tr.clientWidth)), box = tr.parentElement;
+box.querySelectorAll('.sg-car-dots i').forEach((d, k) => d.classList.toggle('on', k === i));
+const nEl = box.querySelector('.sg-car-n'); if (nEl) nEl.textContent = `${i + 1}/${box.querySelectorAll('.sg-car-it').length}`;
+};
+
+window.CAT_GROUPS = { GAMES: ['FC MOBILE', 'EA SPORTS FC', 'EFOOTBALL', 'DLS', 'CALL OF DUTY', 'OTHER GAMES', 'GAMING'], MOVIES: ['MOVIES', 'ANIME'] };
+window.catMatch = function(game, f) { const g = String(game || '').toUpperCase(); f = String(f || '').toUpperCase(); return (window.CAT_GROUPS[f] || [f]).includes(g); };
+window.POST_TO_NEWS_CAT.GAMES = 'gaming';
+window.FEED_CATS = [['ALL', '🌐 All'], ['CLIPS', '▶ Clips'], ['LIVE STREAM', '🔴 Live'], ['GAMES', '🎮 Games'], ['GENERAL', '💬 General'], ['FOOTBALL', '⚽ Football'], ['MOVIES', '🎬 Movies/Anime'], ['WRESTLING', '🤼 Wrestling'], ['BOOKS', '📚 Books']];
+window.sgCatBar = function() {
+const bar = document.getElementById('categoryFilterBar'); if (!bar || bar.hasAttribute('data-v60')) return;
+bar.setAttribute('data-v60', '1');
+const cur = window.activeCategoryFilter || 'ALL';
+bar.innerHTML = window.FEED_CATS.map(([k, l]) => k === 'CLIPS'
+? `<button onclick="window.openClips()" class="shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-black text-white whitespace-nowrap shadow" style="background:linear-gradient(90deg,#ff2d95,#a855f7)">${l}</button>`
+: `<button onclick="filterByCategory('${k}', this)" class="cat-btn px-3 py-1.5 rounded-xl text-[10px] whitespace-nowrap transition ${k === cur ? 'font-extrabold bg-cyan-400 text-slate-950 shadow' : 'font-bold bg-gg-900 text-gray-400 border border-cyan-500/20'}">${l}</button>`).join('');
+};
+setTimeout(window.sgCatBar, 0); document.addEventListener('DOMContentLoaded', window.sgCatBar); setTimeout(window.sgCatBar, 1500);
+
+window._ytT = {};
+window.addEventListener('message', (e) => {
+if (!/youtube(-nocookie)?\.com$/.test(String(e.origin).replace(/^https?:\/\/(www\.)?/, ''))) return;
+let d = e.data; try { if (typeof d === 'string') d = JSON.parse(d); } catch (er) { return; }
+if (!d || d.event !== 'infoDelivery' || !d.info) return;
+const f = [...document.querySelectorAll('iframe[data-yt-frame]')].find(x => x.contentWindow === e.source); if (!f) return;
+const vid = (f.src.match(/\/embed\/([\w-]{6,20})/) || [])[1]; if (vid && typeof d.info.currentTime === 'number') window._ytT[vid] = { t: d.info.currentTime, at: Date.now() };
+});
+window.ytMount = (function(b) {
+return function(stage) {
+const r = b(stage);
+try { const f = stage.querySelector('iframe[data-yt-frame]'); if (f && !f._lis) { f._lis = 1; f.addEventListener('load', () => { [300, 1500].forEach(ms => setTimeout(() => { try { f.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'sg', channel: 'widget' }), '*'); } catch (e) {} }, ms)); }); } } catch (e) {}
+return r;
+};
+})(window.ytMount);
+new MutationObserver((ms) => {
+ms.forEach(m => m.addedNodes.forEach(n => {
+if (n.nodeType !== 1) return;
+const frames = n.tagName === 'IFRAME' ? [n] : [...n.querySelectorAll('iframe')];
+frames.forEach(f => {
+if (f.hasAttribute('data-yt-frame') || f._sgT) return; f._sgT = 1;
+const src = f.getAttribute('src') || '', vid = (src.match(/youtube(?:-nocookie)?\.com\/embed\/([\w-]{6,20})/) || [])[1]; if (!vid || /[?&]start=/.test(src)) return;
+const k = window._ytT[vid]; if (!k || k.t < 3 || Date.now() - k.at > 10 * 60000) return;
+f.setAttribute('src', src + (src.includes('?') ? '&' : '?') + 'start=' + Math.floor(k.t)); delete window._ytT[vid];
+});
+}));
+}).observe(document.documentElement, { childList: true, subtree: true });
+window.openPostDetail = (function(b) {
+return function(id, ...a) {
+let t = 0; try { const v = document.querySelector(`video[data-feed-video="${CSS.escape(String(id))}"]`); if (v && v.currentTime > 1) t = v.currentTime; } catch (e) {}
+const r = b.call(this, id, ...a);
+if (t) setTimeout(() => { const dv = document.querySelector('#postDetailBody video'); if (dv) { const go = () => { try { dv.currentTime = t; } catch (e) {} }; if (dv.readyState >= 1) go(); else dv.addEventListener('loadedmetadata', go, { once: true }); } }, 60);
+return r;
+};
+})(window.openPostDetail);
+
+window.clipSlideHtml = (function(b) {
+return function(c, i) {
+let h = b(c, i);
+try {
+const v = c && c.v; if (!v || !v.ch || !/^UC[\w-]{22}$/.test(v.ch.id || '') || h.includes('data-ytf=')) return h;
+const id = escapeHTML(v.ch.id), nm = escapeHTML(String(v.ch.name || '').replace(/'/g, ''));
+h = h.replace(/<\/div>\s*$/, `<button data-ytf="${id}" onclick="event.stopPropagation(); window.ytFollow('${id}', '${nm}', '${escapeHTML(v.cat || '')}')" class="absolute left-3 z-20 px-3 py-1.5 rounded-full text-[11px] font-black text-slate-950" style="top:58px;background:linear-gradient(90deg,#22d3ee,#a855f7);box-shadow:0 0 14px rgba(168,85,247,.6)">${window.isYtFollowed(v.ch.id) ? '✓ Following' : '+ Follow ' + escapeHTML(String(v.ch.short || v.ch.name || '').slice(0, 18))}</button></div>`);
+} catch (e) {}
+return h;
+};
+})(window.clipSlideHtml);
+
+(function topBtn() {
+const add = () => {
+if (document.getElementById('sgTopBtn')) return;
+document.body.insertAdjacentHTML('beforeend', `<button id="sgTopBtn" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'}); document.querySelectorAll('.view-section:not(.hidden)').forEach(v=>v.scrollTo&&v.scrollTo({top:0,behavior:'smooth'}))">↑</button>`);
+let t = 0; const check = () => { const v = document.querySelector('.view-section:not(.hidden)'); const y = Math.max(window.scrollY || 0, v ? v.scrollTop : 0); document.getElementById('sgTopBtn').classList.toggle('on', y > 1600); };
+window.addEventListener('scroll', () => { clearTimeout(t); t = setTimeout(check, 80); }, { passive: true });
+document.addEventListener('scroll', () => { clearTimeout(t); t = setTimeout(check, 80); }, { passive: true, capture: true });
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add();
+})();
+
+window.sgMute = () => { try { const m = JSON.parse(localStorage.getItem('sg_mute') || '{}'); return { w: m.w || [], ch: m.ch || [] }; } catch (e) { return { w: [], ch: [] }; } };
+window.sgMuteSave = (m) => { try { localStorage.setItem('sg_mute', JSON.stringify(m)); } catch (e) {} window._muteRe = null; window.sgApplyMute(); };
+window.sgMuteRe = function() {
+if (window._muteRe !== undefined && window._muteRe !== null) return window._muteRe;
+const w = window.sgMute().w.map(x => x.trim()).filter(Boolean).map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+window._muteRe = w.length ? new RegExp('(^|[^\\p{L}\\p{N}])(' + w.join('|') + ')(?=$|[^\\p{L}\\p{N}])', 'iu') : false;
+return window._muteRe;
+};
+window.chBlocked = (function(b) { return function(id) { return b(id) || window.sgMute().ch.some(c => c.id === id); }; })(window.chBlocked);
+window.sgApplyMute = function() {
+const re = window.sgMuteRe();
+document.querySelectorAll('#fypFeedContainer > *, [data-cffeed], #nwList > *, .nw-card').forEach(el => {
+const hide = !!(re && re.test(el.innerText || ''));
+el.classList.toggle('sg-muted-hide', hide);
+});
+};
+window.openMuteSettings = function() {
+const m = window.sgMute();
+window.openPanel('🔕 Muted words & channels', `<p class="text-[11px] text-gray-400 mb-2">Posts, news, videos and confessions with these words are hidden for you. Great for spoilers or a rival team.</p>
+<div class="flex gap-2"><input id="sgMuteIn" maxlength="40" class="v57-in flex-1" placeholder="Add a word or phrase…" onkeydown="if(event.key==='Enter')window.sgMuteAdd()"><button class="v57-btn" style="width:auto;padding:0 16px" onclick="window.sgMuteAdd()">Mute</button></div>
+<div class="flex flex-wrap gap-2 mt-3">${m.w.length ? m.w.map((w, i) => `<button onclick="window.sgMuteDel('w',${i})" class="px-3 py-1.5 rounded-full text-[11px] font-black text-white bg-white/10">${escapeHTML(w)} ✕</button>`).join('') : '<p class="text-xs text-gray-500">No muted words yet.</p>'}</div>
+<p class="text-[11px] font-black text-gray-300 mt-5">📺 Muted channels</p>
+<div class="flex flex-wrap gap-2 mt-2">${m.ch.length ? m.ch.map((c, i) => `<button onclick="window.sgMuteDel('ch',${i})" class="px-3 py-1.5 rounded-full text-[11px] font-black text-white bg-white/10">${escapeHTML(c.n || c.id)} ✕</button>`).join('') : '<p class="text-xs text-gray-500">Tap ✕ on a video in the feed → "Mute this channel".</p>'}</div>`);
+};
+window.sgMuteAdd = function() { const i = document.getElementById('sgMuteIn'), v = ((i && i.value) || '').trim().slice(0, 40); if (!v) return; const m = window.sgMute(); if (!m.w.some(x => x.toLowerCase() === v.toLowerCase())) m.w.push(v); window.sgMuteSave(m); showToast('🔕 Muted "' + v + '"'); window.openMuteSettings(); };
+window.sgMuteDel = function(k, i) { const m = window.sgMute(); m[k].splice(i, 1); window.sgMuteSave(m); window.openMuteSettings(); };
+window.sgMuteChannel = function(id, name) { const m = window.sgMute(); if (!m.ch.some(c => c.id === id)) m.ch.push({ id, n: String(name || '').slice(0, 60) }); window.sgMuteSave(m); document.querySelectorAll(`[data-ch="${CSS.escape(id)}"]`).forEach(x => x.classList.add('sg-muted-hide')); showToast('🔕 Channel muted. Undo in Tools → Muted words'); };
+window.hideFeedVideo = (function(b) {
+return function(i, btn) {
+const v = (window.feedVidReg || [])[i];
+if (!v || !v.ch || !v.ch.id) return b(i, btn);
+window.openActionSheet ? window.openActionSheet('This video', [
+{ icon: 'fa-eye-slash', label: 'Not interested', run: () => b(i, btn) },
+{ icon: 'fa-volume-xmark', label: `Mute ${String(v.ch.name || 'this channel').slice(0, 30)}`, run: () => { window.sgMuteChannel(v.ch.id, v.ch.name); b(i, btn); } }
+]) : b(i, btn);
+};
+})(window.hideFeedVideo);
+window.feedVideoCardHtml = (function(b) { return function(v) { const h = b(v); return v && v.ch && v.ch.id ? h.replace('<div class="glass-panel', `<div data-ch="${escapeHTML(v.ch.id)}" class="glass-panel`) : h; }; })(window.feedVideoCardHtml);
+window.renderFypFeed = (function(b) { return function(...a) { const r = b.apply(this, a); try { setTimeout(() => { window.sgApplyMute(); window.sgLiteImg(); }, 350); } catch (e) {} return r; }; })(window.renderFypFeed);
+(function watchMute() { const go = () => { const box = document.getElementById('fypFeedContainer'); if (!box) return setTimeout(go, 1500); let t = 0; new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { window.sgApplyMute(); window.sgLiteImg(); }, 500); }).observe(box, { childList: true }); }; go(); })();
+
+window.cfQr = async function() {
+if (window.qrcode) return window.qrcode;
+await new Promise((res) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'; s.onload = res; s.onerror = res; document.head.appendChild(s); setTimeout(res, 6000); });
+return window.qrcode || null;
+};
+window.cfShareImage = async function(id) {
+const c = window.cfSt.cache[id]; if (!c) return;
+showToast('🎨 Making your picture…');
+const W = 1080, H = 1920, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
+const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#0b0f24'); bg.addColorStop(0.55, '#1a0b2e'); bg.addColorStop(1, '#2a0820'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+const glow = (x, y, r, col) => { const rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, col); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(0, 0, W, H); };
+glow(150, 260, 620, 'rgba(34,211,238,.28)'); glow(960, 1500, 700, 'rgba(255,45,149,.26)'); glow(600, 900, 520, 'rgba(168,85,247,.22)');
+g.textAlign = 'center'; g.fillStyle = '#fff'; g.font = '900 64px system-ui, -apple-system, Segoe UI, sans-serif'; g.fillText('🤫', W / 2, 210);
+const [, me, ml] = window.cfMood(c.mood);
+g.font = '900 34px system-ui, sans-serif'; g.fillStyle = '#e9d5ff'; g.fillText(c.sys ? "TODAY'S QUESTION" : `${me}  ANONYMOUS ${ml.toUpperCase()}`, W / 2, 290);
+const x = 90, y = 360, w = W - 180, h = 1060, rad = 56;
+const path = () => { g.beginPath(); g.moveTo(x + rad, y); g.arcTo(x + w, y, x + w, y + h, rad); g.arcTo(x + w, y + h, x, y + h, rad); g.arcTo(x, y + h, x, y, rad); g.arcTo(x, y, x + w, y, rad); g.closePath(); };
+g.save(); g.shadowColor = 'rgba(168,85,247,.75)'; g.shadowBlur = 60; path(); g.fillStyle = 'rgba(12,16,38,.92)'; g.fill(); g.restore();
+const bd = g.createLinearGradient(x, y, x + w, y + h); bd.addColorStop(0, '#22d3ee'); bd.addColorStop(0.5, '#a855f7'); bd.addColorStop(1, '#ff2d95'); g.lineWidth = 6; g.strokeStyle = bd; path(); g.stroke();
+const txt = String(c.text || ''), size = txt.length > 420 ? 40 : txt.length > 240 ? 48 : txt.length > 120 ? 58 : 70;
+g.font = `800 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`; g.fillStyle = '#f8fafc'; g.textAlign = 'left';
+const lines = []; txt.split(/\n/).forEach(par => { let line = ''; par.split(/\s+/).forEach(word => { const t = line ? line + ' ' + word : word; if (g.measureText(t).width > w - 140 && line) { lines.push(line); line = word; } else line = t; }); lines.push(line); });
+const lh = size * 1.32, maxL = Math.floor((h - 260) / lh), shown = lines.slice(0, maxL); if (lines.length > maxL) shown[maxL - 1] = shown[maxL - 1].replace(/\s*\S*$/, '') + '…';
+let ty = y + 130 + Math.max(0, (h - 300 - shown.length * lh) / 2);
+shown.forEach(l => { g.fillText(l, x + 70, ty); ty += lh; });
+g.font = '900 38px system-ui, sans-serif'; g.fillStyle = '#f9a8d4'; g.fillText(`❤️ ${c.likes || 0}    💬 ${c.replies || 0}`, x + 70, y + h - 70);
+g.textAlign = 'center'; g.font = '900 54px system-ui, sans-serif'; const br = g.createLinearGradient(240, 0, 840, 0); br.addColorStop(0, '#22d3ee'); br.addColorStop(0.5, '#a855f7'); br.addColorStop(1, '#ff2d95'); g.fillStyle = br;
+g.fillText(c.sys ? 'Answer anonymously' : 'Confess anonymously', W / 2, 1530); g.font = '800 40px system-ui, sans-serif'; g.fillStyle = '#e2e8f0'; g.fillText('on SINLESS GG → sinlessgg.com', W / 2, 1592);
+try { const qf = await window.cfQr(); if (qf) { const q = qf(0, 'M'); q.addData(`https://sinlessgg.com/#confess=${id}`); q.make(); const n = q.getModuleCount(), sz = 230, cell = sz / n, qx = W / 2 - sz / 2, qy = 1640;
+g.fillStyle = '#fff'; g.fillRect(qx - 16, qy - 16, sz + 32, sz + 32); g.fillStyle = '#0b0f24'; for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect(qx + k * cell, qy + r * cell, Math.ceil(cell), Math.ceil(cell)); } } catch (e) {}
+const blob = await new Promise(r => cv.toBlob(r, 'image/png')); if (!blob) { showToast('⚠️ Could not make the picture'); return; }
+const file = new File([blob], 'sinlessgg-confession.png', { type: 'image/png' });
+try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'SINLESS GG · Confession Room', text: `${c.sys ? 'Answer anonymously' : 'Confess anonymously'} 🤫 https://sinlessgg.com/#confess=${id}` }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sinlessgg-confession.png'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); showToast('📥 Saved. Post it on your Status!');
+};
+window.openConfession = (function(b) {
+return async function(id, ...a) {
+const r = await b.call(this, id, ...a);
+try { const grid = document.querySelector('#sgPanel .grid.grid-cols-3'); if (grid && !document.getElementById('cfImgBtn')) grid.insertAdjacentHTML('afterend', `<button id="cfImgBtn" class="v57-btn mt-2" onclick="window.cfShareImage('${id}')">📲 Share as image (Status / Stories)</button>`); } catch (e) {}
+return r;
+};
+})(window.openConfession);
+
+['says', 'said', 'say', 'part', 'general', 'post', 'posts', 'today', 'tonight', 'yesterday', 'tomorrow', 'week', 'game', 'games', 'match', 'play', 'played', 'playing', 'guys', 'people', 'time', 'video', 'new', 'like', 'just', 'got', 'get', 'one', 'good', 'bad', 'best', 'win', 'lol', 'yes', 'yeah', 'pls', 'please', 'thanks', 'gaming', 'sinless', 'sinlessgg', 'gg', 'fc', 'mobile', 'watch', 'see', 'know', 'make', 'want', 'need', 'come', 'go', 'going', 'everyone', 'anyone', 'someone', 'day', 'night', 'morning', 'man', 'bro']
+.forEach(w => window.TREND_STOPWORDS.add(w));
+window.computeTrends = function() {
+const posts = window.fypposts || [], now = Date.now(), H = 3600e3, terms = {};
+const ok = (s) => { const w = String(s).toLowerCase().replace(/[#@]/g, ''); return w.length >= 3 && !window.TREND_STOPWORDS.has(w) && !/^\d+$/.test(w) && !['general', 'gaming', 'fc mobile', 'other games'].includes(w); };
+posts.forEach(p => {
+const t0 = window.postTimeValue(p), age = (now - t0) / H; if (age > 7 * 24) return;
+const text = String(p.caption || '').replace(/https?:\/\/\S+/g, ' '), user = String(p.user || p.uid || '').toLowerCase(), seen = new Set();
+const add = (key, label, kind) => {
+if (seen.has(key) || !ok(label)) return; seen.add(key);
+const t = terms[key] || (terms[key] = { label, kind, users24: new Set(), usersOld: new Set(), posts: new Set(), score: 0, games: {} });
+t.posts.add(p.docId || p.id);
+if (age <= 24) { t.users24.add(user); t.score += (1 + ((p.ggsCount || 0) + 2 * (p.commentsCount || 0)) / 8) * Math.pow(0.5, age / 6); }   // fresh = counts most (6-hour half-life)
+else t.usersOld.add(user);
+const g = String(p.game || '').toUpperCase(); if (g && g !== 'GENERAL') t.games[g] = (t.games[g] || 0) + 1;
+};
+(text.match(/#[\p{L}\p{N}_]{2,}/gu) || []).forEach(h => add('#' + h.slice(1).toLowerCase(), h, 'tag'));
+(text.match(/@[A-Za-z0-9_]{2,}/g) || []).forEach(m => add('@' + m.slice(1).toLowerCase(), m, 'person'));
+(text.match(/\b[A-Z][\p{L}0-9']+(?:\s+[A-Z][\p{L}0-9']+){1,2}\b/gu) || []).forEach(ph => { const words = ph.split(/\s+/).filter(w => !window.TREND_STOPWORDS.has(w.toLowerCase())); if (words.length >= 2) add('p:' + words.join(' ').toLowerCase(), words.join(' '), 'phrase'); });
+(text.match(/\b[A-Z][a-z0-9']{3,}\b/g) || []).forEach(nm => add('n:' + nm.toLowerCase(), nm, 'name'));
+});
+let list = Object.values(terms).map(t => {
+const u24 = t.users24.size, base = t.usersOld.size / 6;                         // last 24h vs. the normal day before
+const velocity = (u24 + 1) / (base + 1);
+return { ...t, u24, rank: t.score * Math.min(4, velocity) * (1 + Math.log2(1 + u24)) };
+}).filter(t => t.u24 >= (t.kind === 'tag' ? 1 : 2) && (t.kind !== 'name' || t.u24 >= 3) && t.rank > 0)
+.sort((a, b) => b.rank - a.rank);
+const picked = [];
+for (const t of list) {
+const low = t.label.toLowerCase().replace(/[#@]/g, '');
+if (picked.some(x => { const xl = x.label.toLowerCase().replace(/[#@]/g, ''); return xl === low || xl.includes(low) || low.includes(xl); })) continue;
+picked.push(t); if (picked.length >= 10) break;
+}
+const live = (window.liveMatchesCache || []).filter(m => m.state === 'in');
+for (const m of live) { if (picked.length >= 10) break; picked.push({ label: `${m.home.abbr} vs ${m.away.abbr}`, score: 0, posts: new Set(), kind: 'live', games: {}, live: `${m.home.score}-${m.away.score} · ${m.clock}`, leagueShort: m.leagueShort }); }
+return picked;
+};
+window.renderTrendingTopicsList = (function(b) {
+return function(container) {
+const r = b(container);
+try { container.innerHTML = container.innerHTML.replace(/Trending in GENERAL/g, 'Trending').replace(/(\d+) posts?<\/p>/g, (m0, n) => `${n} ${n === '1' ? 'post' : 'posts'} · rising</p>`); } catch (e) {}
+return r;
+};
+})(window.renderTrendingTopicsList);
+window.sgTrendOrder = function() {
+const v = document.getElementById('view-trending'), live = document.getElementById('liveMatchesStrip'), tl = document.getElementById('dynamicTrendingTopicsList'); if (!v || !live || !tl) return;
+const top = (el) => { while (el && el.parentElement !== v) el = el.parentElement; return el; };
+const a = top(live), t = top(tl); if (a && t && a !== t && a.nextElementSibling !== t) a.after(t);
+};
+window.switchView = (function(b) { return function(v, ...r) { const out = b.call(this, v, ...r); if (v === 'trending') setTimeout(window.sgTrendOrder, 50); return out; }; })(window.switchView);
+setTimeout(window.sgTrendOrder, 1200);
+
+window.sgTournSize = function() {
+const sel = document.getElementById('tournSizeSelect'); if (!sel || sel.tagName !== 'SELECT') return;
+const v = sel.value || '8';
+sel.outerHTML = `<input id="tournSizeSelect" type="number" min="2" max="256" step="1" value="${v}" list="tournSizeList" inputmode="numeric" class="${sel.className}" placeholder="Any number (2–256)"><datalist id="tournSizeList">${[4, 6, 8, 10, 12, 16, 20, 24, 32, 64].map(n => `<option value="${n}">`).join('')}</datalist><p class="text-[9px] text-gray-500 mt-1">Any number of players. Knockouts give free passes (byes) when the number is uneven.</p>`;
+};
+setTimeout(window.sgTournSize, 0); document.addEventListener('DOMContentLoaded', window.sgTournSize); setTimeout(window.sgTournSize, 1500);
+window.openCreateTournamentModal = (function(b) { return function(...a) { const r = b.apply(this, a); window.sgTournSize(); return r; }; })(window.openCreateTournamentModal);
+window.submitNewTournament = (function(b) {
+return async function(...a) {
+const inp = document.getElementById('tournSizeSelect'), fmt = (document.getElementById('tournFormatSelect') || {}).value;
+let n = Math.max(2, Math.min(256, parseInt((inp && inp.value) || '8', 10) || 8));
+if (inp) inp.value = String(n);
+window._koSize = null;
+if (fmt === 'KNOCKOUT') { let P = 2; while (P < n) P *= 2; if (P !== n) { window._koSize = n; inp.value = String(P); } }
+try { return await b.apply(this, a); } finally { if (inp) inp.value = String(n); window._koSize = null; }
+};
+})(window.submitNewTournament);
+window.isRealPlayer = (function(b) { return function(p) { return b(p) && p !== 'BYE'; }; })(window.isRealPlayer);
+window.isPlaceholder = (function(b) { return function(p) { return b(p) || p === 'BYE'; }; })(window.isPlaceholder);
+window.sgByeSweep = function(t) {
+if (!t || t.format !== 'KNOCKOUT' || !(t.matches || []).some(m => m.p1 === 'BYE' || m.p2 === 'BYE')) return false;
+let moved = false;
+t.matches.filter(m => m.round === 1 && !m.winner && (m.p1 === 'BYE' || m.p2 === 'BYE')).forEach(m => {
+const real = m.p1 === 'BYE' ? m.p2 : m.p1; if (!real || ['Open Spot', 'TBD', 'BYE'].includes(real)) return;
+m.winner = real; m.s1 = m.p1 === real ? 1 : 0; m.s2 = m.p2 === real ? 1 : 0; m.status = 'approved'; m.bye = true; moved = true;
+try { advanceWinnerInBracket(t, m); } catch (e) {}
+});
+return moved;
+};
+window.saveTournament = (function(b) {
+return async function(t, isNew, ...a) {
+if (t && isNew && t.format === 'KNOCKOUT' && window._koSize && window._koSize < (t.maxPlayers || 0)) {
+const byes = t.maxPlayers - window._koSize, r1 = (t.matches || []).filter(m => m.round === 1);
+for (let k = 0; k < byes && k < r1.length; k++) r1[r1.length - 1 - k].p2 = 'BYE';
+t.size = window._koSize;
+}
+if (t && t.format === 'KNOCKOUT') window.sgByeSweep(t);
+return b.call(this, t, isNew, ...a);
+};
+})(window.saveTournament);
+
+if (!window.NP_CATS.some(c => c[0] === 'goals')) window.NP_CATS.push(['goals', '⚽ Goal alerts (big matches)', ['goals']]);
+window.sgGoalsSync = async function(force) {
+try {
+if (!window.isSignedIn() || !window.pushState || !window.pushState().on) return;
+const want = !window.myNpOff().includes('goals'), had = localStorage.getItem('sg_goals_sub');
+if (!force && had === (want ? '1' : '0')) return;
+const base = await window.nwUrl(); if (!base) return;
+const r = await fetch(base + '/news/follow', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await window.mediaIdToken()) }, body: JSON.stringify({ topic: 'n_goals', on: want }) });
+if (r.ok) localStorage.setItem('sg_goals_sub', want ? '1' : '0');
+} catch (e) {}
+};
+window.saveNotifSettings = (function(b) { return async function(...a) { const r = await b.apply(this, a); window.sgGoalsSync(true); return r; }; })(window.saveNotifSettings);
+setTimeout(() => window.sgGoalsSync(false), 15000);
+
+window.SQ_CATS = [['', '🌐 All'], ['GAMES', '🎮 Games'], ['GENERAL', '💬 General'], ['FOOTBALL', '⚽ Football'], ['MOVIES', '🎬 Movies/Anime'], ['WRESTLING', '🤼 Wrestling'], ['BOOKS', '📚 Books']];
+window.sqCatOf = (s) => { const g = String((s && (s.category || s.game)) || 'GENERAL').toUpperCase(); return Object.keys(window.CAT_GROUPS).find(k => window.CAT_GROUPS[k].includes(g)) || (['FOOTBALL', 'WRESTLING', 'BOOKS', 'GENERAL'].includes(g) ? g : 'GENERAL'); };
+window.sqCat = '';
+window.sqIsMine = (c) => { const me = window.meLower(); return (c.members || []).some(m => String(m).toLowerCase() === me) || (c.memberUids || []).includes(window.uidNow()); };
+window.renderClansList = (function(b) {
+return function(...a) {
+const inp = document.getElementById('squadSearchInput'), q = ((inp && inp.value) || '').trim().toLowerCase(), all = window.clansData || [];
+let list;
+if (!q && !window.sqCat) { list = all.filter(window.sqIsMine); window.squadsFilterTab = 'my_squads'; }
+else {
+list = all.filter(c => (c.isPublic || c.isOfficial || window.sqIsMine(c) || (q && c.inviteCode && c.inviteCode.toLowerCase() === q))
+&& (!window.sqCat || window.sqCatOf(c) === window.sqCat)
+&& (!q || String(c.name || '').toLowerCase().includes(q) || String(c.tag || '').toLowerCase().includes(q) || (c.inviteCode && c.inviteCode.toLowerCase() === q)));
+window.squadsFilterTab = 'public_hubs';
+}
+window.clansData = list.map(c => (!q && window.sqCat && !c.isPublic && !c.isOfficial) ? { ...c, isPublic: true } : c);
+let r; try { r = b.apply(this, a); } finally { window.clansData = all; }
+try {
+const box = document.getElementById('clansListContainer');
+if (box && !q && !window.sqCat && !list.length) box.innerHTML = `<div class="glass-panel p-5 rounded-2xl text-center"><p class="text-3xl">🛡️</p><p class="text-sm font-black text-white mt-1">You're not in any squad yet</p><p class="text-xs text-gray-400 mt-1">Search a squad's name or tag above, pick a category, or open an invite link.</p></div>`;
+if (box && (q || window.sqCat)) box.insertAdjacentHTML('afterbegin', `<p class="text-[10px] font-black text-gray-400 uppercase px-1 pb-1">${list.length} squad${list.length === 1 ? '' : 's'} found</p>`);
+} catch (e) {}
+return r;
+};
+})(window.renderClansList);
+window.sgSquadsUi = function() {
+const inp = document.getElementById('squadSearchInput'); if (!inp || inp.hasAttribute('data-v60')) return;
+inp.setAttribute('data-v60', '1'); inp.placeholder = '🔍 Find a squad by name, tag or invite code';
+['squadTabBtn_My', 'squadTabBtn_Public'].forEach(id => { const b0 = document.getElementById(id); if (b0) b0.style.display = 'none'; });
+const holder = inp.closest('div') || inp.parentElement;
+holder.insertAdjacentHTML('afterend', `<div class="sg-sqcats" id="sgSqCats">${window.SQ_CATS.map(([k, l]) => `<button data-k="${k}" class="${k === window.sqCat ? 'on' : ''}" onclick="window.sqCat='${k}'; document.querySelectorAll('#sgSqCats button').forEach(x=>x.classList.toggle('on',x.dataset.k==='${k}')); window.renderClansList()">${l}</button>`).join('')}</div>`);
+};
+setTimeout(window.sgSquadsUi, 0); document.addEventListener('DOMContentLoaded', window.sgSquadsUi); setTimeout(window.sgSquadsUi, 1500);
+
+window.sqWhoReacted = function(id) {
+const m = window.findSquadMsg(id); if (!m) return;
+const byUid = {}; Object.values(window.allProfilesMap || {}).forEach(p => { if (p && p.uid) byUid[p.uid] = p.gamertag || p.username || p.tag; });
+const rows = (window.SQ_REACTS || []).filter(([k]) => ((m.reactions || {})[k] || []).length).map(([k, e]) => `<div class="py-2 border-b border-white/5"><p class="text-lg">${e} <span class="text-xs font-black text-gray-400">${m.reactions[k].length}</span></p>
+<p class="text-xs text-gray-200 mt-1">${m.reactions[k].map(u => u === window.uidNow() ? '<b class="text-cyan-300">You</b>' : byUid[u] ? window.dn(byUid[u]) : '<span class="text-gray-500">a member</span>').join(', ')}</p></div>`).join('');
+window.openPanel('😀 Reactions', rows || '<p class="text-xs text-gray-500">No reactions yet.</p>');
+};
+window.decorateSquadMsgs = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try { document.querySelectorAll('#squadRoomMsgsBox [data-rx]:not([data-rxw])').forEach(rx => { rx.setAttribute('data-rxw', '1'); const row = rx.previousElementSibling, id = row && row.getAttribute('data-mid'); if (id) rx.insertAdjacentHTML('beforeend', `<button onclick="event.stopPropagation(); window.sqWhoReacted('${escapeHTML(id)}')" class="px-2 py-0.5 rounded-full bg-white/5 text-[10px] font-black text-gray-300">👀 who</button>`); }); } catch (e) {}
+return r;
+};
+})(window.decorateSquadMsgs);
+window.openSquadMessageActions = (function(b) {
+return function(id) {
+const r = b(id);
+try { const m = window.findSquadMsg(id), box = document.getElementById('actionSheetItems'); if (box && m && Object.values(m.reactions || {}).some(x => (x || []).length) && !box.querySelector('[data-rxwho]')) box.insertAdjacentHTML('beforeend', `<button data-rxwho onclick="document.getElementById('actionSheet').classList.add('hidden'); window.sqWhoReacted('${escapeHTML(id)}')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-gg-800 text-sm font-bold text-gray-200"><span class="w-5">👀</span><span>See who reacted</span></button>`); } catch (e) {}
+return r;
+};
+})(window.openSquadMessageActions);
+
+document.addEventListener('click', (e) => {
+const bar = e.target.closest && e.target.closest('#squadPinnedBar div.bg-gg-950'); if (!bar) return;
+const sq = window.activeSquadDetails, i = [...bar.parentElement.children].indexOf(bar), pins = ((sq && sq.pinned) || []).filter(p => p.room === window.activeSquadSubRoom), p = pins[i];
+if (p && p.id) { window.jumpToSquadMsg(p.id); }
+}, true);
+
+window.sgStickBottom = function(id) {
+const box = document.getElementById(id); if (!box || box._stick) return; box._stick = 1; box._atBottom = true;
+box.addEventListener('scroll', () => { box._atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 140; }, { passive: true });
+const go = () => { if (box._atBottom || Date.now() - (window._sgJustSent || 0) < 4000) box.scrollTop = box.scrollHeight; };
+new MutationObserver(() => { go(); requestAnimationFrame(go); setTimeout(go, 250); }).observe(box, { childList: true, subtree: true });
+box.addEventListener('load', (e) => { if (e.target && e.target.tagName === 'IMG') go(); }, true);
+};
+['sendSquadMessage', 'sendDmMessage', 'sendLiveChat', 'sendLoungeMessage'].forEach(fn => { if (typeof window[fn] === 'function') window[fn] = (function(b) { return function(...a) { window._sgJustSent = Date.now(); const bx = document.getElementById('squadRoomMsgsBox'); if (bx) bx._atBottom = true; return b.apply(this, a); }; })(window[fn]); });
+setInterval(() => ['squadRoomMsgsBox', 'dmMessagesContainer', 'liveChatBox', 'loungeMsgs', 'chatMessagesBox'].forEach(window.sgStickBottom), 1500);
+
+window.sgAppCheck = async function(key) {
+if (!key || window._appCheckOn) return;
+try {
+const [A, m] = await Promise.all([import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'), import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js')]);
+if (!m || !m.initializeAppCheck || !m.ReCaptchaV3Provider || !A.getApp) return;
+m.initializeAppCheck(A.getApp(), { provider: new m.ReCaptchaV3Provider(key), isTokenAutoRefreshEnabled: true });
+window._appCheckOn = true;
+} catch (e) { console.warn('App Check', e); }
+};
+(function appCheckBoot() {
+let k = ''; try { k = localStorage.getItem('sg_ac_key') || ''; } catch (e) {}
+if (k) window.sgAppCheck(k);
+setTimeout(async () => { try { const base = await window.nwUrl(); if (!base) return; const j = await (await fetch(base + '/cfg')).json(); const nk = (j && j.appCheckKey) || ''; if (nk !== k) { try { localStorage.setItem('sg_ac_key', nk); } catch (e) {} if (nk) window.sgAppCheck(nk); } } catch (e) {} }, 3000);
+})();
+
+window.xpLog = (() => { try { return JSON.parse(localStorage.getItem('sg_xp_log') || '[]'); } catch (e) { return []; } })();
+window.addXP = (function(b) {
+return function(n, reason, ...a) {
+const before = (window.myStats && window.myStats.xp) || 0, r = b.call(this, n, reason, ...a), d = ((window.myStats && window.myStats.xp) || 0) - before;
+if (d > 0) { window.xpLog.push({ r: String(reason || 'other'), n: d }); try { localStorage.setItem('sg_xp_log', JSON.stringify(window.xpLog.slice(-200))); } catch (e) {} }
+return r;
+};
+})(window.addXP);
+window.flushStats = (function(b) {
+return async function(...a) {
+window.xpPending = 0;                         // XP no longer goes straight into the profile
+const r = await b.apply(this, a);
+if (!window.xpLog.length || !window.isSignedIn()) return r;
+const send = window.xpLog.splice(0, 80);
+try {
+const base = await window.nwUrl(); if (!base) throw new Error('no helper');
+const res = await fetch(base + '/xp', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await window.mediaIdToken()) }, body: JSON.stringify({ events: send }) });
+const j = await res.json().catch(() => ({})); if (!res.ok && res.status !== 400) throw new Error('xp ' + res.status);
+if (j && typeof j.xp === 'number' && window.myStats) { window.myStats.xp = Math.max(j.xp, window.myStats.xp - 0); window.updateLevelBadge && window.updateLevelBadge(); }
+} catch (e) { window.xpLog = send.concat(window.xpLog); }
+try { localStorage.setItem('sg_xp_log', JSON.stringify(window.xpLog.slice(-200))); } catch (e) {}
+return r;
+};
+})(window.flushStats);
+
+window._hunters = [];
+(async () => { try { const s = await getDoc(doc(window.db, 'config', 'bugHunters')); if (s.exists()) window._hunters = (s.data().tags || []).map(x => String(x).toLowerCase()); } catch (e) {} })();
+window.isHunter = (tag) => window._hunters.includes(String(tag || '').replace('@', '').toLowerCase());
+window.dn = (function(b) { return function(tag, ...a) { const h = b(tag, ...a); return window.isHunter(tag) ? h + '<span class="sg-hunter" title="Found a real bug">🛡️ Bug Hunter</span>' : h; }; })(window.dn);
+window.openBugRules = function() {
+window.openPanel('🛡️ Bug Hunt rules', `<p class="text-xs text-gray-300">Help make SINLESS GG safer and earn the <span class="sg-hunter">🛡️ Bug Hunter</span> badge + XP.</p>
+<ul class="sg-wn mt-3"><li><b>✅</b><span>Test only on sinlessgg.com, with <b>your own</b> account or a test account.</span></li>
+<li><b>❌</b><span>No flooding, spam or bots. Don't slow the site down for others.</span></li>
+<li><b>❌</b><span>Never open, change or share other people's messages, posts or data.</span></li>
+<li><b>❌</b><span>Don't attack Google, Cloudflare, GitHub or other services we use.</span></li>
+<li><b>📩</b><span>Report <b>privately</b> with the button below. Don't post bugs publicly until they're fixed.</span></li>
+<li><b>🏆</b><span>Real finds get the 🛡️ Bug Hunter badge and XP.</span></li></ul>
+<button class="v57-btn mt-3" onclick="window.openBugReport()">🐞 Report a bug</button>`);
+};
+window.openBugReport = function() {
+if (window.needSignIn && window.needSignIn('report a bug')) return;
+window.openPanel('🐞 Report a bug', `<div class="cf-moods mb-2" id="bugKind">${[['bug', '🐞 Bug'], ['security', '🛡️ Security'], ['idea', '💡 Idea']].map(([k, l], i) => `<button data-k="${k}" class="${i ? '' : 'on'}" onclick="document.querySelectorAll('#bugKind button').forEach(b=>b.classList.toggle('on',b.dataset.k==='${k}'))">${l}</button>`).join('')}</div>
+<input id="bugTitle" maxlength="120" class="v57-in" placeholder="Short title (e.g. Chat jumps up after sending)">
+<textarea id="bugText" maxlength="3000" rows="5" class="v57-in mt-2" placeholder="What happened? What did you expect?"></textarea>
+<textarea id="bugSteps" maxlength="2000" rows="3" class="v57-in mt-2" placeholder="Steps to make it happen again (1, 2, 3…)"></textarea>
+<p class="text-[10px] text-gray-400 my-2">🔒 Only the SINLESS GG team sees this. <button class="text-cyan-300 font-black" onclick="window.openBugRules()">Bug Hunt rules</button></p>
+<button class="v57-btn" onclick="window.sendBugReport()">📩 Send privately</button>`);
+};
+window.sendBugReport = async function() {
+const v = (id) => ((document.getElementById(id) || {}).value || '').trim(), kind = (document.querySelector('#bugKind button.on') || {}).dataset?.k || 'bug';
+const title = v('bugTitle').slice(0, 120), text = v('bugText').slice(0, 3000), steps = v('bugSteps').slice(0, 2000);
+if (title.length < 4 || text.length < 10) { showToast('Add a title and a few words about it'); return; }
+try { await addDoc(collection(window.db, 'bugReports'), { uid: window.uidNow(), user: window.me(), kind, title, text, steps, at: Date.now(), status: 'new' }); showToast('🙏 Thanks! We got it.'); window.closePanel(); }
+catch (e) { showToast('⚠️ Could not send. Try again.'); }
+};
+window.openBugInbox = async function() {
+if (!window.isAppAdmin) return;
+let L = []; try { const qs = await getDocs(query(collection(window.db, 'bugReports'), orderBy('at', 'desc'), limit(60))); L = qs.docs.map(d => ({ id: d.id, ...d.data() })); } catch (e) {}
+window.openPanel('🐞 Bug reports', L.length ? L.map(b0 => `<div class="cf-card mt-2"><p class="text-[10px] font-black text-gray-400">${b0.kind === 'security' ? '🛡️ SECURITY' : b0.kind === 'idea' ? '💡 IDEA' : '🐞 BUG'} · ${window.dn(b0.user)} · ${window.nwAgo(b0.at)} · <span class="${b0.status === 'new' ? 'text-amber-300' : 'text-emerald-300'}">${escapeHTML(b0.status)}</span></p>
+<p class="text-sm font-black text-white mt-1">${escapeHTML(b0.title)}</p><p class="text-xs text-gray-300 mt-1" style="white-space:pre-wrap">${escapeHTML(b0.text)}</p>${b0.steps ? `<p class="text-[11px] text-gray-400 mt-1" style="white-space:pre-wrap">Steps: ${escapeHTML(b0.steps)}</p>` : ''}
+<div class="grid grid-cols-3 gap-2 mt-2"><button class="v57-btn2" onclick="window.bugSet('${b0.id}','fixed')">✅ Fixed</button><button class="v57-btn2" onclick="window.bugAward('${escapeHTML(b0.user)}')">🛡️ Badge</button><button class="v57-btn2" onclick="window.bugSet('${b0.id}','closed')">✕ Close</button></div></div>`).join('') : '<p class="text-xs text-gray-500">No reports yet.</p>');
+};
+window.bugSet = async function(id, st) { try { await updateDoc(doc(window.db, 'bugReports', id), { status: st }); showToast('Saved'); window.openBugInbox(); } catch (e) { showToast('⚠️ Could not save'); } };
+window.bugAward = async function(tag) { if (!window.isAppAdmin) return; tag = String(tag || '').replace('@', '').toLowerCase(); try { await setDoc(doc(window.db, 'config', 'bugHunters'), { tags: arrayUnion(tag) }, { merge: true }); if (!window._hunters.includes(tag)) window._hunters.push(tag); showToast('🛡️ @' + tag + ' is now a Bug Hunter'); window.adminLog && window.adminLog('bug hunter badge', '@' + tag, ''); } catch (e) { showToast('⚠️ Could not save'); } };
+window.renderAdminTools = (function(b) {
+return async function(...a) {
+const r = await b.apply(this, a);
+try { const box = document.getElementById('adminBody'); if (box && window.isAppAdmin && !box.querySelector('[data-bugadm]')) box.insertAdjacentHTML('afterbegin', `<button data-bugadm onclick="window.closeAdminPanel(); window.openBugInbox()" class="w-full py-3 mb-3 rounded-2xl text-xs font-black uppercase text-slate-950" style="background:linear-gradient(90deg,#ff2d95,#a855f7)">🐞 Bug reports</button>`); } catch (e) {}
+return r;
+};
+})(window.renderAdminTools);
+
+window.openExploreGrid = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try { const g = document.querySelector('#sgPanel .sg-ex'); if (g && !g.querySelector('[data-v60t]')) g.insertAdjacentHTML('beforeend', `<button data-v60t onclick="window.closePanel(); setTimeout(()=>{window.openMuteSettings()},120)"><b>🔕</b>Muted words</button><button data-v60t onclick="window.closePanel(); setTimeout(()=>{window.openBugReport()},120)"><b>🐞</b>Report a bug</button><button data-v60t onclick="window.closePanel(); setTimeout(()=>{window.openBugRules()},120)"><b>🛡️</b>Bug Hunt</button><button data-v60t onclick="window.closePanel(); setTimeout(()=>{window.openWhatsNew(true)},120)"><b>✨</b>What's new</button>`); } catch (e) {}
+return r;
+};
+})(window.openExploreGrid);
+
+window.openWhatsNew = function(force) {
+try { if (!force && localStorage.getItem('sg_wn') === '60') return; localStorage.setItem('sg_wn', '60'); } catch (e) {}
+window.openPanel('✨ What\'s new', `<ul class="sg-wn">
+<li><b>🤫</b><span><b>Confession Room</b>: say it with no name. Share any confession as a picture to your Status.</span></li>
+<li><b>🎨</b><span>A new neon look. Videos play by themselves like TikTok (tap 🔊 for sound).</span></li>
+<li><b>🎯</b><span>Categories: Games, Football, Movies/Anime, Wrestling, Books and more.</span></li>
+<li><b>🖼️</b><span>Swipe through photos. Videos keep playing from the same second when you open them.</span></li>
+<li><b>📈</b><span>Trending now shows what's really rising, right under the live matches.</span></li>
+<li><b>⚽</b><span>Goal alerts for big matches, even when the app is closed.</span></li>
+<li><b>🛡️</b><span>Squads: you see your squads; search to find new ones.</span></li>
+<li><b>🏆</b><span>Tournaments with any number of players.</span></li>
+<li><b>🔕</b><span>Mute words and channels (Tools → Muted words).</span></li>
+<li><b>🐞</b><span>Found a bug? Tools → Report a bug, and earn the 🛡️ Bug Hunter badge.</span></li></ul>
+<button class="v57-btn mt-3" onclick="window.closePanel()">Let's go 🚀</button>`);
+};
+setTimeout(() => { try { if (window.isSignedIn && window.isSignedIn() && !document.querySelector('#sgPanel:not(.hidden)')) window.openWhatsNew(false); } catch (e) {} }, 9000);
