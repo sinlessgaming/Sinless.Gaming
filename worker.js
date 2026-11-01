@@ -540,9 +540,16 @@ function parseFeed(xml, src) {
     const yt = (b.match(/<yt:videoId>([\w-]{11})<\/yt:videoId>/) || [])[1] || null;
     const au = src[3] === 'a' ? ((b.match(/<enclosure[^>]*url="(https:[^"]+)"[^>]*type="audio/i) || b.match(/<enclosure[^>]*type="audio[^"]*"[^>]*url="(https:[^"]+)"/i) || [])[1] || null) : null;
     let prev = nTxt(tag(b, 'description') || tag(b, 'summary') || tag(b, 'media:description') || tag(b, 'content'));
-    if (src[3] === 'c') prev = '';                       // community posts: headline only
+    let im = null;
+    if (src[3] === 'c') {                                // v60: community posts get their picture + first lines, so they make sense
+      const raw = b.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+      const m = raw.match(/<media:thumbnail[^>]*url="(https:\/\/[^"]+)"/i) || raw.match(/<img[^>]*src="(https:\/\/(?:i|preview|external-preview)\.redd\.it\/[^"]+)"/i);
+      im = m ? m[1].replace(/&amp;/g, '&') : null;
+      prev = prev.replace(/<[^>]*>/g, ' ').replace(/&[#\w]+;/g, ' ').replace(/submitted by[\s\S]*$/i, '').replace(/\[link\]|\[comments\]/gi, '').replace(/\s+/g, ' ').trim();
+      if (!prev && !im && (title.split(/\s+/).length < 9 || /\?\s*$/.test(title))) continue;   // a lonely question with no picture or text means nothing to readers
+    }
     prev = prev.replace(/(submitted by|\[link\]|\[comments\]).*$/i, '').slice(0, 200);
-    out.push({ title, link: link.replace(/&amp;/g, '&'), when, yt, prev, au: au ? au.replace(/&amp;/g, '&') : null });
+    out.push({ title, link: link.replace(/&amp;/g, '&'), when, yt, prev, im, au: au ? au.replace(/&amp;/g, '&') : null });
   }
   return out;
 }
@@ -619,7 +626,7 @@ async function newsRun(env, ctx) {
       continue;
     }
     const id = (src[0] + '_' + (x.yt || x.link)).replace(/[^\w]+/g, '').slice(-40);
-    const it = { id, t: x.title, s: x.prev, u: x.link, src: [{ n: src[0], u: x.link }], sc: 1, tp, k, ts: Math.min(x.when, now), dt: now, w: w.slice(0, 12), rg: src[5] || 'global', tl: [{ k, t: now, n: src[0] }] };
+    const it = { id, t: x.title, s: x.prev, ...(x.im ? { im: x.im } : {}), u: x.link, src: [{ n: src[0], u: x.link }], sc: 1, tp, k, ts: Math.min(x.when, now), dt: now, w: w.slice(0, 12), rg: src[5] || 'global', tl: [{ k, t: now, n: src[0] }] };
     if (x.yt) { it.y = x.yt; it.k = 'v'; }
     if (x.au) { it.au = x.au; it.k = 'a'; }
     if (/\bspoilers?\b/i.test(x.title + ' ' + x.prev)) it.sp = 1;

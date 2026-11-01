@@ -2667,8 +2667,9 @@ bodyHtml += `</tbody></table></div>`;
 if (window.tableLegend) bodyHtml += window.tableLegend(current);
 
 bodyHtml += `<div class="space-y-2 pt-2"><h4 class="text-[10px] font-black text-white uppercase">League Fixtures & Results</h4><div class="space-y-2 max-h-[350px] overflow-y-auto pr-1">`;
-current.matches.forEach(m => {
-bodyHtml += renderBracketMatchCardHex(m, current.id, isHost, 'league');
+bodyHtml += `<input oninput="window.sgFxFilter(this)" class="w-full bg-gg-950 border border-cyan-500/25 rounded-xl px-3 py-2 text-xs text-white" placeholder="🔎 Type a player's name to see their matches">`;
+(window.sgLeagueOrder ? window.sgLeagueOrder(current.matches) : current.matches).forEach(m => {
+bodyHtml += `<div data-fxp="${escapeHTML(((m.p1 || '') + ' ' + (m.p2 || '')).toLowerCase())}">` + renderBracketMatchCardHex(m, current.id, isHost, 'league') + `</div>`;
 });
 bodyHtml += `</div></div>`;
 
@@ -6418,7 +6419,8 @@ const items = [];
 if (m.text) items.push({ icon: 'fa-copy', label: 'Copy text', run: () => { navigator.clipboard && navigator.clipboard.writeText(m.text); showToast('Copied'); } });
 items.push({ icon: 'fa-user', label: `View ${window.dnText(m.sender)}'s profile`, run: () => window.openUserProfileModal(m.sender) });
 if (admin) items.push({ icon: 'fa-thumbtack', label: pinned ? 'Unpin message' : 'Pin message', run: () => window.togglePin(m) });
-if (mine || admin) items.push({ icon: 'fa-trash', label: 'Delete message', danger: true, run: () => window.deleteSquadMessage(m) });
+items.push({ icon: 'fa-eye-slash', label: '🙈 Delete for me', run: () => window.sgHideMsg && window.sgHideMsg(m.id) });
+if (admin || (mine && Date.now() - (m.timestamp || 0) < 60 * 60e3)) items.push({ icon: 'fa-trash', label: admin && !mine ? 'Delete message (admin)' : '🗑️ Delete for everyone', danger: true, run: () => window.deleteSquadMessage(m) });
 if (canModerate && m.senderUid) {
 items.push({ icon: 'fa-volume-xmark', label: `Mute ${window.dnText(m.sender)}…`, run: () => window.openMuteMenu(m.senderUid, m.sender) });
 items.push({ icon: 'fa-door-open', label: `Kick ${window.dnText(m.sender)}`, danger: true, run: () => window.kickMember(m.senderUid, m.sender) });
@@ -7734,7 +7736,7 @@ ${a.image ? `<button onclick="window.adEditing.image=''; document.getElementById
 </div>
 </div>
 <label class="block text-[10px] text-gray-400 font-bold">Link when tapped (website, WhatsApp wa.me/233…, Instagram…)<input id="adLink" value="${escapeHTML(a.link || '')}" class="${field} mt-1" placeholder="https://wa.me/233XXXXXXXXX"></label>
-<label class="block text-[10px] text-gray-400 font-bold">Button text<select id="adCta" class="${field} mt-1">${['Learn more', 'Shop now', 'Chat on WhatsApp', 'Order now', 'Sign up', 'Watch now', 'Download', 'Visit'].map(c => `<option ${c === a.cta ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+<label class="block text-[10px] text-gray-400 font-bold">Button text<select id="adCta" class="${field} mt-1">${['Learn more', 'Shop now', 'Chat with us', 'Order now', 'Sign up', 'Watch now', 'Download', 'Visit'].map(c => `<option ${c === a.cta ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
 <div><p class="text-[10px] text-gray-400 font-bold mb-1">Show in</p><div class="flex gap-2">
 ${[['feed', 'Feed'], ['news', 'News'], ['squads', 'Squads']].map(([k, l]) => `<label class="flex-1 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gg-900 border border-cyan-500/20 text-xs text-white font-bold"><input type="checkbox" class="ad-place" value="${k}" ${(a.places || []).includes(k) ? 'checked' : ''}> ${l}</label>`).join('')}
 </div></div>
@@ -9693,7 +9695,7 @@ window.openActionSheet('Repost', [
 mine ? { icon: 'fa-retweet', label: 'Undo repost', danger: true, run: () => window.undoRepost(mine.docId || mine.id) }
 : { icon: 'fa-retweet', label: 'Repost', run: () => window.makeRepost(target, false) },
 { icon: 'fa-pen-to-square', label: 'Quote (add your thoughts)', run: () => window.makeRepost(target, true) },
-{ icon: 'fa-share-nodes', label: 'Share to WhatsApp, X, link…', run: () => window.sharePost(target) }
+{ icon: 'fa-share-nodes', label: 'Share…', run: () => window.sharePost(target) }
 ]);
 };
 
@@ -14212,7 +14214,7 @@ ov.innerHTML = `<div onclick="event.stopPropagation()" class="text-center bg-bla
 <p class="text-4xl">${info.emoji || '🎮'}</p><p class="text-lg font-black text-white">${searching ? 'Finding players…' : r.isPublic ? 'Waiting for players…' : 'Waiting for your friend…'}</p>
 <div class="flex justify-center"><span class="w-8 h-8 rounded-full border-4 border-emerald-400 border-t-transparent animate-spin"></span></div>
 ${r.id && !r.isPublic ? `<div class="rounded-2xl bg-gg-900 border border-emerald-400/30 py-2"><p class="text-[10px] text-gray-400 font-bold">ROOM CODE</p><p class="text-3xl font-black tracking-[0.3em] text-emerald-300">${escapeHTML(r.id)}</p></div>
-<button onclick="window.olShareInvite('${escapeHTML(r.id)}','${escapeHTML(gm)}')" class="w-full py-2.5 rounded-xl bg-emerald-400 text-slate-950 text-xs font-black uppercase">📤 Send invite (WhatsApp…)</button>` : ''}
+<button onclick="window.olShareInvite('${escapeHTML(r.id)}','${escapeHTML(gm)}')" class="w-full py-2.5 rounded-xl bg-emerald-400 text-slate-950 text-xs font-black uppercase">📤 Send invite</button>` : ''}
 ${n ? `<div class="space-y-1.5 text-left">${(r.players || []).map(p => `<div class="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-gg-900">${window.avatarHtml(p.tag, 'w-7 h-7', 'rounded-full', 'text-[9px]').replace(/onclick="[^"]*"/, '')}<span class="text-xs font-bold text-white truncate">${p.uid === window.uidNow() ? 'You' : window.dn(p.tag)}</span>${p.uid === r.hostUid ? '<span class="ml-auto text-[9px] text-amber-300 font-black">HOST</span>' : ''}</div>`).join('')}
 <p class="text-[10px] text-gray-400 text-center">${n}/${max} players${gm === 'ludo' && n >= 2 && r.isPublic ? ' · starts soon' : ''}</p></div>` : ''}
 ${host && gm === 'ludo' && n >= 2 ? `<button onclick="window.olStart()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-yellow-400 to-red-500 text-slate-950 text-sm font-black uppercase">▶ Start with ${n} players</button>` : ''}
@@ -15615,7 +15617,7 @@ window.loadEmbed = function(btn, src, hgt) {
 const w = btn.parentElement; w.innerHTML = `<iframe src="${src}" class="w-full border-0" style="height:${Math.min(hgt, Math.round(window.innerHeight * 0.85))}px" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe>`;
 window.addXP && window.isSignedIn() && window.addXP(1, 'watch');
 };
-(function linkHint() { const t = document.getElementById('postTextContent'); if (t && !/TikTok/.test(t.placeholder)) t.placeholder = (t.placeholder ? t.placeholder + ' ' : '') + '(Tip: paste a TikTok, YouTube, Instagram, Facebook or X video link and it plays right here.)'; })();
+(function linkHint() { const t = document.getElementById('postTextContent'); if (t && !/paste a video link/.test(t.placeholder)) t.placeholder = (t.placeholder ? t.placeholder + ' ' : '') + '(Tip: paste a video link and it plays right here.)'; })();
 
 window._dwellObs = ('IntersectionObserver' in window) ? new IntersectionObserver((ents) => ents.forEach(e => {
 const el = e.target;
@@ -16728,7 +16730,7 @@ const text = `${opts.title || 'Sinless GG'} 🔥\n${opts.url || 'https://sinless
 if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
 const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sinless-gg.png'; document.body.appendChild(a); a.click(); a.remove();
 window.copyText && window.copyText(text);
-showToast('✅ Picture saved. Post it on your WhatsApp Status!');
+showToast('✅ Picture saved. Post it on your Status!');
 } catch (e) { showToast('⚠️ Couldn’t make the picture.'); }
 };
 window.statusCardForPost = function(id) {
@@ -16741,7 +16743,7 @@ return function(kind, d = {}) {
 const r = b.call(this, kind, d), g = window.game;
 if (kind === 'over' && g && d && d.score !== undefined) {
 const box = document.getElementById('gameOverlay').firstElementChild, info = window.GAMES[g.id] || {};
-if (box && !box.querySelector('[data-status]')) box.insertAdjacentHTML('beforeend', `<button data-status onclick="window.shareStatusCard({ big: '${Number(d.score) || 0}', title: 'I scored ${Number(d.score) || 0} in ${escapeHTML(info.name || 'a game')} ${info.emoji || ''}. Can you beat me?', by: '— ' + window.dnText(window.me()) })" class="mt-2 w-full py-2.5 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black">📲 Share to WhatsApp Status</button>`);
+if (box && !box.querySelector('[data-status]')) box.insertAdjacentHTML('beforeend', `<button data-status onclick="window.shareStatusCard({ big: '${Number(d.score) || 0}', title: 'I scored ${Number(d.score) || 0} in ${escapeHTML(info.name || 'a game')} ${info.emoji || ''}. Can you beat me?', by: '— ' + window.dnText(window.me()) })" class="mt-2 w-full py-2.5 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black">📲 Share to your Status</button>`);
 }
 return r;
 };
@@ -16785,7 +16787,7 @@ return function(postId) {
 const p = window.findPost(postId) || (window.postFetchCache || {})[postId], mine = p && window.isMyPost && window.isMyPost(p);
 const orig = window.openActionSheet, k = 'p:' + postId;
 window.openActionSheet = (title, items) => orig(title, [
-{ icon: 'fa-share-nodes', label: '📲 Share to WhatsApp Status', run: () => window.statusCardForPost(postId) },
+{ icon: 'fa-share-nodes', label: '📲 Share to your Status', run: () => window.statusCardForPost(postId) },
 { icon: 'fa-bookmark', label: window.isSaved(k) ? 'Remove from Saved' : '🔖 Save for later', run: () => window.toggleSave(k, p && p.caption) },
 ...(mine ? [{ icon: 'fa-thumbtack', label: window._myPinned === postId ? 'Unpin from my profile' : '📌 Pin to my profile', run: () => window.togglePin(postId) }] : []),
 ...items]);
@@ -17013,7 +17015,7 @@ let total = 0; const thisWeek = picks.filter(p => p.week === wk), later = picks.
 thisWeek.forEach(p => { const pts = window.pickPoints(p, byId[p.matchId]); if (pts) total += pts; });
 const row = (p) => { const m = byId[p.matchId], pts = window.pickPoints(p, m); return `<div class="glass-panel rounded-xl p-3 flex items-center justify-between text-xs border border-cyan-500/15"><div class="min-w-0"><p class="font-bold text-white truncate">${escapeHTML(p.homeName || p.home)} vs ${escapeHTML(p.awayName || p.away)} ${m && m.state !== 'pre' ? `<span class="text-gray-400">(${escapeHTML(m.home.score ?? '')}-${escapeHTML(m.away.score ?? '')})</span>` : ''}</p><p class="text-[10px] text-gray-300">${escapeHTML(window.pickLabel(p))}</p></div><div class="text-sm shrink-0 ml-2 font-black ${pts ? 'text-emerald-400' : 'text-gray-500'}">${pts === null ? '⏳' : pts ? '+' + pts : '0'}</div></div>`; };
 box.innerHTML = `<div class="glass-panel rounded-2xl p-4 border border-emerald-500/30 text-center"><p class="text-[10px] text-gray-400 font-bold uppercase">This week</p><p class="text-3xl font-black text-emerald-400">${total} pts</p><p class="text-[10px] text-gray-400">${thisWeek.length} picks</p>
-${thisWeek.length ? `<button onclick="window.shareMyPicks()" class="mt-2 w-full py-2.5 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black">📲 Share my picks to WhatsApp Status</button>` : ''}</div>` +
+${thisWeek.length ? `<button onclick="window.shareMyPicks()" class="mt-2 w-full py-2.5 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black">📲 Share my picks to your Status</button>` : ''}</div>` +
 thisWeek.map(row).join('') + (later.length ? `<p class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-2">Next week</p>` + later.map(row).join('') : '') +
 (!picks.length ? `<div class="glass-panel p-6 rounded-2xl text-center text-xs text-gray-400">No picks yet. <button onclick="window.setPredictTab('matches')" class="text-emerald-400 font-bold underline">Make your first pick</button></div>` : '');
 };
@@ -19118,7 +19120,7 @@ window.shareCanvas = async function(cv, name, text) {
 const blob = await new Promise(r => cv.toBlob(r, 'image/png')), file = new File([blob], name, { type: 'image/png' });
 if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
 const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
-showToast('✅ Picture saved. Post it on your WhatsApp Status!');
+showToast('✅ Picture saved. Post it on your Status!');
 };
 window.cardBase = async function(H, title, sub) {
 const c = document.createElement('canvas'); c.width = 1080; c.height = H; const x = c.getContext('2d');
@@ -22989,7 +22991,7 @@ window.openPanel('🖼️ Your SINLESS GG picture', `<div class="space-y-3"><div
 <div class="flex gap-2">${window.TC_THEMES.map(t => `<button onclick="window.openTextCard('${escapeHTML(id)}','${t.k}')" class="flex-1 py-2 rounded-xl text-[11px] font-black ${window._tcTheme === t.k ? 'text-slate-950' : 'text-white bg-white/5 border border-white/10'}" style="${window._tcTheme === t.k ? 'background:linear-gradient(135deg,#22d3ee,#a855f7,#ff2d95)' : ''}">${t.name}</button>`).join('')}</div>
 <div class="flex gap-2"><button onclick="window.tcSave()" class="flex-1 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-magenta text-slate-950 text-xs font-black uppercase">⬇️ Save picture</button>
 <button onclick="window.tcShare()" class="flex-1 py-3 rounded-2xl bg-white/10 text-white text-xs font-black uppercase">📲 Share</button></div>
-<p class="text-[10px] text-gray-500 text-center">Perfect for WhatsApp Status, Instagram and stories</p></div>`);
+<p class="text-[10px] text-gray-500 text-center">Perfect for your Status and stories</p></div>`);
 try { const blob = window._tcBlob = await window.makeTextCard(p, window._tcTheme); const el = document.getElementById('tcPrev'); if (el && window._tcPost === id) el.innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="" class="w-full h-full object-contain">`; }
 catch (e) { showToast('⚠️ Couldn’t make the picture.'); }
 };
@@ -24014,7 +24016,7 @@ return function(id) {
 const m = window.findSquadMsg(id), orig = window.openActionSheet;
 if (!m || String(id).startsWith('tmp')) return b(id);
 const mine = m.senderUid === window.uidNow() && !m.bot, extra = [];
-if (mine && m.text && !m.isPoll && !m.isAudio && Date.now() - (m.timestamp || 0) < 24 * 3600e3) extra.push({ icon: 'fa-pen', label: '✏️ Edit', run: () => window.editChatMsg('squad', id) });
+if (mine && m.text && !m.isPoll && !m.isAudio && Date.now() - (m.timestamp || 0) < 15 * 60e3) extra.push({ icon: 'fa-pen', label: '✏️ Edit', run: () => window.editChatMsg('squad', id) });
 if (!m.isOnce) extra.push({ icon: 'fa-share', label: '↪ Forward', run: () => window.forwardMsg(m) });
 window.openActionSheet = (t, items) => orig(t, [...items.slice(0, 1), ...extra, ...items.slice(1)]);
 try { return b(id); } finally { window.openActionSheet = orig; }
@@ -24060,9 +24062,10 @@ const bub = e.target.closest && e.target.closest('#dmMessagesContainer .dm-bubbl
 const id = bub.closest('.dm-row')?.dataset.mid, m = id && (window.dmMsgsById || {})[id]; if (!m) return;
 const mine = m.fromUid === window.uidNow(), items = [{ icon: 'fa-reply', label: '↩ Reply', run: () => window.setDmReply(id) }];
 if (m.text && !m.isOnce) items.push({ icon: 'fa-copy', label: 'Copy text', run: () => { navigator.clipboard && navigator.clipboard.writeText(m.text); showToast('Copied'); } });
-if (mine && m.text && !m.isPoll && !m.isOnce && !m.isAudio && Date.now() - window.postTimeValue(m) < 24 * 3600e3) items.push({ icon: 'fa-pen', label: '✏️ Edit', run: () => window.editChatMsg('dm', id) });
+if (mine && m.text && !m.isPoll && !m.isOnce && !m.isAudio && Date.now() - window.postTimeValue(m) < 15 * 60e3) items.push({ icon: 'fa-pen', label: '✏️ Edit', run: () => window.editChatMsg('dm', id) });
 if (!m.isOnce) items.push({ icon: 'fa-share', label: '↪ Forward', run: () => window.forwardMsg(m) });
-if (mine) items.push({ icon: 'fa-trash', label: '🗑️ Delete for everyone', run: async () => { if (!(await window.sgConfirm('Delete this message for everyone?', { okText: 'Delete', danger: true }))) return; try { await deleteDoc(window.chatRef('dm', id)); } catch (er) { showToast('⚠️ Not deleted'); } } });
+items.push({ icon: 'fa-eye-slash', label: '🙈 Delete for me', run: () => window.sgHideMsg(id) });
+if (mine && Date.now() - window.postTimeValue(m) < 60 * 60e3) items.push({ icon: 'fa-trash', label: '🗑️ Delete for everyone', run: async () => { if (!(await window.sgConfirm('Delete this message for everyone?', { okText: 'Delete', danger: true }))) return; try { await deleteDoc(window.chatRef('dm', id)); } catch (er) { showToast('⚠️ Not deleted'); } } });
 window.openActionSheet('Message', items);
 });
 
@@ -27803,7 +27806,7 @@ window.openWhatsNew = function(force) {
 try { if (!force && localStorage.getItem('sg_wn') === '60') return; localStorage.setItem('sg_wn', '60'); } catch (e) {}
 window.openPanel('✨ What\'s new', `<ul class="sg-wn">
 <li><b>🤫</b><span><b>Confession Room</b>: say it with no name. Share any confession as a picture to your Status.</span></li>
-<li><b>🎨</b><span>A new neon look. Videos play by themselves like TikTok (tap 🔊 for sound).</span></li>
+<li><b>🎨</b><span>A new neon look. Videos play by themselves as you scroll (tap 🔊 for sound).</span></li>
 <li><b>🎯</b><span>Categories: Games, Football, Movies/Anime, Wrestling, Books and more.</span></li>
 <li><b>🖼️</b><span>Swipe through photos. Videos keep playing from the same second when you open them.</span></li>
 <li><b>📈</b><span>Trending now shows what's really rising, right under the live matches.</span></li>
@@ -27815,3 +27818,331 @@ window.openPanel('✨ What\'s new', `<ul class="sg-wn">
 <button class="v57-btn mt-3" onclick="window.closePanel()">Let's go 🚀</button>`);
 };
 setTimeout(() => { try { if (window.isSignedIn && window.isSignedIn() && !document.querySelector('#sgPanel:not(.hidden)')) window.openWhatsNew(false); } catch (e) {} }, 9000);
+
+window.SG_BUILD = 61;
+
+(function v61Css() {
+const s = document.createElement('style');
+s.textContent = `
+#sgExploreBtn{display:none!important}
+header > div:first-child{min-width:0;flex:1 1 auto;overflow:hidden}header > div:first-child > div{min-width:0}
+header p.tracking-\\[0\\.2em\\]{overflow:hidden;text-overflow:ellipsis}
+header > div:last-child{flex-shrink:0}
+header button[onclick*="openUniversalCreateModal"]{padding:6px 11px!important;font-size:11px!important;white-space:nowrap!important;line-height:1!important;box-shadow:0 0 10px rgba(34,211,238,.45)!important}
+header button[onclick*="openUniversalCreateModal"] i{margin-right:3px}
+.sg-bot-bub{background:#111a30!important;border:1px solid rgba(148,163,184,.18)!important;box-shadow:none!important}
+.sg-bot-bub, .sg-bot-bub p{color:#d6dbe6!important}
+.sg-bot-bub a,.sg-bot-bub span[onclick],.sg-bot-bub .text-cyan-400,.sg-bot-bub .text-cyan-300,.sg-bot-bub .text-magenta{color:#9fb4d9!important;font-weight:700!important}
+.sg-bot-bub .sg-bot-tag{background:#1e293b!important;color:#cbd5e1!important}
+#sgEdit{position:fixed;inset:0;z-index:400;background:rgba(5,8,20,.92);display:flex;flex-direction:column;padding:14px;padding-top:max(14px,env(safe-area-inset-top))}
+#sgEdit textarea{flex:1;width:100%;resize:none;background:#0b1024;color:#fff;border:1px solid rgba(34,211,238,.4);border-radius:16px;padding:14px;font-size:16px;line-height:1.5;outline:none}
+#sgEdit .bar{display:flex;gap:10px;margin-top:12px}#sgEdit .bar button{flex:1;padding:14px;border-radius:14px;font-weight:900;font-size:14px}
+.sg-hid-msg{display:none!important}
+.sg-hl{outline:2px solid #22d3ee;border-radius:14px;background:rgba(34,211,238,.08)}
+#sgTyping{font-size:11px;font-weight:800;color:#67e8f9;padding:2px 14px 4px;min-height:0}
+#sgTyping:empty{display:none}
+.sg-inbox-flags{font-size:11px;margin-left:4px}
+.sg-inbox-more{width:30px;height:30px;border-radius:10px;color:#94a3b8;flex-shrink:0}
+.sg-x-tr{display:flex;align-items:flex-start;gap:10px;padding:12px 6px;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer}
+.sg-x-tr .c{font-size:11px;color:#94a3b8;font-weight:700}.sg-x-tr .t{font-size:15px;color:#fff;font-weight:900;margin-top:2px}.sg-x-tr .n{font-size:11px;color:#94a3b8;margin-top:2px}
+.sg-x-tr button{margin-left:auto;color:#64748b;font-size:16px;padding:0 6px}
+.nw-im{width:100%;max-height:260px;object-fit:cover;border-radius:12px;margin-top:8px;background:#000}`;
+document.head.appendChild(s);
+})();
+
+window.sgDrawerTools = function() {
+const ul = document.querySelector('.drawer-menu'); if (!ul || ul.querySelector('[data-v61]')) return;
+const it = (ic, label, fn) => `<li data-v61 class="drawer-menu-item" onclick="toggleDrawer(false); setTimeout(()=>{${fn}},150)"><span>${ic} ${label}</span></li>`;
+ul.insertAdjacentHTML('afterbegin', it('🧰', 'Tools & more', 'window.openExploreGrid()') + it('🤫', 'Confession Room', 'window.openConfessRoom()') + it('🔕', 'Muted words', 'window.openMuteSettings()') + it('🐞', 'Report a bug', 'window.openBugReport()'));
+};
+setTimeout(window.sgDrawerTools, 0); document.addEventListener('DOMContentLoaded', window.sgDrawerTools); setTimeout(window.sgDrawerTools, 2000);
+
+window.sgHidden = (() => { try { return new Set(JSON.parse(localStorage.getItem('sg_hid_msgs') || '[]')); } catch (e) { return new Set(); } })();
+window.sgHideMsg = function(id) {
+window.sgHidden.add(id); try { localStorage.setItem('sg_hid_msgs', JSON.stringify([...window.sgHidden].slice(-1500))); } catch (e) {}
+document.querySelectorAll(`[data-mid="${CSS.escape(id)}"]`).forEach(r => { r.classList.add('sg-hid-msg'); const n = r.nextElementSibling; if (n && n.hasAttribute('data-rx')) n.classList.add('sg-hid-msg'); });
+showToast('🙈 Deleted for you');
+};
+window.paintChat = (function(b) {
+return function(kind, ...a) {
+const r = b.call(this, kind, ...a);
+try {
+const box = document.getElementById(kind === 'squad' ? 'squadRoomMsgsBox' : 'dmMessagesContainer'); if (!box) return r;
+box.querySelectorAll('[data-mid]').forEach(row => {
+const id = row.getAttribute('data-mid'), m = window.chatMsg(kind, id);
+if (window.sgHidden.has(id)) { row.classList.add('sg-hid-msg'); const n = row.nextElementSibling; if (n && n.hasAttribute('data-rx')) n.classList.add('sg-hid-msg'); }
+if (m && m.bot) { const bub = row.querySelector(kind === 'squad' ? '.rounded-2xl' : '.dm-bubble') || row; bub.classList.remove('sg-mention-me'); bub.classList.add('sg-bot-bub'); }
+});
+} catch (e) {}
+return r;
+};
+})(window.paintChat);
+
+window.sgEditBox = function(text) {
+return new Promise((res) => {
+document.getElementById('sgEdit')?.remove();
+document.body.insertAdjacentHTML('beforeend', `<div id="sgEdit"><p class="text-sm font-black text-white mb-2">✏️ Edit message <span class="text-[10px] text-gray-400 font-bold">· you can edit for 15 minutes after sending</span></p>
+<textarea id="sgEditTa" maxlength="3000"></textarea><div class="bar"><button id="sgEditNo" style="background:#0b1024;color:#e2e8f0;border:1px solid rgba(255,255,255,.12)">Cancel</button><button id="sgEditOk" style="background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24">Save</button></div></div>`);
+const ta = document.getElementById('sgEditTa'); ta.value = text || ''; setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 60);
+const done = (v) => { document.getElementById('sgEdit')?.remove(); res(v); };
+document.getElementById('sgEditNo').onclick = () => done(null); document.getElementById('sgEditOk').onclick = () => done(ta.value);
+});
+};
+window.editChatMsg = async function(kind, id) {
+const m = window.chatMsg(kind, id); if (!m) return;
+if (Date.now() - window.postTimeValue({ createdAt: m.createdAt, timestamp: m.timestamp }) > 15 * 60e3 && Date.now() - (m.timestamp || 0) > 15 * 60e3) { showToast('⏱️ Messages can only be edited for 15 minutes'); return; }
+const v = await window.sgEditBox(m.text || '');
+if (v == null || !String(v).trim() || v === m.text) return;
+const text = window.sgFilterText ? window.sgFilterText(String(v).trim()) : String(v).trim();
+m.text = text; m.editedAt = Date.now(); kind === 'squad' ? window.renderSquadChannel() : window.renderDmMessages(window._dmMsgs || []);
+try { await updateDoc(window.chatRef(kind, id), { text, editedAt: Date.now() }); } catch (e) { showToast('⚠️ Edit not saved'); }
+};
+
+window.nwCard = (function(b) {
+return function(it, hl) {
+if (it && it.k === 'c' && !it.s && !it.im && (/\?\s*$/.test(it.t || '') || String(it.t || '').split(/\s+/).length < 8)) return '';
+let h = b(it, hl);
+try {
+if (it && it.im && !it.y) h = h.replace('<div class="nw-acts">', `<img class="nw-im" loading="lazy" alt="" src="${escapeHTML(it.im)}" onerror="this.remove()"><div class="nw-acts">`);
+if (it && it.k === 'c') h = h.replace(/<button class="nw-act[^"]*" onclick="window\.nwTrack\([^)]*\)">[^<]*<\/button>/, '');
+} catch (e) {}
+return h;
+};
+})(window.nwCard);
+
+window.sgDraftKey = function(el) {
+const id = el && el.id; if (!id) return null;
+if (id === 'squadSubRoomInput') { const sq = window.activeSquadDetails; return sq ? `sq_${sq.id}_${window.activeSquadSubRoom || ''}` : null; }
+if (id === 'dmInputText') { const d = window.activeDm; return d ? `dm_${d.threadId || d.partnerTag || ''}` : null; }
+if (['postTextContent', 'cfText', 'bugText', 'wrBody', 'cfReply'].includes(id)) return id + (id === 'cfReply' ? '_' + (window.cfSt && window.cfSt.openId || '') : '');
+if (/reply|comment/i.test(id)) return 'c_' + id;
+return null;
+};
+window.sgDrafts = () => { try { return JSON.parse(localStorage.getItem('sg_drafts') || '{}'); } catch (e) { return {}; } };
+window.sgDraftSet = (k, v) => { const d = window.sgDrafts(); if (v && v.trim()) d[k] = { v: v.slice(0, 5000), at: Date.now() }; else delete d[k]; const keep = Object.entries(d).sort((a, c) => c[1].at - a[1].at).slice(0, 60); try { localStorage.setItem('sg_drafts', JSON.stringify(Object.fromEntries(keep))); } catch (e) {} };
+document.addEventListener('input', (e) => { const el = e.target; if (!el || !/^(TEXTAREA|INPUT)$/.test(el.tagName) || (el.type && !/text|search|^$/.test(el.type) && el.tagName === 'INPUT')) return; const k = window.sgDraftKey(el); if (k) { clearTimeout(el._dT); el._dT = setTimeout(() => window.sgDraftSet(k, el.value), 400); } }, true);
+window.sgDraftRestore = function(id) { const el = document.getElementById(id); if (!el || el.value) return; const k = window.sgDraftKey(el), d = k && window.sgDrafts()[k]; if (d && d.v && Date.now() - d.at < 7 * 864e5) { el.value = d.v; try { el.dispatchEvent(new Event('input')); } catch (e) {} } };
+window.sgDraftClear = function(id) { const el = document.getElementById(id); const k = el && window.sgDraftKey(el); if (k) window.sgDraftSet(k, ''); };
+window.renderSquadChannel = (function(b) { return function(...a) { const r = b.apply(this, a); setTimeout(() => window.sgDraftRestore('squadSubRoomInput'), 30); return r; }; })(window.renderSquadChannel);
+['openDmThread', 'openGroupThread'].forEach(fn => { if (typeof window[fn] === 'function') window[fn] = (function(b) { return function(...a) { const r = b.apply(this, a); setTimeout(() => window.sgDraftRestore('dmInputText'), 200); return r; }; })(window[fn]); });
+window.openCreatePostModal = (function(b) { return function(...a) { const r = b.apply(this, a); setTimeout(() => window.sgDraftRestore('postTextContent'), 30); return r; }; })(window.openCreatePostModal);
+window.sendSquadMessage = (function(b) { return async function(...a) { window.sgDraftClear('squadSubRoomInput'); return b.apply(this, a); }; })(window.sendSquadMessage);
+window.sendDirectMessage = (function(b) { return function(...a) { window.sgDraftClear('dmInputText'); return b.apply(this, a); }; })(window.sendDirectMessage);
+window.sendDmMessage = (function(b) { return async function(...a) { window.sgDraftClear('dmInputText'); return b.apply(this, a); }; })(window.sendDmMessage);
+window.submitUniversalPost = (function(b) { return async function(...a) { const r = await b.apply(this, a); if (!(document.getElementById('postTextContent') || {}).value) window.sgDraftSet('postTextContent', ''); return r; }; })(window.submitUniversalPost);
+window.cfPost = (function(b) { return async function(...a) { const r = await b.apply(this, a); window.sgDraftSet('cfText', ''); return r; }; })(window.cfPost);
+
+window.xSeenRecently = (k) => { const t = window.seenXAt[k]; return !!t && Date.now() - t < 7 * 864e5; };
+window.seenExtras = new Set(Object.keys(window.seenXAt || {}).filter(window.xSeenRecently));
+window.sgChSeen = (() => { try { return JSON.parse(localStorage.getItem('sg_ch_seen') || '{}'); } catch (e) { return {}; } })();
+window.sgChMark = (id) => { if (!id) return; window.sgChSeen[id] = Date.now(); clearTimeout(window._chsT); window._chsT = setTimeout(() => { const e = Object.entries(window.sgChSeen).sort((a, c) => c[1] - a[1]).slice(0, 800); window.sgChSeen = Object.fromEntries(e); try { localStorage.setItem('sg_ch_seen', JSON.stringify(window.sgChSeen)); } catch (er) {} }, 800); };
+window.videosForFeed = (function(b) {
+return function(cat) {
+const list = b(cat) || [];
+try {
+const per = {}, out = [], later = [];
+list.forEach(v => { if (v && v.vid && window.seenVids && window.seenVids.has(v.vid)) return; const ch = (v && v.ch && (v.ch.id || v.ch.name)) || ''; per[ch] = (per[ch] || 0) + 1; (per[ch] <= 1 ? out : later).push(v); });
+out.sort((x, y) => (window.sgChSeen[(x.ch || {}).id] || 0) - (window.sgChSeen[(y.ch || {}).id] || 0));   // channels you haven't seen lately come first
+return out.concat(later.filter((v, i) => i % 3 === 0));
+} catch (e) { return list; }
+};
+})(window.videosForFeed);
+window.sgSeenObs = ('IntersectionObserver' in window) ? new IntersectionObserver((ents) => ents.forEach(e => {
+const el = e.target;
+if (e.isIntersecting && e.intersectionRatio >= 0.6) { el._sgT = setTimeout(() => {
+const vid = el.getAttribute('data-yt-auto'); if (vid) { window.seenVids.add(vid); try { localStorage.setItem('sg_seen_vids', JSON.stringify([...window.seenVids].slice(-1500))); } catch (er) {} window.markExtraSeen && window.markExtraSeen('v:' + vid); }
+const ch = el.closest('[data-ch]'); if (ch) window.sgChMark(ch.getAttribute('data-ch'));
+const pid = el.getAttribute('data-post-id'); if (pid) { window.sgPostSeen[pid] = window.sgPostSeen[pid] || Date.now(); window.sgPostSeenSave(); }
+}, 1500); }
+else clearTimeout(el._sgT);
+}), { threshold: [0, 0.6] }) : null;
+window.sgPostSeen = (() => { try { return JSON.parse(localStorage.getItem('sg_post_seen') || '{}'); } catch (e) { return {}; } })();
+window.sgPostSeenSave = () => { clearTimeout(window._psT); window._psT = setTimeout(() => { const e = Object.entries(window.sgPostSeen).filter(([, t]) => Date.now() - t < 14 * 864e5).slice(-3000); window.sgPostSeen = Object.fromEntries(e); try { localStorage.setItem('sg_post_seen', JSON.stringify(window.sgPostSeen)); } catch (er) {} }, 1000); };
+window.sgFeedSeenPass = function() {
+const box = document.getElementById('fypFeedContainer'); if (!box) return;
+if (window.sgSeenObs) box.querySelectorAll('[data-yt-auto]:not([data-sgo]), [data-post-id]:not([data-sgo])').forEach(el => { el.setAttribute('data-sgo', '1'); window.sgSeenObs.observe(el); });
+if (window.feedMode === 'following' || box._sgSorted === window._sgFeedGen) return; box._sgSorted = window._sgFeedGen;
+const old = [...box.children].filter(c => { const p = c.matches('[data-post-id]') ? c : c.querySelector(':scope > [data-post-id]'); const id = p && p.getAttribute('data-post-id'); const t = id && window.sgPostSeen[id]; return t && Date.now() - t > 6 * 3600e3; });
+if (old.length && old.length < box.children.length) { box.querySelector('[data-seenhr]')?.remove(); box.insertAdjacentHTML('beforeend', '<p data-seenhr class="text-[10px] font-black text-gray-500 uppercase tracking-wider px-1 pt-3">Seen before</p>'); old.forEach(c => box.appendChild(c)); }
+};
+window.renderFypFeed = (function(b) { return function(...a) { window._sgFeedGen = (window._sgFeedGen || 0) + 1; const r = b.apply(this, a); setTimeout(window.sgFeedSeenPass, 700); return r; }; })(window.renderFypFeed);
+(function watchSeen() { const go = () => { const box = document.getElementById('fypFeedContainer'); if (!box) return setTimeout(go, 1500); let t = 0; new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { if (window.sgSeenObs) box.querySelectorAll('[data-yt-auto]:not([data-sgo]), [data-post-id]:not([data-sgo])').forEach(el => { el.setAttribute('data-sgo', '1'); window.sgSeenObs.observe(el); }); }, 500); }).observe(box, { childList: true, subtree: true }); }; go(); })();
+window.buildClipsList = (function(b) { return function(...a) { let l = b.apply(this, a) || []; try { l = l.filter(c => !(c.kind === 'short' && window.xSeenRecently('v:' + c.id))); return window.spreadClips ? window.spreadClips(l, 25) : l; } catch (e) { return l; } }; })(window.buildClipsList);
+
+window.sgInbox = () => { try { const x = JSON.parse(localStorage.getItem('sg_inbox') || '{}'); return { pin: x.pin || [], mute: x.mute || [], arch: x.arch || [], unread: x.unread || [] }; } catch (e) { return { pin: [], mute: [], arch: [], unread: [] }; } };
+window.sgInboxSave = (x) => { try { localStorage.setItem('sg_inbox', JSON.stringify(x)); } catch (e) {} };
+window.sgInboxKeyOf = (row) => { const oc = row.getAttribute('onclick') || ''; let m = oc.match(/openGroupThread\('([^']+)'\)/); if (m) return 'g:' + m[1]; m = oc.match(/openDmThread\('([^']+)'\)/); return m ? 'dm:' + m[1].toLowerCase() : null; };
+window.sgShowArch = false;
+window.renderDmInbox = (function(b) {
+return function(...a) {
+const r = b.apply(this, a);
+try {
+const box = document.getElementById('dmMessagesContainer'); if (!box || window.activeDm) return r;
+const X = window.sgInbox(), rows = [...box.children].filter(c => window.sgInboxKeyOf(c)); if (!rows.length) return r;
+const pinned = [], normal = [], arch = [];
+rows.forEach(row => {
+const k = window.sgInboxKeyOf(row), name = row.querySelector('.text-sm.font-bold');
+if (name && !name.querySelector('.sg-inbox-flags')) name.insertAdjacentHTML('beforeend', `<span class="sg-inbox-flags">${X.pin.includes(k) ? '📌' : ''}${X.mute.includes(k) ? '🔕' : ''}</span>`);
+if (X.unread.includes(k) && !row.querySelector('.sg-unr')) row.insertAdjacentHTML('beforeend', '<span class="sg-unr w-2.5 h-2.5 rounded-full bg-cyan-400 shrink-0"></span>');
+if (!row.querySelector('.sg-inbox-more')) row.insertAdjacentHTML('beforeend', `<button class="sg-inbox-more" onclick="event.stopPropagation(); window.sgInboxMenu('${escapeHTML(k)}')">⋯</button>`);
+(X.arch.includes(k) ? arch : X.pin.includes(k) ? pinned : normal).push(row);
+});
+[...pinned, ...normal].forEach(rw => box.appendChild(rw));
+box.querySelector('[data-archbtn]')?.remove();
+if (arch.length) { box.insertAdjacentHTML('beforeend', `<button data-archbtn onclick="window.sgShowArch=!window.sgShowArch; window.renderDmInbox()" class="w-full py-2.5 text-[11px] font-black text-gray-400">📦 Archived chats (${arch.length}) ${window.sgShowArch ? '▲' : '▼'}</button>`); arch.forEach(rw => { box.appendChild(rw); rw.style.display = window.sgShowArch ? '' : 'none'; }); }
+} catch (e) { console.warn(e); }
+return r;
+};
+})(window.renderDmInbox);
+window.sgInboxMenu = function(k) {
+const X = window.sgInbox(), tog = (arr) => { const i = X[arr].indexOf(k); if (i >= 0) X[arr].splice(i, 1); else X[arr].push(k); window.sgInboxSave(X); window.renderDmInbox(); };
+window.openActionSheet('Chat', [
+{ icon: 'fa-thumbtack', label: X.pin.includes(k) ? 'Unpin chat' : '📌 Pin to top', run: () => tog('pin') },
+{ icon: 'fa-bell-slash', label: X.mute.includes(k) ? 'Unmute' : '🔕 Mute alerts', run: () => tog('mute') },
+{ icon: 'fa-box-archive', label: X.arch.includes(k) ? 'Unarchive' : '📦 Archive', run: () => tog('arch') },
+{ icon: 'fa-circle', label: X.unread.includes(k) ? 'Mark as read' : '● Mark as unread', run: () => tog('unread') }
+]);
+};
+['openDmThread', 'openGroupThread'].forEach(fn => { if (typeof window[fn] === 'function') window[fn] = (function(b) { return function(id, ...a) { const k = fn === 'openGroupThread' ? 'g:' + id : 'dm:' + String(id || '').toLowerCase(); const X = window.sgInbox(); const i = X.unread.indexOf(k); if (i >= 0) { X.unread.splice(i, 1); window.sgInboxSave(X); } return b.call(this, id, ...a); }; })(window[fn]); });
+window.phoneAlert = (function(b) {
+return async function(title, body, tag, ...a) {
+try { const X = window.sgInbox(), t = String(title || '').toLowerCase() + ' ' + String(body || '').toLowerCase();
+if (X.mute.some(k => { const n = k.startsWith('dm:') ? k.slice(3) : ((window.groupThreads || []).find(g => 'g:' + g.id === k) || {}).name; return n && t.includes(String(n).toLowerCase()); })) return; } catch (e) {}
+return b.call(this, title, body, tag, ...a);
+};
+})(window.phoneAlert);
+
+window.sgChatSearch = async function(kind) {
+const q = await window.sgPrompt('Search this chat', { title: '🔍 Search', okText: 'Search' }); if (!q || !String(q).trim()) return;
+const box = document.getElementById(kind === 'squad' ? 'squadRoomMsgsBox' : 'dmMessagesContainer'); if (!box) return;
+box.querySelectorAll('.sg-hl').forEach(x => x.classList.remove('sg-hl'));
+const hits = [...box.querySelectorAll('[data-mid]')].filter(r => (r.innerText || '').toLowerCase().includes(String(q).trim().toLowerCase()));
+hits.forEach(h => h.classList.add('sg-hl'));
+if (!hits.length) { showToast('Nothing found in the loaded messages'); return; }
+box._atBottom = false; hits[hits.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' }); showToast(`🔍 ${hits.length} found`);
+setTimeout(() => hits.forEach(h => h.classList.remove('sg-hl')), 12000);
+};
+window.openSqMenu = (function(b) {
+return function(...a) {
+const orig = window.openActionSheet;
+window.openActionSheet = (t, items) => orig(t, [{ icon: 'fa-magnifying-glass', label: '🔍 Search this chat', run: () => window.sgChatSearch('squad') }, ...items]);
+try { return b.apply(this, a); } finally { window.openActionSheet = orig; }
+};
+})(window.openSqMenu);
+window.sgDmSearchBtn = function() { const h = document.getElementById('dmHeaderUser'); if (!h || document.getElementById('sgDmSearch')) return; h.insertAdjacentHTML('afterend', `<button id="sgDmSearch" onclick="window.sgChatSearch('dm')" class="ml-auto w-8 h-8 rounded-xl text-gray-300 shrink-0" title="Search">🔍</button>`); };
+['openDmThread', 'openGroupThread'].forEach(fn => { if (typeof window[fn] === 'function') window[fn] = (function(b) { return function(...a) { const r = b.apply(this, a); setTimeout(window.sgDmSearchBtn, 100); return r; }; })(window[fn]); });
+
+window.sgTypingRoom = function(kind) {
+if (kind === 'squad') { const sq = window.activeSquadDetails; return sq ? ('s_' + sq.id + '_' + String(window.activeSquadSubRoom || '')).replace(/[.#$\[\]\/\s]/g, '_').slice(0, 78) : null; }
+const d = window.activeDm; return d ? (d.group ? 'g_' + d.groupId : 'd_' + (d.threadId || '')).replace(/[.#$\[\]\/\s]/g, '_').slice(0, 78) : null;
+};
+window.sgTypingPing = async function(kind) {
+const room = window.sgTypingRoom(kind); if (!room || !window.isSignedIn()) return;
+if (Date.now() - (window._tpAt || 0) < 3000 && window._tpRoom === room) return; window._tpAt = Date.now(); window._tpRoom = room;
+try { const db = await window.rtdbInit(); if (!db) return; const D = window.rtdbApi; window.rtdbOn(true); D.set(D.ref(db, `typing/${room}/${window.uidNow()}`), Date.now()).catch(() => {}); } catch (e) {}
+};
+document.addEventListener('input', (e) => { const id = e.target && e.target.id; if (id === 'squadSubRoomInput') window.sgTypingPing('squad'); else if (id === 'dmInputText') window.sgTypingPing('dm'); }, true);
+window.sgTypingWatch = async function(kind) {
+const room = window.sgTypingRoom(kind), key = kind + ':' + room; if (!room || window._tpWatch === key) return;
+try {
+const db = await window.rtdbInit(); if (!db) return; const D = window.rtdbApi;
+if (window._tpOff) { try { window._tpOff(); } catch (e) {} window._tpOff = null; }
+window._tpWatch = key;
+const show = (val) => {
+const anchor = document.getElementById(kind === 'squad' ? 'squadInputContainer' : 'dmComposer'); if (!anchor) return;
+let bar = document.getElementById('sgTyping'); if (!bar || bar.parentElement !== anchor.parentElement) { bar?.remove(); anchor.insertAdjacentHTML('beforebegin', '<div id="sgTyping"></div>'); bar = document.getElementById('sgTyping'); }
+const byUid = {}; Object.values(window.allProfilesMap || {}).forEach(p => { if (p && p.uid) byUid[p.uid] = p.displayName || p.gamertag; });
+const who = Object.entries(val || {}).filter(([u, t]) => u !== window.uidNow() && Date.now() - t < 6000).map(([u]) => byUid[u] || (kind === 'dm' && window.activeDm && !window.activeDm.group ? window.activeDm.partnerTag : 'Someone'));
+bar.textContent = who.length ? (who.length > 2 ? `${who.length} people are typing…` : `${who.join(' and ')} ${who.length > 1 ? 'are' : 'is'} typing…`) : '';
+};
+let last = null; const off = D.onValue(D.ref(db, `typing/${room}`), (s) => { last = s.val(); show(last); }, () => {});
+const iv = setInterval(() => show(last), 2500);
+window._tpOff = () => { try { off(); } catch (e) {} clearInterval(iv); document.getElementById('sgTyping')?.remove(); window._tpWatch = null; };
+} catch (e) {}
+};
+window.renderSquadChannel = (function(b) { return function(...a) { const r = b.apply(this, a); setTimeout(() => window.sgTypingWatch('squad'), 200); return r; }; })(window.renderSquadChannel);
+['openDmThread', 'openGroupThread'].forEach(fn => { if (typeof window[fn] === 'function') window[fn] = (function(b) { return function(...a) { const r = b.apply(this, a); setTimeout(() => window.sgTypingWatch('dm'), 400); return r; }; })(window[fn]); });
+
+window.sgLeagueOrder = function(ms) {
+const played = (ms || []).filter(m => m.winner || (m.s1 != null && m.s1 !== '')), rest = (ms || []).filter(m => !played.includes(m));
+const at = (m) => m.playedAt || m.approvedAt || m.at || m.ts || 0;
+played.sort((a, b) => (at(b) - at(a)) || ((b.round || 0) - (a.round || 0)));
+rest.sort((a, b) => (a.round || 0) - (b.round || 0));
+return [...played, ...rest];
+};
+window.sgFxFilter = function(inp) { const q = String(inp.value || '').trim().toLowerCase(); inp.parentElement.querySelectorAll('[data-fxp]').forEach(d => { d.style.display = !q || d.getAttribute('data-fxp').includes(q) ? '' : 'none'; }); };
+window.openPlayerMatches = function(tag) {
+const k = String(tag || '').replace('@', ''), eq = (p) => window.tagEq ? window.tagEq(p, k) : String(p || '').toLowerCase() === k.toLowerCase();
+const ts = (window.tournamentsList || []).filter(t => (t.matches || []).some(m => eq(m.p1) || eq(m.p2)) && t.status !== 'deleted');
+const row = (t, m) => { const me1 = eq(m.p1), opp = me1 ? m.p2 : m.p1, played = m.winner || (m.s1 != null && m.s1 !== ''); const my = me1 ? m.s1 : m.s2, th = me1 ? m.s2 : m.s1;
+const res = !played ? '<span class="text-gray-400">to play</span>' : m.winner === 'DRAW' || (+my === +th) ? `<span class="text-amber-300">D ${escapeHTML(my)}–${escapeHTML(th)}</span>` : (m.winner ? eq(m.winner) : +my > +th) ? `<span class="text-emerald-400">W ${escapeHTML(my)}–${escapeHTML(th)}</span>` : `<span class="text-red-400">L ${escapeHTML(my)}–${escapeHTML(th)}</span>`;
+return `<div class="flex items-center justify-between py-2 border-b border-white/5 text-xs"><span class="text-gray-300">${escapeHTML(m.stage || 'Match')} · vs <b class="text-white">${escapeHTML(window.dnText ? window.dnText(opp) : opp)}</b></span><b>${res}</b></div>`; };
+const html = ts.length ? ts.map(t => { const ms = window.sgLeagueOrder((t.matches || []).filter(m => eq(m.p1) || eq(m.p2))), pl = ms.filter(m => m.winner || (m.s1 != null && m.s1 !== ''));
+return `<div class="cf-card mt-2"><p class="text-[11px] font-black text-cyan-300">${escapeHTML(t.title || 'Tournament')}</p><p class="text-[10px] text-gray-400">${pl.length} played · ${ms.length - pl.length} to play</p>${ms.map(m => row(t, m)).join('')}</div>`; }).join('')
+: '<p class="text-xs text-gray-500">No matches found.</p>';
+window.openPanel('📋 ' + (window.dnText ? window.dnText(k) : k) + "'s matches", html + `<button class="v57-btn2 mt-3" onclick="window.closePanel(); window.openUserProfileModal('${escapeHTML(k)}')">👤 View profile</button>`);
+};
+document.addEventListener('click', (e) => {
+const el = e.target.closest && e.target.closest('table [onclick*="openUserProfileModal"]'); if (!el) return;
+const tag = ((el.getAttribute('onclick') || '').match(/openUserProfileModal\('([^']+)'/) || [])[1]; if (!tag) return;
+e.preventDefault(); e.stopPropagation(); window.openPlayerMatches(tag);
+}, true);
+window.openMemberActions = (function(b) {
+return function(tag, ...a) {
+const orig = window.openActionSheet;
+window.openActionSheet = (t, items) => orig(t, [{ icon: 'fa-list', label: '📋 Their matches', run: () => window.openPlayerMatches(tag) }, ...items]);
+try { return b.call(this, tag, ...a); } finally { setTimeout(() => { window.openActionSheet = orig; }, 0); }
+};
+})(window.openMemberActions);
+
+window.TR_COMMON = new Set(('the a an and or but of to in on at for from by with is are was were be been has have had will would can could should new official trailer teaser release releases released date dates revealed reveals reveal update updates patch season episode episodes part review reviews video videos watch live highlights highlight goals goal news latest full game games gameplay mobile edition first look final finals vs v win wins won beat beats lose loses lost draw match matches day week weekend today tonight report reports reportedly says said confirms confirmed announces announced launch launches set top best worst big more most why how what when who where this that these those it its his her their our your my after before over under into out up down off back about just now here there official january february march april may june july august september october november december monday tuesday wednesday thursday friday saturday sunday free trending breaking exclusive leak leaks leaked rumour rumor rumours rumors early late fans fan team teams player players club clubs league leagues cup world star stars music song album film movie movies series show shows tv anime chapter volume year years time times people man men woman women boy girl kid kids anyone someone everyone nobody please thanks guys check look finally still really never always every other another because while since without again against between during through around behind which whose would could should might must also even only very much many some any each both such than then them they we you he she i me us him dont cant wont isnt im ive heres whats hows lets new best ever every next last first second third one two three four five pro max plus ultra').split(/\s+/));
+window.sgCountry = function() {
+const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || ''), M = { 'Africa/Accra': 'Ghana', 'Africa/Lagos': 'Nigeria', 'Africa/Nairobi': 'Kenya', 'Africa/Johannesburg': 'South Africa', 'Africa/Cairo': 'Egypt', 'Africa/Abidjan': "Côte d'Ivoire", 'Africa/Dakar': 'Senegal', 'Africa/Kampala': 'Uganda', 'Africa/Dar_es_Salaam': 'Tanzania', 'Africa/Lusaka': 'Zambia', 'Africa/Harare': 'Zimbabwe', 'Africa/Douala': 'Cameroon', 'Africa/Casablanca': 'Morocco', 'Africa/Addis_Ababa': 'Ethiopia', 'Europe/London': 'the UK', 'America/New_York': 'the US', 'America/Chicago': 'the US', 'America/Los_Angeles': 'the US', 'America/Toronto': 'Canada', 'Asia/Kolkata': 'India', 'Asia/Manila': 'the Philippines', 'Asia/Jakarta': 'Indonesia', 'America/Sao_Paulo': 'Brazil', 'America/Mexico_City': 'Mexico', 'Europe/Paris': 'France', 'Europe/Madrid': 'Spain', 'Europe/Berlin': 'Germany', 'Europe/Rome': 'Italy' };
+return M[tz] || '';
+};
+window.TR_LOCAL_SRC = { Ghana: /ghana|citi|joynews|myjoy|ghanasoccernet|adom|blacksherif/i, Nigeria: /nigeria|bellanaija|notjustok|nollywood|naija|punch/i, Kenya: /kenya|nation/i, 'South Africa': /south ?africa|supersport|kaizer/i };
+window.sgTrendTopics = function() {
+const now = Date.now(), H = 3600e3, terms = {}, country = window.sgCountry(), localRe = window.TR_LOCAL_SRC[country];
+const hidden = (() => { try { return JSON.parse(localStorage.getItem('sg_tr_hide') || '[]'); } catch (e) { return []; } })();
+const catOf = (tp) => { const t = (tp || []).join(' '); return /football|transfers|sport|nba|f1|tennis|cricket|mma|wrestling/.test(t) ? 'Sports' : /games|fcmobile|efootball|dls|cod|eafc|gta|esports|gaming/.test(t) ? 'Gaming' : /movies|series|anime|kdrama|bollywood|nollywood|comedy/.test(t) ? 'Entertainment' : /music|afrobeats|kpop/.test(t) ? 'Music' : /tech|phones|ai|cars/.test(t) ? 'Technology' : ''; };
+const add = (label, w, age, kind, cat, local, ref) => {
+const key = label.toLowerCase(); if (hidden.includes(key)) return;
+const t = terms[key] || (terms[key] = { label, recent: 0, old: 0, n: 0, posts: 0, cats: {}, local: 0, refs: [] });
+t.n++; if (kind === 'post') t.posts++; if (age <= 24) t.recent += w * Math.pow(0.5, age / 8); else t.old += w; if (cat) t.cats[cat] = (t.cats[cat] || 0) + 1; if (local) t.local++; if (ref && t.refs.length < 30) t.refs.push(ref);
+};
+const names = (text) => {
+const out = new Set();
+(String(text).match(/#[\p{L}\p{N}_]{3,}/gu) || []).forEach(h => out.add(h));
+(String(text).match(/\b[A-Z]{2,5} \d{1,2}\b/g) || []).forEach(x => out.add(x));   /* GTA 6, FC 26 */
+const words = String(text).replace(/[“”"'’‘:;,!?()\[\]|–—-]/g, ' ').split(/\s+/).filter(Boolean);
+let run = [];
+const flush = () => { while (run.length && window.TR_COMMON.has(run[0].toLowerCase())) run.shift(); while (run.length && window.TR_COMMON.has(run[run.length - 1].toLowerCase())) run.pop(); if (run.length >= 2 && run.length <= 3) out.add(run.join(' ')); else if (run.length === 1 && run[0].length >= 5 && !window.TR_COMMON.has(run[0].toLowerCase()) && !/^\d/.test(run[0])) out.add(run[0]); run = []; };
+words.forEach(w => { const c = w.replace(/\.$/, ''), cap = (/^[A-Z][\p{Ll}\p{N}'.]+$/u.test(c) || /^[A-Z]{2,5}$/.test(c)) && !window.TR_COMMON.has(c.toLowerCase()); if (cap) { if (run.length === 3) flush(); run.push(c); } else flush(); });
+flush();
+return [...out];
+};
+((window.nwSt && window.nwSt.items && window.nwSt.items.length ? window.nwSt.items : window._nwFeed) || []).forEach(it => { const age = (now - (it.ts || now)) / H; if (age > 96) return; const loc = !!(localRe && localRe.test(((it.src || [])[0] || {}).n || '')); names(it.t).forEach(n => add(n, 1 + Math.min(3, (it.sc || 1) - 1), age, 'news', catOf(it.tp), loc, { k: 'n', it })); });
+((window.wv && window.wv.list) || []).forEach(v => { const age = (now - (v.date || now)) / H; if (age > 96) return; names(v.title).forEach(n => add(n, 0.7, age, 'video', catOf([v.cat]), v.ch && /africa|gh|ng/i.test(v.rg || ''), { k: 'v', v })); });
+(window.fypposts || []).forEach(p => { const age = (now - window.postTimeValue(p)) / H; if (age > 168) return; names(p.caption).forEach(n => add(n, 2, age, 'post', catOf([String(p.game || '').toLowerCase()]), true, { k: 'p', p })); });
+const list = Object.values(terms).filter(t => t.n >= 2 && t.recent > 0).map(t => ({ ...t, score: t.recent * Math.min(5, (t.recent + 1) / (t.old / 3 + 1)) })).sort((a, b) => b.score - a.score);
+const picked = [];
+for (const t of list) { const low = t.label.toLowerCase().replace('#', ''); if (picked.some(x => { const xl = x.label.toLowerCase().replace('#', ''); return xl.includes(low) || low.includes(xl); })) continue; picked.push(t); if (picked.length >= 15) break; }
+return picked.map(t => { const cat = Object.entries(t.cats).sort((a, b) => b[1] - a[1])[0]; return { ...t, ctx: country && t.local >= Math.max(1, t.n / 3) ? `Trending in ${country}` : cat ? `${cat[0]} · Trending` : 'Trending worldwide' }; });
+};
+window.renderTrendingTopicsList = function(container) {
+const L = window.sgTrendTopics(); window._trList = L;
+if (!L.length) { container.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Trends are loading…</p>'; return; }
+container.innerHTML = `<h3 class="text-sm font-black text-white px-1 pb-1">🔥 Trending</h3>` + L.map((t, i) => `<div class="sg-x-tr" onclick="window.openTrendTopic(${i})"><div class="min-w-0"><p class="c">${i + 1} · ${escapeHTML(t.ctx)}</p><p class="t">${escapeHTML(t.label)}</p><p class="n">${t.posts >= t.n / 2 ? `${t.n} posts` : `${t.n} stories & videos`}</p></div><button onclick="event.stopPropagation(); window.trendMenu(${i})">⋯</button></div>`).join('');
+};
+window.trendMenu = function(i) { const t = (window._trList || [])[i]; if (!t) return; window.openActionSheet(t.label, [{ icon: 'fa-face-frown', label: 'Not interested in this', run: () => { let h = []; try { h = JSON.parse(localStorage.getItem('sg_tr_hide') || '[]'); } catch (e) {} h.push(t.label.toLowerCase()); try { localStorage.setItem('sg_tr_hide', JSON.stringify(h.slice(-200))); } catch (e) {} window.renderTrendingTopics(); showToast('👍 Got it'); } }]); };
+window.openTrendTopic = function(i) {
+const t = (window._trList || [])[i]; if (!t) return;
+const news = t.refs.filter(r => r.k === 'n').map(r => r.it), vids = t.refs.filter(r => r.k === 'v').map(r => r.v), posts = t.refs.filter(r => r.k === 'p').map(r => r.p);
+window._trVids = vids;
+window.openPanel('🔥 ' + t.label, `<p class="text-[11px] text-gray-400 mb-2">${escapeHTML(t.ctx)}</p>
+${posts.length ? `<p class="text-[11px] font-black text-gray-300 mt-2">💬 Posts</p>${posts.slice(0, 10).map(p => `<button class="cf-card w-full text-left mt-2" onclick="window.closePanel(); window.openPostDetail('${escapeHTML(p.docId || p.id)}')"><p class="text-[10px] font-black text-gray-400">${window.dn(p.user)}</p><p class="text-sm text-white mt-1">${escapeHTML(String(p.caption || '').slice(0, 200))}</p></button>`).join('')}` : ''}
+${vids.length ? `<p class="text-[11px] font-black text-gray-300 mt-3">▶ Videos</p>${vids.slice(0, 8).map((v, k) => `<button class="w-full flex gap-3 items-center text-left mt-2" onclick="window.closePanel(); window.openClipsAt && window.vidToClip ? window.openClipsAt(window.vidToClip(window._trVids[${k}])) : null"><img src="https://i.ytimg.com/vi/${escapeHTML(v.vid)}/mqdefault.jpg" class="w-28 h-16 rounded-lg object-cover" loading="lazy" alt=""><span class="text-xs font-bold text-white line-clamp-2">${escapeHTML(v.title)}</span></button>`).join('')}` : ''}
+${news.length ? `<p class="text-[11px] font-black text-gray-300 mt-3">📰 News</p><div class="space-y-2 mt-2">${news.slice(0, 10).map(it => window.nwCard(it)).join('')}</div>` : ''}`);
+};
+window.renderCommunityPulse = (function(b) { return function(...a) { const r = b ? b.apply(this, a) : undefined; try { const box = document.getElementById('communityPulseBox'); if (box) box.querySelectorAll('h3,h2').forEach(h => { if (/Trending worldwide/i.test(h.textContent)) h.innerHTML = h.innerHTML.replace(/Trending worldwide/i, 'Community'); }); } catch (e) {} return r; }; })(window.renderCommunityPulse);
+setInterval(() => { try { if (!document.getElementById('view-trending')?.classList.contains('hidden')) window.renderTrendingTopics(); } catch (e) {} }, 120000);
