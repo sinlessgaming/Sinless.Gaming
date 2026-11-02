@@ -2899,7 +2899,7 @@ async function sendGoalPush(env, title, body, id) {
     body: JSON.stringify({ message: { topic: 'n_goals', webpush: { headers: { Urgency: 'high', TTL: '1800' }, data: { title: String(title).slice(0, 60), body: String(body).slice(0, 160), url: SITE + '#scores', tag: 'goal_' + id } } } }) });
 }
 /* =====================================================================
-   ⚽ 11 WONDERS · shared core (G2 + G3a). build.sh pastes this SAME block into w11.js and worker.js,
+   ⚽ 11 WONDERS · shared core (G2 + G3a + G3b + G4). build.sh pastes this SAME block into w11.js and worker.js,
    so phones and the worker always agree. Only + - * / and sqrt are used for anything that decides
    a result, so every phone (Android or iPhone) gets exactly the same numbers.
    ===================================================================== */
@@ -3197,7 +3197,7 @@ const sheetOf = (club, day, S) => {
     if (best > 0) { const x = ids[i]; ids[i] = ids[best]; ids[best] = x; }
   }
   const cond = {}; ids.forEach(id => { cond[id] = condNow(club, id, day); });
-  return { ids, form: FORM_NAMES.includes(club.form) ? club.form : '4-4-2', cond, tr: { att: Number(club.tr && club.tr.att) || 0, def: Number(club.tr && club.tr.def) || 0, fit: Number(club.tr && club.tr.fit) || 0 }, bo, io, n: club.name || 'My Club', sh: club.short || 'MYC', kit: ((club.kits || [])[0] || {}).c1 || '', kits: (club.kits || []).map(k => k && k.c1).filter(Boolean) };
+  return { ids, form: FORM_NAMES.includes(club.form) ? club.form : '4-4-2', cond, tr: { att: Number(club.tr && club.tr.att) || 0, def: Number(club.tr && club.tr.def) || 0, fit: Number(club.tr && club.tr.fit) || 0 }, bo, io, n: club.name || 'My Club', sh: club.short || 'MYC', kit: ((club.kits || [])[0] || {}).c1 || '', kits: (club.kits || []).map(k => k && k.c1).filter(Boolean), kf: (club.kits || []).slice(0, 3).map(cleanKit), cr: cleanCrest(club.crest), sd: { lv: stdLv(club), nm: String((club.std && club.std.nm) || ((club.name || 'My Club') + ' Park')).slice(0, 30) } };
 };
 const aiSheet = (ci, key, S) => { const c = club(ci); return { ai: ci, ids: squadIds(ci), form: FORM_NAMES[hash(key + ':f') % 15], cond: {}, tr: {}, bo: [], io: [], n: c.name, sh: c.short, aiCond: AI_COND }; };
 const ENGINE_TICKS = 4200;
@@ -3235,7 +3235,12 @@ const matchExtra = (c, S, home, gf, ga) => {
    ⭐ Champions League (cl): last season's 64 best group champions, 16 groups of 4 on days 7–17, knockout 19–27.
    Cup matches kick off 2 hours after the league slot (06→08, 12→14, 18→20, 22→00). A knockout draw goes to penalties. */
 const OC_DAYS = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24], CL_DAYS = [7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27], CL_GR = 6;
-const CUP_GAP = 2 * 3600000, CUP_AI_HOUR = AI_HOUR + 2, CUP_FIRST = 2;
+const CUP_GAP = 2 * 3600000, CUP_AI_HOUR = AI_HOUR + 2, OC_FIRST = 1, CL_FIRST = 2, CUP_FIRST = 1;
+const cupOn = (s, k) => s >= (k === 'cl' ? CL_FIRST : OC_FIRST);
+/* G4: every cup match has its own kick-off time: a quarter hour between 06:15 and 23:45 GMT, never 20 minutes
+   before or 10 minutes after a league kick-off (06/12/18/22). Same on every phone, nothing stored. */
+const CUP_TIMES = (() => { const o = []; for (let m = 375; m <= 1425; m += 15) { if (SLOTS.some(h => m > h * 60 - 25 && m < h * 60 + 15)) continue; o.push(m); } return o; })();
+const cupKoAt = (s, d, key) => dayStart(s, d) + CUP_TIMES[hash('ckt:' + key) % CUP_TIMES.length] * 60000;
 const OC_WIN = 5000, CL_WIN = 15000, CL_DRAW = 5000, CUP_PRIZE = { oc: [300000, 100000], cl: [1000000, 300000] };
 const CUP_NAME = { oc: '🏆 Open Cup', cl: '⭐ Champions League' };
 const cupDays = (C) => C.k === 'cl' ? CL_DAYS : OC_DAYS.slice(OC_DAYS.length - C.R);
@@ -3243,7 +3248,7 @@ const cupDay = (C, r) => cupDays(C)[r - 1];
 const cupKo = (s, d, sl) => ko(s, d, sl) + CUP_GAP;
 const cupAiKo = (s, d) => dayStart(s, d) + CUP_AI_HOUR * 3600000;
 const cupMid = (s, k, r, i) => s + '-' + k + '-' + r + '-' + i;
-const isCupDay = (s, d) => s >= CUP_FIRST && (OC_DAYS.includes(d) || CL_DAYS.includes(d));
+const isCupDay = (s, d) => (cupOn(s, 'oc') && OC_DAYS.includes(d)) || (cupOn(s, 'cl') && CL_DAYS.includes(d));
 const isKO = (C, r) => C.k === 'oc' || r > CL_GR;
 const seat = (C, ci) => ci < 0 ? ci : (C.tk && C.tk[ci] != null ? Number(C.tk[ci]) : ci);
 const cupUser = (C, ci) => { const s = seat(C, ci); return s >= 0 && C.users && C.users[s] ? C.users[s] : null; };
@@ -3283,8 +3288,8 @@ const cupPairs = (C, r) => {
 };
 /* ⚡ a computer-vs-computer cup result */
 const cupQuick = (C, r, k, p) => { const key = cupMid(C.s, C.k, r, k), q = quick(key, cupStr(C, p[0]), cupStr(C, p[1])); return q[0] + '-' + q[1] + (isKO(C, r) && q[0] === q[1] ? '/' + pens(key).join('-') : ''); };
-/* when a round's user match needs a kick-off time: the home manager's slot (else the away manager's) + 2 h */
-const cupKoOf = (C, r, p) => { const h = cupUser(C, p[0]), a = cupUser(C, p[1]), u = h || a; return u ? cupKo(C.s, cupDay(C, r), u.sl == null ? 2 : Number(u.sl)) : cupAiKo(C.s, cupDay(C, r)); };
+/* kick-off of pair k in round r: a match with a manager gets its own time (see CUP_TIMES); computer games 20:00 GMT */
+const cupKoOf = (C, r, p, k) => { const u = cupUser(C, p[0]) || cupUser(C, p[1]); return u ? cupKoAt(C.s, cupDay(C, r), cupMid(C.s, C.k, r, k)) : cupAiKo(C.s, cupDay(C, r)); };
 /* build the Open Cup bracket from all clubs, best first. Byes go to the best clubs, the rest are drawn at random */
 const ocBracket = (S, list) => {
   list = list.slice(0, 4096); let R = 1; while ((1 << R) < list.length) R++;
@@ -3298,7 +3303,22 @@ const ocBracket = (S, list) => {
 const clGroups = (S, ent) => { const pots = [0, 1, 2, 3].map(q => ent.slice(16 * q, 16 * q + 16).sort((a, b) => hash(S + ':clp:' + a) - hash(S + ':clp:' + b) || a - b)), gs = [];
   for (let g = 0; g < 16; g++) for (let q = 0; q < 4; q++) gs.push(pots[q][g]); return gs; };
 
-return { STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
+/* ===================== 🎨 G4 · kits, crests, 🪙 GG Coins (rare tokens) ===================== */
+/* Money: the club field `coins` is shown as 💎 Gems (everyday money); the field `gems` is shown as 🪙 GG Coins (rare). */
+const TOK = { start: 10, pio: 25, promo: 2, title: 5, oc: [10, 5], cl: [20, 10], design: 5 };
+const COLORS = ['#22d3ee', '#a855f7', '#ff2d95', '#facc15', '#f97316', '#ef4444', '#22c55e', '#0ea5e9', '#1e3a8a', '#ffffff', '#111827', '#7c2d12', '#14b8a6', '#eab308',
+  '#d4af37', '#c0c0c0', '#800000', '#0b1f4d', '#84cc16', '#7dd3fc', '#f9a8d4', '#047857', '#6d28d9', '#6b7280'];
+const SHAPES = ['shield', 'round', 'diamond', 'hex', 'star', 'ring', 'badge', 'pennant'];
+const SYMS = ['AB', '⚽', '★', '🦁', '🦅', '🔥', '⚡', '👑', '🐺', '🌍', '🐘', '🌙', '🦈', '🐉', '🐆', '🦬', '🐍', '🦂', '🏰', '⚔️', '🌟', '🔱', '🌊', '🛡️'];
+const PATS = ['plain', 'stripes', 'hoops', 'halves', 'sash', 'pinstripes', 'chevron', 'gradient', 'checker', 'centre'];
+const BANDS = ['none', 'h', 'v', 'd'];
+const colOr = (c, d) => COLORS.includes(c) ? c : d;
+const cleanKit = (k) => { k = k || {}; const c1 = colOr(k.c1, '#22d3ee'), c2 = colOr(k.c2, '#ffffff');
+  return { c1, c2, pat: PATS.includes(k.pat) ? k.pat : 'plain', col: colOr(k.col, c2), slv: colOr(k.slv, c1), sho: colOr(k.sho, c1 === '#ffffff' ? '#111827' : '#ffffff'), soc: colOr(k.soc, c1) }; };
+const cleanCrest = (c) => { c = c || {}; const c1 = colOr(c.c1, '#22d3ee'), c2 = colOr(c.c2, '#a855f7');
+  return { shape: SHAPES.includes(c.shape) ? c.shape : 'shield', c1, c2, sym: SYMS.includes(c.sym) ? c.sym : 'AB', bd: colOr(c.bd, '#ffffff'), band: BANDS.includes(c.band) ? c.band : 'none', bc: colOr(c.bc, '#ffffff'), est: !!c.est }; };
+
+return { OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
 })();
 // =====================================================================
 // ⚽ G2 · 11 WONDERS LEAGUE (worker side). The worker never plays matches (too heavy for the free plan).
@@ -3406,12 +3426,20 @@ async function w11join(env, uid, sl) {
 
 // ---------- 🔒 lock team sheets 15 minutes before kick-off ----------
 async function w11lock(env, budget) {
-  const now = Date.now(), { s, day } = C11.clock(now), K = new Set();
-  for (const d of [day - 1, day]) { if (d < 1) continue; for (let sl = 0; sl < 4; sl++) { const ks = []; if (d <= C11.MDS) ks.push(C11.ko(s, d, sl)); if (C11.isCupDay(s, d)) ks.push(C11.cupKo(s, d, sl)); for (const k of ks) if (k - 15 * 60000 <= now && k > now - 6 * 3600000) K.add(k); } }
+  const now = Date.now(), { s, day } = C11.clock(now), K = new Set(), cupOf = {};
+  const inWin = (k) => k - 15 * 60000 <= now && k > now - 6 * 3600000;
+  for (const d of [day - 1, day]) { if (d < 1 || d > C11.MDS) continue; for (let sl = 0; sl < 4; sl++) { const k = C11.ko(s, d, sl); if (inWin(k)) K.add(k); } }
+  /* G4: cup kick-offs differ per match; the cup doc lists them (kt) and remembers which are locked (lk) */
+  if (C11.isCupDay(s, day) || (day > 1 && C11.isCupDay(s, day - 1))) {
+    const ks = ['oc', 'cl'].filter(k => C11.cupOn(s, k)), cd = await w11batchGet(env, ks.map(k => CUPP(s, k))); budget.n--;
+    for (const k of ks) { const C = cd[CUPP(s, k)]; if (!C) continue; const kt = C.data.kt || {}, lk = C.data.lk || {};
+      for (const r in kt) for (const t of kt[r] || []) if (inWin(t) && !lk[t]) { K.add(t); cupOf[t] = CUPP(s, k); } }
+  }
   let done = 0;
   for (const k of K) {
     if (budget.n < 6) break;
     const rows = (await w11query(env, 'w11m', [w11eq('ko', k), w11eq('st', 'sched')], 100)).filter(r => r.data.st === 'sched'); budget.n--;
+    if (cupOf[k] && rows.length < 100) { await w11commit(env, [{ path: cupOf[k], data: { lk: { [k]: 1 } }, mask: ['lk.' + k] }]); budget.n--; }
     if (!rows.length) continue;
     const need = new Set(); rows.forEach(r => { if (r.data.hu) need.add(r.data.hu); if (r.data.au) need.add(r.data.au); });
     const clubs = await w11batchGet(env, [...need].map(u => `w11Clubs/${u}`)); budget.n--;
@@ -3544,7 +3572,8 @@ async function w11season(env, budget) {
       const top2 = tb.slice(0, 2).map(r => (G.users || {})[r.pos]).filter(Boolean), bonus = {};
       if (top2.length && budget.n > 10) { const cs2 = await w11batchGet(env, top2.map(u => `w11Clubs/${u.u}`)); budget.n--; top2.forEach(u => { const k = cs2[`w11Clubs/${u.u}`], bo = k && C11.spOf(k.data, S, 'bo'); if (bo && bo.top2) bonus[u.u] = bo.top2; }); }
       tb.forEach((r, place) => { const u = (G.users || {})[r.pos]; if (!u) return; const up = t > 1 && place < C11.UP && !!C11.parentOf(t, g), down = t < 6 && place >= 14 - C11.DOWN;
-        writes.push({ path: `w11Clubs/${u.u}`, data: {}, mask: [], inc: { coins: C11.prize(t, place + 1) + (up ? C11.PROMO_BONUS : 0) + (bonus[u.u] || 0) }, push: { hist: [{ s: S, t, p: place + 1, pts: r.pts, up, down }] } }); });
+        const tok = (up ? C11.TOK.promo : 0) + (place === 0 ? C11.TOK.title : 0), inc = { coins: C11.prize(t, place + 1) + (up ? C11.PROMO_BONUS : 0) + (bonus[u.u] || 0) }; if (tok) inc.gems = tok;
+        writes.push({ path: `w11Clubs/${u.u}`, data: {}, mask: [], inc, push: { hist: [{ s: S, t, p: place + 1, pts: r.pts, up, down }] } }); });
       await w11commit(env, writes); budget.n--; cur++;
       await w11commit(env, [{ path: W11_META, data: { s: S, d6: meta.d6, ph: 'fin', cur }, mask: ['s', 'd6', 'ph', 'cur'] }]); budget.n--;
       break;
@@ -3623,7 +3652,7 @@ async function w11route(req, env, ctx, url, json) {
   if (p === '/w11/job') return json({ ok: true, jobs: await w11jobs(env, uid) });
   if (p === '/w11/train') return json(await w11train(env, uid, String(b.f || '')));
   if (p === '/w11/pack') return json(await w11pack(env, uid, String(b.k || ''), String(b.id || '')));
-  const g3 = await w11g3route(p, env, uid, b) || await w11g3broute(p, env, uid, b); if (g3) return json(g3);
+  const g3 = await w11g3route(p, env, uid, b) || await w11g3broute(p, env, uid, b) || await w11g4route(p, env, uid, b); if (g3) return json(g3);
   if (p === '/w11/run' && await isAdminUid(env, uid)) return json({ ok: true, ...(await w11cron(env)) });
   return json({ ok: false, error: 'unknown' }, 404);
 }
@@ -3663,7 +3692,7 @@ async function w11bid(env, uid, i, n, amt) {
   if (same && E.top === 'u' && L.u === uid) return { ok: false, error: 'You are already the top bidder' };
   if (amt < E.minNext) return { ok: false, min: E.minNext, error: 'Someone bid first. Bid at least ' + E.minNext.toLocaleString() };
   const back = same && L.u === uid ? L.p : 0, need = amt - back;
-  if ((Number(c.coins) || 0) < need) return { ok: false, error: 'Not enough GG Coins' };
+  if ((Number(c.coins) || 0) < need) return { ok: false, error: 'Not enough 💎 Gems' };
   const prevWin = !same && L && L.u === uid && !L.done && C11.lotEff(L, now).winner === 'u' ? 1 : 0;
   if ((c.ids || []).length + w11pending(docs, uid, now, i) + prevWin + 1 > C11.MAX_SQUAD) return { ok: false, full: true, error: 'Your squad is full (25). Release a player first.' };
   const A = w11acc(); A.add(uid, -need, null);
@@ -3777,17 +3806,29 @@ function w11cupDocs(N, P) {
   if (P.cl && P.cl.length === 64) { const gs = C11.clGroups(N, P.cl); docs.push({ path: CUPP(N, 'cl'), data: { s: N, k: 'cl', R: 11, gs, users: pickU(gs), tk: {}, rr: {}, ur: {}, pu: {}, pr: 0, dn: 0, at: now } }); }
   return docs;
 }
+/* G4: the very first Open Cup (season 1) is drawn from the groups as they are now (managers already in keep their seats) */
+async function w11firstCup(env, s, budget) {
+  const meta = await w11meta(env, s), L = w11groups(meta.d6); budget.n--;
+  const gd = await w11batchGet(env, L.map(([t, g]) => `w11g/${C11.gkey(s, t, g)}`)); budget.n--;
+  const users = {}, plan = L.map(([t, g]) => { const d = gd[`w11g/${C11.gkey(s, t, g)}`], G = d ? d.data : w11pristine(s, t, g);
+    for (const p in (G.users || {})) { const u = G.users[p]; users[u.c] = { u: u.u, n: u.n, sh: u.sh, sl: u.sl, o: u.o }; }
+    return [t, g, G.clubs || C11.initClubs(t, g)]; });
+  const [doc] = w11cupDocs(s, { plan, users });
+  const ok = await w11commit(env, [{ ...doc, pre: { exists: false } }]); budget.n--;
+  return ok ? doc.data : null;
+}
 /* a manager who takes over a computer club mid-season also takes over its cup places */
 async function w11cupTake(env, s, ai, club, uid, sl, o) {
   if (s < C11.CUP_FIRST || ai == null || ai >= 100000) return;
-  for (const k of ['oc', 'cl']) await w11commit(env, [{ path: CUPP(s, k), data: { tk: { [ai]: club.club }, users: { [club.club]: { u: uid, n: club.name || 'My Club', sh: club.short || 'MYC', sl, o: o || 60 } } }, mask: ['tk.' + ai, 'users.' + club.club], pre: { exists: true } }]);
+  for (const k of ['oc', 'cl']) if (C11.cupOn(s, k)) await w11commit(env, [{ path: CUPP(s, k), data: { tk: { [ai]: club.club }, users: { [club.club]: { u: uid, n: club.name || 'My Club', sh: club.short || 'MYC', sl, o: o || 60 } } }, mask: ['tk.' + ai, 'users.' + club.club], pre: { exists: true } }]);
 }
 /* ⏱️ every 5 minutes: decide finished rounds (prizes on the final), then get the next round's matches ready */
 async function w11cups(env, budget) {
   const now = Date.now(), { s, day } = C11.clock(now); if (s < C11.CUP_FIRST) return 'off';
-  const paths = []; for (const S of (day <= 2 && s > C11.CUP_FIRST ? [s - 1, s] : [s])) for (const k of ['oc', 'cl']) paths.push(CUPP(S, k));
+  const paths = []; for (const S of (day <= 2 && s > C11.CUP_FIRST ? [s - 1, s] : [s])) for (const k of ['oc', 'cl']) if (C11.cupOn(S, k)) paths.push(CUPP(S, k));
   const docs = await w11batchGet(env, paths); budget.n--;
   const out = [];
+  if (s === C11.OC_FIRST && !docs[CUPP(s, 'oc')] && budget.n > 12) { const D = await w11firstCup(env, s, budget); if (D) { docs[CUPP(s, 'oc')] = { data: D }; out.push('oc:drawn'); } }
   for (const p of paths) { const d = docs[p]; if (!d) continue; if (budget.n < 8) break; out.push(d.data.k + ':' + await w11cupStep(env, { ...d.data }, budget, now)); }
   return out.join(' ') || 'none';
 }
@@ -3809,10 +3850,10 @@ async function w11cupStep(env, C, budget, now) {
   if (q <= C.R && !need && budget.n > 6 && now >= C11.dayStart(C.s, C11.cupDay(C, q)) - 26 * 3600000) {
     const P = C11.cupPairs(C, q);
     if (P) {
-      const writes = [], ks = [], d = C11.cupDay(C, q);
-      P.forEach((p, k) => { if (p[0] < 0 || p[1] < 0) return; const h = C11.cupUser(C, p[0]), a = C11.cupUser(C, p[1]), kt = C11.cupKoOf(C, q, p); if ((!h && !a) || kt - 20 * 60000 < now) return; ks.push(k);
+      const writes = [], ks = [], d = C11.cupDay(C, q), kts = new Set();
+      P.forEach((p, k) => { if (p[0] < 0 || p[1] < 0) return; const h = C11.cupUser(C, p[0]), a = C11.cupUser(C, p[1]), kt = C11.cupKoOf(C, q, p, k); if ((!h && !a) || kt - 20 * 60000 < now) return; ks.push(k); kts.add(kt);
         writes.push({ path: `w11m/${C11.cupMid(C.s, C.k, q, k)}`, data: { s: C.s, cup: C.k, cr: q, ck: k, md: d, t: 0, g: 0, hp: 0, ap: 1, h: C11.seat(C, p[0]), a: C11.seat(C, p[1]), hu: h ? h.u : '', au: a ? a.u : '', ko: kt, rn: C11.roundName(C, q), st: 'sched', nv: 0, jobs: {} } }); });
-      writes.push({ path: CUPP(C.s, C.k), data: { pr: q, pu: { [q]: ks } }, mask: ['pr', 'pu.' + q] });
+      writes.push({ path: CUPP(C.s, C.k), data: { pr: q, pu: { [q]: ks }, kt: { [q]: [...kts].sort((x, y) => x - y) } }, mask: ['pr', 'pu.' + q, 'kt.' + q] });
       for (let i = 0; i < writes.length; i += 400) { await w11commit(env, writes.slice(i, i + 400)); budget.n--; }
       did += 'ready ' + q + ' (' + ks.length + ')';
     }
@@ -3825,7 +3866,7 @@ async function w11cupChamp(env, C, p, res, budget) {
   const champ = { ci: C11.seat(C, win), n: w11cupName(C, win) }, rup = { ci: C11.seat(C, ru), n: w11cupName(C, ru) };
   const us = [W, U].filter(Boolean), cs = us.length ? await w11batchGet(env, us.map(u => `w11Clubs/${u.u}`)) : {}; if (us.length) budget.n--;
   [[W, 0], [U, 1]].forEach(([u, place]) => { if (!u) return; const k = cs[`w11Clubs/${u.u}`]; if (!k) return; const bo = place === 0 ? C11.spOf(k.data, C.s, 'bo') : null;
-    writes.push({ path: `w11Clubs/${u.u}`, data: {}, mask: [], inc: { coins: C11.CUP_PRIZE[C.k][place] + (bo && bo.cup ? bo.cup : 0) }, push: { tro: [{ s: C.s, k: C.k, p: place + 1 }] } }); });
+    writes.push({ path: `w11Clubs/${u.u}`, data: {}, mask: [], inc: { coins: C11.CUP_PRIZE[C.k][place] + (bo && bo.cup ? bo.cup : 0), gems: C11.TOK[C.k][place] }, push: { tro: [{ s: C.s, k: C.k, p: place + 1 }] } }); });
   writes.push(...w11hofWrites(C.s, C.k, C.k, champ.ci, W ? W.n : null, 0, 0, rup));
   return { data: { champ, ru: rup }, writes };
 }
@@ -3843,7 +3884,7 @@ async function w11stadium(env, uid, act, nm) {
   }
   if (act === 'up') {
     if (std.lv >= 5) return { ok: false, error: 'Your stadium is already the biggest (level 5)' };
-    const cost = C11.STD_COST[std.lv], have = Number(c.coins) || 0; if (have < cost) return { ok: false, error: 'Not enough GG Coins' };
+    const cost = C11.STD_COST[std.lv], have = Number(c.coins) || 0; if (have < cost) return { ok: false, error: 'Not enough 💎 Gems' };
     std.lv++;
     const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { std }, mask: ['std'], inc: { coins: -cost }, pre: { ut: cd.ut } }]);
     return ok ? { ok: true, std, coins: have - cost } : { ok: false, error: 'try again' };
@@ -3865,7 +3906,7 @@ async function w11staff(env, uid, k) {
   const cd = await w11get(env, `w11Clubs/${uid}`); if (!cd) return { ok: false, error: 'no club' };
   const c = cd.data, S = C11.clock(Date.now()).s, cost = C11.STAFF[k], have = Number(c.coins) || 0;
   if (C11.hasStaff(c, k, S)) return { ok: false, error: 'Already hired this season' };
-  if (have < cost) return { ok: false, error: 'Not enough GG Coins' };
+  if (have < cost) return { ok: false, error: 'Not enough 💎 Gems' };
   const stf = c.stf && c.stf.s === S ? { ...c.stf } : { s: S }; stf[k] = 1;
   const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { stf }, mask: ['stf'], inc: { coins: -cost }, pre: { ut: cd.ut } }]);
   return ok ? { ok: true, stf, coins: have - cost } : { ok: false, error: 'try again' };
@@ -3874,5 +3915,32 @@ async function w11g3broute(p, env, uid, b) {
   if (p === '/w11/stadium') return await w11stadium(env, uid, String(b.act || ''), b.nm);
   if (p === '/w11/sponsor') return await w11sponsor(env, uid, String(b.kind || ''), b.k);
   if (p === '/w11/staff') return await w11staff(env, uid, String(b.k || ''));
+  return null;
+}
+// =====================================================================
+// 🎨 G4 · 11 WONDERS: crest + kit redesign (costs 🪙 GG Coins) and the one-time switch to rare GG Coins.
+// Money: the club field `coins` is shown as 💎 Gems (everyday money), the field `gems` as 🪙 GG Coins (rare tokens).
+// =====================================================================
+/* redesign crest + 3 kits: costs C11.TOK.design GG Coins (field gems) */
+async function w11design(env, uid, b) {
+  const cd = await w11get(env, `w11Clubs/${uid}`); if (!cd) return { ok: false, error: 'no club' };
+  const c = cd.data, have = Number(c.gems) || 0, cost = C11.TOK.design;
+  if (!Array.isArray(b.kits) || b.kits.length !== 3 || !b.crest || typeof b.crest !== 'object') return { ok: false, error: 'bad design' };
+  if (have < cost) return { ok: false, error: `Not enough 🪙 GG Coins (a redesign costs ${cost})` };
+  const crest = C11.cleanCrest(b.crest), kits = b.kits.map(C11.cleanKit);
+  const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { crest, kits }, mask: ['crest', 'kits'], inc: { gems: -cost }, pre: { ut: cd.ut } }]);
+  return ok ? { ok: true, crest, kits, gems: have - cost } : { ok: false, error: 'try again' };
+}
+/* once per club: GG Coins become rare tokens (10, or 25 for Pioneers) */
+async function w11g4once(env, uid) {
+  const cd = await w11get(env, `w11Clubs/${uid}`); if (!cd) return { ok: false, error: 'no club' };
+  const c = cd.data; if (c.g4) return { ok: true, already: true, gems: Number(c.gems) || 0 };
+  const gems = c.pioneer ? C11.TOK.pio : C11.TOK.start;
+  const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { gems, g4: 1 }, mask: ['gems', 'g4'], pre: { ut: cd.ut } }]);
+  return ok ? { ok: true, gems } : { ok: false, error: 'try again' };
+}
+async function w11g4route(p, env, uid, b) {
+  if (p === '/w11/design') return await w11design(env, uid, b);
+  if (p === '/w11/g4') return await w11g4once(env, uid);
   return null;
 }
