@@ -3,7 +3,7 @@
 // - Opens instantly from the saved copy. A new version is downloaded whole, then used on the next open.
 // - Each update has a new CACHE name, so the newest files are fetched as soon as an update is uploaded.
 // - If there's no internet, it opens the last saved copy of the app instead of a blank page.
-const CACHE = 'sinless-gg-v90';
+const CACHE = 'sinless-gg-v91';
 const APP_FILES = ['./', './index.html', './tailwind.css', './styles.css', './app.js', './firebase-config.js', './manifest.json', './icon-192.png', './icon-512.png', './logo-96.png', './icon-180.png'];
 
 self.addEventListener('install', (event) => {
@@ -29,7 +29,8 @@ self.addEventListener('fetch', (event) => {
   // which could break sign-in). A new version is downloaded whole in the background and swapped in on the next open.
   const isApp = req.mode === 'navigate' || APP_FILES.some((f) => f !== './' && url.pathname.endsWith(f.slice(1)));
   event.respondWith(caches.open(CACHE).then(async (c) => {
-    const hit = await c.match(req, { ignoreSearch: true }) || (req.mode === 'navigate' ? await c.match('./index.html') : null);
+    // files with ?v=N (like w11.js?v=2) must match exactly, so a new version is never hidden behind an old saved copy
+    const hit = await c.match(req, { ignoreSearch: !/[?&]v=/.test(url.search) }) || (req.mode === 'navigate' ? await c.match('./index.html') : null);
     if (hit && isApp) return hit;
     // pictures and other files: saved copy instantly, refreshed quietly for next time
     const fresh = fetch(req).then((res) => { if (res && res.ok) c.put(req, res.clone()).catch(() => {}); return res; }).catch(() => hit);
