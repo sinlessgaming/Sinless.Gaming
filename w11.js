@@ -125,9 +125,10 @@ const nbase = function (id, gid, g) {
   if (k === 'L') return { id, k, ...nm, pos, age: 16 + Number(m[3]) % 2, ovr: LEGEND_OVR, pot: LEGEND_OVR, wk: true, legend: true, ...legAttrs(r, pos), num: pos === 'GK' ? 1 : [7, 10, 9, 11, 8][Number(m[3]) % 5] };
   let age, ovr, pot, wk = false;
   if (k === 'y') {
-    age = 15 + Math.floor(r() * 3); wk = r() < 0.05;
-    ovr = wk ? 60 + Math.floor(r() * 10) : 42 + Math.floor(r() * 19);
-    pot = wk ? 90 + Math.floor(r() * 8) : clamp(ovr + 10 + Math.floor(r() * 19), ovr, 86);
+    const sc = Number(m[4]) >= 15;
+    age = 15 + Math.floor(r() * 3); wk = r() < (sc ? 0.25 : 0.05);
+    ovr = wk ? 60 + Math.floor(r() * 10) : (sc ? 50 : 42) + Math.floor(r() * (sc ? 14 : 19));
+    pot = wk ? 90 + Math.floor(r() * 8) : clamp(ovr + 10 + Math.floor(r() * 19), ovr, sc ? 90 : 86);
   } else {
     age = 16 + Math.floor(r() * 17); const x = r();
     ovr = x < 0.22 ? 48 + Math.floor(r() * 12) : x < 0.52 ? 60 + Math.floor(r() * 10) : x < 0.8 ? 70 + Math.floor(r() * 10) : x < 0.95 ? 80 + Math.floor(r() * 8) : 88 + Math.floor(r() * 6);
@@ -164,7 +165,7 @@ const value = (p) => {
   return Math.max(500, r500(v));
 };
 const releaseValue = (p) => p && !p.legend ? Math.round(value(p) * 0.1 / 100) * 100 : 0;
-const youthIds = (S, ci) => { const o = []; for (let k = 0; k < 15; k++) o.push('y' + S + 'x' + ci + 'x' + k); return o; };
+const youthIds = (S, ci, n) => { const o = []; for (let k = 0; k < (n || 15); k++) o.push('y' + S + 'x' + ci + 'x' + k); return o; };
 const legendId = (S, no) => 'L' + S + 'x' + no;
 
 /* 🔨 the market: 15 auctions always running. Each lasts 60 s; the next one starts the moment it ends.
@@ -288,7 +289,7 @@ const PROMO_BONUS = 50000;
 /* 💪 fitness: 0–100 per player. A full match costs 24; each day back +15 (+1 per fitness training point). */
 const absDay = (t) => Math.floor(t / DAY);
 const REC = 15, DRAIN = 24, AI_COND = 92, TR_MAX = 15, PACK_FIT = 25;
-const condNow = (club, id, day) => { const c = club && club.cond && club.cond[id] != null ? Number(club.cond[id]) : 100, cd = club && club.cd != null ? club.cd : day; return clamp(Math.round(c + Math.max(0, day - cd) * (REC + (Number(club && club.tr && club.tr.fit) || 0))), 0, 100); };
+const condNow = (club, id, day) => { const c = club && club.cond && club.cond[id] != null ? Number(club.cond[id]) : 100, cd = club && club.cd != null ? club.cd : day; return clamp(Math.round(c + Math.max(0, day - cd) * (REC + (Number(club && club.tr && club.tr.fit) || 0) + (hasStaff(club, 'ph', clock(day * DAY).s) ? PHYSIO_REC : 0))), 0, 100); };
 const FORM_NAMES = ['4-4-2', '4-3-3', '4-2-3-1', '4-1-4-1', '4-4-1-1', '4-3-2-1', '4-5-1', '4-1-2-1-2', '4-2-4', '3-5-2', '3-4-3', '3-4-2-1', '3-3-3-1', '5-3-2', '5-4-1'];
 /* 📋 team sheet at the 15-minute lock: banned / injured players can't start (best fit from the bench comes in) */
 const sheetOf = (club, day, S) => {
@@ -298,6 +299,11 @@ const sheetOf = (club, day, S) => {
     if (!out.has(ids[i])) continue;
     const pos = player(ids[i], S).pos; let best = -1, bo2 = -1;
     for (let j = 11; j < ids.length; j++) { if (out.has(ids[j])) continue; const p = player(ids[j], S), sc = (p.pos === pos ? 1000 : 0) + p.ovr; if (sc > bo2) { bo2 = sc; best = j; } }
+    if (best > 0) { const x = ids[i]; ids[i] = ids[best]; ids[best] = x; }
+  }
+  if (hasStaff(club, 'as', S)) for (let i = 1; i < 11; i++) {
+    const p = player(ids[i], S), c = condNow(club, ids[i], day); if (out.has(ids[i]) || c >= 60) continue; let best = -1, bs = -1;
+    for (let j = 11; j < ids.length; j++) { if (out.has(ids[j])) continue; const q = player(ids[j], S), cq = condNow(club, ids[j], day); if (q.pos !== p.pos || cq < 75 || q.ovr < p.ovr - 10) continue; if (q.ovr + cq * 0.1 > bs) { bs = q.ovr + cq * 0.1; best = j; } }
     if (best > 0) { const x = ids[i]; ids[i] = ids[best]; ids[best] = x; }
   }
   const cond = {}; ids.forEach(id => { cond[id] = condNow(club, id, day); });
@@ -310,7 +316,99 @@ const parseRes = (r) => { const [sc, cards, subs] = String(r || '').split('|'); 
   return { h, a, cards: [0, 1].map(i => (C[i] || '').split(',').filter(Boolean).map(x => [x.slice(0, -1), x.slice(-1)])), subs: [0, 1].map(i => (U[i] || '').split(',').filter(Boolean).map(x => { const m = x.match(/^(.+)>(.+)@(\d+)$/); return m ? [m[1], m[2], Number(m[3])] : null; }).filter(Boolean)) }; };
 const RES_RE = /^\d{1,2}-\d{1,2}\|[\w~,;-]*\|[\w~,;>@-]*$/;
 
-return { NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
+/* ===================== 🏆 G3b · cups, stadium, sponsors, staff ===================== */
+/* 👔 staff (hired for one season) */
+const STAFF = { ph: 60000, sc: 40000, as: 25000 }, PHYSIO_REC = 6, SCOUT_N = 20;
+const hasStaff = (c, k, S) => !!(c && c.stf && c.stf.s === S && c.stf[k]);
+/* 🏟️ stadium: 5 levels, ticket coins for every home match (league and cups) */
+const STD_SEATS = [5000, 12000, 25000, 45000, 80000], STD_TICKET = [2000, 5000, 10000, 18000, 30000], STD_COST = [0, 120000, 350000, 800000, 1800000];
+const stdLv = (c) => clamp(Math.floor(Number(c && c.std && c.std.lv) || 1), 1, 5);
+/* 🤝 sponsors: made-up brands only. 3 kinds, 3 offers each, sign 1 of each per season */
+const SP_A = 'Zantro Kivoo Lumaro Vexano Odumi Tazuko Morivo Quenzo Yelzo Nkiro Fenvo Pirolu Dorvix Zuvia Kwento Sambeo Ravito Okelu Velmo Junza Abeko Talume Sorvi Imbeza'.split(' ');
+const SP_B = { sh: 'Sportswear Mobile Juice Electronics Shoes Water Gaming Solar'.split(' '), st: 'Motors Airways Logistics Builders Foods Cement Travel Homes'.split(' '), bo: 'Energy Snacks Tech Studios Radio Paints Bikes Kitchens'.split(' ') };
+const SP_KINDS = ['sh', 'st', 'bo'];
+const SP_BASE = { sh: [{ up: 40000, pm: 500 }, { up: 15000, pm: 1500 }, { up: 0, pm: 2500 }], st: [{ ph: 1500 }, { phw: 4000 }, { phg: 1500 }], bo: [{ pg: 1500 }, { pw: 5000 }, { top2: 150000, cup: 200000 }] };
+const SP_MULT = [3, 2.5, 2, 1.6, 1.3, 1];
+const spOffers = (S, ci, t) => { const o = {}, m = SP_MULT[clamp(t || 6, 1, 6) - 1];
+  SP_KINDS.forEach(kd => { o[kd] = SP_BASE[kd].map((b, k) => { const r = rng(hash('sp:' + S + ':' + ci + ':' + kd + ':' + k)), f = m * (0.9 + r() * 0.2), d = { n: pick(r, SP_A) + ' ' + pick(r, SP_B[kd]), k }; for (const x in b) d[x] = r500(b[x] * f); return d; }); });
+  return o; };
+const spOf = (c, S, kd) => c && c.sp && c.sp.s === S && c.sp[kd] ? c.sp[kd] : null;
+/* coins a manager gets from one match on top of win/draw coins: tickets (home) + sponsors */
+const matchExtra = (c, S, home, gf, ga) => {
+  const win = gf > ga, sh = spOf(c, S, 'sh'), st = spOf(c, S, 'st'), bo = spOf(c, S, 'bo'); let x = home ? STD_TICKET[stdLv(c) - 1] : 0;
+  if (sh) x += sh.pm || 0;
+  if (st && home) x += (st.ph || 0) + (win ? st.phw || 0 : 0) + (st.phg || 0) * gf;
+  if (bo) x += (bo.pg || 0) * gf + (win ? bo.pw || 0 : 0);
+  return x; };
+
+/* 🏆 cups. Open Cup (oc): every club, knockout on even days, final on day 24. Higher divisions get the byes.
+   ⭐ Champions League (cl): last season's 64 best group champions, 16 groups of 4 on days 7–17, knockout 19–27.
+   Cup matches kick off 2 hours after the league slot (06→08, 12→14, 18→20, 22→00). A knockout draw goes to penalties. */
+const OC_DAYS = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24], CL_DAYS = [7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27], CL_GR = 6;
+const CUP_GAP = 2 * 3600000, CUP_AI_HOUR = AI_HOUR + 2, CUP_FIRST = 2;
+const OC_WIN = 5000, CL_WIN = 15000, CL_DRAW = 5000, CUP_PRIZE = { oc: [300000, 100000], cl: [1000000, 300000] };
+const CUP_NAME = { oc: '🏆 Open Cup', cl: '⭐ Champions League' };
+const cupDays = (C) => C.k === 'cl' ? CL_DAYS : OC_DAYS.slice(OC_DAYS.length - C.R);
+const cupDay = (C, r) => cupDays(C)[r - 1];
+const cupKo = (s, d, sl) => ko(s, d, sl) + CUP_GAP;
+const cupAiKo = (s, d) => dayStart(s, d) + CUP_AI_HOUR * 3600000;
+const cupMid = (s, k, r, i) => s + '-' + k + '-' + r + '-' + i;
+const isCupDay = (s, d) => s >= CUP_FIRST && (OC_DAYS.includes(d) || CL_DAYS.includes(d));
+const isKO = (C, r) => C.k === 'oc' || r > CL_GR;
+const seat = (C, ci) => ci < 0 ? ci : (C.tk && C.tk[ci] != null ? Number(C.tk[ci]) : ci);
+const cupUser = (C, ci) => { const s = seat(C, ci); return s >= 0 && C.users && C.users[s] ? C.users[s] : null; };
+const roundName = (C, r) => { if (C.k === 'cl') return r <= CL_GR ? 'Group matchday ' + r : ['Round of 32', 'Round of 16', 'Quarter-finals', 'Semi-finals', 'Final'][r - CL_GR - 1];
+  const left = C.R - r; return left === 0 ? 'Final' : left === 1 ? 'Semi-finals' : left === 2 ? 'Quarter-finals' : left === 3 ? 'Round of 16' : 'Round ' + r; };
+/* penalties: same shoot-out on every phone */
+const pens = (key) => { const r = rng(hash('pen:' + key)); let a = 0, b = 0; for (let i = 0; i < 5; i++) { if (r() < 0.76) a++; if (r() < 0.76) b++; }
+  for (let g = 0; a === b && g < 30; g++) { if (r() < 0.76) a++; if (r() < 0.76) b++; } if (a === b) a++; return [a, b]; };
+/* score text: "2-1", "1-1/4-3" (penalties) or "bye" → [h, a, penH, penA] */
+const cupScore = (x) => { if (!x || x === 'bye') return null; const [sc, pe] = String(x).split('/'), [h, a] = sc.split('-').map(Number), q = pe ? pe.split('-').map(Number) : [0, 0]; return [h, a, q[0], q[1]]; };
+const cupWin = (x) => { const v = cupScore(x); return !v ? 0 : v[0] > v[1] ? 0 : v[0] < v[1] ? 1 : v[2] >= v[3] ? 0 : 1; };
+const winSide = (x, p) => p[0] < 0 ? 1 : p[1] < 0 ? 0 : cupWin(x);
+const baseC = {}, cupStr = (C, ci) => { const u = cupUser(C, ci); if (u) return Number(u.o) || 60; if (ci < 0) return 0; if (baseC[ci] == null) baseC[ci] = club(ci).base; return baseC[ci]; };
+const cupResStr = (k, r, h, a, mid) => h + '-' + a + (isKO({ k }, r) && h === a ? '/' + pens(mid).join('-') : '');
+/* coins for one cup match (side i = 0 home, 1 away): a win (penalties count), or a Champions League group draw */
+const cupCoins = (k, r, h, a, mid, i) => { if (h === a && !isKO({ k }, r)) return k === 'cl' ? CL_DRAW : 0; return cupWin(cupResStr(k, r, h, a, mid)) === i ? (k === 'cl' ? CL_WIN : OC_WIN) : 0; };
+const CL_RR = [[[0, 1], [2, 3]], [[0, 2], [1, 3]], [[0, 3], [1, 2]]];
+const resOf = (C, r, k, live) => { const R = C.rr && C.rr[r]; return (R && R[k]) || (live && C.ur && C.ur[r + '_' + k]) || null; };
+/* 📊 CL group table (g = 0…15) */
+const clTable = (C, g, live) => {
+  const T = [0, 1, 2, 3].map(j => ({ ci: C.gs[4 * g + j], j, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }));
+  for (let r = 1; r <= CL_GR; r++) for (let x = 0; x < 2; x++) {
+    const v = cupScore(resOf(C, r, 2 * g + x, live)); if (!v) continue; let [a, b] = CL_RR[(r - 1) % 3][x]; if (r > 3) [a, b] = [b, a];
+    const H = T[a], A = T[b]; H.p++; A.p++; H.gf += v[0]; H.ga += v[1]; A.gf += v[1]; A.ga += v[0];
+    if (v[0] > v[1]) { H.w++; A.l++; H.pts += 3; } else if (v[0] < v[1]) { A.w++; H.l++; A.pts += 3; } else { H.d++; A.d++; H.pts++; A.pts++; }
+  }
+  return T.sort((x, y) => y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) || y.gf - x.gf || hash(C.s + ':t:' + x.ci) - hash(C.s + ':t:' + y.ci));
+};
+/* the pairs of round r: [[home, away], …] (club ids, -1 = bye), or null if the round before is not decided yet */
+const cupPairs = (C, r) => {
+  if (r < 1 || r > C.R) return null;
+  if (C.k === 'cl' && r <= CL_GR) { const o = []; for (let g = 0; g < 16; g++) CL_RR[(r - 1) % 3].forEach(([a, b]) => o.push(r > 3 ? [C.gs[4 * g + b], C.gs[4 * g + a]] : [C.gs[4 * g + a], C.gs[4 * g + b]])); return o; }
+  if (C.k === 'cl' && r === CL_GR + 1) { for (let q = 1; q <= CL_GR; q++) if (!(C.rr && C.rr[q])) return null; const W = [], U = []; for (let g = 0; g < 16; g++) { const t = clTable(C, g); W.push(t[0].ci); U.push(t[1].ci); } return W.map((w, k) => [w, U[(k + 8) % 16]]); }
+  if (C.k === 'oc' && r === 1) { const o = []; for (let k = 0; k < C.b.length; k += 2) o.push([C.b[k], C.b[k + 1]]); return o; }
+  const P = cupPairs(C, r - 1), R = C.rr && C.rr[r - 1]; if (!P || !R) return null;
+  const w = P.map((p, k) => p[winSide(R[k], p)]), o = []; for (let k = 0; k < w.length; k += 2) o.push([w[k], w[k + 1]]); return o;
+};
+/* ⚡ a computer-vs-computer cup result */
+const cupQuick = (C, r, k, p) => { const key = cupMid(C.s, C.k, r, k), q = quick(key, cupStr(C, p[0]), cupStr(C, p[1])); return q[0] + '-' + q[1] + (isKO(C, r) && q[0] === q[1] ? '/' + pens(key).join('-') : ''); };
+/* when a round's user match needs a kick-off time: the home manager's slot (else the away manager's) + 2 h */
+const cupKoOf = (C, r, p) => { const h = cupUser(C, p[0]), a = cupUser(C, p[1]), u = h || a; return u ? cupKo(C.s, cupDay(C, r), u.sl == null ? 2 : Number(u.sl)) : cupAiKo(C.s, cupDay(C, r)); };
+/* build the Open Cup bracket from all clubs, best first. Byes go to the best clubs, the rest are drawn at random */
+const ocBracket = (S, list) => {
+  list = list.slice(0, 4096); let R = 1; while ((1 << R) < list.length) R++;
+  const P = 1 << R, B = P - list.length, pairs = [], rest = list.slice(B).sort((a, b) => hash(S + ':ocd:' + a) - hash(S + ':ocd:' + b) || a - b);
+  for (let i = 0; i < B; i++) pairs.push([list[i], -1]);
+  for (let i = 0; i < rest.length; i += 2) pairs.push([rest[i], rest[i + 1]]);
+  pairs.sort((x, y) => hash(S + ':ocp:' + x[0]) - hash(S + ':ocp:' + y[0]) || x[0] - y[0]);
+  return { R, b: [].concat(...pairs) };
+};
+/* Champions League groups: 4 pots of 16 (best first), shuffled inside each pot */
+const clGroups = (S, ent) => { const pots = [0, 1, 2, 3].map(q => ent.slice(16 * q, 16 * q + 16).sort((a, b) => hash(S + ':clp:' + a) - hash(S + ':clp:' + b) || a - b)), gs = [];
+  for (let g = 0; g < 16; g++) for (let q = 0; q < 4; q++) gs.push(pots[q][g]); return gs; };
+
+return { STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
 })();
 
 const { WORLD, hash, rng, pick, clamp } = W11C;
@@ -1074,7 +1172,7 @@ W.playL = async function (live, my) {
     ${ctl ? `<div class="alert" id="w11al">📢 TOUCHLINE MOMENT · shout now!</div>
     <div class="shouts" id="w11sh">${[['attack', '📣 Attack'], ['tight', '🧱 Tight'], ['press', '⚡ Press'], ['calm', '🧘 Calm']].map(([k, l]) => `<button data-k="${k}" onclick="W11.shout('${k}')">${l}</button>`).join('')}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"><button class="btn2" onclick="W11.subMenu()">🔁 Subs (<span id="w11subs">5</span>)</button><button class="btn2" onclick="W11.formMenu()">📐 Formation</button></div>` : '<p style="font-size:11px;color:#94a3b8;margin-top:8px;text-align:center">👀 Watching</p>'}
-    <div class="tick" id="w11tk"></div><div class="tip">League · Division ${M.t} · Matchday ${M.md}. You are ${my === 0 ? 'the home side (left → right)' : my === 1 ? 'the away side (right → left)' : 'watching'}. Orders reach the pitch 2 seconds after you tap.</div><div id="w11ov"></div></div>`, '🏆 League', 'W11.leaveMatch()');
+    <div class="tick" id="w11tk"></div><div class="tip">${M.cup ? CC.CUP_NAME[M.cup] + ' · ' + esc(M.rn || '') + (CC.isKO({ k: M.cup }, M.cr) ? ' · a draw goes to penalties' : '') : 'League · Division ' + M.t + ' · Matchday ' + M.md}. You are ${my === 0 ? 'the home side (left → right)' : my === 1 ? 'the away side (right → left)' : 'watching'}. Orders reach the pitch 2 seconds after you tap.</div><div id="w11ov"></div></div>`, M.cup ? '🏆 CUP MATCH' : '🏆 League', 'W11.leaveMatch()');
   if (ctl && !Object.values(raw).some(x => x && x.by === uidNow() && /here/.test(x.c || ''))) W.sendL({ here: 1 });
   const pitch = new Pitch(document.getElementById('w11c')); pitch.size(); W._pitch = pitch; window.addEventListener('resize', () => pitch.size(), { once: true });
   let seenEv = 0;
@@ -1106,20 +1204,23 @@ W.finishL = async function (live) {
   const my = W.my; W.ui('<p style="text-align:center;padding:40px 0;color:#94a3b8">⏱️ Full time! Working out the official result…</p>', 'Full time');
   const { m, r, j } = await W.checkL(live.mid, live.M);
   const a = m.T[0], b = m.T[1], pt = a.poss + b.poss || 1, goals = m.ev.filter(e => e.k === 'goal'), mineGf = my === 1 ? b.score : a.score, mineGa = my === 1 ? a.score : b.score;
-  const res = my < 0 ? '' : mineGf > mineGa ? 'w' : mineGf < mineGa ? 'l' : 'd', coins = res === 'w' ? CC.winCoins(live.M.t) : res === 'd' ? CC.drawCoins(live.M.t) : 0;
+  const LM = live.M, pk = LM.cup && CC.isKO({ k: LM.cup }, LM.cr) && a.score === b.score ? CC.pens(live.mid) : null;
+  let res = my < 0 ? '' : mineGf > mineGa ? 'w' : mineGf < mineGa ? 'l' : 'd'; if (pk && res) res = (pk[0] > pk[1] ? 0 : 1) === my ? 'w' : 'l';
+  const coins = LM.cup ? (my < 0 ? 0 : CC.cupCoins(LM.cup, LM.cr, a.score, b.score, live.mid, my)) : res === 'w' ? CC.winCoins(LM.t) : res === 'd' ? CC.drawCoins(LM.t) : 0;
   const status = j.final ? (j.final === r ? `✅ Result confirmed${coins ? ` · +${fmt(coins)} 🪙` : ''}` : `✅ Confirmed by other phones: ${esc(String(j.final).split('|')[0])}`) : j.ok ? '⏳ Waiting for a second phone to check the result. Coins arrive once it is confirmed.' : '⚠️ ' + esc(j.error || 'Could not send the result. It will be sent next time you open 11 Wonders.');
   W.G = null; await W.load();
   W.ui(`<div class="card" style="text-align:center">${res ? `<p style="font-size:12px;font-weight:900;color:${res === 'w' ? '#a3e635' : res === 'l' ? '#ff2d95' : '#facc15'}">${res === 'w' ? 'WIN' : res === 'l' ? 'DEFEAT' : 'DRAW'}</p>` : ''}
-    <p style="font-size:34px;font-weight:900">${a.score}–${b.score}</p><p style="font-size:12px;color:#94a3b8">${esc(a.name)} vs ${esc(b.name)}</p>
+    <p style="font-size:34px;font-weight:900">${a.score}–${b.score}</p>${pk ? `<p style="font-size:13px;font-weight:900;color:#facc15">🥅 Penalties ${pk[0]}–${pk[1]}</p>` : ''}<p style="font-size:12px;color:#94a3b8">${esc(a.name)} vs ${esc(b.name)}${LM.cup ? ' · ' + CC.CUP_NAME[LM.cup] + ' · ' + esc(LM.rn || '') : ''}</p>
     <div style="text-align:left;margin-top:10px;font-size:12px">${goals.map(g => `<p>${g.min}' ${esc(g.txt.replace(/ \d+–\d+$/, ''))}</p>`).join('') || '<p style="color:#94a3b8">No goals</p>'}</div>
     <p style="font-size:11px;color:#94a3b8;margin-top:8px">Possession ${Math.round(a.poss / pt * 100)}% · Shots ${a.shots}–${b.shots} · On target ${a.onT}–${b.onT}</p>
     <div class="tip" style="text-align:left">${status}</div>
-    <button class="btn" style="margin-top:14px" onclick="W11.home()">Back to the league</button></div>`, 'Full time');
+    <button class="btn" style="margin-top:14px" onclick="W11.home()">${LM.cup ? 'Back' : 'Back to the league'}</button></div>`, 'Full time');
 };
 W.resultL = async function (mid, M) {
   const [sc] = String(M.r || '').split('|');
   let goals = ''; if (!M.q && M.s0 && M.s1) { const live = W.liveFrom(mid, M), m = W.simL(live, await W.cmdsOnce(live)); goals = m.ev.filter(e => e.k === 'goal').map(g => `<p>${g.min}' ${esc(g.txt.replace(/ \d+–\d+$/, ''))}</p>`).join(''); }
-  W.ui(`<div class="card" style="text-align:center"><p style="font-size:11px;color:#94a3b8">Matchday ${M.md} · ${M.q ? '⚡ quick result (nobody checked it in time)' : '✅ confirmed'}</p><p style="font-size:34px;font-weight:900">${esc(sc)}</p><p style="font-size:12px;color:#94a3b8">${esc((M.s0 && M.s0.n) || '')} vs ${esc((M.s1 && M.s1.n) || '')}</p><div style="text-align:left;margin-top:10px;font-size:12px">${goals}</div><button class="btn" style="margin-top:14px" onclick="W11.home()">Back</button></div>`, 'Result');
+  const pk = M.cup ? (CC.cupResStr(M.cup, M.cr, ...String(sc).split('-').map(Number), mid).split('/')[1] || '') : '';
+  W.ui(`<div class="card" style="text-align:center"><p style="font-size:11px;color:#94a3b8">${M.cup ? CC.CUP_NAME[M.cup] + ' · ' + esc(M.rn || '') : 'Matchday ' + M.md} · ${M.q ? '⚡ quick result (nobody checked it in time)' : '✅ confirmed'}</p><p style="font-size:34px;font-weight:900">${esc(sc)}</p>${pk ? `<p style="font-size:13px;font-weight:900;color:#facc15">🥅 Penalties ${esc(pk.replace('-', '–'))}</p>` : ''}<p style="font-size:12px;color:#94a3b8">${esc((M.s0 && M.s0.n) || '')} vs ${esc((M.s1 && M.s1.n) || '')}</p><div style="text-align:left;margin-top:10px;font-size:12px">${goals}</div><button class="btn" style="margin-top:14px" onclick="W11.home()">Back</button></div>`, 'Result');
 };
 /* 🔍 quietly check your own finished matches and 1–2 others (keeps everyone honest) */
 W.bgCheck = function () {
@@ -1241,11 +1342,11 @@ W.mkClaim = async function (L) {
 
 // ---------- 🧒 youth draft ----------
 W.youthD = function () {
-  const me = W.me, S = CC.clock(W.nowS()).s, ids = CC.youthIds(S, me.club), done = me.yd === S;
+  const me = W.me, S = CC.clock(W.nowS()).s, ids = CC.youthIds(S, me.club, CC.hasStaff(me, 'sc', S) ? CC.SCOUT_N : 15), done = me.yd === S;
   const room = Math.max(0, CC.MAX_SQUAD - (me.ids || []).length), max = Math.min(5, room);
   if (!W._yp || W._yps !== S) { W._yp = []; W._yps = S; }
   const P = ids.map((id, k) => ({ k, id, p: W.player(id, S) })).sort((a, b) => b.p.ovr - a.p.ovr || a.k - b.k);
-  const intro = `<div class="card"><p style="font-weight:900">🧒 Youth Draft · Season ${S}</p><p style="font-size:12px;color:#cbd5e1;margin-top:6px">Every season (28 days) your scouts find <b>15 youngsters aged 15–17</b>. Keep your best <b>5</b>. The rest go to other clubs. 🌟 Wonderkids are rare: they can grow into world-class stars.</p></div>`;
+  const intro = `<div class="card"><p style="font-weight:900">🧒 Youth Draft · Season ${S}</p><p style="font-size:12px;color:#cbd5e1;margin-top:6px">Every season (28 days) your scouts find <b>${ids.length} youngsters aged 15–17</b>${ids.length > 15 ? ' (🔭 your Scout found 5 extra)' : ''}. Keep your best <b>5</b>. The rest go to other clubs. 🌟 Wonderkids are rare: they can grow into world-class stars.</p></div>`;
   if (done) { const kept = ids.filter(id => (me.ids || []).includes(id)).map(id => W.player(id, S)); return W.ui(intro + `<div class="card"><p style="font-weight:900;color:#a3e635">✅ Done for this season</p>${kept.map(p => `<div class="row">${pline(p)}</div>`).join('') || '<p style="font-size:12px;color:#94a3b8">(already released)</p>'}<p style="font-size:11px;color:#94a3b8;margin-top:8px">New youngsters arrive in Season ${S + 1}: ${localT(CC.dayStart(S + 1, 1), true)}.</p></div>`, '🧒 YOUTH DRAFT', 'W11.home()'); }
   const sel = W._yp;
   W.ui(intro + `<div class="card"><p style="font-weight:900">Pick up to ${max} <span style="font-size:11px;color:#94a3b8">· ${sel.length} picked</span></p>${room < 5 ? `<div class="tip">Your squad has room for only ${room}. <button onclick="W11.releaseMenu()" style="text-decoration:underline;font-weight:900">Release players</button> to keep more.</div>` : ''}
@@ -1279,4 +1380,158 @@ W.release = async function (id) {
   W.me.ids = r.ids; W.me.coins = r.coins; W.me.ovr = W.avg(r.ids);
   toast(`👋 ${p.name} left the club${r.back ? ' · +' + fmt(r.back) + ' 🪙' : ''}`); W.releaseMenu();
 };
+
+// ===================== 🏆 G3b · cups, club HQ (stadium, sponsors, staff), Hall of Fame =====================
+const cupSeatMine = (C, ci) => ci >= 0 && W.me && CC.seat(C, ci) === W.me.club;
+const cupNm = (C, ci) => { if (ci < 0) return { n: 'bye', sh: '–', hue: 220 }; const u = CC.cupUser(C, ci), sc = CC.seat(C, ci); if (u) return { n: u.n, sh: u.sh, user: true, me: u.u === uidNow(), hue: CC.club(sc).hue }; const c = CC.club(sc); return { n: c.name, sh: c.short, hue: c.hue }; };
+const scoreTxt = (x) => { if (x === 'bye') return 'bye'; const v = CC.cupScore(x); return v ? v[0] + ' – ' + v[1] + (/\//.test(x) ? `<br><span style="font-size:9px;color:#facc15">pens ${v[2]}–${v[3]}</span>` : '') : ''; };
+W.loadCups = async function (force) {
+  const S = CC.clock(W.nowS()).s;
+  if (!force && W._cups && W._cups.S === S && Date.now() - W._cups.at < 60000) return W._cups;
+  const out = { S, at: Date.now(), oc: null, cl: null };
+  if (S >= CC.CUP_FIRST) { const f = await fbLoad(); for (const k of ['oc', 'cl']) { try { const sn = await f.getDoc(f.doc(db(), 'w11c', S + '-' + k)); out[k] = sn.exists() ? sn.data() : null; } catch (e) {} } }
+  W._cups = out; W._nextCup = W.nextCup(); return out;
+};
+/* my cup matches (rounds that are drawn so far) */
+W.myCupFix = function (C) {
+  const out = []; if (!C || !W.me) return out;
+  for (let r = 1; r <= C.R; r++) { const P = CC.cupPairs(C, r); if (!P) { if (C.k === 'cl' && r <= CC.CL_GR) continue; break; }
+    P.forEach((p, k) => { const h = cupSeatMine(C, p[0]), a = cupSeatMine(C, p[1]); if (!h && !a) return;
+      const ready = (C.pr || 0) >= r, real = !ready || ((C.pu && C.pu[r]) || []).includes(k);
+      out.push({ C, k: C.k, r, i: k, p, home: h, opp: p[h ? 1 : 0], ko: p[0] < 0 || p[1] < 0 ? 0 : CC.cupKoOf(C, r, p), mid: CC.cupMid(C.s, C.k, r, k), x: (C.rr && C.rr[r] && C.rr[r][k]) || (C.ur && C.ur[r + '_' + k]) || null, done: !!(C.rr && C.rr[r]), real }); }); }
+  return out;
+};
+W.nextCup = function () { const D = W._cups; if (!D) return null; let best = null;
+  for (const k of ['oc', 'cl']) for (const f of W.myCupFix(D[k])) if (!f.x && f.ko && f.real && W.nowS() < f.ko + MS + 15 * 60000 && (!best || f.ko < best.ko)) best = f;
+  return best; };
+/* where am I in this cup? */
+const cupState = (C) => { const F = W.myCupFix(C); if (!F.length) return { out: true, none: true };
+  const last = F[F.length - 1]; if (C.champ && cupSeatMine(C, C.champ.ci)) return { won: true, F };
+  const lost = F.find(f => f.done && f.x !== 'bye' && CC.isKO(C, f.r) && CC.winSide(f.x, f.p) !== (f.home ? 0 : 1));
+  if (lost) return { lost, F };
+  if (C.k === 'cl' && (C.rr || {})[CC.CL_GR] && !F.some(f => f.r > CC.CL_GR)) return { groupOut: true, F };
+  return { alive: true, F, next: F.find(f => !f.x && f.ko) || null, bye: F.find(f => !f.x && !f.ko) || null, last }; };
+
+// ---------- 🏠 extra buttons + next cup match on the home screens ----------
+W.g3Bar = (function (b) { return function () { b.apply(this, arguments); W.g3bBar(); }; })(W.g3Bar);
+W.g3bBar = function () {
+  const box = document.querySelector('#w11b [data-g3]'); if (!box || box.querySelector('[data-g3b]') || !W.me) return;
+  box.insertAdjacentHTML('beforeend', `<div data-g3b><div id="w11cupc"></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px"><button class="btn2" onclick="W11.cups()" style="padding:12px 4px">🏆 Cups</button><button class="btn2" onclick="W11.hq()" style="padding:12px 4px">🏟️ Club HQ</button><button class="btn2" onclick="W11.hof()" style="padding:12px 4px">🏛️ Hall of Fame</button></div></div>`);
+  W.loadCups().then(() => { const el = document.getElementById('w11cupc'), n = W._nextCup; if (!el || !n) return;
+    const o = cupNm(n.C, n.opp), ms = n.ko - W.nowS(), live = ms <= 0;
+    el.innerHTML = `<div class="card"><p style="font-weight:900">${live ? '<span style="color:#ff2d95">● LIVE NOW</span>' : CC.CUP_NAME[n.k]} · ${esc(CC.roundName(n.C, n.r))}</p><div style="display:flex;align-items:center;gap:8px;margin-top:8px">${mini(o.hue, o.sh)}<p style="flex:1;font-weight:900">${n.home ? 'vs' : '@'} ${esc(o.n)} ${o.user ? '<span style="font-size:10px;color:#67e8f9">👤 manager</span>' : ''}</p></div>
+      <p style="font-size:11px;color:#94a3b8;margin-top:6px">${localT(n.ko, true)} · ${live ? 'playing' : 'in ' + left(ms)}</p>${ms < 15 * 60000 ? `<button class="btn" style="margin-top:10px" onclick="W11.openL('${n.mid}')">${live ? '▶ Go to the touchline' : '🔒 Team sheet locked · open match'}</button>` : ''}</div>`; });
+  W.cupCheck();
+};
+W.leagueLock = (function (b) { return function () { const x = b.apply(this, arguments); if (x) return x; const n = W._nextCup; if (!n) return null; const ms = n.ko - W.nowS();
+  if (ms < 15 * 60000 && ms > -MS - 30000) return ms > 0 ? `Your cup match starts in ${Math.ceil(ms / 60000)} min. Friendlies are locked 15 minutes before official matches.` : 'Your cup match is being played right now!'; return null; }; })(W.leagueLock);
+W.open = (function (b) { return async function () { await b.apply(this, arguments); if (!W.me || W.live || !document.getElementById('w11')) return; await W.loadCups(); const n = W._nextCup; if (n && W.nowS() > n.ko - 60000 && W.nowS() < n.ko + TOTAL * 1000) W.openL(n.mid); }; })(W.open);
+/* quietly send results of my own finished cup matches */
+W.cupCheck = function () { if (W._cupBg) return; W._cupBg = 1;
+  setTimeout(async () => { try { const D = await W.loadCups(), f = await fbLoad(), now = W.nowS();
+    for (const k of ['oc', 'cl']) for (const x of W.myCupFix(D[k])) { if (x.x || !x.ko || !x.real || now < x.ko + TOTAL * 1000 + 15000 || W.voted(x.mid)) continue;
+      try { const sn = await f.getDoc(f.doc(db(), 'w11m', x.mid)); const M = sn.exists() ? sn.data() : null; if (M && M.st === 'locked') { await W.checkL(x.mid, M); await new Promise(r => setTimeout(r, 400)); } } catch (e) {} }
+  } catch (e) { console.warn('11W cup check', e); } }, 6000); };
+
+// ---------- 🏆 cups screen ----------
+const tabs = (cur, list) => `<div style="display:grid;grid-template-columns:repeat(${list.length},1fr);gap:6px;margin-bottom:12px">${list.map(([k, l, js]) => `<button onclick="${js}" style="padding:10px 4px;border-radius:12px;font-size:12px;font-weight:900;${k === cur ? 'background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24' : 'background:rgba(255,255,255,.06)'}">${l}</button>`).join('')}</div>`;
+const cupInfo = () => `<div class="card" style="font-size:12px;line-height:1.55;color:#cbd5e1"><p>🏆 <b>Open Cup</b>: every club in the pyramid, knockout. One round every 2 days (even days), final on day 24. The best clubs skip the first round. Win: +${fmt(CC.OC_WIN)} 🪙 · Cup winner +${fmt(CC.CUP_PRIZE.oc[0])} · Runner-up +${fmt(CC.CUP_PRIZE.oc[1])}</p>
+  <p style="margin-top:6px">⭐ <b>Champions League</b>: last season's group champions (64 best, filled up with runners-up). 16 groups of 4 on days 7–17, top 2 go through, then knockout on days 19–27. Final on day 27. Win +${fmt(CC.CL_WIN)} · draw +${fmt(CC.CL_DRAW)} · Champion +${fmt(CC.CUP_PRIZE.cl[0])} · Runner-up +${fmt(CC.CUP_PRIZE.cl[1])}</p>
+  <p style="margin-top:6px">⏰ Cup matches kick off <b>2 hours after the league match</b> (06→08, 12→14, 18→20, 22→00 GMT), at the home manager's time. A knockout draw goes to 🥅 penalties. Cup cards and injuries count in the league too.</p></div>`;
+W.cups = async function (k, r) {
+  W.ui('<p style="text-align:center;padding:40px 0;color:#94a3b8">Loading the cups…</p>', '🏆 CUPS', 'W11.home()');
+  const D = await W.loadCups(true), S = D.S;
+  if (S < CC.CUP_FIRST) return W.ui(`<div class="card" style="text-align:center"><p style="font-size:34px">🏆⭐</p><p style="font-weight:900;margin-top:6px">The cups start in Season ${CC.CUP_FIRST}</p><p style="font-size:12px;color:#cbd5e1;margin-top:6px">${localT(CC.dayStart(CC.CUP_FIRST, 1), true)}. Win your group this season to play in the first Champions League!</p></div>` + cupInfo(), '🏆 CUPS', 'W11.home()');
+  k = k || W._cupK || (D.cl && cupState(D.cl).alive ? 'cl' : 'oc'); W._cupK = k; const C = D[k];
+  const top = tabs(k, [['oc', '🏆 Open Cup', "W11.cups('oc')"], ['cl', '⭐ Champions League', "W11.cups('cl')"]]);
+  if (!C) return W.ui(top + `<div class="card"><p style="font-weight:900">${CC.CUP_NAME[k]} · Season ${S}</p><p style="font-size:12px;color:#94a3b8;margin-top:6px">The draw is made on day 28 of the season before. Check back soon!</p></div>` + cupInfo(), '🏆 CUPS', 'W11.home()');
+  const st = cupState(C), cur = (() => { for (let q = 1; q <= C.R; q++) if (!(C.rr && C.rr[q])) return q; return C.R; })();
+  r = clamp(r || cur, 1, C.R);
+  let me = '';
+  if (st.won) me = `<p style="font-size:30px;text-align:center">🏆</p><p style="font-weight:900;text-align:center;color:#facc15">You won the ${CC.CUP_NAME[k].slice(2)}!</p>`;
+  else if (st.none) me = `<p style="font-weight:900">${k === 'cl' ? 'Not in this season\'s Champions League' : 'Not in this season\'s Open Cup'}</p><p style="font-size:11px;color:#94a3b8;margin-top:4px">${k === 'cl' ? 'Win your group this season to play in it next season.' : 'Every club in the pyramid is drawn on day 28. Join the league to be in the next one.'}</p>`;
+  else if (st.lost) me = `<p style="font-weight:900">😔 Knocked out in the ${esc(CC.roundName(C, st.lost.r))}</p><p style="font-size:11px;color:#94a3b8;margin-top:4px">There's always next season.</p>`;
+  else if (st.groupOut) me = `<p style="font-weight:900">😔 Out in the group stage</p>`;
+  else if (st.next) { const n = st.next, o = cupNm(C, n.opp); me = `<p style="font-weight:900">✅ Still in! Next: ${esc(CC.roundName(C, n.r))}</p><div style="display:flex;align-items:center;gap:8px;margin-top:8px">${mini(o.hue, o.sh)}<p style="flex:1;font-weight:900">${n.home ? 'vs' : '@'} ${esc(o.n)}${o.user ? ' <span style="font-size:10px;color:#67e8f9">👤</span>' : ''}</p></div><p style="font-size:11px;color:#94a3b8;margin-top:4px">${n.ko ? localT(n.ko, true) : ''}${n.real ? '' : ' · ⚡ quick result (you joined after the draw)'}</p>${n.ko && n.ko - W.nowS() < 15 * 60000 && n.real ? `<button class="btn" style="margin-top:8px" onclick="W11.openL('${n.mid}')">▶ Open match</button>` : ''}`; }
+  else if (st.bye) me = `<p style="font-weight:900">✅ Still in! You skip ${esc(CC.roundName(C, st.bye.r))}</p><p style="font-size:11px;color:#94a3b8;margin-top:4px">The best clubs skip the first round. You go straight into the next one.</p>`;
+  else me = `<p style="font-weight:900">✅ Still in!</p><p style="font-size:11px;color:#94a3b8;margin-top:4px">The next draw comes when this round is finished.</p>`;
+  const champ = C.champ ? `<div class="card" style="text-align:center"><p style="font-size:10px;font-weight:900;letter-spacing:.12em;color:#facc15">SEASON ${C.s} CHAMPION</p><p style="font-size:20px;font-weight:900;margin-top:4px">🏆 ${esc(C.champ.n)}</p><p style="font-size:11px;color:#94a3b8">Runner-up: ${esc((C.ru || {}).n || '')}</p></div>` : '';
+  const nav = `<div style="display:flex;align-items:center;gap:8px"><button class="btn2" style="width:44px" onclick="W11.cups('${k}',${r - 1})" ${r <= 1 ? 'disabled' : ''}>◀</button><p style="flex:1;text-align:center;font-weight:900">${esc(CC.roundName(C, r))}<br><span style="font-size:10px;color:#94a3b8">Day ${CC.cupDay(C, r)} · ${localT(CC.dayStart(C.s, CC.cupDay(C, r)), true).split(' · ')[0]}</span></p><button class="btn2" style="width:44px" onclick="W11.cups('${k}',${r + 1})" ${r >= C.R ? 'disabled' : ''}>▶</button></div>`;
+  let body = '';
+  if (k === 'cl' && r <= CC.CL_GR) {
+    const mine = []; for (let g = 0; g < 16; g++) mine.push([g, [0, 1, 2, 3].some(j => cupSeatMine(C, C.gs[4 * g + j]))]);
+    mine.sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+    body = mine.map(([g, my]) => { const t = CC.clTable(C, g, true);
+      return `<div style="margin-top:10px;${my ? 'background:rgba(34,211,238,.06);border-radius:12px;padding:4px' : ''}"><p style="font-size:10px;font-weight:900;color:#67e8f9;letter-spacing:.1em">GROUP ${String.fromCharCode(65 + g)}</p>${t.map((x, i) => { const n = cupNm(C, x.ci); return `<div class="row" style="border-left:3px solid ${i < 2 ? '#22d3ee' : 'transparent'};padding-left:6px;${n.me ? 'font-weight:900' : ''}">${mini(n.hue, n.sh)}<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.n)}${n.user ? ' 👤' : ''}</span><span style="width:22px;text-align:center;color:#94a3b8">${x.p}</span><span style="width:30px;text-align:center;color:#94a3b8">${x.gf - x.ga > 0 ? '+' : ''}${x.gf - x.ga}</span><b style="width:24px;text-align:right">${x.pts}</b></div>`; }).join('')}</div>`; }).join('') + `<p style="font-size:10px;color:#94a3b8;margin-top:8px"><span style="color:#22d3ee">▌</span> top 2 go through to the Round of 32</p>`;
+  }
+  const P = CC.cupPairs(C, r);
+  let list = '';
+  if (!P) list = `<p style="font-size:12px;color:#94a3b8;margin-top:10px">Drawn when the ${esc(CC.roundName(C, r - 1))} is finished.</p>`;
+  else {
+    const rows = P.map((p, i) => ({ p, i, x: (C.rr && C.rr[r] && C.rr[r][i]) || (C.ur && C.ur[r + '_' + i]) || null, my: cupSeatMine(C, p[0]) || cupSeatMine(C, p[1]), u: !!(CC.cupUser(C, p[0]) || CC.cupUser(C, p[1])) }));
+    const show = (k === 'cl' && r <= CC.CL_GR ? rows.filter(x => x.my) : rows).sort((a, b) => b.my - a.my || b.u - a.u || a.i - b.i), cap = 60;
+    list = show.slice(0, cap).map(({ p, x, my, u }) => { const H = cupNm(C, p[0]), A = cupNm(C, p[1]), kt = p[0] >= 0 && p[1] >= 0 ? CC.cupKoOf(C, r, p) : 0;
+      return `<div class="row" style="${my ? 'background:rgba(34,211,238,.1);border-radius:10px;' : ''}"><span style="flex:1;text-align:right;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:${H.me ? 900 : 700}">${esc(H.n)}${H.user ? ' 👤' : ''}</span>${mini(H.hue, H.sh)}<span style="min-width:58px;text-align:center;font-weight:900">${x ? scoreTxt(x) : `<span style="font-size:10px;color:#94a3b8">${kt && W.nowS() > kt ? '⏳' : kt ? localT(kt) : ''}</span>`}</span>${mini(A.hue, A.sh)}<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:${A.me ? 900 : 700}">${A.user ? '👤 ' : ''}${esc(A.n)}</span></div>`; }).join('')
+      + (show.length > cap ? `<p style="font-size:10px;color:#94a3b8;margin-top:6px">+ ${show.length - cap} more matches between computer clubs</p>` : '');
+  }
+  W.ui(top + champ + `<div class="card">${me}</div><div class="card">${nav}${body}<div style="margin-top:8px">${list}</div></div>` + cupInfo(), '🏆 CUPS', 'W11.home()');
+};
+
+// ---------- 🏟️ club HQ: stadium, sponsors, staff ----------
+const spTerms = (o) => [o.up ? `+${fmt(o.up)} now` : '', o.pm ? `+${fmt(o.pm)} every match` : '', o.ph ? `+${fmt(o.ph)} every home match` : '', o.phw ? `+${fmt(o.phw)} every home win` : '', o.phg ? `+${fmt(o.phg)} every home goal` : '', o.pg ? `+${fmt(o.pg)} every goal` : '', o.pw ? `+${fmt(o.pw)} every win` : '', o.top2 ? `+${fmt(o.top2)} if you finish top 2` : '', o.cup ? `+${fmt(o.cup)} if you win a cup` : ''].filter(Boolean).join(' · ');
+const SP_TXT = { sh: ['👕 Shirt sponsor', 'Pays for every match you play (league and cups).'], st: ['🏟️ Stadium sponsor', 'Pays for your home matches.'], bo: ['🏆 Bonus sponsor', 'Pays when you win, score or lift a trophy.'] };
+const STF_TXT = { ph: ['🩹 Physio', `+${CC.PHYSIO_REC} fitness back every day, fewer and shorter injuries.`], sc: ['🔭 Scout', '5 extra youngsters in your Youth Draft, with a much better wonderkid chance.'], as: ['📋 Assistant', 'At the 15-minute lock, swaps very tired starters (under 60) for a fresh bench player in the same position.'] };
+W.hq = function () {
+  const me = W.me, S = CC.clock(W.nowS()).s, lv = CC.stdLv(me), nm = (me.std && me.std.nm) || (me.name + ' Park'), t = me.lg && me.lg.s === S ? me.lg.t : 6, off = CC.spOffers(S, me.club, t);
+  const std = `<div class="card"><p style="font-size:10px;font-weight:900;letter-spacing:.12em;color:#67e8f9">🏟️ STADIUM · LEVEL ${lv}/5</p><p style="font-size:20px;font-weight:900;margin-top:4px">${esc(nm)} <button onclick="W11.stdName()" style="font-size:12px;padding:2px 8px;border-radius:8px;background:rgba(255,255,255,.08)">✏️</button></p>
+    <div class="steps">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= lv ? 'done' : ''}"></i>`).join('')}</div>
+    <p style="font-size:12px;color:#cbd5e1">💺 ${fmt(CC.STD_SEATS[lv - 1])} seats · 🪙 <b>+${fmt(CC.STD_TICKET[lv - 1])}</b> coins every home match (league and cups)</p>
+    ${lv < 5 ? `<button class="btn" style="margin-top:10px" onclick="W11.stdUp()">⬆️ Level ${lv + 1}: ${fmt(CC.STD_SEATS[lv])} seats · +${fmt(CC.STD_TICKET[lv])} a home match · costs ${fmt(CC.STD_COST[lv])} 🪙</button>` : '<p style="font-size:12px;color:#a3e635;margin-top:8px">🏟️ The biggest stadium there is!</p>'}</div>`;
+  const sp = CC.SP_KINDS.map(kd => { const got = CC.spOf(me, S, kd), [ttl, why] = SP_TXT[kd];
+    return `<div style="margin-top:10px"><p style="font-weight:900">${ttl}</p><p style="font-size:11px;color:#94a3b8">${why}</p>${got ? `<div class="tip">✅ <b>${esc(got.n)}</b> · ${spTerms(got)}</div>` : off[kd].map((o, k) => `<button class="btn2" style="text-align:left;margin-top:6px" onclick="W11.spSign('${kd}',${k})"><b>${esc(o.n)}</b> <span style="float:right;color:#67e8f9">Sign</span><br><span style="font-size:11px;color:#cbd5e1">${spTerms(o)}</span></button>`).join('')}</div>`; }).join('');
+  const stf = Object.keys(CC.STAFF).map(k => { const [ttl, why] = STF_TXT[k], got = CC.hasStaff(me, k, S);
+    return `<div class="row" style="align-items:flex-start"><span style="flex:1"><b>${ttl}</b><br><span style="font-size:11px;color:#94a3b8">${why}</span></span>${got ? '<b style="color:#a3e635;font-size:11px">✅ Hired</b>' : `<button onclick="W11.hire('${k}')" style="padding:7px 10px;border-radius:10px;font-size:11px;font-weight:900;background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24;white-space:nowrap">Hire · ${fmt(CC.STAFF[k])}</button>`}</div>`; }).join('');
+  W.ui(std + `<div class="card"><p style="font-size:10px;font-weight:900;letter-spacing:.12em;color:#67e8f9">🤝 SPONSORS · SEASON ${S}</p><p style="font-size:11px;color:#94a3b8;margin-top:4px">Sign 1 of each kind for this season. Deals end when the season ends; new offers come every season (better in higher divisions). All brands are made up.</p>${sp}</div>
+    <div class="card"><p style="font-size:10px;font-weight:900;letter-spacing:.12em;color:#67e8f9">👔 STAFF · SEASON ${S}</p><p style="font-size:11px;color:#94a3b8;margin:4px 0 6px">Hired for one season. Hire again next season.</p>${stf}</div>`, '🏟️ CLUB HQ', 'W11.home()');
+};
+const hqDo = async (path, body, okMsg) => { if (W._hqBusy) return; W._hqBusy = 1; const r = await W.api(path, body); W._hqBusy = 0; if (!r.ok) return toast('⚠️ ' + (r.error || 'Try again')); ['std', 'sp', 'stf', 'coins'].forEach(k => { if (r[k] != null) W.me[k] = r[k]; }); toast(okMsg); W.hq(); };
+W.stdUp = function () { const lv = CC.stdLv(W.me); if (lv >= 5) return; if ((W.me.coins || 0) < CC.STD_COST[lv]) return toast('⚠️ Not enough GG Coins'); if (!confirm(`Upgrade your stadium to level ${lv + 1} for ${fmt(CC.STD_COST[lv])} coins?`)) return; hqDo('/w11/stadium', { act: 'up' }, '🏟️ Stadium upgraded!'); };
+W.stdName = function () { const nm = prompt('Name your stadium (3–30 letters)', (W.me.std && W.me.std.nm) || (W.me.name + ' Park')); if (nm == null) return; hqDo('/w11/stadium', { act: 'name', nm }, '✅ Stadium renamed'); };
+W.spSign = function (kd, k) { const S = CC.clock(W.nowS()).s, t = W.me.lg && W.me.lg.s === S ? W.me.lg.t : 6, o = CC.spOffers(S, W.me.club, t)[kd][k]; if (!confirm(`Sign ${o.n} for Season ${S}?\n${spTerms(o)}\nYou can't change it until next season.`)) return; hqDo('/w11/sponsor', { kind: kd, k }, '🤝 Deal signed with ' + o.n); };
+W.hire = function (k) { if ((W.me.coins || 0) < CC.STAFF[k]) return toast('⚠️ Not enough GG Coins'); if (!confirm(`Hire the ${STF_TXT[k][0].slice(2).trim()} for this season for ${fmt(CC.STAFF[k])} coins?`)) return; hqDo('/w11/staff', { k }, '👔 Welcome to the club!'); };
+
+// ---------- 🏛️ Hall of Fame ----------
+W.hof = async function (s) {
+  W.ui('<p style="text-align:center;padding:40px 0;color:#94a3b8">Opening the Hall of Fame…</p>', '🏛️ HALL OF FAME', 'W11.home()');
+  const f = await fbLoad(), S = CC.clock(W.nowS()).s; let tro = {}, H = null;
+  try { const sn = await f.getDoc(f.doc(db(), 'w11meta', 'hof')); tro = (sn.exists() && sn.data().tro) || {}; } catch (e) {}
+  if (s == null) { s = S - 1; try { const sn = await f.getDoc(f.doc(db(), 'w11hof', String(S))); if (sn.exists() && (sn.data().oc || sn.data().cl)) { s = S; H = sn.data(); } } catch (e) {} }
+  s = clamp(s, 1, S);
+  if (!H) { try { const sn = await f.getDoc(f.doc(db(), 'w11hof', String(s))); H = sn.exists() ? sn.data() : null; } catch (e) {} }
+  const nav = `<div style="display:flex;align-items:center;gap:8px"><button class="btn2" style="width:44px" onclick="W11.hof(${s - 1})" ${s <= 1 ? 'disabled' : ''}>◀</button><p style="flex:1;text-align:center;font-weight:900">Season ${s}</p><button class="btn2" style="width:44px" onclick="W11.hof(${s + 1})" ${s >= S ? 'disabled' : ''}>▶</button></div>`;
+  const ent = (ic, label, e) => e ? `<div class="row"><span style="font-size:18px">${ic}</span><span style="flex:1"><span style="font-size:10px;color:#94a3b8">${label}</span><br><b>${esc(e.n)}</b>${e.u ? ' <span style="font-size:10px;color:#67e8f9">👤</span>' : ''}${e.ru ? `<br><span style="font-size:10px;color:#94a3b8">Runner-up: ${esc(e.ru.n)}</span>` : ''}</span></div>` : '';
+  let season = '';
+  if (!H) season = `<p style="font-size:12px;color:#94a3b8;margin-top:10px">${s >= S ? 'This season is still being played. Champions are added on day 28 (cups when their final is played).' : 'No champions saved for this season.'}</p>`;
+  else { const d = Object.values(H.d || {}).sort((a, b) => a.t - b.t || a.g - b.g), by = {}; d.forEach(e => { (by[e.t] = by[e.t] || []).push(e); });
+    season = ent('⭐', 'Champions League', H.cl) + ent('🏆', 'Open Cup', H.oc) + Object.keys(by).map(t => `<p style="font-size:10px;font-weight:900;color:#67e8f9;letter-spacing:.1em;margin-top:10px">DIVISION ${t} CHAMPIONS</p>${by[t].map(e => `<div class="row"><span style="width:62px;color:#94a3b8;font-size:10px">${Number(t) > 1 ? 'Group ' + (e.g + 1) : ''}</span><span style="flex:1;font-weight:${e.u ? 900 : 700}">🥇 ${esc(e.n)}${e.u ? ' <span style="font-size:10px;color:#67e8f9">👤</span>' : ''}</span></div>`).join('')}`).join(''); }
+  const top = Object.entries(tro).map(([ci, x]) => ({ ci, n: x.n, l: x.l || 0, oc: x.oc || 0, cl: x.cl || 0 })).sort((a, b) => b.cl - a.cl || b.oc - a.oc || b.l - a.l || a.n.localeCompare(b.n)).slice(0, 25);
+  W.ui(`<div class="card">${nav}${season}</div>
+    <div class="card"><p style="font-weight:900">🏆 Most trophies (all time)</p><p style="font-size:10px;color:#94a3b8;margin-bottom:4px">⭐ Champions League · 🏆 Open Cup · 🥇 group titles</p>${top.length ? top.map((x, i) => `<div class="row"><b style="width:20px;color:#94a3b8">${i + 1}</b><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:800">${esc(x.n)}${Number(x.ci) >= 100000 ? ' 👤' : ''}</span><span style="font-size:11px;font-weight:900">${x.cl ? '⭐' + x.cl + ' ' : ''}${x.oc ? '🏆' + x.oc + ' ' : ''}${x.l ? '🥇' + x.l : ''}</span></div>`).join('') : '<p style="font-size:12px;color:#94a3b8">The first trophies are handed out at the end of Season 1.</p>'}</div>
+    <div class="card"><p style="font-weight:900">👑 The 50 Pioneer wonders</p><p style="font-size:11px;color:#94a3b8;margin-top:4px">Only 50 players with 150 OVR will ever exist: one for each of the first 50 managers.</p><div id="w11pio"><button class="btn2" style="margin-top:8px" onclick="W11.hofPio()">Show them</button></div></div>`, '🏛️ HALL OF FAME', 'W11.home()');
+};
+W.hofPio = async function () {
+  const el = document.getElementById('w11pio'); if (!el) return; el.innerHTML = '<p style="font-size:12px;color:#94a3b8;margin-top:8px">Loading…</p>';
+  const f = await fbLoad(); let L = [];
+  try { const qs = await f.getDocs(f.query(f.collection(db(), 'w11Clubs'), f.where('pioneer', '==', true), f.limit(50))); qs.forEach(d => { const x = d.data(); if (x.leg) L.push(x); }); } catch (e) {}
+  L.sort((a, b) => (a.pioneerNo || 0) - (b.pioneerNo || 0));
+  el.innerHTML = L.length ? L.map(x => { const p = W.player(x.leg); return `<div class="row"><b style="width:30px;color:#facc15">#${x.pioneerNo}</b><span class="ovr" style="background:linear-gradient(135deg,#facc15,#ff2d95,#a855f7);color:#fff">${p.ovr}</span><span style="flex:1;min-width:0"><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">👑 ${p.flag} <b>${esc(p.name)}</b></span><span style="font-size:10px;color:#94a3b8">${p.pos} · ${p.age}y · ${esc(x.name)}</span></span></div>`; }).join('') : '<p style="font-size:12px;color:#94a3b8;margin-top:8px">No wonders claimed yet.</p>';
+};
+
+// ---------- 📜 trophies in club history · ❓ help ----------
+W.histL = (function (b) { return function () { b.apply(this, arguments); const T = (W.me.tro || []).slice().reverse(), el = document.getElementById('w11b'); if (!el || !T.length) return;
+  el.insertAdjacentHTML('afterbegin', `<div class="card"><p style="font-weight:900">🏆 Trophies</p>${T.map(x => `<div class="row"><b style="width:74px">Season ${x.s}</b><span style="flex:1">${CC.CUP_NAME[x.k]}</span><span>${x.p === 1 ? '🥇 Winner' : '🥈 Runner-up'}</span></div>`).join('')}</div>`); }; })(W.histL);
+W.helpL = (function (b) { return function () { b.apply(this, arguments); const el = document.querySelector('#w11b .card'); if (!el) return;
+  el.insertAdjacentHTML('beforeend', `<p style="margin-top:6px">🏆 <b>Cups</b> (from Season ${CC.CUP_FIRST}): the Open Cup for every club (even days, final day 24) and the Champions League for last season's group champions (odd days from day 7, final day 27). Cup matches start 2 hours after the league match. Knockout draws go to penalties.</p>
+    <p style="margin-top:6px">🏟️ <b>Club HQ</b>: grow your stadium for more ticket coins every home match, sign 3 sponsors each season (shirt, stadium, bonus) and hire staff (🩹 Physio, 🔭 Scout, 📋 Assistant) for one season.</p>
+    <p style="margin-top:6px">🏛️ <b>Hall of Fame</b>: every season's champions, the all-time trophy table and the 50 Pioneer wonders.</p>`); }; })(W.helpL);
 })();
