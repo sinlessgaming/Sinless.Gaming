@@ -2,13 +2,14 @@
 // ⚽ 11 WONDERS · Score Manager — G1 (loaded only when you open it)
 // Your club · procedural world · 15 formations · 4-minute live match (2D radar, 60 fps, no pauses)
 // · 30-second touchline shouts · subs · 5-match Boot Camp · friendlies + 15-minute lockdown · Pioneer 50
+// G3a: transfer market (15 live auctions), youth draft, release players, Pioneer 150-OVR wonders, squads up to 25
 // Everything about players comes from their ID, so thousands of players cost no storage.
 // =====================================================================
 (function () {
 'use strict';
 const W = window.W11 = window.W11 || {};
 /* =====================================================================
-   ⚽ 11 WONDERS · shared core (G2). build.sh pastes this SAME block into w11.js and worker.js,
+   ⚽ 11 WONDERS · shared core (G2 + G3a). build.sh pastes this SAME block into w11.js and worker.js,
    so phones and the worker always agree. Only + - * / and sqrt are used for anything that decides
    a result, so every phone (Android or iPhone) gets exactly the same numbers.
    ===================================================================== */
@@ -85,7 +86,7 @@ const youth = function (id, gid) {
 };
 const grow = (y) => y < 21 ? 4 : y < 24 ? 3 : y < 27 ? 1 : y < 30 ? 0 : y < 32 ? -1 : y < 34 ? -2 : -3;
 /* 🎂 1 season = 1 year: players improve until ~27, drop after ~31, retire at 34–37 */
-const player = function (id, S) {
+const oplayer = function (id, S) {
   S = Math.max(1, Math.floor(S || 1));
   let p = base(id); if (S === 1) return p;
   let s = 1, a0 = p.age, g = 0, gid = String(id);
@@ -100,6 +101,99 @@ const player = function (id, S) {
   const sh = (v) => clamp(v + d, 25, 99);
   return { ...p, gid, gen: g, age, ovr: clamp(p.ovr + d, 40, 97), pac: sh(p.pac), sho: sh(p.sho), pas: sh(p.pas), dri: sh(p.dri), def: sh(p.def), gk: p.pos === 'GK' ? sh(p.gk) : p.gk };
 };
+/* ===== G3a: new kinds of players (their ID says everything about them) =====
+   a{S}x{slot}x{n}  = player sold in the market (born in season S)
+   y{S}x{club}x{k}  = one of the 15 youngsters a club sees in its youth draft in season S
+   L{S}x{no}        = the 150-OVR wonder given to Pioneer #no (1–50). Only 50 can ever exist. */
+const NEW_RE = /^([ayL])(\d+)x(\d+)(?:x(\d+))?$/;
+const isNew = (id) => NEW_RE.test(String(id));
+const POS15 = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD', 'GK'];
+const LEG_POS = ['FWD', 'MID', 'FWD', 'DEF', 'MID', 'FWD', 'MID', 'DEF', 'FWD', 'GK'];
+const LEGEND_OVR = 150, MAX_SQUAD = 25, MIN_SQUAD = 16, PLAYABLE = 18, PIONEERS = 50;
+const legAttrs = (r, pos) => {
+  const v = (x) => Math.round(x + (r() - 0.5) * 8);
+  return pos === 'GK' ? { pac: v(80), sho: v(55), pas: v(100), dri: v(80), def: v(110), gk: v(140) }
+    : pos === 'DEF' ? { pac: v(110), sho: v(90), pas: v(115), dri: v(105), def: v(140), gk: 20 }
+    : pos === 'MID' ? { pac: v(110), sho: v(125), pas: v(140), dri: v(135), def: v(100), gk: 20 }
+    : { pac: v(115), sho: v(140), pas: v(118), dri: v(138), def: v(70), gk: 20 };
+};
+const posOfNew = (m) => m[1] === 'L' ? LEG_POS[Number(m[3]) % 10] : POS15[Number(m[1] === 'a' ? m[3] : m[4]) % 15];
+/* the player as he is in his first season (g = 0), or the 17-year-old who replaces him after he retires (g > 0) */
+const nbase = function (id, gid, g) {
+  const m = NEW_RE.exec(id), k = m[1], r = rng(hash(WORLD + ':n:' + gid)), nm = named(r), pos = posOfNew(m), num = 21 + hash(gid + ':num') % 70;
+  if (g > 0) { const ovr = 45 + Math.floor(r() * 16); return { id, k, ...nm, pos, age: 17, ovr, pot: clamp(ovr + 8 + Math.floor(r() * 16), ovr, 88), wk: false, ...attrs(r, pos, ovr), num }; }
+  if (k === 'L') return { id, k, ...nm, pos, age: 16 + Number(m[3]) % 2, ovr: LEGEND_OVR, pot: LEGEND_OVR, wk: true, legend: true, ...legAttrs(r, pos), num: pos === 'GK' ? 1 : [7, 10, 9, 11, 8][Number(m[3]) % 5] };
+  let age, ovr, pot, wk = false;
+  if (k === 'y') {
+    age = 15 + Math.floor(r() * 3); wk = r() < 0.05;
+    ovr = wk ? 60 + Math.floor(r() * 10) : 42 + Math.floor(r() * 19);
+    pot = wk ? 90 + Math.floor(r() * 8) : clamp(ovr + 10 + Math.floor(r() * 19), ovr, 86);
+  } else {
+    age = 16 + Math.floor(r() * 17); const x = r();
+    ovr = x < 0.22 ? 48 + Math.floor(r() * 12) : x < 0.52 ? 60 + Math.floor(r() * 10) : x < 0.8 ? 70 + Math.floor(r() * 10) : x < 0.95 ? 80 + Math.floor(r() * 8) : 88 + Math.floor(r() * 6);
+    if (age <= 20) ovr = Math.min(ovr, 50 + (age - 16) * 6);
+    if (age <= 19 && r() < 0.05) { wk = true; ovr = 66 + Math.floor(r() * 11); }
+    pot = wk ? 91 + Math.floor(r() * 7) : age < 27 ? clamp(ovr + 3 + Math.floor(r() * 14), ovr, 94) : ovr;
+  }
+  return { id, k, ...nm, pos, age, ovr, pot, wk, ...attrs(r, pos, ovr), num };
+};
+const nplayer = function (id, S) {
+  const m = NEW_RE.exec(id), S0 = Number(m[2]); S = Math.max(S0, Math.floor(S || 1));
+  let s = S0, g = 0, gid = String(id), p = nbase(id, gid, 0), a0 = p.age;
+  for (let guard = 0; guard < 40; guard++) {
+    const R = p.legend ? 37 : 34 + hash(gid + ':ret') % 4;
+    if (a0 + (S - s) <= R) break;
+    s = s + (R - a0) + 1; g++; gid = id + '~' + g; p = nbase(id, gid, g); a0 = 17;
+    if (s > S) break;
+  }
+  const age = a0 + (S - s);
+  if (p.legend) return { ...p, ci: -1, slot: -1, gid, gen: g, age };
+  let d = 0;
+  for (let y = a0; y < age; y++) { const st = grow(y) + (p.wk && y < 22 ? 2 : 0) + (hash(gid + ':g' + y) % 3) - 1; d += st > 0 ? Math.max(0, Math.min(st, p.pot - p.ovr - d)) : st; }
+  const sh = (v) => clamp(v + d, 25, 99);
+  return { ...p, ci: -1, slot: -1, gid, gen: g, age, ovr: clamp(p.ovr + d, 40, 97), pac: sh(p.pac), sho: sh(p.sho), pas: sh(p.pas), dri: sh(p.dri), def: sh(p.def), gk: p.pos === 'GK' ? sh(p.gk) : p.gk };
+};
+const player = (id, S) => isNew(id) ? nplayer(String(id), S) : oplayer(id, S);
+/* 💰 what a player is worth (plain multiplication only, so phones and the worker agree) */
+const r500 = (v) => Math.round(v / 500) * 500;
+const value = (p) => {
+  if (!p || p.legend) return 0;
+  let v = 2000; for (let i = 50; i < p.ovr; i++) v *= 1.12; for (let i = p.ovr; i < 50; i++) v /= 1.12;
+  v *= p.age <= 21 ? 1.3 : p.age <= 26 ? 1.1 : p.age <= 29 ? 1 : p.age <= 31 ? 0.75 : 0.5;
+  if (p.wk) v *= 2.5;
+  return Math.max(500, r500(v));
+};
+const releaseValue = (p) => p && !p.legend ? Math.round(value(p) * 0.1 / 100) * 100 : 0;
+const youthIds = (S, ci) => { const o = []; for (let k = 0; k < 15; k++) o.push('y' + S + 'x' + ci + 'x' + k); return o; };
+const legendId = (S, no) => 'L' + S + 'x' + no;
+
+/* 🔨 the market: 15 auctions always running. Each lasts 60 s; the next one starts the moment it ends.
+   A bid in the last 10 s puts the clock back to 10 s. 🤖 computer clubs (clearly marked) snipe 3 s before the end
+   while the price is under the most they will pay. With no human bids, a computer club buys at the start price (or it's unsold). */
+const MK_N = 15, MK_LEN = 60000, MK_EXT = 10000, MK_AI = 3000;
+const lotT0 = (i) => EPOCH + i * 4000;
+const lotPid = (i, n, st) => 'a' + clock(st).s + 'x' + i + 'x' + n;
+const stepOf = (p) => Math.max(500, r500(p * 0.05));
+const lotInfo = (i, n, st) => {
+  const pid = lotPid(i, n, st), p = player(pid, clock(st).s), v = value(p), start = Math.max(1000, r500(v * 0.4)), r = rng(hash('mkai:' + pid));
+  const aiMax = r() < 0.35 ? 0 : Math.max(start, r500(v * (0.7 + r() * 0.9))), aiClub = Math.floor(r() * 434);
+  return { i, n, st, pid, v, start, aiMax, aiClub };
+};
+/* L = a stored lot { i, n, st, end, p, u, un, c, nb } (or a fresh one { i, n, st }); answers how it stands at time `now` */
+const lotEff = (L, now) => {
+  const I = lotInfo(L.i, L.n, L.st);
+  if (!L.u) { const end = L.st + MK_LEN; return { ...I, top: null, price: I.start, end, closed: now >= end, winner: now >= end ? (I.aiMax >= I.start ? 'ai' : null) : null, minNext: I.start }; }
+  const e = L.end, aiNext = L.p + stepOf(L.p);
+  if (aiNext <= I.aiMax && now >= e - MK_AI) { const end = e - MK_AI + MK_EXT; return { ...I, top: 'ai', price: aiNext, end, closed: now >= end, winner: now >= end ? 'ai' : null, minNext: aiNext + stepOf(aiNext), aiAt: e - MK_AI }; }
+  return { ...I, top: 'u', price: L.p, end: e, closed: now >= e, winner: now >= e ? 'u' : null, minNext: L.p + stepOf(L.p) };
+};
+/* which lot is running in slot i right now, given the last stored lot of that slot (or none) */
+const lotCur = (i, L, now) => {
+  if (!L) { const t0 = lotT0(i), n = Math.max(0, Math.floor((now - t0) / MK_LEN)); return { i, n, st: t0 + n * MK_LEN }; }
+  const E = lotEff(L, now); if (!E.closed) return L;
+  const k = Math.max(0, Math.floor((now - E.end) / MK_LEN)); return { i, n: L.n + 1 + k, st: E.end + k * MK_LEN };
+};
+
 const squadIds = (ci) => POS_TEMPLATE.map((_, s) => ci + '-' + s);
 const avg = (ids, S) => Math.round(ids.slice(0, 11).map(id => player(id, S)).reduce((s, p) => s + p.ovr, 0) / 11);
 
@@ -216,7 +310,7 @@ const parseRes = (r) => { const [sc, cards, subs] = String(r || '').split('|'); 
   return { h, a, cards: [0, 1].map(i => (C[i] || '').split(',').filter(Boolean).map(x => [x.slice(0, -1), x.slice(-1)])), subs: [0, 1].map(i => (U[i] || '').split(',').filter(Boolean).map(x => { const m = x.match(/^(.+)>(.+)@(\d+)$/); return m ? [m[1], m[2], Number(m[3])] : null; }).filter(Boolean)) }; };
 const RES_RE = /^\d{1,2}-\d{1,2}\|[\w~,;-]*\|[\w~,;>@-]*$/;
 
-return { absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
+return { NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
 })();
 
 const { WORLD, hash, rng, pick, clamp } = W11C;
@@ -493,7 +587,7 @@ W.load = async function () {
 };
 W.save = async function (patch) {
   const f = await fbLoad(); Object.assign(W.me, patch);
-  try { await f.updateDoc(f.doc(db(), 'w11Clubs', window.uidNow()), patch); } catch (e) { console.warn('11W save', e); toast('⚠️ Not saved. Check your internet.'); }
+  try { await f.updateDoc(f.doc(db(), 'w11Clubs', window.uidNow()), patch); } catch (e) { console.warn('11W save', e); toast('⚠️ Not saved. Your squad changed (new player?) or no internet. Reloading…'); await W.load(); }
 };
 W.create = async function (o) {
   const f = await fbLoad(), uid = window.uidNow(), ci = 100000 + (hash(uid + ':' + Date.now()) % 899000), ids = W.squadIds(ci);
@@ -656,9 +750,9 @@ W.squad = function (sel) {
   const day = W11C.absDay(Date.now()), inLg = !!(me.lg && me.lg.s === W.S);
   const st = (id) => { if (!inLg) return ''; const c = W11C.condNow(me, id, day), inj = (me.inj || {})[id] || 0, ban = (me.ban || {})[id] || 0, yc = (me.yc || {})[id] || 0;
     return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:900">${inj ? `<button onclick="event.stopPropagation();W11.med('${id}')" style="padding:2px 6px;border-radius:8px;background:rgba(255,45,149,.2)">🤕 ${inj}</button>` : ''}${ban ? `<span title="banned">🚫${ban}</span>` : ''}${yc ? `<span>🟨${yc}</span>` : ''}<span style="width:34px;height:6px;border-radius:9px;background:rgba(255,255,255,.1);overflow:hidden;display:inline-block"><i style="display:block;height:100%;width:${c}%;background:${c >= 75 ? '#22d3ee' : c >= 50 ? '#facc15' : '#ff2d95'}"></i></span>${c}</span>`; };
-  const row = (p, i) => `<div class="row ${sel === i ? 'sel' : ''}" onclick="W11.swap(${i})"><span class="pos">${i < 11 ? W.shape(me.form)[i].role : 'SUB'}</span><span class="ovr" style="background:${ovrColor(p.ovr)}">${p.ovr}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.flag} <b>${esc(p.name)}</b> <span style="color:#94a3b8">· ${p.pos} · ${p.age}y</span></span>${st(p.id) || `<span style="font-size:10px;color:#94a3b8">#${p.num}</span>`}</div>`;
+  const row = (p, i) => `<div class="row ${sel === i ? 'sel' : ''}" onclick="W11.swap(${i})"><span class="pos">${i < 11 ? W.shape(me.form)[i].role : 'SUB'}</span><span class="ovr" style="${p.legend ? 'background:linear-gradient(135deg,#facc15,#ff2d95,#a855f7);color:#fff' : 'background:' + ovrColor(p.ovr)}">${p.ovr}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.legend ? '👑 ' : p.wk && p.age <= 21 ? '🌟 ' : ''}${p.flag} <b>${esc(p.name)}</b> <span style="color:#94a3b8">· ${p.pos} · ${p.age}y</span></span>${st(p.id) || `<span style="font-size:10px;color:#94a3b8">#${p.num}</span>`}</div>`;
   W.ui(`<div class="card"><p style="font-weight:900">📐 Formation</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${Object.keys(W.FORMS).map(f => `<button onclick="W11.setForm('${f}')" style="padding:7px 10px;border-radius:10px;font-size:11px;font-weight:900;${f === me.form ? 'background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24' : 'background:rgba(255,255,255,.06)'}">${f}</button>`).join('')}</div></div>
-    <div class="card">${inLg ? `<p style="font-size:11px;color:#94a3b8;margin-bottom:6px">Bars = fitness. 🤕 injured (tap to use a 🩹 Med-Pack) · 🚫 banned · 🟨 yellows (5 = ban). Your team sheet locks 15 minutes before kick-off; injured or banned starters are swapped for the best bench player.</p>` : ''}<p style="font-weight:900">Starting XI <span style="font-size:10px;color:#94a3b8;font-weight:700">· tap a player, then another to swap</span></p>${P.slice(0, 11).map(row).join('')}<p style="font-weight:900;margin-top:10px">Bench</p>${P.slice(11).map((p, k) => row(p, k + 11)).join('')}</div>`, '👕 Squad', 'W11.home()');
+    <div class="card">${inLg ? `<p style="font-size:11px;color:#94a3b8;margin-bottom:6px">Bars = fitness. 🤕 injured (tap to use a 🩹 Med-Pack) · 🚫 banned · 🟨 yellows (5 = ban). Your team sheet locks 15 minutes before kick-off; injured or banned starters are swapped for the best bench player.</p>` : ''}<p style="font-weight:900">Starting XI <span style="font-size:10px;color:#94a3b8;font-weight:700">· tap a player, then another to swap</span></p>${P.slice(0, 11).map(row).join('')}<p style="font-weight:900;margin-top:10px">Bench</p>${P.slice(11, 18).map((p, k) => row(p, k + 11)).join('')}${P.length > 18 ? `<p style="font-weight:900;margin-top:10px">Reserves <span style="font-size:10px;color:#94a3b8;font-weight:700">· can't play in matches. Swap them into the top 18 to use them.</span></p>${P.slice(18).map((p, k) => row(p, k + 18)).join('')}` : ''}<p style="font-size:11px;color:#94a3b8;margin-top:10px">Squad: ${P.length}/25 players</p><button class="btn2" style="margin-top:8px" onclick="W11.releaseMenu()">🗑️ Release a player</button></div>`, '👕 Squad', 'W11.home()');
 };
 W.swap = async function (i) {
   if (W._sel == null) { W._sel = i; return W.squad(i); }
@@ -1041,4 +1135,148 @@ W.bgCheck = function () {
 };
 W.open = (function (b) { return async function () { await b(); if (W.inLeague() && document.getElementById('w11') && !W.live) { const G = await W.loadG(); const n = G && W.nextMatch(G); if (n && W.nowS() > n.ko - 60000 && W.nowS() < n.ko + TOTAL * 1000) W.openL(n.id); } }; })(W.open);
 W.leaveMatch = (function (b) { return function () { if (W.live && W.live.kind === 'league') { W.stopLoop(); W.live = null; toast('⏱️ The match keeps playing. GG AI keeps your last orders.'); return W.home(); } return b(); }; })(W.leaveMatch);
+
+// ===================== 🔨 G3a · market, youth draft, releases, Pioneer wonders =====================
+const POSC = { GK: '#facc15', DEF: '#22d3ee', MID: '#a855f7', FWD: '#ff2d95' };
+const ptag = (p) => p.legend ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:99px;background:linear-gradient(90deg,#facc15,#ff2d95);color:#0b0f24">👑 150 WONDER</span>' : p.wk && p.age <= 21 ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:99px;background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24">🌟 WONDERKID</span>' : '';
+const pline = (p) => `<span class="ovr" style="${p.legend ? 'background:linear-gradient(135deg,#facc15,#ff2d95,#a855f7);color:#fff' : 'background:' + ovrColor(p.ovr)}">${p.ovr}</span><span style="flex:1;min-width:0"><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.flag} <b>${esc(p.name)}</b> ${ptag(p)}</span><span style="font-size:10px;color:#94a3b8"><b style="color:${POSC[p.pos] || '#94a3b8'}">${p.pos}</b> · ${p.age}y · ⚡${p.pac} 🎯${p.sho} 🎩${p.pas} 🪄${p.dri} 🛡️${p.def}${p.pos === 'GK' ? ' 🧤' + p.gk : ''}</span></span>`;
+W.chips = () => { const c = document.querySelector('#w11 .chips'); if (c && W.me) c.innerHTML = `<span>🪙 ${fmt(W.me.coins)}</span><span>💎 ${fmt(W.me.gems)}</span>`; };
+W.giftWaiting = () => { const me = W.me; return !!(me && me.pioneer && me.pioneerNo >= 1 && me.pioneerNo <= CC.PIONEERS && !me.leg); };
+
+// ---------- buttons on the home screens ----------
+W.g3Bar = function () {
+  const b = document.getElementById('w11b'); if (!b || b.querySelector('[data-g3]') || !W.me || W.live) return;
+  const me = W.me, S = CC.clock(W.nowS()).s, ydone = me.yd === S;
+  const html = `<div data-g3>${W.giftWaiting() ? `<div class="card" onclick="W11.gift()" style="cursor:pointer;text-align:center"><p style="font-size:22px">🎁</p><p style="font-weight:900">Your Pioneer wonder is waiting!</p><p style="font-size:11px;color:#cbd5e1;margin-top:4px">One 150-OVR player for each of the first 50 managers. Tap to claim.</p></div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px"><button class="btn" onclick="W11.market()">🔨 Transfer Market<br><span style="font-size:10px;font-weight:800">15 live auctions</span></button><button class="btn2" onclick="W11.youthD()">🧒 Youth Draft<br><span style="font-size:10px;color:${ydone ? '#a3e635' : '#ff2d95'}">${ydone ? '✅ done this season' : '● 15 youngsters waiting'}</span></button></div></div>`;
+  const first = b.querySelector('.card'); if (first) first.insertAdjacentHTML('afterend', html); else b.insertAdjacentHTML('afterbegin', html);
+  if (W.giftWaiting() && !W._giftTried) { W._giftTried = 1; W.gift(true); }
+};
+W.home = (function (b) { return function () { const r = b.apply(this, arguments); Promise.resolve(r).then(() => W.g3Bar()); return r; }; })(W.home);
+W.leagueHome = (function (b) { return async function () { await b.apply(this, arguments); W.g3Bar(); }; })(W.leagueHome);
+W.close = (function (b) { return function () { W.stopMk(); return b.apply(this, arguments); }; })(W.close);
+
+// ---------- 🌟 Pioneer wonder ----------
+W.gift = async function (auto) {
+  const r = await W.api('/w11/gift', {});
+  if (!r.ok) { if (!auto || r.full) toast('⚠️ ' + (r.error || 'Could not claim. Try again.')); return; }
+  await W.load(); if (r.already) return;
+  const p = W.player(r.id);
+  W.ui(`<div class="card" style="text-align:center"><p style="font-size:44px">👑</p><p style="font-size:10px;font-weight:900;letter-spacing:.12em;color:#facc15">PIONEER #${W.me.pioneerNo} · ONE OF ONLY 50</p>
+    <p style="font-size:22px;font-weight:900;margin-top:6px">${p.flag} ${esc(p.name)}</p><p style="font-size:13px;color:#cbd5e1;margin-top:4px">${p.pos} · ${p.age} years old</p>
+    <p style="font-size:54px;font-weight:900;margin-top:8px;background:linear-gradient(90deg,#facc15,#ff2d95,#a855f7);-webkit-background-clip:text;background-clip:text;color:transparent">${p.ovr}</p><p style="font-size:11px;color:#94a3b8">OVR</p>
+    <p style="font-size:12px;color:#cbd5e1;margin-top:10px">Thank you for being one of the first 50 managers. Only 50 players like this will ever exist in 11 Wonders. He is now in your squad. Move him into your top 18 to play him!</p>
+    <button class="btn" style="margin-top:14px" onclick="W11.squad()">👕 See my squad</button></div>`, '🎁 PIONEER WONDER', 'W11.home()');
+};
+
+// ---------- 🔨 transfer market ----------
+W.stopMk = function () { if (W._mkUnsub) { try { W._mkUnsub(); } catch (e) {} W._mkUnsub = null; } clearInterval(W._mkIv); W._mkIv = null; };
+W.market = async function (pos, sort) {
+  const F = W._mkF = W._mkF || { pos: 'ALL', sort: 'end' }; if (pos) F.pos = pos; if (sort) F.sort = sort;
+  if (document.getElementById('w11mk')) { W.mkChips(); return W.mkDraw(); }
+  W.stopMk();
+  W.ui(`<div class="card" style="padding:12px"><p style="font-size:11px;color:#cbd5e1">15 players are up for auction at the same time. Each auction lasts <b>60 seconds</b>, and the next player comes up the moment it ends. A bid in the last 10 seconds puts the clock back to <b>10 seconds</b>. 🤖 = computer clubs: they bid too. Your coins are held while you are the top bidder and come back if someone beats you.</p><div id="w11mkf"></div></div><div id="w11mk"><p style="text-align:center;color:#94a3b8;padding:20px">Loading the market…</p></div>`, '🔨 TRANSFER MARKET', 'W11.stopMk();W11.home()');
+  W.mkChips();
+  try { rt(); } catch (e) {}
+  W._lots = W._lots || {};
+  try {
+    const f = await fbLoad();
+    W._mkUnsub = f.onSnapshot(f.collection(db(), 'w11a'), (qs) => {
+      const me = uidNow();
+      qs.forEach(d => { const i = Number(d.id), o = W._lots[i], L = { ...d.data(), i };
+        if (o && o.u === me && o.n === L.n && L.u !== me) { toast(`😮 Outbid on ${W.player(CC.lotPid(i, L.n, L.st)).short}! Your ${fmt(o.p)} coins are back.`); W.load().then(W.chips); }
+        W._lots[i] = L; });
+      W.mkDraw();
+    }, (e) => console.warn('11W market', e));
+  } catch (e) { console.warn(e); }
+  W._mkIv = setInterval(W.mkDraw, 1000); W.mkDraw();
+};
+W.mkChips = function () {
+  const el = document.getElementById('w11mkf'); if (!el) return; const F = W._mkF;
+  const chip = (on, label, js) => `<button onclick="${js}" style="padding:6px 10px;border-radius:10px;font-size:11px;font-weight:900;${on ? 'background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24' : 'background:rgba(255,255,255,.06)'}">${label}</button>`;
+  el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">${['ALL', 'GK', 'DEF', 'MID', 'FWD', 'MINE'].map(p => chip(F.pos === p, p === 'MINE' ? '⭐ My bids' : p === 'ALL' ? 'All' : p, `W11.market('${p}')`)).join('')}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${[['end', '⏱️ Ending soon'], ['ovr', '📈 Best OVR'], ['price', '🪙 Cheapest']].map(([k, l]) => chip(F.sort === k, l, `W11.market(null,'${k}')`)).join('')}<span style="margin-left:auto;font-size:10px;color:#94a3b8;align-self:center">Squad ${(W.me.ids || []).length}/25</span></div>`;
+};
+const prevTxt = (i, L, cur, same, now) => {
+  if (!cur.n) return '';
+  let w, un, pr, ai, pid;
+  if (same && L.prev && L.prev.n === cur.n - 1) ({ w, un, p: pr, ai, pid } = L.prev);
+  else { const PL = !same && L && L.n === cur.n - 1 ? L : { i, n: cur.n - 1, st: cur.st - CC.MK_LEN }, E = CC.lotEff(PL, now); w = E.winner || ''; un = PL.un; pr = E.price; ai = E.aiClub; pid = E.pid; }
+  const p = W.player(pid);
+  return `<p style="font-size:10px;color:#64748b;margin-top:6px">Last: ${esc(p.short)} (${p.ovr}) ${w === 'u' ? `sold to 👤 ${esc(un || 'a manager')} for ${fmt(pr)}` : w === 'ai' ? `bought by 🤖 ${esc(CC.club(ai).name)} for ${fmt(pr)}` : 'unsold'}</p>`;
+};
+W.mkDraw = function () {
+  const el = document.getElementById('w11mk'); if (!el) return W.stopMk();
+  const now = W.nowS(), me = uidNow(), F = W._mkF, rows = [];
+  for (let i = 0; i < CC.MK_N; i++) {
+    const L = W._lots[i] || null, cur = CC.lotCur(i, L, now), same = !!(L && L.n === cur.n), E = CC.lotEff(same ? L : { i, n: cur.n, st: cur.st }, now), p = W.player(E.pid, CC.clock(cur.st).s);
+    rows.push({ i, L, cur, same, E, p, mine: same && L.u === me });
+    if (L && L.u === me && !L.done && CC.lotEff(L, now).closed) W.mkClaim(L);
+  }
+  let list = rows.filter(r => F.pos === 'ALL' || (F.pos === 'MINE' ? r.mine : r.p.pos === F.pos));
+  list.sort(F.sort === 'ovr' ? (a, b) => b.p.ovr - a.p.ovr : F.sort === 'price' ? (a, b) => a.E.minNext - b.E.minNext : (a, b) => a.E.end - b.E.end);
+  el.innerHTML = list.map(({ i, L, cur, same, E, p, mine }) => {
+    const ms = Math.max(0, E.end - now), hot = ms < 10000, step = CC.stepOf(E.minNext);
+    const top = E.top === 'u' ? (mine ? '<b style="color:#a3e635">🟢 You are top bidder</b>' : `👤 ${esc(L.un || 'a manager')}`) : E.top === 'ai' ? `🤖 ${esc(CC.club(E.aiClub).name)} <span style="font-size:9px;color:#94a3b8">(computer club)</span>` : '<span style="color:#94a3b8">No bids yet · start ' + fmt(E.start) + '</span>';
+    const btns = mine && E.top === 'u' ? `<button class="btn2" disabled style="margin-top:8px">✅ Leading with ${fmt(E.price)} 🪙</button>`
+      : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px"><button class="btn" onclick="W11.bid(${i},${cur.n},${E.minNext})">Bid ${fmt(E.minNext)}</button><button class="btn2" onclick="W11.bid(${i},${cur.n},${E.minNext + 2 * step})">Bid ${fmt(E.minNext + 2 * step)}</button></div>`;
+    return `<div class="card" style="padding:12px${mine ? ';box-shadow:0 0 16px rgba(163,230,53,.25)' : ''}"><div class="row" style="border:0;padding:0">${pline(p)}<span style="font-weight:900;font-size:15px;padding:4px 8px;border-radius:10px;background:${hot ? 'rgba(255,45,149,.25);color:#ff2d95' : 'rgba(34,211,238,.12);color:#67e8f9'}">${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:12px"><span>${top}</span><b>${E.top ? fmt(E.price) + ' 🪙' : ''}</b></div>${btns}${prevTxt(i, L, cur, same, now)}</div>`;
+  }).join('') || '<p style="text-align:center;color:#94a3b8;padding:20px">No players here right now. Try another filter.</p>';
+};
+W.bid = async function (i, n, amt) {
+  if (W._bidding) return; W._bidding = 1;
+  if (amt > (W.me.coins || 0)) { W._bidding = 0; return toast('⚠️ Not enough GG Coins'); }
+  const r = await W.api('/w11/bid', { i, n, amt }); W._bidding = 0;
+  if (r.ok) { W.me.coins = r.coins; W.chips(); toast('🔨 Bid placed: ' + fmt(amt) + ' 🪙'); W._lots[i] = { ...r.lot, i }; W.mkDraw(); }
+  else { toast('⚠️ ' + (r.error || 'Could not bid')); if (r.full) setTimeout(() => W.releaseMenu(), 600); }
+};
+W.mkClaim = async function (L) {
+  W._claimed = W._claimed || {}; const k = L.i + ':' + L.n; if (W._claimed[k]) return; W._claimed[k] = 1;
+  const E = CC.lotEff(L, W.nowS()), p = W.player(E.pid);
+  await W.api('/w11/claim', {}); await W.load(); W.chips(); W.mkChips();
+  if (E.winner === 'u') toast((W.me.ids || []).includes(E.pid) ? `✅ ${p.name} joined your squad! Move him into your top 18 to play him.` : '⚠️ Your squad was full, so your coins came back.');
+  else toast(`🤖 ${CC.club(E.aiClub).name} sniped ${p.short} at the end. Your ${fmt(L.p)} coins are back.`);
+};
+
+// ---------- 🧒 youth draft ----------
+W.youthD = function () {
+  const me = W.me, S = CC.clock(W.nowS()).s, ids = CC.youthIds(S, me.club), done = me.yd === S;
+  const room = Math.max(0, CC.MAX_SQUAD - (me.ids || []).length), max = Math.min(5, room);
+  if (!W._yp || W._yps !== S) { W._yp = []; W._yps = S; }
+  const P = ids.map((id, k) => ({ k, id, p: W.player(id, S) })).sort((a, b) => b.p.ovr - a.p.ovr || a.k - b.k);
+  const intro = `<div class="card"><p style="font-weight:900">🧒 Youth Draft · Season ${S}</p><p style="font-size:12px;color:#cbd5e1;margin-top:6px">Every season (28 days) your scouts find <b>15 youngsters aged 15–17</b>. Keep your best <b>5</b>. The rest go to other clubs. 🌟 Wonderkids are rare: they can grow into world-class stars.</p></div>`;
+  if (done) { const kept = ids.filter(id => (me.ids || []).includes(id)).map(id => W.player(id, S)); return W.ui(intro + `<div class="card"><p style="font-weight:900;color:#a3e635">✅ Done for this season</p>${kept.map(p => `<div class="row">${pline(p)}</div>`).join('') || '<p style="font-size:12px;color:#94a3b8">(already released)</p>'}<p style="font-size:11px;color:#94a3b8;margin-top:8px">New youngsters arrive in Season ${S + 1}: ${localT(CC.dayStart(S + 1, 1), true)}.</p></div>`, '🧒 YOUTH DRAFT', 'W11.home()'); }
+  const sel = W._yp;
+  W.ui(intro + `<div class="card"><p style="font-weight:900">Pick up to ${max} <span style="font-size:11px;color:#94a3b8">· ${sel.length} picked</span></p>${room < 5 ? `<div class="tip">Your squad has room for only ${room}. <button onclick="W11.releaseMenu()" style="text-decoration:underline;font-weight:900">Release players</button> to keep more.</div>` : ''}
+    ${P.map(({ k, p }) => `<div class="row ${sel.includes(k) ? 'sel' : ''}" onclick="W11.yPick(${k})" style="cursor:pointer">${pline(p)}<span style="font-size:18px">${sel.includes(k) ? '✅' : '⬜'}</span></div>`).join('')}
+    <button class="btn" style="margin-top:12px" ${sel.length ? '' : 'disabled'} onclick="W11.yGo()">Keep ${sel.length || ''} youngster${sel.length === 1 ? '' : 's'}</button><p style="font-size:10px;color:#94a3b8;margin-top:6px">You can only pick once a season.</p></div>`, '🧒 YOUTH DRAFT', 'W11.home()');
+};
+W.yPick = function (k) {
+  const S = CC.clock(W.nowS()).s, max = Math.min(5, Math.max(0, CC.MAX_SQUAD - (W.me.ids || []).length)), sel = W._yp, at = sel.indexOf(k);
+  if (at >= 0) sel.splice(at, 1); else if (sel.length < max) sel.push(k); else toast(max ? `You can keep ${max}. Untick one first.` : 'Your squad is full (25). Release a player first.');
+  W._yps = S; W.youthD();
+};
+W.yGo = async function () {
+  if (W._yBusy || !W._yp.length) return; W._yBusy = 1;
+  const r = await W.api('/w11/draft', { picks: W._yp.slice() }); W._yBusy = 0;
+  if (!r.ok) return toast('⚠️ ' + (r.error || 'Could not save. Try again.'));
+  W.me.ids = r.ids; W.me.yd = r.yd; W._yp = [];
+  toast('✅ Welcome to the club, youngsters! They are in your reserves.'); W.youthD();
+};
+
+// ---------- 🗑️ release ----------
+W.releaseMenu = function () {
+  const me = W.me, S = CC.clock(W.nowS()).s, P = (me.ids || []).map(id => W.player(id, S)), can = P.length > CC.MIN_SQUAD;
+  W.ui(`<div class="card"><p style="font-weight:900">🗑️ Release a player</p><p style="font-size:12px;color:#cbd5e1;margin-top:6px">Squad: <b>${P.length}/25</b>. You get 10% of the player's value back. Keep at least ${CC.MIN_SQUAD} players.</p></div>
+    <div class="card">${P.map(p => { const v = CC.releaseValue(p), ask = W._rel === p.id; return `<div class="row">${pline(p)}<button ${can ? '' : 'disabled'} onclick="W11.release('${p.id}')" style="padding:6px 8px;border-radius:10px;font-size:10px;font-weight:900;${ask ? 'background:#ff2d95;color:#fff' : 'background:rgba(255,255,255,.06)'}">${ask ? (p.legend ? 'Sure? He never comes back' : 'Tap again') : 'Release' + (v ? ' +' + fmt(v) : '')}</button></div>`; }).join('')}</div>`, '🗑️ RELEASE', 'W11.squad()');
+};
+W.release = async function (id) {
+  if (W._rel !== id) { W._rel = id; return W.releaseMenu(); }
+  W._rel = null; const p = W.player(id);
+  const r = await W.api('/w11/release', { id });
+  if (!r.ok) { toast('⚠️ ' + (r.error || 'Could not release. Try again.')); return W.releaseMenu(); }
+  W.me.ids = r.ids; W.me.coins = r.coins; W.me.ovr = W.avg(r.ids);
+  toast(`👋 ${p.name} left the club${r.back ? ' · +' + fmt(r.back) + ' 🪙' : ''}`); W.releaseMenu();
+};
 })();
