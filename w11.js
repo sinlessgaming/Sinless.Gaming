@@ -52,6 +52,7 @@ const SUFFIX = 'FC United City Stars Rovers Athletic Lions Eagles Falcons Warrio
 const POS_TEMPLATE = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'GK', 'DEF', 'DEF', 'MID', 'MID', 'FWD', 'FWD'];
 W.club = function (idx) {
   const r = rng(hash(WORLD + ':club:' + idx));
+  if (idx >= 100000) { const b = 47 + Math.floor(r() * 9); return { idx, tier: 6, name: 'My Club', short: 'MYC', hue: Math.floor(r() * 360), base: b, user: true }; }
   const tier = idx < 14 ? 1 : idx < 42 ? 2 : idx < 98 ? 3 : idx < 210 ? 4 : idx < 434 ? 5 : 6;
   const name = pick(r, CITY) + ' ' + pick(r, SUFFIX);
   const hue = Math.floor(r() * 360);
@@ -325,9 +326,9 @@ W.save = async function (patch) {
   const f = await fbLoad(); Object.assign(W.me, patch);
   try { await f.updateDoc(f.doc(db(), 'w11Clubs', window.uidNow()), patch); } catch (e) { console.warn('11W save', e); toast('⚠️ Not saved. Check your internet.'); }
 };
-W.create = async function (ci) {
-  const f = await fbLoad(), uid = window.uidNow(), c = W.club(ci), ids = W.squadIds(ci);
-  const base = { uid, tag: String(window.me ? window.me() : '').toLowerCase(), club: ci, name: c.name, short: c.short, form: '4-4-2', ids, ovr: W.avg(ids), stats: { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 }, boot: [], fr: 0, createdAt: Date.now() };
+W.create = async function (o) {
+  const f = await fbLoad(), uid = window.uidNow(), ci = 100000 + (hash(uid + ':' + Date.now()) % 899000), ids = W.squadIds(ci);
+  const base = { uid, tag: String(window.me ? window.me() : '').toLowerCase(), club: ci, name: o.name, short: o.short, crest: o.crest, kits: o.kits, form: '4-4-2', ids, ovr: W.avg(ids), stats: { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 }, boot: [], fr: 0, createdAt: Date.now() };
   // 🏅 Pioneer 50: the first 50 managers get the founder pack
   for (let tryN = 0; tryN < 3; tryN++) {
     let n = 0; try { const s = await f.getDoc(f.doc(db(), 'w11meta', 'pioneers')); n = s.exists() ? (s.data().count || 0) : 0; } catch (e) {}
@@ -341,6 +342,69 @@ W.create = async function (ci) {
     } catch (e) { if (!pio) { console.warn(e); toast('⚠️ Could not create your club. Try again.'); return null; } }
   }
   return null;
+};
+
+// ---------- 🎨 crest + kits (with the anti-clash rule) ----------
+W.COLORS = ['#22d3ee', '#a855f7', '#ff2d95', '#facc15', '#f97316', '#ef4444', '#22c55e', '#0ea5e9', '#1e3a8a', '#ffffff', '#111827', '#7c2d12', '#14b8a6', '#eab308'];
+W.SHAPES = ['shield', 'round', 'diamond', 'hex'];
+W.SYMS = ['AB', '⚽', '★', '🦁', '🦅', '🔥', '⚡', '👑', '🐺', '🌍', '🐘', '🌙'];
+W.PATS = ['plain', 'stripes', 'hoops', 'halves', 'sash'];
+W.crestSvg = function (cr, short, size) {
+  cr = cr || {}; const a = cr.c1 || '#22d3ee', b = cr.c2 || '#a855f7', id = 'cg' + Math.floor(Math.random() * 1e9), sym = !cr.sym || cr.sym === 'AB' ? esc(short || '') : cr.sym;
+  const path = { shield: 'M23 2 L44 9 L41 34 Q37 45 23 50 Q9 45 5 34 L2 9 Z', round: 'M23 3 A22 22 0 1 0 23.01 3 Z', diamond: 'M23 1 L45 26 L23 51 L1 26 Z', hex: 'M23 1 L44 13 L44 39 L23 51 L2 39 L2 13 Z' }[cr.shape] || 'M23 2 L44 9 L41 34 Q37 45 23 50 Q9 45 5 34 L2 9 Z';
+  return `<svg class="w11crest" style="width:${size || 46}px;height:${Math.round((size || 46) * 52 / 46)}px" viewBox="0 0 46 52"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><path d="${path}" fill="url(#${id})" stroke="#fff" stroke-width="2"/><text x="23" y="${sym.length > 2 ? 31 : 33}" text-anchor="middle" font-size="${sym.length > 2 ? 12 : 16}" font-weight="900" fill="#fff" font-family="system-ui">${sym}</text></svg>`;
+};
+W.kitSvg = function (k, size) {
+  k = k || {}; const a = k.c1 || '#22d3ee', b = k.c2 || '#ffffff', id = 'kp' + Math.floor(Math.random() * 1e9), s = size || 54;
+  const pat = { plain: '', stripes: [8, 18, 28, 38].map(x => `<rect x="${x}" y="0" width="5" height="60" fill="${b}"/>`).join(''), hoops: [14, 26, 38].map(y => `<rect x="0" y="${y}" width="60" height="6" fill="${b}"/>`).join(''), halves: `<rect x="25" y="0" width="30" height="60" fill="${b}"/>`, sash: `<path d="M0 8 L14 0 L54 44 L40 54 Z" fill="${b}"/>` }[k.pat || 'plain'] || '';
+  return `<svg width="${s}" height="${s}" viewBox="0 0 50 50"><defs><clipPath id="${id}"><path d="M15 4 L20 2 Q25 6 30 2 L35 4 L47 12 L42 21 L37 18 L37 48 L13 48 L13 18 L8 21 L3 12 Z"/></clipPath></defs><g clip-path="url(#${id})"><rect width="50" height="50" fill="${a}"/>${pat}</g><path d="M15 4 L20 2 Q25 6 30 2 L35 4 L47 12 L42 21 L37 18 L37 48 L13 48 L13 18 L8 21 L3 12 Z" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="1.2"/></svg>`;
+};
+const hexRgb = (h) => { h = String(h || '#000').replace('#', ''); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16) || 0); };
+W.clash = (c1, c2) => { const [a, b, c] = hexRgb(c1), [d, e, f] = hexRgb(c2); return Math.hypot(a - d, b - e, c - f) < 110; };
+W.aiKits = (ci) => { const c = W.club(ci), h = c.hue; const hsl = (l) => `hsl(${h},75%,${l}%)`, tohex = (l) => { const s2 = 0.75, l2 = l / 100, k = (n) => (n + h / 30) % 12, a2 = s2 * Math.min(l2, 1 - l2), f2 = (n) => l2 - a2 * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return '#' + [f2(0), f2(8), f2(4)].map(x => Math.round(x * 255).toString(16).padStart(2, '0')).join(''); }; return [{ c1: tohex(50), c2: '#ffffff', pat: 'plain' }, { c1: '#ffffff', c2: tohex(45), pat: 'plain' }, { c1: '#111827', c2: tohex(55), pat: 'stripes' }]; };
+// anti-clash: the away side switches to its 2nd or 3rd kit if the colours are too close
+W.pickKits = function (homeKits, awayKits) {
+  const h = (homeKits || [])[0] || { c1: '#22d3ee' }, list = awayKits && awayKits.length ? awayKits : [{ c1: '#ff2d95' }];
+  const a = list.find(k => !W.clash(k.c1, h.c1)) || { c1: W.clash('#ff2d95', h.c1) ? '#facc15' : '#ff2d95' };
+  return [h.c1, a.c1];
+};
+
+W.createScreen = function () {
+  const d = W._draft = W._draft || { name: '', short: '', crest: { shape: 'shield', c1: '#22d3ee', c2: '#a855f7', sym: 'AB' }, kits: [{ c1: '#22d3ee', c2: '#ffffff', pat: 'plain' }, { c1: '#ffffff', c2: '#a855f7', pat: 'plain' }, { c1: '#111827', c2: '#ff2d95', pat: 'stripes' }], kit: 0 };
+  const sw = (sel, key, val, isCrest) => W.COLORS.map(c => `<button onclick="W11.draft('${isCrest ? 'crest' : 'kit'}','${key}','${c}')" style="width:26px;height:26px;border-radius:8px;background:${c};border:2px solid ${val === c ? '#fff' : 'rgba(255,255,255,.15)'}"></button>`).join('');
+  const K = d.kits[d.kit];
+  W.ui(`<div class="card"><p style="font-size:18px;font-weight:900">Create your club ⚽</p><p style="font-size:12px;color:#94a3b8;margin-top:4px">Name it, design your crest and pick your kits. Your squad is drawn by pure luck.</p></div>
+    <div class="card"><p style="font-weight:900">🏷️ Name</p>
+      <input id="w11n" maxlength="24" value="${esc(d.name)}" oninput="W11._draft.name=this.value; if(!W11._draft.shortEdited){W11._draft.short=W11.autoShort(this.value); document.getElementById('w11s').value=W11._draft.short;} W11.prev()" placeholder="e.g. Kumasi Thunder FC" style="width:100%;margin-top:8px;padding:12px;border-radius:12px;background:#0b1024;border:1px solid rgba(34,211,238,.3);color:#fff;font-size:15px">
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><span style="font-size:11px;color:#94a3b8">Short name</span><input id="w11s" maxlength="3" value="${esc(d.short)}" oninput="W11._draft.short=this.value.toUpperCase(); W11._draft.shortEdited=1; W11.prev()" style="width:70px;padding:8px;border-radius:10px;background:#0b1024;border:1px solid rgba(34,211,238,.3);color:#fff;font-weight:900;text-transform:uppercase"></div></div>
+    <div class="card"><div style="display:flex;gap:12px;align-items:center"><div id="w11pc">${W.crestSvg(d.crest, d.short, 64)}</div><p style="font-weight:900">🛡️ Crest</p></div>
+      <div style="display:flex;gap:6px;margin-top:8px">${W.SHAPES.map(x => `<button onclick="W11.draft('crest','shape','${x}')" class="btn2" style="padding:8px;${d.crest.shape === x ? 'border-color:#22d3ee' : ''}">${x}</button>`).join('')}</div>
+      <p style="font-size:10px;color:#94a3b8;margin-top:8px">Main colour</p><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${sw(0, 'c1', d.crest.c1, 1)}</div><p style="font-size:10px;color:#94a3b8;margin-top:6px">Second colour</p><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${sw(0, 'c2', d.crest.c2, 1)}</div>
+      <p style="font-size:10px;color:#94a3b8;margin-top:8px">Symbol</p><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${W.SYMS.map(x => `<button onclick="W11.draft('crest','sym','${x}')" style="min-width:34px;height:34px;border-radius:10px;font-weight:900;background:rgba(255,255,255,.06);border:2px solid ${d.crest.sym === x ? '#22d3ee' : 'transparent'}">${x === 'AB' ? 'ABC' : x}</button>`).join('')}</div></div>
+    <div class="card"><p style="font-weight:900">👕 Kits</p><div style="display:flex;gap:6px;margin-top:8px">${['Home', 'Away', 'Third'].map((l, i) => `<button onclick="W11._draft.kit=${i}; W11.createScreen()" style="flex:1;padding:6px;border-radius:12px;background:rgba(255,255,255,.05);border:2px solid ${d.kit === i ? '#22d3ee' : 'transparent'}">${W.kitSvg(d.kits[i], 44)}<span style="display:block;font-size:10px;font-weight:900">${l}</span></button>`).join('')}</div>
+      <p style="font-size:10px;color:#94a3b8;margin-top:8px">Main colour</p><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${sw(0, 'c1', K.c1)}</div>
+      <p style="font-size:10px;color:#94a3b8;margin-top:6px">Second colour</p><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${sw(0, 'c2', K.c2)}</div>
+      <p style="font-size:10px;color:#94a3b8;margin-top:6px">Pattern</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${W.PATS.map(x => `<button onclick="W11.draft('kit','pat','${x}')" class="btn2" style="width:auto;padding:7px 10px;${K.pat === x ? 'border-color:#22d3ee' : ''}">${x}</button>`).join('')}</div>
+      <p style="font-size:10px;color:#94a3b8;margin-top:8px">If your kit looks too much like your opponent's, the away team switches kits automatically.</p></div>
+    <button class="btn" onclick="W11.createGo()">✅ Create my club</button>`, 'New club');
+};
+W.autoShort = (n) => { const w = String(n || '').trim().split(/\s+/).filter(x => !/^(fc|cf|sc|ac|the)$/i.test(x)); return (w.length >= 2 ? w.slice(0, 3).map(x => x[0]).join('') : (w[0] || '').slice(0, 3)).toUpperCase(); };
+W.draft = function (what, key, val) { const d = W._draft; if (what === 'crest') d.crest[key] = val; else d.kits[d.kit][key] = val; W.createScreen(); };
+W.prev = function () { const el = document.getElementById('w11pc'); if (el) el.innerHTML = W.crestSvg(W._draft.crest, W._draft.short, 64); };
+W.createGo = async function () {
+  const d = W._draft, name = String(d.name || '').trim().replace(/\s+/g, ' '), short = String(d.short || W.autoShort(name)).replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 3);
+  if (name.length < 3) return toast('Give your club a name (3+ letters)');
+  if (short.length < 2) return toast('Short name needs 2–3 letters');
+  if (window.sgFilterText && window.sgFilterText(name) !== name) return toast('Please choose a cleaner name');
+  W.ui('<p style="text-align:center;padding:40px 0;color:#94a3b8">Drawing your squad…</p>');
+  const doc = await W.create({ name, short, crest: d.crest, kits: d.kits }); if (!doc) return W.createScreen();
+  const P = doc.ids.map(W.player), best = P.slice().sort((a, b) => b.ovr - a.ovr).slice(0, 3), young = P.filter(p => p.age <= 20).length;
+  W.ui(`<div class="card" style="text-align:center">${W.crestSvg(doc.crest, doc.short, 72)}<p style="font-size:20px;font-weight:900;margin-top:8px">Welcome to ${esc(doc.name)}!</p>
+    ${doc.pioneer ? `<p style="margin-top:8px;font-size:13px;font-weight:900;color:#facc15">🛡️ FOUNDER SHIELD · Pioneer #${doc.pioneerNo} of 50</p>` : ''}
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px">Your squad: 18 players · Team ${doc.ovr} OVR · ${young} youngsters</p>
+    <div style="text-align:left;margin-top:8px;font-size:12px">${best.map(p => `<p>⭐ ${p.flag} <b>${esc(p.name)}</b> · ${p.pos} · ${p.age}y · <b>${p.ovr}</b></p>`).join('')}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;font-size:13px;font-weight:900"><div class="card" style="margin:0">🪙 ${fmt(doc.coins)}<br><span style="font-size:10px;color:#94a3b8">GG Coins</span></div><div class="card" style="margin:0">💎 ${doc.gems}<br><span style="font-size:10px;color:#94a3b8">Gems</span></div><div class="card" style="margin:0">⚡ ${doc.energy}<br><span style="font-size:10px;color:#94a3b8">Energy Packs</span></div><div class="card" style="margin:0">🩹 ${doc.med}<br><span style="font-size:10px;color:#94a3b8">Med-Packs</span></div></div>
+    <button class="btn" style="margin-top:14px" onclick="W11.home()">Start Boot Camp ⚽</button></div>`);
 };
 
 // ---------- 🏕️ Boot Camp (5 timed matches) ----------
@@ -385,10 +449,10 @@ const CSS = `
 #w11 .alert{margin-top:8px;padding:8px 10px;border-radius:12px;font-size:11px;font-weight:900;color:#fff;background:linear-gradient(90deg,rgba(255,45,149,.35),rgba(168,85,247,.25));display:none}
 #w11 .ov{position:absolute;inset:0;background:rgba(5,8,20,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px;text-align:center;z-index:5}
 #w11 .steps{display:flex;gap:6px;margin:10px 0}#w11 .steps i{flex:1;height:8px;border-radius:99px;background:rgba(255,255,255,.1)}#w11 .steps i.done{background:linear-gradient(90deg,#22d3ee,#a855f7)}#w11 .steps i.now{background:#ff2d95}
-#w11 .badge{width:46px;height:52px;flex-shrink:0}
+#w11 .w11crest{width:46px;height:52px;flex-shrink:0}
 #w11 .tip{font-size:11px;color:#cbd5e1;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.25);border-radius:12px;padding:9px;margin-top:8px}`;
 const ovrColor = (o) => o >= 85 ? '#facc15' : o >= 75 ? '#22d3ee' : o >= 65 ? '#a3e635' : o >= 55 ? '#e2e8f0' : '#94a3b8';
-const badge = (c, short) => `<svg class="badge" viewBox="0 0 46 52"><defs><linearGradient id="bg${c.idx}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${c.hue},80%,55%)"/><stop offset="1" stop-color="hsl(${(c.hue + 60) % 360},80%,35%)"/></linearGradient></defs><path d="M23 2 L44 9 L41 34 Q37 45 23 50 Q9 45 5 34 L2 9 Z" fill="url(#bg${c.idx})" stroke="#fff" stroke-width="2"/><text x="23" y="31" text-anchor="middle" font-size="13" font-weight="900" fill="#fff" font-family="system-ui">${esc(short || c.short)}</text></svg>`;
+const badge = (c, short) => `<svg class="w11crest" viewBox="0 0 46 52"><defs><linearGradient id="bg${c.idx}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${c.hue},80%,55%)"/><stop offset="1" stop-color="hsl(${(c.hue + 60) % 360},80%,35%)"/></linearGradient></defs><path d="M23 2 L44 9 L41 34 Q37 45 23 50 Q9 45 5 34 L2 9 Z" fill="url(#bg${c.idx})" stroke="#fff" stroke-width="2"/><text x="23" y="31" text-anchor="middle" font-size="13" font-weight="900" fill="#fff" font-family="system-ui">${esc(short || c.short)}</text></svg>`;
 
 W.ui = function (html, title, back) {
   let el = document.getElementById('w11');
@@ -403,34 +467,16 @@ W.open = async function () {
   W.ui('<p style="text-align:center;padding:40px 0;color:#94a3b8">Loading your world…</p>');
   await W.load();
   if (W.resumeLive()) return;
-  W.me ? W.home() : W.takeover();
-};
-
-W.takeover = function () {
-  const r = rng(hash(WORLD + ':offer:' + (window.uidNow ? window.uidNow() : '') + ':' + Math.floor(Date.now() / 864e5)));
-  const offers = []; while (offers.length < 6) { const ci = 434 + Math.floor(r() * 896); if (!offers.includes(ci)) offers.push(ci); }
-  W._offers = offers;
-  W.ui(`<div class="card"><p style="font-size:18px;font-weight:900">Welcome, manager 👔</p><p style="font-size:12px;color:#94a3b8;margin-top:4px">The world is already playing. Six clubs need a new manager <b>right now</b>, mid-season. Pick one and take over.</p></div>
-    ${offers.map((ci, i) => { const c = W.club(ci), ids = W.squadIds(ci), star = ids.map(W.player).sort((a, b) => b.ovr - a.ovr)[0], rr = rng(hash(WORLD + ':tab:' + ci)), pos = 1 + Math.floor(rr() * 14), pts = Math.max(1, Math.round(13 * 3 * (1 - pos / 16) * (0.6 + rr() * 0.4)));
-      return `<div class="card" style="display:flex;gap:12px;align-items:center">${badge(c)}<div style="flex:1;min-width:0"><p style="font-weight:900">${esc(c.name)}</p><p style="font-size:11px;color:#94a3b8">${pos}${['st', 'nd', 'rd'][pos - 1] || 'th'} of 14 · ${pts} pts · Matchday 13 · Team ${W.avg(ids)} OVR</p><p style="font-size:11px;color:#cbd5e1">⭐ ${star.flag} ${esc(star.name)} · ${star.ovr}</p></div><button class="btn" style="width:auto;padding:10px 14px" onclick="W11.pickClub(${i})">Take over</button></div>`; }).join('')}`);
-};
-W.pickClub = async function (i) {
-  const ci = W._offers[i]; if (ci == null) return;
-  W.ui('<p style="text-align:center;padding:40px 0;color:#94a3b8">Signing your contract…</p>');
-  const d = await W.create(ci); if (!d) return W.takeover();
-  W.ui(`<div class="card" style="text-align:center">${badge(W.club(ci))}<p style="font-size:20px;font-weight:900;margin-top:8px">You're the new manager of ${esc(d.name)}!</p>
-    ${d.pioneer ? `<p style="margin-top:10px;font-size:13px;font-weight:900;color:#facc15">🛡️ FOUNDER SHIELD · Pioneer #${d.pioneerNo} of 50</p>` : ''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;font-size:13px;font-weight:900"><div class="card" style="margin:0">🪙 ${fmt(d.coins)}<br><span style="font-size:10px;color:#94a3b8">GG Coins</span></div><div class="card" style="margin:0">💎 ${d.gems}<br><span style="font-size:10px;color:#94a3b8">Gems</span></div><div class="card" style="margin:0">⚡ ${d.energy}<br><span style="font-size:10px;color:#94a3b8">Energy Packs</span></div><div class="card" style="margin:0">🩹 ${d.med}<br><span style="font-size:10px;color:#94a3b8">Med-Packs</span></div></div>
-    <button class="btn" style="margin-top:14px" onclick="W11.home()">Let's go ⚽</button></div>`);
+  W.me ? W.home() : W.createScreen();
 };
 
 W.home = function () {
-  const me = W.me, c = W.club(me.club), n = W.bootNext(), s = me.stats || {};
+  const me = W.me, n = W.bootNext(), s = me.stats || {};
   const boot = (me.boot || []).length;
-  W.ui(`<div class="card" style="display:flex;gap:12px;align-items:center">${badge(c, me.short)}<div style="flex:1"><p style="font-weight:900;font-size:16px">${esc(me.name)} ${me.pioneer ? '<span style="font-size:10px;color:#facc15">🛡️ Founder</span>' : ''}</p><p style="font-size:11px;color:#94a3b8">Team ${W.avg(me.ids)} OVR · ${esc(me.form)} · P${s.p || 0} W${s.w || 0} D${s.d || 0} L${s.l || 0}</p><p style="font-size:11px;color:#94a3b8">⚡ ${me.energy} · 🩹 ${me.med}</p></div></div>
+  W.ui(`<div class="card" style="display:flex;gap:12px;align-items:center">${me.crest ? W.crestSvg(me.crest, me.short) : badge(W.club(me.club), me.short)}<div style="flex:1"><p style="font-weight:900;font-size:16px">${esc(me.name)} ${me.pioneer ? '<span style="font-size:10px;color:#facc15">🛡️ Founder</span>' : ''}</p><p style="font-size:11px;color:#94a3b8">Team ${W.avg(me.ids)} OVR · ${esc(me.form)} · P${s.p || 0} W${s.w || 0} D${s.d || 0} L${s.l || 0}</p><p style="font-size:11px;color:#94a3b8">⚡ ${me.energy} · 🩹 ${me.med}</p></div></div>
     <div class="card"><p style="font-weight:900">🏕️ Boot Camp · ${boot}/5</p><div class="steps">${[0, 1, 2, 3, 4].map(i => `<i class="${i < boot ? 'done' : i === boot ? 'now' : ''}"></i>`).join('')}</div>
       ${n ? `<div class="tip">${esc(n.tip)}</div>${n.ready ? `<button class="btn" style="margin-top:10px" onclick="W11.prematch('boot')">▶ Play Boot Camp match ${n.i + 1}</button>` : `<button class="btn" style="margin-top:10px" disabled id="w11cd">Unlocks in …</button>`}`
-        : `<p style="font-size:12px;color:#a3e635;margin-top:6px">🎓 Graduated! You're promoted to the 11 Wonders league. The league season opens in the next update.</p>`}</div>
+        : `<p style="font-size:12px;color:#a3e635;margin-top:6px">🎓 Graduated! Your club joins a Division 6 group in the live league pyramid. The league opens in the next update.</p>`}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn2" onclick="W11.squad()">👕 Squad & tactics</button><button class="btn2" onclick="W11.friendly()">🤝 Friendly</button></div>`);
   if (n && !n.ready) { const tick = () => { const b = document.getElementById('w11cd'); if (!b) return; const ms = n.at - Date.now(); if (ms <= 0) return W.home(); b.textContent = `Unlocks in ${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`; setTimeout(tick, 1000); }; tick(); }
 };
@@ -464,14 +510,15 @@ W.challenge = async function () {
 };
 
 // ---------- 🏟️ match flow ----------
-W.teamInfo = (src, side) => ({ name: src.name, short: src.short || W.club(src.club != null ? src.club : src.idx).short, color: side === 0 ? '#22d3ee' : '#ff2d95', gkColor: side === 0 ? '#facc15' : '#a3e635', form: src.form || '4-4-2', ids: src.ids });
+W.teamInfo = (src, side, color) => ({ name: src.name, short: src.short || W.club(src.club != null ? src.club : src.idx).short, color: color || (side === 0 ? '#22d3ee' : '#ff2d95'), gkColor: side === 0 ? '#facc15' : '#a3e635', form: src.form || '4-4-2', ids: src.ids });
 W.prematch = function (kind, opp) {
   const me = W.me; let o;
   if (kind === 'boot') { const n = W.bootNext(); if (!n || !n.ready) return W.home(); const c = W.club([700, 650, 500, 330, 260][n.i] + (me.club % 50)); o = { name: c.name, short: c.short, club: c.idx, ids: W.squadIds(c.idx), form: ['4-4-2', '4-3-3', '4-2-3-1', '4-4-2', '4-3-3'][n.i] }; }
-  else if (kind === 'friend') o = { name: opp.name, short: opp.short, club: opp.club, ids: opp.ids, form: opp.form, uid: opp.uid, tag: opp.tag };
+  else if (kind === 'friend') o = { name: opp.name, short: opp.short, club: opp.club, ids: opp.ids, form: opp.form, uid: opp.uid, tag: opp.tag, kits: opp.kits };
   else { const ci = 210 + Math.floor(Math.random() * 1100); const c = W.club(ci); o = { name: c.name, short: c.short, club: ci, ids: W.squadIds(ci), form: pick(Math.random, Object.keys(W.FORMS)) }; }
   if (kind !== 'boot' && W.lockdown()) { toast('🔒 ' + W.lockdown()); return; }
-  const live = { kind, seed: (Math.random() * 4294967295) >>> 0, startAt: Date.now() + 3000, home: W.teamInfo(me, 0), away: W.teamInfo(o, 1), cmds: [], boot: kind === 'boot' ? W.bootNext().i : null, opp: { uid: o.uid || null, tag: o.tag || null } };
+  const [hc, ac] = W.pickKits(me.kits, o.kits || W.aiKits(o.club));
+  const live = { kind, seed: (Math.random() * 4294967295) >>> 0, startAt: Date.now() + 3000, home: W.teamInfo(me, 0, hc), away: W.teamInfo(o, 1, ac), cmds: [], boot: kind === 'boot' ? W.bootNext().i : null, opp: { uid: o.uid || null, tag: o.tag || null } };
   try { localStorage.setItem('w11_live', JSON.stringify(live)); } catch (e) {}
   W.play(live);
 };
@@ -489,7 +536,7 @@ W.play = function (live) {
   const m = W.simulate(live.home, live.away, live.seed, live.cmds, Math.floor(playedAt(live) / DT));
   m.T[0].ai = false; W.m = m;
   const n = live.boot != null ? W.BOOT[live.boot] : null;
-  W.ui(`<div style="position:relative"><div class="sb"><span style="font-weight:900;color:#22d3ee">${esc(m.T[0].short)}</span><span class="sc" id="w11sc">0–0</span><span style="font-weight:900;color:#ff2d95">${esc(m.T[1].short)}</span><span class="tm" id="w11tm">1'</span></div>
+  W.ui(`<div style="position:relative"><div class="sb"><span style="font-weight:900;color:${m.T[0].color}">${esc(m.T[0].short)}</span><span class="sc" id="w11sc">0–0</span><span style="font-weight:900;color:${m.T[1].color}">${esc(m.T[1].short)}</span><span class="tm" id="w11tm">1'</span></div>
     <canvas id="w11c"></canvas>
     <div class="alert" id="w11al">📢 TOUCHLINE MOMENT · shout now!</div>
     <div class="shouts" id="w11sh">${[['attack', '📣 Attack'], ['tight', '🧱 Tight'], ['press', '⚡ Press'], ['calm', '🧘 Calm']].map(([k, l]) => `<button data-k="${k}" onclick="W11.shout('${k}')">${l}</button>`).join('')}</div>
@@ -562,7 +609,7 @@ W.finish = async function (live, m, offline) {
     <p style="font-size:34px;font-weight:900">${gf}–${ga}</p><p style="font-size:12px;color:#94a3b8">${esc(a.name)} vs ${esc(b.name)}</p>
     <div style="text-align:left;margin-top:10px;font-size:12px">${goals.map(g => `<p>${g.min}' ${esc(g.txt.replace(/ \d+–\d+$/, ''))}</p>`).join('') || '<p style="color:#94a3b8">No goals</p>'}</div>
     <p style="font-size:11px;color:#94a3b8;margin-top:8px">Possession ${Math.round(a.poss / pt * 100)}% · Shots ${a.shots}–${b.shots} · On target ${a.onT}–${b.onT}</p>
-    ${graduated ? '<p style="margin-top:12px;font-weight:900;color:#a3e635">🎓 Boot Camp complete! You are promoted to the 11 Wonders league.</p>' : ''}
+    ${graduated ? '<p style="margin-top:12px;font-weight:900;color:#a3e635">🎓 Boot Camp complete! Your club joins a Division 6 group in the live league pyramid.</p>' : ''}
     <button class="btn" style="margin-top:14px" onclick="W11.home()">Continue</button></div>`, 'Full time');
 };
 })();
