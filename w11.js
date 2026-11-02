@@ -1725,7 +1725,7 @@ G3.draw = function (me, M, tint, tex, emis, alpha) {
 G3.run = function (box, view) {
   if (!G3.ok() || !box || !G3.init()) return false;
   G3.view = view; view._err = 0; box.appendChild(G3.cv); G3.host = box;
-  if (!G3._raf) { let last = performance.now(); const loop = () => { const now = performance.now(); const v = G3.view; if (!v || !document.body.contains(G3.cv) || (v.alive && !v.alive())) { G3._raf = null; if (v && v.end) v.end(); if (G3.view === v) G3.view = null; return; }
+  if (!G3._raf) { let last = performance.now(); const loop = () => { if (G3.be !== 'gl') { G3._raf = null; return; } const now = performance.now(); const v = G3.view; if (!v || !document.body.contains(G3.cv) || (v.alive && !v.alive())) { G3._raf = null; if (v && v.end) v.end(); if (G3.view === v) G3.view = null; return; }
       const dt = Math.min(0.1, (now - last) / 1000); last = now; try { const cam = v.step(dt, now); if (cam) { G3.frame(cam); v.draw(); } } catch (e) { if (!v._err++) console.warn('3D', e); if (v._err > 5) G3.view = null; }
       G3._raf = requestAnimationFrame(loop); }; G3._raf = requestAnimationFrame(loop); }
   return true;
@@ -1830,6 +1830,8 @@ G3.particles = function (list, dt) { const P = G3.parts(); for (const q of list)
   if (q.life > 0 && q.y > 0) G3.draw(P.cube, M4.ch(M4.t(q.x, q.y, q.z), M4.ry(q.rot), M4.rx(q.rot * 0.7), M4.s(q.s || 0.25, 0.04 + (q.s || 0.25) * 0.4, q.s || 0.25)), q.c, null, 0.8); } return list.filter(q => q.life > 0 && q.y > 0); };
 G3.burst = function (list, n, at, spread) { const C = ['#22d3ee', '#a855f7', '#ff2d95', '#facc15', '#ffffff'].map(rgb); for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = Math.random() * (spread || 6);
   list.push({ x: at[0], y: at[1], z: at[2], vx: Math.cos(a) * s, vy: 2 + Math.random() * 6, vz: Math.sin(a) * s, c: C[i % 5], life: 2 + Math.random() * 2.5, s: 0.18 + Math.random() * 0.2 }); } return list; };
+G3.trophy = function (x, y, z, ry, s) { const gl = G3.gl; gl.disable(gl.CULL_FACE); G3.draw(G3.parts().trophy, M4.ch(M4.t(x, y, z), M4.ry(ry || 0), M4.s(s || 1)), rgb('#facc15'), null, 0.25); gl.enable(gl.CULL_FACE); };
+G3.floor = function () { G3.draw(G3.parts().cube, M4.ch(M4.t(0, -0.06, 0), M4.s(2.2, 0.1, 2.2)), rgb('#1e293b')); };
 G3.freeTeam = function (T) { const gl = G3.gl; if (!gl || !T) return; [T, T.gk].forEach(x => { if (!x) return; gl.deleteTexture(x.tex); [x.leg, x.arm].forEach(me => me && ['p', 'n', 'c', 't'].forEach(k => gl.deleteBuffer(me[k]))); }); };
 const lerp = (a, b, u) => a + (b - a) * u, ease = (u) => u < 0 ? 0 : u > 1 ? 1 : u * u * (3 - 2 * u);
 const angL = (a, b, k) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * k; };
@@ -1867,10 +1869,10 @@ W.dress = function (live) {
 };
 const crestHtml = (D, i, s) => D.cr[i] ? W.crestSvg(D.cr[i], D.sh[i], s) : D.ci[i] != null ? badge(W.club(D.ci[i]), D.sh[i]).replace('class="w11crest"', `class="w11crest" style="width:${s}px;height:${Math.round(s * 52 / 46)}px"`) : '';
 W.cerDur = (live) => live && live.kind === 'league' ? { open: 45, close: 15 } : { open: 12, close: 10 };
-const teamsOf = (live) => { const D = W.dress(live); if (!D.T) D.T = [G3.team(D.k[0], D.gk[0]), G3.team(D.k[1], D.gk[1])]; return D; };
+const teamsOf = (live) => { const D = W.dress(live); if (!D.T || D.Tbe !== G3.be) { D.T = [G3.team(D.k[0], D.gk[0], D.cr[0], D.sh[0]), G3.team(D.k[1], D.gk[1], D.cr[1], D.sh[1])]; D.Tbe = G3.be; } return D; };
 /* draw everybody from an engine-like list: [{ side, gk, x, y, id }] (engine metres) */
 const drawPlayers = (D, list, st, dt, opt) => { for (const p of list) { const x = PX(p.x), z = PZ(p.y), o = opt ? opt(p) : null, face = o && o.face != null ? o.face : null, a = anim(st, p.id, x, z, dt, face);
-  G3.fig(D.T[p.side], p.gk, p.id, x, z, { phase: a.phase, run: o && o.run != null ? o.run : a.run, yaw: o && o.yaw != null ? o.yaw : a.yaw, jump: o && o.jump, arms: o && o.arms, lean: o && o.lean, kick: o && o.kick, dive: o && o.dive }); } };
+  G3.fig(D.T[p.side], p.gk, p.id, x, z, { phase: a.phase, run: o && o.run != null ? o.run : a.run, yaw: o && o.yaw != null ? o.yaw : a.yaw, jump: o && o.jump, arms: o && o.arms, lean: o && o.lean, kick: o && o.kick, dive: o && o.dive, num: p.num }); } };
 /* what each player is doing right now in the live engine: kicking, diving, celebrating */
 W.liveOpts = function (m) {
   const b = m.ball, f = b.fl, g = m.ev.length && m.ev[m.ev.length - 1], cel = g && g.k === 'goal' && m.pauseT > 0 && m.tick - g.tick < 60 ? g.side : -1;
@@ -1903,7 +1905,7 @@ W.v3live = function (box) {
       const t = tvCam(PX(bx), PZ(by)), k = 1 - Math.exp(-dt * 2.6); cam = { eye: sm(cam && cam.eye, t.eye, k), at: sm(cam && cam.at, t.at, k * 1.4), fov: 40 }; return cam; },
     draw() { const m = v.m, a = clamp(W._alpha == null ? 1 : W._alpha, 0, 1); G3.drawWorld(v.Wd, 0);
       const lo = W.liveOpts(m), byId = {}; m.P.forEach(p => { byId[p.id] = p; });
-      drawPlayers(v.D, m.P.map(p => ({ side: p.side, gk: p.role === 'GK', x: p.px + (p.x - p.px) * a, y: p.py + (p.y - p.py) * a, id: p.id })), st, v.dt, (q) => lo(byId[q.id]));
+      drawPlayers(v.D, m.P.map(p => ({ side: p.side, gk: p.role === 'GK', x: p.px + (p.x - p.px) * a, y: p.py + (p.y - p.py) * a, id: p.id, num: p.num })), st, v.dt, (q) => lo(byId[q.id]));
       G3.ball(PX(v.bx), PZ(v.by), v.bh, spin); } };
   return v;
 };
@@ -2023,10 +2025,10 @@ W.ceremony = function (kind, live) {
           else if (t < P[2]) { const u = clamp(((t - P[1]) / (P[2] - P[1])) * 1.35 - i * 0.03, 0, 1); x = lerp(s ? 1.2 : -1.2, lx, ease(u)); z = lerp(40 + i * 1.3, 0, ease(u)); }
           else if (t < P[4]) { x = lx; z = 0; }
           else { const u = ease((t - P[4]) / (P[5] - P[4]) * 1.4); x = lerp(lx, PX(k0.x), u); z = lerp(0, PZ(k0.y), u); face = u > 0.9 ? (s ? -Math.PI / 2 : Math.PI / 2) : 0; }
-          list.push({ side: s, gk: i === 0, x: x + 52.5, y: z + 34, id, face }); });
+          list.push({ side: s, gk: i === 0, x: x + 52.5, y: z + 34, id, face, num: p.num }); });
         drawPlayers(v.D, list, st, v.dt, (p) => ({ face: p.face })); if (t >= P[4]) G3.ball(0, 0, 0, 0);
       } else if (mEnd) {
-        drawPlayers(v.D, mEnd.P.map(p => ({ side: p.side, gk: p.role === 'GK', x: p.x, y: p.y, id: p.id })), st, v.dt, (p) => { const win = ws === p.side, ph = hash(p.id) % 7;
+        drawPlayers(v.D, mEnd.P.map(p => ({ side: p.side, gk: p.role === 'GK', x: p.x, y: p.y, id: p.id, num: p.num })), st, v.dt, (p) => { const win = ws === p.side, ph = hash(p.id) % 7;
           return win ? { jump: Math.abs(Math.sin(t * 6 + ph)) * 0.5, arms: 'up', run: 0 } : ws === -1 ? { arms: Math.sin(t * 5 + ph) > 0.6 ? 'up' : '', run: 0 } : { lean: 0.35, run: 0 }; });
       }
       parts3.splice(0, parts3.length, ...G3.particles(parts3, v.dt)); } };
@@ -2050,7 +2052,7 @@ W.trophyLift = function (title, sub) {
       const th = t * 0.35 + 0.4, tg = { eye: [Math.sin(th) * 11, 3.4 + Math.sin(t * 0.5), Math.cos(th) * 11], at: [0, 1.8, 0] }; const k = 1 - Math.exp(-dt * 3); cam = { eye: sm(cam && cam.eye, tg.eye, cam ? k : 1), at: sm(cam && cam.at, tg.at, cam ? k : 1), fov: 45 }; return cam; },
     draw() { const t = v.t; G3.drawWorld(v.Wd, Math.abs(Math.sin(t * 8)) * 0.35);
       drawPlayers(v.D, ids.map((id, i) => { const a = (i - 5) / 5 * 1.25; return { side: 0, gk: i === 0, x: 52.5 + (i === 10 ? 0 : Math.sin(a) * 4.2), y: 34 + (i === 10 ? 1.4 : -Math.cos(a) * 4.2 + 3), id }; }), st, v.dt, (p) => ({ face: 0, jump: Math.abs(Math.sin(t * 5 + hash(p.id) % 5)) * 0.45, arms: 'up', run: 0 }));
-      const lift = 2.9 + Math.abs(Math.sin(t * 2.5)) * 0.5, gl = G3.gl; gl.disable(gl.CULL_FACE); G3.draw(G3.parts().trophy, M4.ch(M4.t(0, lift, 1.4), M4.ry(t * 1.2), M4.s(0.9)), rgb('#facc15'), null, 0.25); gl.enable(gl.CULL_FACE);
+      const lift = 2.9 + Math.abs(Math.sin(t * 2.5)) * 0.5; G3.trophy(0, lift, 1.4, t * 1.2, 0.9);
       parts3.splice(0, parts3.length, ...G3.particles(parts3, v.dt)); } };
   if (!G3.run(box, v)) { box.style.background = 'radial-gradient(circle at 50% 30%,rgba(250,204,21,.35),rgba(7,11,24,0) 70%)'; box.innerHTML = '<p style="text-align:center;font-size:90px;margin-top:18vh">🏆</p>'; cap.style.justifyContent = 'center'; }
 };
@@ -2074,9 +2076,35 @@ W.stadium3d = function (box, lv) {
 W.G3.kitPreview = function (box, kit) {
   if (!box || !G3.ok()) return; const id = 'kitp'; let T = null;
   const v = { alive: () => document.body.contains(box) && G3.view === v, end: () => { G3.freeTeam(T); },
-    step(dt, now) { if (!T) T = G3.team(kit, '#facc15'); v.T = T; v.t = now / 1000; return { eye: [0, 1.35, 4.6], at: [0, 1.15, 0], fov: 36, amb: 0.55, fog: 0.001, bg: [0.03, 0.05, 0.11] }; },
-    draw() { const t = v.t; G3.draw(G3.parts().cube, M4.ch(M4.t(0, -0.06, 0), M4.s(2.2, 0.1, 2.2)), rgb('#1e293b')); G3.fig(T, false, id, 0, 0, { yaw: t * 0.9, phase: 0, run: 0 }); } };
+    step(dt, now) { if (!T) T = G3.team(kit, '#facc15'); v.T = T; v.t = now / 1000; return G3.be === 'b3' ? { eye: [0, 1.2, 3.55], at: [0, 1.02, 0], fov: 36, amb: 0.55, fog: 0.001, bg: [0.03, 0.05, 0.11] } : { eye: [0, 1.35, 4.6], at: [0, 1.15, 0], fov: 36, amb: 0.55, fog: 0.001, bg: [0.03, 0.05, 0.11] }; },
+    draw() { const t = v.t; G3.floor(); G3.fig(T, false, id, 0, 0, { yaw: t * 0.9, phase: 0, run: 0, num: 10 }); } };
   G3.run(box, v);
+};
+
+
+// ---------- 🧍 G4b: real 3D players (Three.js + Quaternius, file w3d.js). Loaded in the background when 11 Wonders opens.
+// Every view above stays the same; only the drawing switches. The tiny engine stays as the fallback (no WebGL2 / load failed / errors).
+G3.be = 'gl';
+const G3OLD = {}; ['run', 'stop', 'team', 'freeTeam', 'fig', 'ball', 'world', 'drawWorld', 'particles', 'trophy', 'floor'].forEach(k => { G3OLD[k] = G3[k]; });
+const B3 = () => G3.B3 && G3.B3.ok() ? G3.B3 : null;
+G3.run = function (box, view) {
+  const B = B3(); if (B && box) { if (G3.be === 'gl' && G3.cv && G3.cv.parentNode) G3.cv.parentNode.removeChild(G3.cv); G3.be = 'b3'; G3.view = view; if (B.run(box, view)) return true; G3.view = null; }
+  if (G3.be === 'b3' && G3.B3) G3.B3.stop(); G3.be = 'gl'; return G3OLD.run(box, view);
+};
+G3.stop = function (view) {
+  if (G3.be !== 'b3') return G3OLD.stop(view);
+  if (!view || G3.view === view) { const v = G3.view; G3.view = null; if (v && v.end) v.end(); if (G3.B3) G3.B3.stop(); }
+};
+['team', 'freeTeam', 'fig', 'ball', 'world', 'drawWorld', 'particles', 'trophy', 'floor'].forEach(k => { G3[k] = function () { return (G3.be === 'b3' && G3.B3 ? G3.B3 : G3OLD)[k].apply(this, arguments); }; });
+W.W3D_V = 1;
+W.w3d = { st: 0 };
+W.w3dLoad = function () {
+  if (W.w3d.st || !G3.ok() || typeof window === 'undefined') return;
+  try { if (localStorage.getItem('w11_3dq') === 'lite') return; const c = document.createElement('canvas'); if (!c.getContext('webgl2')) return; } catch (e) { return; }
+  if (navigator.deviceMemory && navigator.deviceMemory < 2) return;
+  W.w3d.st = 1; const base = new URL('./', document.baseURI).href;
+  import(base + 'w3d.js?v=' + W.W3D_V).then(() => window.W3D.load({ G3, base, v: W.W3D_V, weak: W.weak, hash, hx, kitN: W.kitN, crestSvg: W.crestSvg, numOf: (id) => { const p = W.player(id, W.S); return p ? p.num : null; } }))
+    .then(B => { G3.B3 = B; W.w3d.st = 2; }).catch(e => { W.w3d.st = -1; console.warn('3D load', e); });
 };
 
 // ---------- 🔌 hooks into the match screens, home, Club HQ ----------
@@ -2110,7 +2138,7 @@ W.finish = (function (b) { return async function (live, m) { const r = await b.a
 W.finishL = (function (b) { return async function (live) { const r = await b.apply(this, arguments); if (W.live === live) W.live = null; try { const cmds = await W.cmdsOnce(live); W.addReplays({ home: live.home, away: live.away, seed: live.seed, cmds, live }); } catch (e) {} return r; }; })(W.finishL);
 W.resultL = (function (b) { return async function (mid, M) { const r = await b.apply(this, arguments); try { if (!M.q && M.s0 && M.s1) { const live = W.liveFrom(mid, M), cmds = await W.cmdsOnce(live); W.addReplays({ home: live.home, away: live.away, seed: live.seed, cmds, live }); } } catch (e) {} return r; }; })(W.resultL);
 /* 🪙 once: GG Coins become rare tokens */
-W.open = (function (b) { return async function () { await b.apply(this, arguments); const me = W.me; if (!me || me.g4) return;
+W.open = (function (b) { return async function () { await b.apply(this, arguments); try { W.w3dLoad(); } catch (e) {} const me = W.me; if (!me || me.g4) return;
   const r = await W.api('/w11/g4', {}); if (r && r.ok) { [me, W.me].forEach(x => { if (x) { x.g4 = 1; x.gems = r.gems; } }); W.chips(); if (!r.already) toast(`🪙 GG Coins are now rare and precious: you have ${r.gems}. Win trophies and promotion to earn more. Everyday money is now 💎 Gems.`); } }; })(W.open);
 W.home = (function (b) { return function () { const r = b.apply(this, arguments); Promise.resolve(r).then(() => setTimeout(W.troCheck, 600)); return r; }; })(W.home);
 W.hq = (function (b) { return function () { b.apply(this, arguments); const me = W.me, first = document.querySelector('#w11b .card'); if (!first) return;
@@ -2119,6 +2147,7 @@ W.hq = (function (b) { return function () { b.apply(this, arguments); const me =
     <button class="btn2" style="margin-top:10px" onclick="W11.redesign()">🎨 Redesign crest & kits · ${CC.TOK.design} 🪙 <span style="color:#94a3b8">(you have ${fmt(me.gems || 0)})</span></button></div>`); }; })(W.hq);
 W.helpL = (function (b) { return function () { b.apply(this, arguments); const el = document.querySelector('#w11b .card'); if (!el) return;
   el.insertAdjacentHTML('beforeend', `<p style="margin-top:6px">🎥 <b>3D</b>: goals and big saves switch to a live 3D camera (see below), plus an opening ceremony before kick-off and a closing ceremony at full time. Switch the live match between 🎥 3D and 🗺️ 2D at any time. Win a trophy and your players lift it in 3D.</p>
+    <p style="margin-top:6px">🧍 <b>Real 3D players</b>: your players wear your full kit (pattern, crest, collar, sleeves, shorts, socks, number on the back), run, kick, dive and celebrate. The 3D files download once when you open 11 Wonders and are then saved on your phone. Phones without the newest 3D keep the simple 3D.</p>
     <p style="margin-top:6px">🎨 <b>Crest & kits</b>: change them in 🏟️ Club HQ for ${CC.TOK.design} 🪙 GG Coins.</p>`); }; })(W.helpL);
 
 // ---------- 🎬 live cinematic: the radar turns into a full-screen 3D camera for goals and big saves ----------
@@ -2176,7 +2205,7 @@ W.cineStart = function (c, m, live) {
       return cam; },
     draw() { const mm = v.m, a = clamp(W._alpha == null ? 1 : W._alpha, 0, 1), lo = W.liveOpts(mm), byId = {}; mm.P.forEach(p => { byId[p.id] = p; });
       const scored = mm.ev.some(e => e.k === 'goal' && e.tick >= c.start); G3.drawWorld(v.Wd, scored ? Math.abs(Math.sin(performance.now() / 120)) * 0.35 : 0);
-      drawPlayers(v.D, mm.P.map(p => ({ side: p.side, gk: p.role === 'GK', x: p.px + (p.x - p.px) * a, y: p.py + (p.y - p.py) * a, id: p.id })), st, v.dt, (q) => lo(byId[q.id]));
+      drawPlayers(v.D, mm.P.map(p => ({ side: p.side, gk: p.role === 'GK', x: p.px + (p.x - p.px) * a, y: p.py + (p.y - p.py) * a, id: p.id, num: p.num })), st, v.dt, (q) => lo(byId[q.id]));
       G3.ball(PX(v.bx), PZ(v.by), v.bh, spin); } };
   if (W.__dbg) console.warn('START', JSON.stringify({ k: c.k, tick: c.tick, start: c.start, end: c.end, mt: m.tick }));
   W.cine.cur = c; c.el = el; c.t0 = performance.now(); W.cine.last = c.tick;
