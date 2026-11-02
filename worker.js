@@ -2899,7 +2899,7 @@ async function sendGoalPush(env, title, body, id) {
     body: JSON.stringify({ message: { topic: 'n_goals', webpush: { headers: { Urgency: 'high', TTL: '1800' }, data: { title: String(title).slice(0, 60), body: String(body).slice(0, 160), url: SITE + '#scores', tag: 'goal_' + id } } } }) });
 }
 /* =====================================================================
-   ⚽ 11 WONDERS · shared core (G2). build.sh pastes this SAME block into w11.js and worker.js,
+   ⚽ 11 WONDERS · shared core (G2 + G3a). build.sh pastes this SAME block into w11.js and worker.js,
    so phones and the worker always agree. Only + - * / and sqrt are used for anything that decides
    a result, so every phone (Android or iPhone) gets exactly the same numbers.
    ===================================================================== */
@@ -2976,7 +2976,7 @@ const youth = function (id, gid) {
 };
 const grow = (y) => y < 21 ? 4 : y < 24 ? 3 : y < 27 ? 1 : y < 30 ? 0 : y < 32 ? -1 : y < 34 ? -2 : -3;
 /* 🎂 1 season = 1 year: players improve until ~27, drop after ~31, retire at 34–37 */
-const player = function (id, S) {
+const oplayer = function (id, S) {
   S = Math.max(1, Math.floor(S || 1));
   let p = base(id); if (S === 1) return p;
   let s = 1, a0 = p.age, g = 0, gid = String(id);
@@ -2991,6 +2991,99 @@ const player = function (id, S) {
   const sh = (v) => clamp(v + d, 25, 99);
   return { ...p, gid, gen: g, age, ovr: clamp(p.ovr + d, 40, 97), pac: sh(p.pac), sho: sh(p.sho), pas: sh(p.pas), dri: sh(p.dri), def: sh(p.def), gk: p.pos === 'GK' ? sh(p.gk) : p.gk };
 };
+/* ===== G3a: new kinds of players (their ID says everything about them) =====
+   a{S}x{slot}x{n}  = player sold in the market (born in season S)
+   y{S}x{club}x{k}  = one of the 15 youngsters a club sees in its youth draft in season S
+   L{S}x{no}        = the 150-OVR wonder given to Pioneer #no (1–50). Only 50 can ever exist. */
+const NEW_RE = /^([ayL])(\d+)x(\d+)(?:x(\d+))?$/;
+const isNew = (id) => NEW_RE.test(String(id));
+const POS15 = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD', 'GK'];
+const LEG_POS = ['FWD', 'MID', 'FWD', 'DEF', 'MID', 'FWD', 'MID', 'DEF', 'FWD', 'GK'];
+const LEGEND_OVR = 150, MAX_SQUAD = 25, MIN_SQUAD = 16, PLAYABLE = 18, PIONEERS = 50;
+const legAttrs = (r, pos) => {
+  const v = (x) => Math.round(x + (r() - 0.5) * 8);
+  return pos === 'GK' ? { pac: v(80), sho: v(55), pas: v(100), dri: v(80), def: v(110), gk: v(140) }
+    : pos === 'DEF' ? { pac: v(110), sho: v(90), pas: v(115), dri: v(105), def: v(140), gk: 20 }
+    : pos === 'MID' ? { pac: v(110), sho: v(125), pas: v(140), dri: v(135), def: v(100), gk: 20 }
+    : { pac: v(115), sho: v(140), pas: v(118), dri: v(138), def: v(70), gk: 20 };
+};
+const posOfNew = (m) => m[1] === 'L' ? LEG_POS[Number(m[3]) % 10] : POS15[Number(m[1] === 'a' ? m[3] : m[4]) % 15];
+/* the player as he is in his first season (g = 0), or the 17-year-old who replaces him after he retires (g > 0) */
+const nbase = function (id, gid, g) {
+  const m = NEW_RE.exec(id), k = m[1], r = rng(hash(WORLD + ':n:' + gid)), nm = named(r), pos = posOfNew(m), num = 21 + hash(gid + ':num') % 70;
+  if (g > 0) { const ovr = 45 + Math.floor(r() * 16); return { id, k, ...nm, pos, age: 17, ovr, pot: clamp(ovr + 8 + Math.floor(r() * 16), ovr, 88), wk: false, ...attrs(r, pos, ovr), num }; }
+  if (k === 'L') return { id, k, ...nm, pos, age: 16 + Number(m[3]) % 2, ovr: LEGEND_OVR, pot: LEGEND_OVR, wk: true, legend: true, ...legAttrs(r, pos), num: pos === 'GK' ? 1 : [7, 10, 9, 11, 8][Number(m[3]) % 5] };
+  let age, ovr, pot, wk = false;
+  if (k === 'y') {
+    age = 15 + Math.floor(r() * 3); wk = r() < 0.05;
+    ovr = wk ? 60 + Math.floor(r() * 10) : 42 + Math.floor(r() * 19);
+    pot = wk ? 90 + Math.floor(r() * 8) : clamp(ovr + 10 + Math.floor(r() * 19), ovr, 86);
+  } else {
+    age = 16 + Math.floor(r() * 17); const x = r();
+    ovr = x < 0.22 ? 48 + Math.floor(r() * 12) : x < 0.52 ? 60 + Math.floor(r() * 10) : x < 0.8 ? 70 + Math.floor(r() * 10) : x < 0.95 ? 80 + Math.floor(r() * 8) : 88 + Math.floor(r() * 6);
+    if (age <= 20) ovr = Math.min(ovr, 50 + (age - 16) * 6);
+    if (age <= 19 && r() < 0.05) { wk = true; ovr = 66 + Math.floor(r() * 11); }
+    pot = wk ? 91 + Math.floor(r() * 7) : age < 27 ? clamp(ovr + 3 + Math.floor(r() * 14), ovr, 94) : ovr;
+  }
+  return { id, k, ...nm, pos, age, ovr, pot, wk, ...attrs(r, pos, ovr), num };
+};
+const nplayer = function (id, S) {
+  const m = NEW_RE.exec(id), S0 = Number(m[2]); S = Math.max(S0, Math.floor(S || 1));
+  let s = S0, g = 0, gid = String(id), p = nbase(id, gid, 0), a0 = p.age;
+  for (let guard = 0; guard < 40; guard++) {
+    const R = p.legend ? 37 : 34 + hash(gid + ':ret') % 4;
+    if (a0 + (S - s) <= R) break;
+    s = s + (R - a0) + 1; g++; gid = id + '~' + g; p = nbase(id, gid, g); a0 = 17;
+    if (s > S) break;
+  }
+  const age = a0 + (S - s);
+  if (p.legend) return { ...p, ci: -1, slot: -1, gid, gen: g, age };
+  let d = 0;
+  for (let y = a0; y < age; y++) { const st = grow(y) + (p.wk && y < 22 ? 2 : 0) + (hash(gid + ':g' + y) % 3) - 1; d += st > 0 ? Math.max(0, Math.min(st, p.pot - p.ovr - d)) : st; }
+  const sh = (v) => clamp(v + d, 25, 99);
+  return { ...p, ci: -1, slot: -1, gid, gen: g, age, ovr: clamp(p.ovr + d, 40, 97), pac: sh(p.pac), sho: sh(p.sho), pas: sh(p.pas), dri: sh(p.dri), def: sh(p.def), gk: p.pos === 'GK' ? sh(p.gk) : p.gk };
+};
+const player = (id, S) => isNew(id) ? nplayer(String(id), S) : oplayer(id, S);
+/* 💰 what a player is worth (plain multiplication only, so phones and the worker agree) */
+const r500 = (v) => Math.round(v / 500) * 500;
+const value = (p) => {
+  if (!p || p.legend) return 0;
+  let v = 2000; for (let i = 50; i < p.ovr; i++) v *= 1.12; for (let i = p.ovr; i < 50; i++) v /= 1.12;
+  v *= p.age <= 21 ? 1.3 : p.age <= 26 ? 1.1 : p.age <= 29 ? 1 : p.age <= 31 ? 0.75 : 0.5;
+  if (p.wk) v *= 2.5;
+  return Math.max(500, r500(v));
+};
+const releaseValue = (p) => p && !p.legend ? Math.round(value(p) * 0.1 / 100) * 100 : 0;
+const youthIds = (S, ci) => { const o = []; for (let k = 0; k < 15; k++) o.push('y' + S + 'x' + ci + 'x' + k); return o; };
+const legendId = (S, no) => 'L' + S + 'x' + no;
+
+/* 🔨 the market: 15 auctions always running. Each lasts 60 s; the next one starts the moment it ends.
+   A bid in the last 10 s puts the clock back to 10 s. 🤖 computer clubs (clearly marked) snipe 3 s before the end
+   while the price is under the most they will pay. With no human bids, a computer club buys at the start price (or it's unsold). */
+const MK_N = 15, MK_LEN = 60000, MK_EXT = 10000, MK_AI = 3000;
+const lotT0 = (i) => EPOCH + i * 4000;
+const lotPid = (i, n, st) => 'a' + clock(st).s + 'x' + i + 'x' + n;
+const stepOf = (p) => Math.max(500, r500(p * 0.05));
+const lotInfo = (i, n, st) => {
+  const pid = lotPid(i, n, st), p = player(pid, clock(st).s), v = value(p), start = Math.max(1000, r500(v * 0.4)), r = rng(hash('mkai:' + pid));
+  const aiMax = r() < 0.35 ? 0 : Math.max(start, r500(v * (0.7 + r() * 0.9))), aiClub = Math.floor(r() * 434);
+  return { i, n, st, pid, v, start, aiMax, aiClub };
+};
+/* L = a stored lot { i, n, st, end, p, u, un, c, nb } (or a fresh one { i, n, st }); answers how it stands at time `now` */
+const lotEff = (L, now) => {
+  const I = lotInfo(L.i, L.n, L.st);
+  if (!L.u) { const end = L.st + MK_LEN; return { ...I, top: null, price: I.start, end, closed: now >= end, winner: now >= end ? (I.aiMax >= I.start ? 'ai' : null) : null, minNext: I.start }; }
+  const e = L.end, aiNext = L.p + stepOf(L.p);
+  if (aiNext <= I.aiMax && now >= e - MK_AI) { const end = e - MK_AI + MK_EXT; return { ...I, top: 'ai', price: aiNext, end, closed: now >= end, winner: now >= end ? 'ai' : null, minNext: aiNext + stepOf(aiNext), aiAt: e - MK_AI }; }
+  return { ...I, top: 'u', price: L.p, end: e, closed: now >= e, winner: now >= e ? 'u' : null, minNext: L.p + stepOf(L.p) };
+};
+/* which lot is running in slot i right now, given the last stored lot of that slot (or none) */
+const lotCur = (i, L, now) => {
+  if (!L) { const t0 = lotT0(i), n = Math.max(0, Math.floor((now - t0) / MK_LEN)); return { i, n, st: t0 + n * MK_LEN }; }
+  const E = lotEff(L, now); if (!E.closed) return L;
+  const k = Math.max(0, Math.floor((now - E.end) / MK_LEN)); return { i, n: L.n + 1 + k, st: E.end + k * MK_LEN };
+};
+
 const squadIds = (ci) => POS_TEMPLATE.map((_, s) => ci + '-' + s);
 const avg = (ids, S) => Math.round(ids.slice(0, 11).map(id => player(id, S)).reduce((s, p) => s + p.ovr, 0) / 11);
 
@@ -3107,7 +3200,7 @@ const parseRes = (r) => { const [sc, cards, subs] = String(r || '').split('|'); 
   return { h, a, cards: [0, 1].map(i => (C[i] || '').split(',').filter(Boolean).map(x => [x.slice(0, -1), x.slice(-1)])), subs: [0, 1].map(i => (U[i] || '').split(',').filter(Boolean).map(x => { const m = x.match(/^(.+)>(.+)@(\d+)$/); return m ? [m[1], m[2], Number(m[3])] : null; }).filter(Boolean)) }; };
 const RES_RE = /^\d{1,2}-\d{1,2}\|[\w~,;-]*\|[\w~,;>@-]*$/;
 
-return { absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
+return { NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
 })();
 // =====================================================================
 // ⚽ G2 · 11 WONDERS LEAGUE (worker side). The worker never plays matches (too heavy for the free plan).
@@ -3403,6 +3496,7 @@ async function w11cron(env) {
   try { out.locked = await w11lock(env, budget); } catch (e) { out.lockErr = String(e); }
   try { out.settled = await w11settle(env, budget, false); } catch (e) { out.settleErr = String(e); }
   try { out.season = await w11season(env, budget); } catch (e) { out.seasonErr = String(e); }
+  try { if (budget.n > 4) out.market = await w11mkSettle(env, budget); } catch (e) { out.mkErr = String(e); }
   return out;
 }
 
@@ -3417,6 +3511,127 @@ async function w11route(req, env, ctx, url, json) {
   if (p === '/w11/job') return json({ ok: true, jobs: await w11jobs(env, uid) });
   if (p === '/w11/train') return json(await w11train(env, uid, String(b.f || '')));
   if (p === '/w11/pack') return json(await w11pack(env, uid, String(b.k || ''), String(b.id || '')));
+  const g3 = await w11g3route(p, env, uid, b); if (g3) return json(g3);
   if (p === '/w11/run' && await isAdminUid(env, uid)) return json({ ok: true, ...(await w11cron(env)) });
   return json({ ok: false, error: 'unknown' }, 404);
+}
+// =====================================================================
+// 🔨 G3a · 11 WONDERS MARKET + YOUTH DRAFT + PIONEER WONDERS (worker side)
+// 15 auctions always running (w11a/0 … w11a/14). Only lots with a human bid are stored; everything else
+// (the player, start price, 🤖 computer-club snipes, unbid lots) comes from the shared core, so phones and
+// the worker agree without extra reads. Coins of the top bidder are held at once and given back when outbid.
+// =====================================================================
+const MKP = (i) => `w11a/${i}`;
+async function w11lots(env, extra) {
+  const paths = []; for (let i = 0; i < C11.MK_N; i++) paths.push(MKP(i));
+  return await w11batchGet(env, paths.concat(extra || []));
+}
+const w11lotOf = (docs, i) => { const x = docs[MKP(i)]; return x ? { ...x.data, i, _ut: x.ut } : null; };
+/* players this manager is about to get from the market (top bidder now, or won but not handed over yet) */
+function w11pending(docs, uid, now, skip) {
+  let n = 0;
+  for (let i = 0; i < C11.MK_N; i++) {
+    if (i === skip) continue; const L = w11lotOf(docs, i); if (!L || L.u !== uid || L.done) continue;
+    if (C11.lotEff(L, now).top === 'u') n++;
+  }
+  return n;
+}
+const w11acc = () => { const a = {}; return { a, add(u, inc, pid) { const x = a[u] || (a[u] = { inc: 0, push: [] }); x.inc += inc; if (pid) x.push.push(pid); } }; };
+const w11accWrites = (A, pre) => Object.keys(A.a).filter(u => A.a[u].inc || A.a[u].push.length).map(u => ({ path: `w11Clubs/${u}`, data: {}, mask: [], inc: A.a[u].inc ? { coins: A.a[u].inc } : null, push: A.a[u].push.length ? { ids: A.a[u].push } : null, pre: pre && pre[u] ? { ut: pre[u] } : undefined }));
+
+async function w11bid(env, uid, i, n, amt) {
+  i = Math.floor(Number(i)); n = Math.floor(Number(n)); amt = Math.floor(Number(amt));
+  if (!(i >= 0 && i < C11.MK_N) || !(n >= 0) || !(amt > 0 && amt <= 99000000)) return { ok: false, error: 'bad bid' };
+  const now = Date.now(), docs = await w11lots(env, [`w11Clubs/${uid}`]), cd = docs[`w11Clubs/${uid}`];
+  if (!cd) return { ok: false, error: 'Create your club first' };
+  const c = cd.data, L = w11lotOf(docs, i), cur = C11.lotCur(i, L, now);
+  if (cur.n !== n) return { ok: false, ended: true, error: 'Too late! That auction ended. A new player is up.' };
+  const same = !!(L && L.n === n), E = C11.lotEff(same ? L : { i, n, st: cur.st }, now);
+  if (E.closed) return { ok: false, ended: true, error: 'Too late! That auction ended.' };
+  if (same && E.top === 'u' && L.u === uid) return { ok: false, error: 'You are already the top bidder' };
+  if (amt < E.minNext) return { ok: false, min: E.minNext, error: 'Someone bid first. Bid at least ' + E.minNext.toLocaleString() };
+  const back = same && L.u === uid ? L.p : 0, need = amt - back;
+  if ((Number(c.coins) || 0) < need) return { ok: false, error: 'Not enough GG Coins' };
+  const prevWin = !same && L && L.u === uid && !L.done && C11.lotEff(L, now).winner === 'u' ? 1 : 0;
+  if ((c.ids || []).length + w11pending(docs, uid, now, i) + prevWin + 1 > C11.MAX_SQUAD) return { ok: false, full: true, error: 'Your squad is full (25). Release a player first.' };
+  const A = w11acc(); A.add(uid, -need, null);
+  let prev = (L && L.prev) || null;
+  if (same && L.u && L.u !== uid) A.add(L.u, L.p, null);
+  if (L && !same) {
+    const PE = C11.lotEff(L, now);
+    prev = { n: L.n, w: PE.winner || '', un: PE.winner === 'u' ? (L.un || '') : '', p: PE.price, ai: PE.aiClub, pid: PE.pid };
+    if (L.u && !L.done) { if (PE.winner === 'u') A.add(L.u, 0, PE.pid); else A.add(L.u, L.p, null); }
+  }
+  const doc = { i, n, st: cur.st, end: Math.max(E.end, now + C11.MK_EXT), p: amt, u: uid, un: String(c.name || 'My Club').slice(0, 40), c: Number(c.club) || 0, nb: (same ? (L.nb || 0) : 0) + 1, done: 0, at: now };
+  if (prev) doc.prev = prev;
+  const writes = [{ path: MKP(i), data: doc, pre: L ? { ut: L._ut } : { exists: false } }, ...w11accWrites(A, { [uid]: cd.ut })];
+  if (!(await w11commit(env, writes))) return { ok: false, retry: true, error: 'Someone bid at the same time. Try again!' };
+  return { ok: true, lot: doc, coins: (Number(c.coins) || 0) - need };
+}
+
+/* hand over won players / give coins back for finished lots (cron every 5 min, or when a phone asks) */
+async function w11mkSettle(env, budget) {
+  const now = Date.now(), docs = await w11lots(env); if (budget) budget.n--;
+  const todo = [];
+  for (let i = 0; i < C11.MK_N; i++) { const L = w11lotOf(docs, i); if (L && L.u && !L.done) { const E = C11.lotEff(L, now); if (E.closed) todo.push([L, E]); } }
+  if (!todo.length) return 0;
+  const win = [...new Set(todo.filter(([, E]) => E.winner === 'u').map(([L]) => L.u))];
+  const clubs = win.length ? await w11batchGet(env, win.map(u => `w11Clubs/${u}`)) : {}; if (budget && win.length) budget.n--;
+  const A = w11acc(), writes = [], got = {};
+  for (const [L, E] of todo) {
+    let w = E.winner;
+    if (w === 'u') { const k = clubs[`w11Clubs/${L.u}`], have = k ? (k.data.ids || []).length + (got[L.u] || 0) : 99; if (have >= C11.MAX_SQUAD) w = 'full'; }
+    if (w === 'u') { A.add(L.u, 0, E.pid); got[L.u] = (got[L.u] || 0) + 1; } else A.add(L.u, L.p, null);
+    writes.push({ path: MKP(L.i), data: { done: 1, w, wp: E.price }, mask: ['done', 'w', 'wp'], pre: { ut: L._ut } });
+  }
+  const ok = await w11commit(env, writes.concat(w11accWrites(A))); if (budget) budget.n--;
+  return ok ? todo.length : 0;
+}
+
+// ---------- 🗑️ release a player (a few coins back; keep at least 16) ----------
+async function w11release(env, uid, id) {
+  const cd = await w11get(env, `w11Clubs/${uid}`); if (!cd) return { ok: false, error: 'no club' };
+  const c = cd.data, ids = c.ids || []; id = String(id || '');
+  if (!ids.includes(id)) return { ok: false, error: 'That player is not in your squad' };
+  if (ids.length <= C11.MIN_SQUAD) return { ok: false, error: 'You need at least ' + C11.MIN_SQUAD + ' players' };
+  const S = C11.clock(Date.now()).s, back = C11.releaseValue(C11.player(id, S)), nids = ids.filter(x => x !== id);
+  const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { ids: nids, ovr: C11.avg(nids, S) }, mask: ['ids', 'ovr'], inc: back ? { coins: back } : null, pre: { ut: cd.ut } }]);
+  return ok ? { ok: true, ids: nids, back, coins: (Number(c.coins) || 0) + back } : { ok: false, error: 'try again' };
+}
+
+// ---------- 🧒 youth draft: 15 youngsters a season, keep up to 5 ----------
+async function w11draft(env, uid, picks) {
+  if (!Array.isArray(picks)) return { ok: false, error: 'pick your youngsters' };
+  const P = [...new Set(picks.map(Number))].filter(k => Number.isInteger(k) && k >= 0 && k < 15);
+  if (!P.length || P.length > 5 || P.length !== picks.length) return { ok: false, error: 'Pick 1 to 5 youngsters' };
+  const now = Date.now(), S = C11.clock(now).s, docs = await w11lots(env, [`w11Clubs/${uid}`]), cd = docs[`w11Clubs/${uid}`];
+  if (!cd) return { ok: false, error: 'no club' };
+  const c = cd.data; if (c.yd === S) return { ok: false, error: 'You already picked your youngsters this season' };
+  const room = C11.MAX_SQUAD - (c.ids || []).length - w11pending(docs, uid, now, -1);
+  if (P.length > room) return { ok: false, full: true, error: room > 0 ? 'Room for only ' + room + '. Release a player first.' : 'Your squad is full (25). Release a player first.' };
+  const add = P.map(k => C11.youthIds(S, c.club)[k]);
+  const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { yd: S }, mask: ['yd'], push: { ids: add }, pre: { ut: cd.ut } }]);
+  return ok ? { ok: true, ids: (c.ids || []).concat(add), yd: S } : { ok: false, error: 'try again' };
+}
+
+// ---------- 🌟 Pioneer wonder: one 150-OVR player for each of the first 50 managers ----------
+async function w11gift(env, uid) {
+  const now = Date.now(), S = C11.clock(now).s, docs = await w11lots(env, [`w11Clubs/${uid}`]), cd = docs[`w11Clubs/${uid}`];
+  if (!cd) return { ok: false, error: 'no club' };
+  const c = cd.data, no = Number(c.pioneerNo) || 0;
+  if (!c.pioneer || !(no >= 1 && no <= C11.PIONEERS)) return { ok: false, error: 'Only for the first 50 Pioneers' };
+  if (c.leg) return { ok: true, already: true, id: c.leg };
+  if ((c.ids || []).length + w11pending(docs, uid, now, -1) + 1 > C11.MAX_SQUAD) return { ok: false, full: true, error: 'Your squad is full (25). Release a player to make room for your wonder.' };
+  const id = C11.legendId(S, no);
+  const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { leg: id }, mask: ['leg'], push: { ids: [id] }, pre: { ut: cd.ut } }]);
+  return ok ? { ok: true, id } : { ok: false, error: 'try again' };
+}
+
+async function w11g3route(p, env, uid, b) {
+  if (p === '/w11/bid') return await w11bid(env, uid, b.i, b.n, b.amt);
+  if (p === '/w11/claim') return { ok: true, n: await w11mkSettle(env, null) };
+  if (p === '/w11/release') return await w11release(env, uid, b.id);
+  if (p === '/w11/draft') return await w11draft(env, uid, b.picks);
+  if (p === '/w11/gift') return await w11gift(env, uid);
+  return null;
 }
