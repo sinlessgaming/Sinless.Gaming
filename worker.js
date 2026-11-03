@@ -3089,7 +3089,7 @@ const squadIds = (ci) => POS_TEMPLATE.map((_, s) => ci + '-' + s);
 const avg = (ids, S) => Math.round(ids.slice(0, 11).map(id => player(id, S)).reduce((s, p) => s + p.ovr, 0) / 11);
 
 /* 📅 season clock: 28 days = 1 year. Days 1–26 one matchday each, day 27 last checks, day 28 promotion & prizes. */
-const DAY = 86400000, EPOCH0 = Date.UTC(2026, 10, 2), SDAYS = 28, MDS = 26, ENGINE = 2;
+const DAY = 86400000, EPOCH0 = Date.UTC(2026, 10, 2), SDAYS = 28, MDS = 26, ENGINE = 3;
 /* G5: the season clock can be restarted (fresh Season 1): the start day is kept in w11meta/season.ep; the market keeps EPOCH0 */
 let EPOCH = EPOCH0;
 const setEpoch = (ms) => { ms = Number(ms) || 0; if (ms > Date.UTC(2026, 0, 1) && ms < Date.UTC(2040, 0, 1)) EPOCH = Math.floor(ms / DAY) * DAY; return EPOCH; };
@@ -3202,7 +3202,10 @@ const sheetOf = (club, day, S) => {
   }
   const cond = {}; ids.forEach(id => { cond[id] = condNow(club, id, day); });
   const tk = {}; for (const k of ['cap', 'pen', 'fk', 'ck']) { const v = club.tk && club.tk[k]; if (typeof v === 'string' && ids.includes(v)) tk[k] = v; }
-  return { tk, ids, form: FORM_NAMES.includes(club.form) ? club.form : '4-4-2', cond, tr: { att: Number(club.tr && club.tr.att) || 0, def: Number(club.tr && club.tr.def) || 0, fit: Number(club.tr && club.tr.fit) || 0 }, bo, io, n: club.name || 'My Club', sh: club.short || 'MYC', kit: ((club.kits || [])[0] || {}).c1 || '', kits: (club.kits || []).map(k => k && k.c1).filter(Boolean), kf: (club.kits || []).slice(0, 3).map(cleanKit), cr: cleanCrest(club.crest), sd: { lv: stdLv(club), nm: String((club.std && club.std.nm) || ((club.name || 'My Club') + ' Park')).slice(0, 30) } };
+  const sh = { tk, ids, form: FORM_NAMES.includes(club.form) ? club.form : '4-4-2', cond, tr: { att: Number(club.tr && club.tr.att) || 0, def: Number(club.tr && club.tr.def) || 0, fit: Number(club.tr && club.tr.fit) || 0 }, bo, io, n: club.name || 'My Club', sh: club.short || 'MYC', kit: ((club.kits || [])[0] || {}).c1 || '', kits: (club.kits || []).map(k => k && k.c1).filter(Boolean), kf: (club.kits || []).slice(0, 3).map(cleanKit), cr: cleanCrest(club.crest), sd: { lv: stdLv(club), nm: String((club.std && club.std.nm) || ((club.name || 'My Club') + ' Park')).slice(0, 30) } }
+  /* G4c: learned positions + renamed players travel with the team sheet (only when there are any) */
+  const lp = learnedMap(club, ids, S, Date.now()), rn = rnMap(club, ids, S); if (Object.keys(lp).length) sh.lp = lp; if (Object.keys(rn).length) sh.rn = rn;
+  return sh;
 };
 const aiSheet = (ci, key, S) => { const c = club(ci); return { ai: ci, ids: squadIds(ci), form: FORM_NAMES[hash(key + ':f') % 15], cond: {}, tr: {}, bo: [], io: [], n: c.name, sh: c.short, aiCond: AI_COND }; };
 const ENGINE_TICKS = 4200;
@@ -3323,7 +3326,50 @@ const cleanKit = (k) => { k = k || {}; const c1 = colOr(k.c1, '#22d3ee'), c2 = c
 const cleanCrest = (c) => { c = c || {}; const c1 = colOr(c.c1, '#22d3ee'), c2 = colOr(c.c2, '#a855f7');
   return { shape: SHAPES.includes(c.shape) ? c.shape : 'shield', c1, c2, sym: SYMS.includes(c.sym) ? c.sym : 'AB', bd: colOr(c.bd, '#ffffff'), band: BANDS.includes(c.band) ? c.band : 'none', bc: colOr(c.bc, '#ffffff'), est: !!c.est }; };
 
-return { EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
+/* ===================== G4c: detailed positions, learning new positions, renaming ===================== */
+/* every player has a main spot (from his id, same on every phone); he can learn up to 2 nearby spots */
+const DPOS = ['GK', 'DL', 'DC', 'DR', 'ML', 'MC', 'MR', 'AML', 'AMC', 'AMR', 'ST'];
+const DLINE = { GK: 0, DL: 1, DC: 1, DR: 1, ML: 2, MC: 2, MR: 2, AML: 3, AMC: 3, AMR: 3, ST: 4 };
+const DPOS_NAME = { GK: 'Goalkeeper', DL: 'Left back', DC: 'Centre back', DR: 'Right back', ML: 'Left midfield', MC: 'Centre midfield', MR: 'Right midfield', AML: 'Left wing', AMC: 'Attacking midfield', AMR: 'Right wing', ST: 'Striker' };
+const dpOf = (p) => { if (!p) return 'MC'; const h = (hash('dp:' + (p.gid || p.id)) >>> 9) % 100;
+  return p.pos === 'GK' ? 'GK' : p.pos === 'DEF' ? (h < 50 ? 'DC' : h < 75 ? 'DL' : 'DR') : p.pos === 'MID' ? (h < 35 ? 'MC' : h < 50 ? 'ML' : h < 65 ? 'MR' : h < 85 ? 'AMC' : h < 93 ? 'AML' : 'AMR') : (h < 60 ? 'ST' : h < 80 ? 'AML' : 'AMR'); };
+/* nearby = same line (any side), or midfield <-> attacking midfield <-> striker. Never into defence or goal, never out of them. */
+const canLearn = (from, to) => { const a = DLINE[from], b = DLINE[to]; if (a == null || b == null || from === to || !a || !b) return false; if (a === b) return true; return a >= 2 && b >= 2 && Math.abs(a - b) === 1; };
+const LEARN_MAX = 2, LEARN_FAST = 3, LEARN_FAST_DAYS = 3;
+/* how fast he adapts: half a season (14 days) to a full season (28 days) */
+const learnDays = (gid) => 14 + hash('adapt:' + gid) % 15;
+const gidOf = (id, S) => { const p = player(id, S); return (p && p.gid) || String(id); };
+/* positions a player knows now: main + learned (+ the one in training once it is finished) */
+const knownPos = (club, id, S, now) => { const p = player(id, S), g = (p && p.gid) || String(id), out = [dpOf(p)], lp = (club && club.lp && club.lp[g]) || [];
+  for (const x of lp) if (DPOS.includes(x) && !out.includes(x)) out.push(x);
+  const t = club && club.trn; if (t && t.g === g && Number(t.end) <= (now == null ? Date.now() : now) && DPOS.includes(t.to) && !out.includes(t.to)) out.push(t.to);
+  return out; };
+/* learned positions of the top 18 for a team sheet / friendly ({id: [pos…]}, only players who learned something) */
+const learnedMap = (club, ids, S, now) => { const o = {}; for (const id of (ids || []).slice(0, 18)) { const k = knownPos(club, id, S, now); if (k.length > 1) o[id] = k.slice(1); } return o; };
+/* how well he plays in a spot: 1 = his own spot, a little less on the other side of the same line, a lot less far away */
+const posFit = (have, slot) => { if (!slot || have.includes(slot)) return 1; if (slot === 'GK' || have[0] === 'GK') return 0.45; let best = 0.72;
+  for (const h of have) { const a = DLINE[h], b = DLINE[slot]; const f = a === b ? 0.93 : Math.abs(a - b) === 1 ? (Math.min(a, b) >= 2 ? 0.86 : 0.8) : 0.72; if (f > best) best = f; } return best; };
+/* ✏️ rename: once per player (name + country). Letters only, no bad words, no famous footballers. */
+const COUNTRIES = 'AF AL DZ AD AO AG AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA BW BR BN BG BF BI CV KH CM CA CF TD CL CN CO KM CG CD CR CI HR CU CY CZ DK DJ DM DO EC EG SV GQ ER EE SZ ET FJ FI FR GA GM GE DE GH GR GD GT GN GW GY HT HN HU IS IN ID IR IQ IE IL IT JM JP JO KZ KE KI XK KW KG LA LV LB LS LR LY LI LT LU MG MW MY MV ML MT MH MR MU MX FM MD MC MN ME MA MZ MM NA NR NP NL NZ NI NE NG KP MK NO OM PK PW PS PA PG PY PE PH PL PT QA RO RU RW KN LC VC WS SM ST SA SN RS SC SL SG SK SI SB SO ZA KR SS ES LK SD SR SE CH SY TW TJ TZ TH TL TG TO TT TN TR TM TV UG UA AE GB US UY UZ VU VA VE VN YE ZM ZW HK PR CW FO GI EN SC2 WA NIR'.split(' ');
+/* bad words: whole words, plus a few that are never part of a real name anywhere inside */
+const BAD_W = 'fuck fuk fck shit sh1t bitch cunt dick cock pussy whore slut bastard asshole arsehole wank wanker twat nigger nigga faggot fag retard rape rapist nazi hitler porn penis vagina anus sex xxx kkk isis jihad terrorist pedo paedo molest boob boobs tits titty cum jizz dildo motherfucker mofo bollocks prick spastic tranny chink gook spic kike wetback coon paki crap piss'.split(' ');
+const BAD_IN = 'fuck cunt nigg fagg hitler whore porn bitch motherf rapist paedo pussy dildo jizz shit wank twat'.split(' '), BAD_ALL = 'fuck cunt nigg fagg hitler'.split(' ');
+/* unmistakable surnames block on their own; common ones only as a full name */
+const FAMOUS = 'messi ronaldo ronaldinho neymar mbappe haaland lewandowski modric debruyne vandijk pele maradona zidane beckham rooney ibrahimovic suarez griezmann pogba hazard bellingham rodrygo osimhen drogba okocha etoo kante kroos neuer buffon casillas iniesta puyol totti pirlo maldini baggio kaka rivaldo eusebio cruyff beckenbauer platini gerrard lampard cantona alisson courtois oblak donnarumma dibala lukaku foden rashford grealish odegaard kvaratskhelia hakimi mahrez aubameyang adebayor yamal mitoma heungmin'.split(' ').concat('mohamed salah|mo salah|harry kane|thierry henry|sadio mane|yaya toure|kolo toure|xavi hernandez|sergio ramos|gerard pique|toni kroos|thomas muller|manuel neuer|luka modric|kevin de bruyne|son heungmin|heung min son|gareth bale|frank lampard|john terry|paul scholes|ryan giggs|roberto carlos|luis figo|bukayo saka|declan rice|cole palmer|raheem sterling|jamie vardy|lautaro martinez|emiliano martinez|julian alvarez|fede valverde|federico valverde|alphonso davies|christian pulisic|takefusa kubo|michael essien|asamoah gyan|andre ayew|jordan ayew|thomas partey|mohammed kudus|tony yeboah|abedi pele|nwankwo kanu|george weah|samuel etoo|didier drogba|riyad mahrez|achraf hakimi|victor osimhen|rafael leao|lamine yamal|pedri gonzalez|vinicius junior|vini jr|gavi paez'.split('|'));
+const normName = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const nameProblem = (n) => { const raw = String(n || '').normalize('NFC').replace(/\s+/g, ' ').trim();
+  if (raw.length < 2 || raw.length > 24) return 'Use 2 to 24 letters';
+  if (!/^[\p{L}][\p{L}\p{M} .'\u2019\-]*$/u.test(raw)) return 'Use letters only (spaces, - . and ’ are fine)';
+  const flat = normName(raw).replace(/[^a-z]/g, ''), leet = normName(raw).replace(/0/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a').replace(/5/g, 's').replace(/[^a-z]/g, '');
+  const words = normName(raw).replace(/[^a-z ]/g, ' ').split(' ').filter(Boolean), lw = normName(raw).replace(/0/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a').replace(/5/g, 's').replace(/[^a-z ]/g, ' ').split(' ').filter(Boolean);
+  if (words.concat(lw).some(w => BAD_W.includes(w) || BAD_IN.some(b => w.includes(b))) || BAD_ALL.some(w => flat.includes(w) || leet.includes(w))) return 'Please choose a different name';
+  const sp = words.join(' ');
+  if (FAMOUS.some(f => f.includes(' ') ? (' ' + sp + ' ').includes(' ' + f + ' ') || flat === f.replace(/ /g, '') : words.includes(f.replace(/'/g, '')) || flat === f)) return 'Real footballers’ names can’t be used';
+  return ''; };
+const rnMap = (club, ids, S) => { const o = {}, R = (club && club.rn) || {}; for (const id of (ids || []).slice(0, 18)) { const g = gidOf(id, S), r = R[g]; if (r && r.n) o[g] = { n: String(r.n).slice(0, 24), c: String(r.c || '').slice(0, 4) }; } return o; };
+const cleanPName = (n) => String(n || '').normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, 24);
+
+return { rnMap, DPOS, DLINE, DPOS_NAME, dpOf, canLearn, LEARN_MAX, LEARN_FAST, LEARN_FAST_DAYS, learnDays, gidOf, knownPos, learnedMap, posFit, COUNTRIES, nameProblem, cleanPName, normName, FAMOUS, EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
 })();
 // =====================================================================
 // ⚽ G2 · 11 WONDERS LEAGUE (worker side). The worker never plays matches (too heavy for the free plan).
@@ -3654,6 +3700,7 @@ async function w11route(req, env, ctx, url, json) {
   let b = {}; if (req.method === 'POST') { try { b = await req.json(); } catch (e) {} }
   const p = url.pathname; await w11epoch(env);
   const g5 = await w11g5route(p, env, uid, b); if (g5) return json(g5);
+  const g4c = await w11g4croute(p, env, uid, b); if (g4c) return json(g4c);
   if (p === '/w11/join') return json(await w11join(env, uid, Number(b.sl)));
   if (p === '/w11/result') return json(await w11result(env, uid, String(b.mid || ''), b.r));
   if (p === '/w11/job') return json({ ok: true, jobs: await w11jobs(env, uid) });
@@ -4003,5 +4050,51 @@ async function w11g5route(p, env, uid, b) {
   if (p === '/w11/result' && Number(b && b.ev) !== C11.ENGINE) return { ok: false, update: 1, error: 'Please close and reopen SINLESS GG to update 11 Wonders' };
   if (p === '/w11/tk') return await w11takers(env, uid, b);
   if (p === '/w11/fresh') return await w11fresh(env, uid);
+  return null;
+}
+// =====================================================================
+// 🧬 G4c · 11 WONDERS: learn a new position (free and slow, or 3 🪙 GG Coins for 3 days) and rename a player once.
+// Club fields (worker-only): lp {gid: [pos, pos]} learned spots · trn {g, id, to, st, end} the one in training · rn {gid: {n, c}} renamed players.
+// =====================================================================
+async function w11learn(env, uid, b) {
+  const cd = await w11get(env, `w11Clubs/${uid}`); if (!cd) return { ok: false, error: 'no club' };
+  const c = cd.data, now = Date.now(), S = C11.clock(now).s, lp = Object.assign({}, c.lp || {}); let trn = c.trn || null;
+  /* a finished training becomes a learned spot */
+  if (trn && Number(trn.end) <= now) { const a = (lp[trn.g] || []).slice(); if (!a.includes(trn.to) && a.length < C11.LEARN_MAX) a.push(trn.to); lp[trn.g] = a; trn = null; }
+  if (b && b.cancel) { if (!trn) return { ok: false, error: 'Nobody is training' }; const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { lp, trn: null }, mask: ['lp', 'trn'], pre: { ut: cd.ut } }]); return ok ? { ok: true, lp, trn: null } : { ok: false, error: 'try again' }; }
+  if (b && b.fast) {
+    if (!trn) return { ok: false, error: 'Nobody is training' };
+    const cost = C11.LEARN_FAST, have = Number(c.gems) || 0; if (have < cost) return { ok: false, error: `Not enough 🪙 GG Coins (it costs ${cost})` };
+    const end = Math.min(Number(trn.end), now + C11.LEARN_FAST_DAYS * C11.DAY); if (end >= Number(trn.end)) return { ok: false, error: 'Already finishing within 3 days' };
+    trn = Object.assign({}, trn, { end, fast: 1 });
+    const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { lp, trn }, mask: ['lp', 'trn'], inc: { gems: -cost }, pre: { ut: cd.ut } }]);
+    return ok ? { ok: true, lp, trn, gems: have - cost } : { ok: false, error: 'try again' };
+  }
+  const id = String(b && b.id || ''), to = String(b && b.pos || '');
+  if (!(c.ids || []).includes(id)) return { ok: false, error: 'Not your player' };
+  if (trn) return { ok: false, error: 'Another player is already training. Wait, cancel it, or finish it with GG Coins.' };
+  const p = C11.player(id, S), g = (p && p.gid) || id, main = C11.dpOf(p), known = C11.knownPos({ lp }, id, S, now);
+  if (known.length - 1 >= C11.LEARN_MAX) return { ok: false, error: `He already knows ${C11.LEARN_MAX} extra positions` };
+  if (known.includes(to)) return { ok: false, error: 'He already plays there' };
+  if (!C11.canLearn(main, to)) return { ok: false, error: 'Too far from his position' };
+  trn = { g, id, to, st: now, end: now + C11.learnDays(g) * C11.DAY };
+  const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { lp, trn }, mask: ['lp', 'trn'], pre: { ut: cd.ut } }]);
+  return ok ? { ok: true, lp, trn } : { ok: false, error: 'try again' };
+}
+async function w11rename(env, uid, b) {
+  const cd = await w11get(env, `w11Clubs/${uid}`); if (!cd) return { ok: false, error: 'no club' };
+  const c = cd.data, id = String(b && b.id || ''), S = C11.clock(Date.now()).s;
+  if (!(c.ids || []).includes(id)) return { ok: false, error: 'Not your player' };
+  const p = C11.player(id, S), g = (p && p.gid) || id, rn = Object.assign({}, c.rn || {});
+  if (rn[g]) return { ok: false, error: 'This player was already renamed (once only)' };
+  const n = C11.cleanPName(b && b.n), bad = C11.nameProblem(n); if (bad) return { ok: false, error: bad };
+  const cc = String(b && b.c || '').toUpperCase(); if (!C11.COUNTRIES.includes(cc)) return { ok: false, error: 'Pick a country' };
+  rn[g] = { n, c: cc };
+  const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { rn }, mask: ['rn'], pre: { ut: cd.ut } }]);
+  return ok ? { ok: true, rn } : { ok: false, error: 'try again' };
+}
+async function w11g4croute(p, env, uid, b) {
+  if (p === '/w11/learn') return await w11learn(env, uid, b || {});
+  if (p === '/w11/rename') return await w11rename(env, uid, b || {});
   return null;
 }
