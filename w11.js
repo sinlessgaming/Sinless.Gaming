@@ -662,7 +662,7 @@ W.simulate = function (home, away, seed, cmds, upTo) {           // fast-forward
 
 // ---------- 🎨 the 2D view (60 fps, smooth between engine steps) ----------
 function Pitch(canvas) { this.c = canvas; this.g = canvas.getContext('2d'); this.trail = []; }
-Pitch.prototype.size = function () { const w = this.c.clientWidth || 360, dpr = Math.min(2, window.devicePixelRatio || 1); this.w = w; this.h = Math.round(w * 68 / 105); this.c.width = w * dpr; this.c.height = this.h * dpr; this.c.style.height = this.h + 'px'; this.g.setTransform(dpr * w / 105, 0, 0, dpr * w / 105, 0, 0); };
+Pitch.prototype.size = function () { const bx = this.c.closest && this.c.closest('.w11pitch'); if (bx) this.c.style.width = Math.max(120, Math.floor(Math.min(bx.clientWidth - 4, (bx.clientHeight - 4) * 105 / 68))) + 'px'; const w = this.c.clientWidth || 360, dpr = Math.min(2, window.devicePixelRatio || 1); this.w = w; this.h = Math.round(w * 68 / 105); this.c.width = w * dpr; this.c.height = this.h * dpr; this.c.style.height = this.h + 'px'; this.g.setTransform(dpr * w / 105, 0, 0, dpr * w / 105, 0, 0); };
 Pitch.prototype.field = function () {
   const g = this.g; for (let i = 0; i < 14; i++) { g.fillStyle = i % 2 ? '#2e8a3c' : '#2a8037'; g.fillRect(i * 7.5, 0, 7.5, 68); }
   g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 0.32; g.strokeRect(0.4, 0.4, 104.2, 67.2);
@@ -922,12 +922,12 @@ W.play = function (live) {
   const m = W.simulate(live.home, live.away, live.seed, live.cmds, Math.floor(playedAt(live) / DT));
   m.T[0].ai = false; W.m = m;
   const n = live.boot != null ? W.BOOT[live.boot] : null;
-  W.ui(`<div style="position:relative"><div class="sb"><span style="font-weight:900;color:${m.T[0].color}">${esc(m.T[0].short)}</span><span class="sc" id="w11sc">0–0</span><span style="font-weight:900;color:${m.T[1].color}">${esc(m.T[1].short)}</span><span class="tm" id="w11tm">1'</span></div>
-    <canvas id="w11c"></canvas>
+  W.ui(`<div class="w11match"><div class="w11side"><div class="sb"><span style="font-weight:900;color:${m.T[0].color}">${esc(m.T[0].short)}</span><span class="sc" id="w11sc">0–0</span><span style="font-weight:900;color:${m.T[1].color}">${esc(m.T[1].short)}</span><span class="tm" id="w11tm">1'</span></div>
+    </div><div class="w11pitch"><canvas id="w11c"></canvas></div><div class="w11side w11side2">
     <div class="alert" id="w11al">📢 TOUCHLINE MOMENT · shout now!</div>
     <div class="shouts" id="w11sh">${[['attack', '📣 Attack'], ['tight', '🧱 Tight'], ['press', '⚡ Press'], ['calm', '🧘 Calm']].map(([k, l]) => `<button data-k="${k}" onclick="W11.shout('${k}')">${l}</button>`).join('')}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"><button class="btn2" onclick="W11.subMenu()">🔁 Subs (<span id="w11subs">5</span>)</button><button class="btn2" onclick="W11.formMenu()">📐 Formation</button></div>
-    <div class="tick" id="w11tk"></div>${n ? `<div class="tip">${esc(n.tip)}</div>` : ''}<div id="w11ov"></div></div>`, live.kind === 'boot' ? '🏕️ Boot Camp' : '🤝 Friendly', 'W11.leaveMatch()');
+    <div class="tick" id="w11tk"></div>${n ? `<div class="tip">${esc(n.tip)}</div>` : ''}</div><div id="w11ov"></div></div>`, live.kind === 'boot' ? '🏕️ Boot Camp' : '🤝 Friendly', 'W11.leaveMatch()');
   const pitch = new Pitch(document.getElementById('w11c')); pitch.size(); W._pitch = pitch; window.addEventListener('resize', () => pitch.size(), { once: true });
   let acc = 0, last = performance.now(), seenEv = 0;
   const frame = (now) => {
@@ -1189,12 +1189,12 @@ W.playL = async function (live, my) {
   cmds = W.cmdsFrom(live, raw); W._cmds = cmds; rebuild();
   if (R) { const ref = R.D.ref(R.d, 'w11live/' + live.mid); const u1 = R.D.onChildAdded(ref, (s) => { raw[s.key] = s.val(); onRaw(); }), u2 = R.D.onChildChanged(ref, (s) => { raw[s.key] = s.val(); onRaw(); }); W._unsub = () => { try { u1(); u2(); } catch (e) {} }; }
   const M = live.M, ctl = my >= 0;
-  W.ui(`<div style="position:relative"><div class="sb"><span style="font-weight:900;color:${m.T[0].color}">${esc(m.T[0].short)}</span><span class="sc" id="w11sc">0–0</span><span style="font-weight:900;color:${m.T[1].color}">${esc(m.T[1].short)}</span><span class="tm" id="w11tm">1'</span></div>
-    <canvas id="w11c"></canvas>
+  W.ui(`<div class="w11match"><div class="w11side"><div class="sb"><span style="font-weight:900;color:${m.T[0].color}">${esc(m.T[0].short)}</span><span class="sc" id="w11sc">0–0</span><span style="font-weight:900;color:${m.T[1].color}">${esc(m.T[1].short)}</span><span class="tm" id="w11tm">1'</span></div>
+    </div><div class="w11pitch"><canvas id="w11c"></canvas></div><div class="w11side w11side2">
     ${ctl ? `<div class="alert" id="w11al">📢 TOUCHLINE MOMENT · shout now!</div>
     <div class="shouts" id="w11sh">${[['attack', '📣 Attack'], ['tight', '🧱 Tight'], ['press', '⚡ Press'], ['calm', '🧘 Calm']].map(([k, l]) => `<button data-k="${k}" onclick="W11.shout('${k}')">${l}</button>`).join('')}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"><button class="btn2" onclick="W11.subMenu()">🔁 Subs (<span id="w11subs">5</span>)</button><button class="btn2" onclick="W11.formMenu()">📐 Formation</button></div>` : '<p style="font-size:11px;color:#94a3b8;margin-top:8px;text-align:center">👀 Watching</p>'}
-    <div class="tick" id="w11tk"></div><div class="tip">${M.cup ? CC.CUP_NAME[M.cup] + ' · ' + esc(M.rn || '') + (CC.isKO({ k: M.cup }, M.cr) ? ' · a draw goes to penalties' : '') : 'League · Division ' + M.t + ' · Matchday ' + M.md}. You are ${my === 0 ? 'the home side (left → right)' : my === 1 ? 'the away side (right → left)' : 'watching'}. Orders reach the pitch 2 seconds after you tap.</div><div id="w11ov"></div></div>`, M.cup ? '🏆 CUP MATCH' : '🏆 League', 'W11.leaveMatch()');
+    <div class="tick" id="w11tk"></div><div class="tip">${M.cup ? CC.CUP_NAME[M.cup] + ' · ' + esc(M.rn || '') + (CC.isKO({ k: M.cup }, M.cr) ? ' · a draw goes to penalties' : '') : 'League · Division ' + M.t + ' · Matchday ' + M.md}. You are ${my === 0 ? 'the home side (left → right)' : my === 1 ? 'the away side (right → left)' : 'watching'}. Orders reach the pitch 2 seconds after you tap.</div></div><div id="w11ov"></div></div>`, M.cup ? '🏆 CUP MATCH' : '🏆 League', 'W11.leaveMatch()');
   if (ctl && !Object.values(raw).some(x => x && x.by === uidNow() && /here/.test(x.c || ''))) W.sendL({ here: 1 });
   const pitch = new Pitch(document.getElementById('w11c')); pitch.size(); W._pitch = pitch; window.addEventListener('resize', () => pitch.size(), { once: true });
   let seenEv = 0;
@@ -1921,7 +1921,7 @@ W.replay = function (F, g, live, liveMode) {
     const SEG = [[a0, a1, 1, 'tv'], [a1, gi + 4, 0.55, 'goal'], [gi + 4, c1, 0.9, 'orbit']].filter(s => s[1] > s[0]), dur = SEG.reduce((t, s) => t + (s[1] - s[0]) * 0.05 / s[2], 0);
     const scorerTxt = g.pid ? `${esc(sc.name)} (${esc(D.sh[side])})` : esc(D.sh[side]);
     let host, box; const wrap = document.querySelector('[data-g4]'), sb = document.querySelector('#w11 .sb');
-    if (liveMode && wrap) { const top = sb ? sb.offsetHeight + 8 : 0; host = document.createElement('div'); host.style.cssText = `position:absolute;left:0;right:0;top:${-top}px;height:${wrap.offsetHeight + top}px;z-index:6;border-radius:14px;overflow:hidden;background:#070b18;box-shadow:0 0 26px rgba(255,45,149,.35)`; wrap.appendChild(host); }
+    if (liveMode && wrap) { const top = sb && !sb.closest('.w11side') ? sb.offsetHeight + 8 : 0; host = document.createElement('div'); host.style.cssText = `position:absolute;left:0;right:0;top:${-top}px;height:${wrap.offsetHeight + top}px;z-index:6;border-radius:14px;overflow:hidden;background:#070b18;box-shadow:0 0 26px rgba(255,45,149,.35)`; wrap.appendChild(host); }
     else { host = document.createElement('div'); host.style.cssText = 'position:absolute;inset:0;z-index:40;background:#070b18'; (document.getElementById('w11') || document.body).appendChild(host); }
     host.id = 'w11rp';
     host.innerHTML = `<div id="w11rpb" style="position:absolute;inset:0"></div><div style="position:absolute;left:8px;top:8px;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.12em;color:#0b0f24;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)">🎬 REPLAY</div>
@@ -2096,7 +2096,7 @@ G3.stop = function (view) {
   if (!view || G3.view === view) { const v = G3.view; G3.view = null; if (v && v.end) v.end(); if (G3.B3) G3.B3.stop(); }
 };
 ['team', 'freeTeam', 'fig', 'ball', 'world', 'drawWorld', 'particles', 'trophy', 'floor'].forEach(k => { G3[k] = function () { return (G3.be === 'b3' && G3.B3 ? G3.B3 : G3OLD)[k].apply(this, arguments); }; });
-W.W3D_V = 1;
+W.W3D_V = 2;
 W.w3d = { st: 0 };
 W.w3dLoad = function () {
   if (W.w3d.st || !G3.ok() || typeof window === 'undefined') return;
@@ -2106,6 +2106,52 @@ W.w3dLoad = function () {
   import(base + 'w3d.js?v=' + W.W3D_V).then(() => window.W3D.load({ G3, base, v: W.W3D_V, weak: W.weak, hash, hx, kitN: W.kitN, crestSvg: W.crestSvg, numOf: (id) => { const p = W.player(id, W.S); return p ? p.num : null; } }))
     .then(B => { G3.B3 = B; W.w3d.st = 2; }).catch(e => { W.w3d.st = -1; console.warn('3D load', e); });
 };
+
+
+// ---------- 🖥️ G4b · 11 Wonders is played in landscape (16:9). Android: full screen + orientation lock.
+// Phones held upright (and iPhones, which never allow a lock) see a "turn your phone" card. The social app stays upright.
+const LAND_CSS = `
+#w11{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+#w11 .hd{padding:6px 14px;padding-top:max(6px,env(safe-area-inset-top));min-height:46px}
+#w11 .hd b{font-size:15px}#w11 .bk{width:40px;height:40px;font-size:18px}#w11 .chips{font-size:12px;gap:8px}#w11 .chips span{padding:6px 12px}
+#w11 .bd{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;align-content:start;align-items:start;padding:12px 16px}
+#w11 .bd>*{min-width:0}#w11 .bd>.card{margin-bottom:0}#w11 .bd>:only-child{grid-column:1/-1}
+#w11 .btn{padding:15px;font-size:14px}#w11 .btn2{padding:13px;font-size:13px}#w11 .row{padding:10px 6px;font-size:13px}
+#w11 .bd>.btn,#w11 .bd>.btn2{align-self:end}
+#w11 .bd.mt{display:block;padding:8px 12px;overflow:hidden}
+#w11 .w11match{position:relative;display:grid;grid-template-columns:minmax(0,1fr) clamp(190px,24vw,260px);grid-template-rows:auto minmax(0,1fr);gap:8px 10px;height:100%}
+#w11 .w11pitch{grid-column:1;grid-row:1/3;position:relative;min-height:0;display:flex;align-items:center;justify-content:center}
+#w11 .w11pitch>[data-g4]{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+#w11 .w11pitch canvas{margin:0 auto}
+#w11 .w11side{grid-column:2;grid-row:1}#w11 .w11side .sb{margin-bottom:0;padding:8px 12px}
+#w11 .w11side2{grid-row:2;display:flex;flex-direction:column;min-height:0;overflow-y:auto}
+#w11 .w11side2 .shouts{grid-template-columns:1fr 1fr;gap:8px;margin-top:0}#w11 .w11side2 .shouts button{padding:13px 4px;font-size:12px;border-radius:14px}
+#w11 .w11side2 .alert{margin:0 0 8px}#w11 .w11side2 .tick{font-size:11px;flex:1;min-height:40px}#w11 .w11side2 .tip{font-size:10px}
+#w11 .w11side2>div[style*="grid-template-columns:1fr 1fr"]{margin-top:8px!important}
+#w11cert{align-items:flex-start}#w11cert>div{max-width:min(460px,60vw)}
+#w11rot{position:fixed;inset:0;z-index:2147483000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;background:radial-gradient(circle at 50% 35%,rgba(168,85,247,.35),#070b18 70%);color:#e2e8f0}
+#w11rot .ph{width:62px;height:104px;border:4px solid #22d3ee;border-radius:14px;box-shadow:0 0 24px rgba(34,211,238,.5);animation:w11rt 2.2s ease-in-out infinite}
+@keyframes w11rt{0%,25%{transform:rotate(0)}55%,100%{transform:rotate(-90deg)}}
+@media (orientation:portrait){#w11rot.on{display:flex}}`;
+W.land = function () {
+  if (!document.getElementById('w11land')) { const st = document.createElement('style'); st.id = 'w11land'; st.textContent = LAND_CSS; document.head.appendChild(st); }
+  let r = document.getElementById('w11rot');
+  if (!r) { document.body.insertAdjacentHTML('beforeend', `<div id="w11rot"><div class="ph"></div><p style="font-size:20px;font-weight:900;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);-webkit-background-clip:text;background-clip:text;color:transparent">Turn your phone sideways</p><p style="font-size:13px;color:#cbd5e1;max-width:300px">11 Wonders is played in landscape, like a console game. Your match keeps playing.</p><button onclick="W11.landLock()" style="margin-top:6px;padding:12px 18px;border-radius:14px;font-weight:900;color:#0b0f24;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)">⛶ Full screen</button><button onclick="W11.close()" style="padding:8px 14px;border-radius:12px;font-size:12px;background:rgba(255,255,255,.08)">← Back to SINLESS GG</button></div>`); r = document.getElementById('w11rot'); }
+  r.classList.add('on'); W.landLock();
+};
+W.landLock = function () {
+  try { const d = document.documentElement, fs = document.fullscreenElement || document.webkitFullscreenElement;
+    const lock = () => { try { const o = screen.orientation; if (o && o.lock) o.lock('landscape').catch(() => {}); } catch (e) {} };
+    if (!fs && /Android/i.test(navigator.userAgent || '') && (d.requestFullscreen || d.webkitRequestFullscreen)) { const pr = (d.requestFullscreen || d.webkitRequestFullscreen).call(d, { navigationUI: 'hide' }); if (pr && pr.then) pr.then(lock).catch(() => {}); else lock(); }
+    else lock(); } catch (e) {}
+};
+W.landOff = function () {
+  const r = document.getElementById('w11rot'); if (r) r.classList.remove('on');
+  try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {}
+  try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
+};
+W.ui = (function (b) { return function () { const first = !document.getElementById('w11'); const r = b.apply(this, arguments); if (first || !document.getElementById('w11land')) W.land(); const bd = document.getElementById('w11b'); if (bd) bd.classList.toggle('mt', !!bd.querySelector('.w11match')); return r; }; })(W.ui);
+W.close = (function (b) { return function () { W.landOff(); return b.apply(this, arguments); }; })(W.close);
 
 // ---------- 🔌 hooks into the match screens, home, Club HQ ----------
 const _pdraw = Pitch.prototype.draw;
@@ -2224,5 +2270,7 @@ W.cineStep = function (m) {
 };
 W.helpL = (function (b) { return function () { b.apply(this, arguments); const el = document.querySelector('#w11b .card'); if (!el) return;
   el.insertAdjacentHTML('beforeend', `<p style="margin-top:6px">🎬 <b>Big moments live in 3D</b>: just before a goal or a big save, the radar turns into a full-screen 3D camera: the run-up, the shot, the net, the celebration. Then it goes back to the radar when play restarts. It is the live match itself, so you never miss anything, and your shout buttons stay on screen.</p>`); }; })(W.helpL);
+/* the 2D radar refits when the phone turns or the window changes size */
+W.g4match = (function (b) { return function () { b.apply(this, arguments); const box = document.querySelector('#w11 .w11pitch'); if (!box || box._ro || typeof ResizeObserver === 'undefined') return; box._ro = new ResizeObserver(() => { if (W._pitch && document.body.contains(box)) W._pitch.size(); }); box._ro.observe(box); }; })(W.g4match);
 
 })();
