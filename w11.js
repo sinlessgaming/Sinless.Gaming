@@ -2974,4 +2974,335 @@ W.helpL = (function (b) { return function () { b.apply(this, arguments); const e
     <p style="margin-top:6px">🌦️ <b>Weather changes play</b>: rain and snow make players slip and the ball skid, wind moves long balls, crosses and long shots, heat tires players faster. The forecast shows before the team sheet locks. Day, sunset or night follows the home club's local time.</p>
     <p style="margin-top:6px">🧥 <b>Your manager</b> stands on the touchline at every match (design him in 🏟️ Club HQ: first time free, then ${CC.TOK.mgr} 🪙).</p>`); }; })(W.helpL);
 
+// =====================================================================
+// 🔊 G7 · 11 WONDERS SOUND: stadium (kicks, net, post, gloves, tackles, referee whistle), a crowd that follows the game,
+// weather, muffled replays + wipe whoosh, ceremonies (walk-out anthem, fireworks, trophy fanfare), touchline answers,
+// menu music, menu / coin / auction sounds, ⚙️ Club HQ → 🔊 Sound (on/off + crowd / effects / music).
+// build.sh pastes this file into w11.js at the G7 marker. Sounds never change results (no engine change).
+// Recordings: ONE file w11snd.mp3 (crowd: Gregor Quendel, CC BY 4.0 · rain, thunder, fireworks: CC0), built by
+// tools3d/make_sound.py. Everything else (kicks, whistle, net, crowd "ooh"/whistles/claps/drums, music) is made in code.
+// =====================================================================
+const SND_V = 1;
+const SND_MAP = {"bed":[0.5,26.0],"swell":[27.0,10.0],"cheer":[37.5,9.5],"roar":[47.5,13.0],"roar2":[61.0,11.5],"chant":[73.0,10.0],"rain":[83.5,18.0],"thunder":[102.0,5.265],"fw1":[107.765,1.2],"fw3":[109.465,1.3],"fw6":[111.265,1.374]};
+const S7 = W.snd = { st: 0, ctx: null, buf: null, log: [], N: {}, tx: {}, act: 0, mode: '' };
+/* settings (saved on this phone): on/off + 0–100 for crowd, effects, music */
+S7.cfg = (() => { const d = { on: 1, cr: 80, fx: 80, mu: 60 }; try { const j = JSON.parse(localStorage.getItem('w11_snd') || 'null'); if (j && typeof j === 'object') for (const k in d) if (typeof j[k] === 'number') d[k] = Math.max(0, Math.min(k === 'on' ? 1 : 100, j[k])); } catch (e) {} return d; })();
+S7.save = () => { try { localStorage.setItem('w11_snd', JSON.stringify(S7.cfg)); } catch (e) {} };
+const lo7 = () => !!(W.dev && W.dev.tier === 'low');
+const rnd7 = Math.random, rr = (a, b) => a + rnd7() * (b - a);
+const sq7 = (v) => (v / 100) * (v / 100);
+/* ---------- 🎛️ mixer: master → limiter; buses for music, effects, crowd, menu; a match filter for replays / snow ---------- */
+S7.init = function () {
+  if (S7.ctx) return S7.ctx; const AC = window.AudioContext || window.webkitAudioContext; if (!AC) { S7.st = -1; return null; }
+  let c; try { c = new AC({ latencyHint: 'interactive' }); } catch (e) { try { c = new AC(); } catch (e2) { S7.st = -1; return null; } }
+  S7.ctx = c; const N = S7.N;
+  N.lim = c.createDynamicsCompressor(); N.lim.threshold.value = -9; N.lim.knee.value = 6; N.lim.ratio.value = 10; N.lim.attack.value = 0.003; N.lim.release.value = 0.25; N.lim.connect(c.destination);
+  N.master = c.createGain(); N.master.connect(N.lim);
+  N.match = c.createBiquadFilter(); N.match.type = 'lowpass'; N.match.frequency.value = 20000; N.match.Q.value = 0.5; N.mg = c.createGain(); N.match.connect(N.mg); N.mg.connect(N.master);
+  N.fx = c.createGain(); N.fx.connect(N.match); N.crowd = c.createGain(); N.crowd.connect(N.match);
+  N.ui = c.createGain(); N.ui.connect(N.master); N.mus = c.createGain(); N.mus.connect(N.master);
+  if (!lo7()) { N.rev = c.createConvolver(); N.rev.buffer = impulse(c, 2.2, 3.2); N.revG = c.createGain(); N.revG.gain.value = 0.22; N.rev.connect(N.revG); N.revG.connect(N.match); N.revM = c.createGain(); N.revM.gain.value = 0.5; N.rev.connect(N.revM); N.revM.connect(N.mus); }
+  S7.apply(); return c;
+};
+S7.apply = function () {
+  const N = S7.N, C = S7.cfg; if (!S7.ctx) return; const t = S7.ctx.currentTime;
+  N.master.gain.setTargetAtTime(C.on ? 0.9 : 0, t, 0.05); N.fx.gain.setTargetAtTime(sq7(C.fx) * 1.3, t, 0.05); N.ui.gain.setTargetAtTime(sq7(C.fx) * 0.8, t, 0.05);
+  N.crowd.gain.setTargetAtTime(sq7(C.cr) * 1.4, t, 0.05); N.mus.gain.setTargetAtTime(sq7(C.mu) * 0.9, t, 0.05);
+};
+S7.resume = function () { const c = S7.ctx; if (c && c.state === 'suspended' && document.visibilityState !== 'hidden' && document.getElementById('w11')) { try { c.resume(); } catch (e) {} } };
+const impulse = (c, sec, decay) => { const n = Math.floor(c.sampleRate * sec), b = c.createBuffer(2, n, c.sampleRate); for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); for (let i = 0; i < n; i++) d[i] = (rnd7() * 2 - 1) * Math.pow(1 - i / n, decay) * (i < 400 ? i / 400 : 1); } return b; };
+const noiseBuf = (c) => { if (c._nb) return c._nb; const n = c.sampleRate * 2, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = rnd7() * 2 - 1; c._nb = b; return b; };
+/* ---------- 📦 the recordings (one file, downloaded once when 11 Wonders opens; cached by the app) ---------- */
+S7.load = function () {
+  if (S7.st) return; const c = S7.init(); if (!c) return; S7.st = 1;
+  const base = new URL('./', document.baseURI).href;
+  fetch(base + 'w11snd.mp3?v=' + SND_V).then(r => { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); })
+    .then(ab => new Promise((res, rej) => { const p = c.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); }))
+    .then(b => { S7.buf = b; S7.st = 2; }).catch(e => { S7.st = -1; console.warn('sound load', e); });
+};
+/* ---------- helpers ---------- */
+const panTo = (c, d, p) => { if (!p || !c.createStereoPanner) return d; const n = c.createStereoPanner(); n.pan.value = Math.max(-1, Math.min(1, p)); n.connect(d); return n; };
+const gainTo = (c, d, v) => { const g = c.createGain(); g.gain.value = v; g.connect(d); return g; };
+const envG = (c, d, t, a, peak, dec, hold) => { const g = c.createGain(); g.gain.value = 0.0001; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + a); if (hold) g.gain.setValueAtTime(peak, t + a + hold); g.gain.exponentialRampToValueAtTime(0.0001, t + a + (hold || 0) + dec); g.connect(d); return g; };
+const noiseSrc = (c, t, dur) => { const s = c.createBufferSource(); s.buffer = noiseBuf(c); s.loop = true; s.start(t, rnd7() * 1.5); s.stop(t + dur + 0.05); return s; };
+const bp = (c, d, type, f, q) => { const n = c.createBiquadFilter(); n.type = type; n.frequency.value = f; if (q != null) n.Q.value = q; n.connect(d); return n; };
+const tone = (c, d, t, type, f0, f1, dur, ft) => { const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + (ft || dur)); o.connect(d); o.start(t); o.stop(t + dur + 0.05); return o; };
+const revSend = (c, src, amt) => { const N = S7.N; if (c === S7.ctx && N.rev && amt) { const g = c.createGain(); g.gain.value = amt; src.connect(g); g.connect(N.rev); } };
+/* ---------- 🎚️ sound recipes: every one is (context, destination, time, options) so tests can render them offline ---------- */
+const SY = S7.SY = {
+  /* ⚽ ball: leather thump (pitch drop) + click; harder = louder and lower; header = duller; wet = splash */
+  kick(c, d, t, o) { const p = o.p == null ? 0.5 : o.p, hd = !!o.head, v = 0.35 + 0.65 * p;
+    const g = envG(c, d, t, 0.002, v * (hd ? 0.55 : 0.8), hd ? 0.09 : 0.11 + 0.05 * p); tone(c, g, t, 'sine', hd ? 150 : 190 + 60 * p, hd ? 80 : 55, 0.18, 0.07);
+    const n = envG(c, bp(c, d, 'bandpass', hd ? 900 : 1700 + 900 * p, 1.1), t, 0.001, v * (hd ? 0.25 : 0.55), 0.02 + 0.015 * p); noiseSrc(c, t, 0.06).connect(n);
+    const s = envG(c, bp(c, d, 'highpass', 4200), t, 0.001, v * 0.18, 0.012); noiseSrc(c, t, 0.03).connect(s);
+    if (o.wet) { const w = envG(c, bp(c, d, 'bandpass', 1300, 0.7), t + 0.005, 0.01, 0.22 * o.wet, 0.14); noiseSrc(c, t, 0.2).connect(w); } return t + 0.25; },
+  touch(c, d, t, o) { const g = envG(c, d, t, 0.002, 0.18, 0.06); tone(c, g, t, 'sine', 140, 70, 0.08, 0.05); const n = envG(c, bp(c, d, 'bandpass', 1200, 1), t, 0.001, 0.07, 0.015); noiseSrc(c, t, 0.03).connect(n); if (o && o.wet) { const w = envG(c, bp(c, d, 'bandpass', 1400, 0.8), t, 0.01, 0.12, 0.1); noiseSrc(c, t, 0.15).connect(w); } return t + 0.12; },
+  /* 🥅 net: swish of the mesh + rattle */
+  net(c, d, t) { const f = bp(c, d, 'bandpass', 1100, 0.8); f.frequency.setValueAtTime(1600, t); f.frequency.exponentialRampToValueAtTime(420, t + 0.5); const g = envG(c, f, t, 0.01, 0.42, 0.55); noiseSrc(c, t, 0.7).connect(g);
+    const h = envG(c, bp(c, d, 'highpass', 3500), t + 0.02, 0.02, 0.18, 0.35); noiseSrc(c, t, 0.5).connect(h); const r = envG(c, d, t, 0.005, 0.3, 0.25); tone(c, r, t, 'triangle', 95, 70, 0.3); return t + 0.8; },
+  /* 🔔 post / bar: metal ring (inharmonic partials) + the ball's thump */
+  post(c, d, t) { SY.kick(c, d, t, { p: 0.9 }); [[520, 1.1, 0.26], [1290, 0.7, 0.16], [2110, 0.45, 0.1], [3020, 0.3, 0.06], [4170, 0.2, 0.04]].forEach(([f, dec, v]) => { const g = envG(c, d, t, 0.001, v, dec); tone(c, g, t, 'sine', f, f * 0.995, dec + 0.1); }); return t + 1.3; },
+  /* 🧤 keeper: catch = glove smack; parry = slap */
+  gloves(c, d, t, o) { const g = envG(c, bp(c, d, 'bandpass', o && o.catch ? 750 : 1500, 1.2), t, 0.001, 0.6, o && o.catch ? 0.07 : 0.045); noiseSrc(c, t, 0.12).connect(g); const b = envG(c, d, t, 0.002, 0.35, 0.1); tone(c, b, t, 'sine', 120, 70, 0.14); return t + 0.2; },
+  /* 🦵 tackle: body thud, slide = grass scrape */
+  tackle(c, d, t, o) { const g = envG(c, bp(c, d, 'lowpass', 420), t, 0.003, 0.7, 0.14); noiseSrc(c, t, 0.2).connect(g); const b = envG(c, d, t, 0.002, 0.3, 0.1); tone(c, b, t, 'sine', 90, 55, 0.12);
+    if (o && o.sl) { const f = bp(c, d, 'bandpass', 2600, 0.9); f.frequency.setValueAtTime(3200, t); f.frequency.exponentialRampToValueAtTime(900, t + 0.4); const s = envG(c, f, t, 0.03, 0.28, 0.35, 0.05); noiseSrc(c, t, 0.5).connect(s); } return t + 0.5; },
+  splash(c, d, t, o) { const v = o && o.v || 0.3; const f = bp(c, d, 'bandpass', 1500, 0.6); f.frequency.setValueAtTime(2200, t); f.frequency.exponentialRampToValueAtTime(700, t + 0.25); const g = envG(c, f, t, 0.01, v, 0.25); noiseSrc(c, t, 0.35).connect(g); return t + 0.3; },
+  /* 🗣️ the referee's pea whistle: ~2.9 kHz tone, the pea makes a fast warble; o.ls = lengths of the blasts */
+  whistle(c, d, t, o) { const ls = (o && o.ls) || [0.22], gap = (o && o.gap) || 0.13, v = (o && o.v) || 0.32, f = (o && o.f) || rr(2750, 3050); let at = t;
+    ls.forEach((L) => { const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(v, at + 0.012); g.gain.setValueAtTime(v * (L > 0.4 ? 0.85 : 1), at + L - 0.04); g.gain.exponentialRampToValueAtTime(0.0001, at + L + 0.04); g.connect(d);
+      const lfo = c.createOscillator(), ld = c.createGain(); lfo.type = 'triangle'; lfo.frequency.value = rr(26, 34); ld.gain.value = 150; lfo.connect(ld);
+      [[1, 1], [2, 0.12], [3, 0.03]].forEach(([h, a]) => { const o2 = c.createOscillator(), ag = c.createGain(); o2.frequency.value = f * h; ld.connect(o2.frequency); ag.gain.value = a; o2.connect(ag); ag.connect(g); o2.start(at); o2.stop(at + L + 0.08); });
+      lfo.start(at); lfo.stop(at + L + 0.08); const br = envG(c, bp(c, d, 'bandpass', f, 2), at, 0.01, v * 0.12, 0.05, L - 0.04); noiseSrc(c, at, L + 0.1).connect(br); revSend(c, g, 0.6); at += L + gap; });
+    return at; },
+  /* 🙌 crowd voices made in code: many singers through vowel filters ("ooh" near miss, "aww" groan, "boo"), panned wide */
+  vowel(c, d, t, o) { const kind = (o && o.k) || 'ooh', v = (o && o.v) || 0.4, n = lo7() ? 6 : 14, dur = kind === 'boo' ? 1.8 : kind === 'aww' ? 1.7 : 1.5;
+    const F = { ooh: [[330, 5], [820, 6]], aww: [[680, 5], [1100, 6]], boo: [[300, 5], [640, 6]], aah: [[760, 5], [1250, 6]] }[kind] || [[330, 5], [820, 6]];
+    const L = c.createGain(); L.gain.value = 1; const lp = bp(c, d, 'lowpass', 2600); const fs = F.map(([f, q]) => bp(c, lp, 'bandpass', f, q)); fs.forEach(x => L.connect(x)); const bus = envG(c, L, t, kind === 'ooh' ? 0.22 : 0.15, v * 3.2, dur * 0.75, dur * 0.2);
+    for (let i = 0; i < n; i++) { const f0 = kind === 'boo' ? rr(95, 180) : rr(120, 320), s = c.createOscillator(); s.type = 'sawtooth'; const st = t + rr(0, 0.12); s.frequency.setValueAtTime(f0 * (kind === 'aww' ? 1.08 : 0.94), st);
+      if (kind === 'ooh') { s.frequency.linearRampToValueAtTime(f0 * 1.12, st + 0.35); s.frequency.linearRampToValueAtTime(f0 * 0.9, st + dur); } else if (kind === 'aww') s.frequency.linearRampToValueAtTime(f0 * 0.8, st + dur); else s.frequency.linearRampToValueAtTime(f0 * 0.97, st + dur);
+      const vg = c.createGain(); vg.gain.value = 1 / n; s.connect(vg); vg.connect(panTo(c, bus, rr(-0.8, 0.8))); s.start(st); s.stop(t + dur + 0.2); }
+    const ns = envG(c, bp(c, d, 'bandpass', F[0][0] * 1.5, 0.8), t, 0.2, v * 0.25, dur * 0.7, dur * 0.2); noiseSrc(c, t, dur + 0.2).connect(ns); revSend(c, lp, 0.5); return t + dur + 0.2; },
+  /* 😤 fans whistling at a foul or the referee */
+  fanWhistle(c, d, t, o) { const n = lo7() ? 4 : 9, v = (o && o.v) || 0.25; for (let i = 0; i < n; i++) { const st = t + rr(0, 0.5), L = rr(0.5, 1.3), f = rr(1900, 3400), g = envG(c, panTo(c, d, rr(-0.9, 0.9)), st, 0.05, v / Math.sqrt(n), 0.25, L - 0.3);
+      const s = c.createOscillator(); s.frequency.setValueAtTime(f, st); s.frequency.linearRampToValueAtTime(f * rr(0.9, 1.12), st + L); const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = rr(4, 8); lg.gain.value = f * 0.02; lfo.connect(lg); lg.connect(s.frequency); s.connect(g); s.start(st); s.stop(st + L + 0.1); lfo.start(st); lfo.stop(st + L + 0.1); } return t + 1.9; },
+  /* 👏 crowd claps: o.beats = times of each clap (s), many people slightly out of time */
+  claps(c, d, t, o) { const beats = (o && o.beats) || [0], v = (o && o.v) || 0.35, n = lo7() ? 5 : 12; beats.forEach((b) => { for (let i = 0; i < n; i++) { const st = Math.max(t, t + b + rr(-0.025, 0.035)), g = envG(c, panTo(c, bp(c, d, 'bandpass', rr(1000, 2100), 1.3), rr(-0.9, 0.9)), st, 0.001, v * 1.6 / Math.sqrt(n), rr(0.03, 0.06)); noiseSrc(c, st, 0.08).connect(g); } }); return t + beats[beats.length - 1] + 0.2; },
+  /* 🥁 big drum in the stands */
+  drum(c, d, t, o) { const beats = (o && o.beats) || [0], v = (o && o.v) || 0.45; beats.forEach((b) => { const st = t + b, g = envG(c, d, st, 0.003, v, 0.32); tone(c, g, st, 'sine', 95, 48, 0.4, 0.12); const n = envG(c, bp(c, d, 'lowpass', 700), st, 0.002, v * 0.4, 0.07); noiseSrc(c, st, 0.1).connect(n); revSend(c, g, 0.5); }); return t + beats[beats.length - 1] + 0.4; },
+  /* 💨 replay wipe */
+  whoosh(c, d, t) { const f = bp(c, d, 'bandpass', 600, 1.4); f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(4200, t + 0.38); f.frequency.exponentialRampToValueAtTime(900, t + 0.75); const p = c.createStereoPanner ? c.createStereoPanner() : null;
+    const g = envG(c, p || f, t, 0.3, 0.5, 0.45); if (p) { p.pan.setValueAtTime(-0.8, t); p.pan.linearRampToValueAtTime(0.8, t + 0.75); p.connect(f); } noiseSrc(c, t, 0.85).connect(g); const s = envG(c, d, t + 0.25, 0.05, 0.12, 0.5); tone(c, s, t + 0.25, 'sine', 180, 520, 0.6); return t + 0.9; },
+  /* 🔨 menus: tap, coins in, coins out, auction tick / outbid / win, touchline alert */
+  tap(c, d, t) { const g = envG(c, d, t, 0.002, 0.16, 0.05); tone(c, g, t, 'sine', 1250, 850, 0.06); return t + 0.08; },
+  coin(c, d, t) { [[1568, 0], [2093, 0.07], [2637, 0.13]].forEach(([f, dt]) => { const g = envG(c, d, t + dt, 0.002, 0.16, 0.35); tone(c, g, t + dt, 'triangle', f, f, 0.4); const h = envG(c, d, t + dt, 0.001, 0.05, 0.15); tone(c, h, t + dt, 'sine', f * 2.01, f * 2.01, 0.2); }); return t + 0.6; },
+  spend(c, d, t) { [[1175, 0], [880, 0.08]].forEach(([f, dt]) => { const g = envG(c, d, t + dt, 0.002, 0.13, 0.22); tone(c, g, t + dt, 'triangle', f, f, 0.3); }); return t + 0.4; },
+  tick(c, d, t, o) { const hi = o && o.hi, g = envG(c, d, t, 0.001, hi ? 0.22 : 0.15, 0.05); tone(c, g, t, 'sine', hi ? 1600 : 1050, hi ? 1500 : 980, 0.06); const n = envG(c, bp(c, d, 'bandpass', 2400, 3), t, 0.001, 0.08, 0.02); noiseSrc(c, t, 0.03).connect(n); return t + 0.08; },
+  outbid(c, d, t) { [[660, 0], [440, 0.12]].forEach(([f, dt]) => { const g = envG(c, d, t + dt, 0.005, 0.18, 0.2); tone(c, g, t + dt, 'square', f, f * 0.98, 0.25); }); return t + 0.4; },
+  win(c, d, t) { [523, 659, 784, 1047].forEach((f, i) => { const g = envG(c, d, t + i * 0.09, 0.004, 0.17, 0.5); tone(c, g, t + i * 0.09, 'triangle', f, f, 0.55); }); SY.coin(c, d, t + 0.36); return t + 1; },
+  alert(c, d, t) { [[988, 0], [1319, 0.11]].forEach(([f, dt]) => { const g = envG(c, d, t + dt, 0.004, 0.17, 0.3); tone(c, g, t + dt, 'sine', f, f, 0.32); }); return t + 0.45; },
+  /* 💨 a gust of wind (the continuous wind is in the weather layer) */
+  thunderSyn(c, d, t) { const f = bp(c, d, 'lowpass', 300, 0.7); const g = envG(c, f, t, 0.08, 0.9, 3.2, 0.2); noiseSrc(c, t, 3.6).connect(g); return t + 3.6; },
+  firework(c, d, t) { const g = envG(c, d, t, 0.002, 0.4, 0.4); const s = noiseSrc(c, t, 0.5); s.connect(bp(c, g, 'lowpass', 1800)); const cr = envG(c, bp(c, d, 'highpass', 3000), t + 0.25, 0.05, 0.25, 1.2); noiseSrc(c, t + 0.2, 1.5).connect(cr); return t + 1.6; }
+};
+/* ---------- ▶️ play a recipe or a recording now (respects the voice limit; logs for the tests) ---------- */
+const MAXV = () => lo7() ? 12 : 26;
+S7.ok = () => !!(S7.ctx && S7.cfg.on && S7.ctx.state !== 'closed');
+S7.play = function (name, o, bus, at) {
+  o = o || {}; S7.log.push(name); if (S7.log.length > 200) S7.log.shift(); const c = S7.ctx; if (!S7.ok() || !SY[name]) return;
+  if (S7.act >= MAXV() && !o.must) return; const t = Math.max(c.currentTime, at || 0) + 0.005, out = gainTo(c, S7.N[bus || 'fx'], o.g == null ? 1 : o.g), d = panTo(c, out, o.pan);
+  if (o.rv) revSend(c, out, o.rv); let end = t + 1; try { end = SY[name](c, d, t, o); } catch (e) { console.warn('snd', name, e); }
+  S7.act++; setTimeout(() => { S7.act = Math.max(0, S7.act - 1); try { out.disconnect(); } catch (e) {} }, Math.max(200, (end - c.currentTime) * 1000 + 300));
+};
+/* a piece of the recordings (one-shot): o.g gain, o.pan, o.rate, o.off (start inside the clip), o.len, o.fade */
+S7.clip = function (name, o, bus, at) {
+  o = o || {}; S7.log.push('clip:' + name); if (S7.log.length > 200) S7.log.shift(); const c = S7.ctx, M = SND_MAP[name]; if (!S7.ok() || !S7.buf || !M) return null;
+  const t = Math.max(c.currentTime, at || 0) + 0.01, rate = o.rate || 1, off = Math.min(M[1] - 0.3, o.off || 0), len = Math.min(M[1] - off, o.len || M[1]), fd = o.fade || 0.04;
+  const s = c.createBufferSource(); s.buffer = S7.buf; s.playbackRate.value = rate; const g = c.createGain(), v = o.g == null ? 1 : o.g; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + fd);
+  g.gain.setValueAtTime(v, t + Math.max(fd, len / rate - (o.out || 0.4))); g.gain.linearRampToValueAtTime(0.0001, t + len / rate); s.connect(g); g.connect(panTo(c, S7.N[bus || 'crowd'], o.pan));
+  if (o.lp) { s.disconnect(); const f = bp(c, g, 'lowpass', o.lp, 0.6); s.connect(f); }
+  s.start(t, M[0] + off, len + 0.02); S7.act++; s.onended = () => { S7.act = Math.max(0, S7.act - 1); try { g.disconnect(); } catch (e) {} }; return { s, g };
+};
+/* ---------- 🌊 endless textures from the recordings (crowd bed, chant, rain): random pieces cross-faded, so they never sound looped ---------- */
+const TXP = (name, bus, pan) => ({ name, bus, pan, g: null, next: 0, want: 0, on: false });
+S7.tex = function (key, name, bus, pan) { if (!S7.tx[key]) S7.tx[key] = TXP(name, bus, pan); return S7.tx[key]; };
+S7.texTick = function () {
+  const c = S7.ctx; if (!c || !S7.buf) return; const now = c.currentTime;
+  for (const k in S7.tx) { const X = S7.tx[k], M = SND_MAP[X.name]; if (!M) continue;
+    if (!X.g) { X.g = c.createGain(); X.g.gain.value = 0; X.g.connect(panTo(c, S7.N[X.bus], X.pan)); }
+    X.g.gain.setTargetAtTime(X.want, now, X.want > X.cur ? 0.25 : 0.6); X.cur = X.want;
+    if (X.want < 0.002) { if (X.next && now > X.next + 1) X.next = 0; continue; }
+    if (X.next && now < X.next - 0.6) continue;
+    const XF = 1.4, L = Math.min(M[1] - 0.6, rr(6, 9)), off = rr(0.3, Math.max(0.31, M[1] - L - 0.3)), t = Math.max(now + 0.02, X.next || now + 0.02);
+    const s = c.createBufferSource(); s.buffer = S7.buf; const sg = c.createGain(); sg.gain.setValueAtTime(0.0001, t); sg.gain.linearRampToValueAtTime(1, t + XF); sg.gain.setValueAtTime(1, t + L - XF); sg.gain.linearRampToValueAtTime(0.0001, t + L);
+    s.connect(sg); sg.connect(X.g); s.start(t, M[0] + off, L + 0.05); s.onended = () => { try { sg.disconnect(); } catch (e) {} }; X.next = t + L - XF; }
+};
+S7.texAll = (v) => { for (const k in S7.tx) S7.tx[k].want = v; };
+/* ---------- 🎵 music made in code: calm menu loop, walk-out anthem, trophy fanfare (all original) ---------- */
+const MIDI = (n) => 440 * Math.pow(2, (n - 69) / 12);
+const MUS = {
+  menu: { bpm: 84, bars: 8, loop: true, chords: [[57, 60, 64, 67, 71], [53, 57, 60, 64, 67], [48, 52, 55, 59, 62], [55, 59, 62, 64, 66], [57, 60, 64, 67, 71], [53, 57, 60, 64, 69], [50, 53, 57, 60, 64], [52, 56, 59, 62, 64]] },
+  anthem: { bpm: 72, bars: 8, loop: false, chords: [[50, 54, 57], [47, 50, 54], [43, 47, 50], [45, 49, 52], [50, 54, 57], [43, 47, 50], [45, 49, 52], [50, 54, 57]],
+    mel: [[74, 0, 2], [78, 2, 1], [81, 3, 1], [83, 4, 2], [81, 6, 1], [78, 7, 1], [79, 8, 2], [83, 10, 1], [86, 11, 1], [85, 12, 3], [81, 15, 1], [86, 16, 2], [81, 18, 1], [78, 19, 1], [79, 20, 1], [83, 21, 1], [88, 22, 1], [86, 23, 1], [85, 24, 1], [83, 25, 1], [81, 26, 1], [85, 27, 1], [86, 28, 4]] },
+  fanfare: { bpm: 120, bars: 3, loop: false, chords: [[48, 55, 60, 64], [53, 57, 60, 65], [48, 55, 60, 64]], mel: [[67, 0, 0.33], [67, 0.33, 0.33], [67, 0.66, 0.34], [72, 1, 1.5], [76, 2.5, 0.5], [79, 3, 0.5], [76, 3.5, 0.5], [84, 4, 4]] }
+};
+const pad = (c, d, t, notes, dur, br) => { const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(br ? 0.09 : 0.06, t + (br ? 0.12 : 0.9)); g.gain.setValueAtTime(br ? 0.08 : 0.06, t + dur - 0.3); g.gain.linearRampToValueAtTime(0.0001, t + dur + (br ? 0.3 : 0.8)); const f = bp(c, d, 'lowpass', br ? 2200 : 1100, 0.7); g.connect(f);
+  notes.forEach(n => [-6, 6].forEach(dt => { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = MIDI(n); o.detune.value = dt + rr(-2, 2); const og = c.createGain(); og.gain.value = 0.5 / notes.length; o.connect(og); og.connect(g); o.start(t); o.stop(t + dur + 1); })); revSend(c, f, 0.9); };
+const pluck = (c, d, t, n, v, dec) => { const g = envG(c, d, t, 0.004, v, dec); const o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = MIDI(n); o.connect(g); o.start(t); o.stop(t + dec + 0.1); revSend(c, g, 0.6); };
+const lead = (c, d, t, n, L) => { const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.11, t + 0.04); g.gain.setValueAtTime(0.09, t + Math.max(0.05, L - 0.08)); g.gain.exponentialRampToValueAtTime(0.0001, t + L + 0.25); const f = bp(c, d, 'lowpass', 2600, 1.2); g.connect(f);
+  [0, 7].forEach(dt => { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = MIDI(n); o.detune.value = dt; const v = c.createOscillator(), vg = c.createGain(); v.frequency.value = 5.2; vg.gain.value = 6; v.connect(vg); vg.connect(o.detune); o.connect(g); o.start(t); o.stop(t + L + 0.3); v.start(t); v.stop(t + L + 0.3); }); revSend(c, f, 0.8); };
+const timp = (c, d, t, n, v) => { const g = envG(c, d, t, 0.004, v, 0.9); tone(c, g, t, 'sine', MIDI(n) * 1.03, MIDI(n), 1, 0.08); const h = envG(c, bp(c, d, 'lowpass', 500), t, 0.002, v * 0.4, 0.15); noiseSrc(c, t, 0.2).connect(h); revSend(c, g, 0.5); };
+/* schedules the piece bar by bar a little ahead; returns the end time */
+S7.music = function (name) {
+  const c = S7.ctx; if (!c) return; if (S7.mu && S7.mu.name === name) return; S7.musicOff(); const P = MUS[name]; if (!P) return; S7.log.push('music:' + name);
+  const g = c.createGain(); g.gain.value = 0.0001; g.gain.setTargetAtTime(1, c.currentTime, 0.6); g.connect(S7.N.mus); S7.mu = { name, P, g, bar: 0, t: c.currentTime + 0.15 };
+};
+S7.musicOff = function () { const c = S7.ctx, M = S7.mu; if (!c || !M) return; S7.mu = null; M.g.gain.setTargetAtTime(0.0001, c.currentTime, 0.5); setTimeout(() => { try { M.g.disconnect(); } catch (e) {} }, 3500); };
+S7.musTick = function () {
+  const c = S7.ctx, M = S7.mu; if (!c || !M) return; const P = M.P, B = 240 / P.bpm, d = M.g;
+  while (M.t < c.currentTime + 0.5) {
+    if (M.bar >= P.bars) { if (!P.loop) { if (c.currentTime > M.t + 2.5) S7.mu = null; return; } M.bar = 0; }
+    const t = M.t, ch = P.chords[M.bar], bar = M.bar;
+    if (M.name === 'menu') { pad(c, d, t, ch.slice(0, 4), B); const arp = [0, 2, 1, 3, 2, 4, 3, 1]; arp.forEach((k, i) => pluck(c, d, t + i * B / 8, ch[k % ch.length] + 12, i % 2 ? 0.05 : 0.07, 0.35));
+      const bg = envG(c, d, t, 0.01, 0.16, B * 0.4); tone(c, bg, t, 'sine', MIDI(ch[0] - 12), MIDI(ch[0] - 12), B * 0.45); const bg2 = envG(c, d, t + B / 2, 0.01, 0.12, B * 0.3); tone(c, bg2, t + B / 2, 'sine', MIDI(ch[0] - 12), MIDI(ch[0] - 12), B * 0.35);
+      for (let i = 0; i < 4; i++) { const hg = envG(c, bp(c, d, 'highpass', 7500), t + (i + 0.5) * B / 4, 0.001, 0.025, 0.04); noiseSrc(c, t + (i + 0.5) * B / 4, 0.06).connect(hg); } }
+    else { pad(c, d, t, ch.concat(ch.map(n => n + 12)), B, true); timp(c, d, t, ch[0] - 12, M.name === 'fanfare' ? 0.35 : 0.3); if (M.name === 'anthem' && bar % 2 === 1) timp(c, d, t + B * 0.75, ch[0] - 12, 0.18);
+      (P.mel || []).forEach(([n, at, L]) => { const b0 = at / 4; if (b0 >= bar && b0 < bar + 1) lead(c, d, t + (b0 - bar) * B, n, L * B / 4); });
+      if (bar === P.bars - 1) { const cy = envG(c, bp(c, d, 'highpass', 5000), t, B * 0.6, 0.12, 1.6); noiseSrc(c, t, B + 1.8).connect(cy); } }
+    M.bar++; M.t += B; }
+};
+/* ---------- 🏟️ the match soundscape: read from the live match every frame ---------- */
+const HOME = 0.82;
+const mt7 = { m: null, ev: 0, fl: null, own: null, sp: null, lastShot: null, chantAt: 0, waveAt: 0, thAt: 0, gust: 0, wind: null, rpCel: false, cerT: 0, fw: 0, kicks: 0 };
+S7._mt = mt7;
+const panX = (x) => Math.max(-0.75, Math.min(0.75, ((x || 52.5) - 52.5) / 52.5 * 0.75));
+const shareOf = (side) => side === 0 ? 1 : 0.42;
+const stage7 = () => {
+  if (!document.getElementById('w11')) return 'off';
+  if (W._tro) return 'trophy'; if (W._cer) return 'cer'; if (W._rp) return 'replay';
+  const live = W.live, m = W.m, onMatch = !!document.querySelector('#w11 .w11match') || !!document.getElementById('w11cine');
+  if (live && m && onMatch) return 'match'; return 'menu';
+};
+S7.frame = function () {
+  const c = S7.ctx; if (!c || c.state !== 'running') return; S7.texTick(); S7.musTick();
+  const st = stage7(); if (st !== S7.mode) { S7.enter(st, S7.mode); S7.mode = st; }
+  const N = S7.N, now = c.currentTime;
+  N.match.frequency.setTargetAtTime(st === 'replay' ? 1500 : S7.muffle || 20000, now, 0.15); N.mg.gain.setTargetAtTime(st === 'replay' ? 0.75 : 1, now, 0.2);
+  if (st === 'match') S7.matchFrame(); else if (st === 'cer') S7.cerFrame(); else if (st === 'replay') S7.rpFrame(); else if (st === 'trophy') S7.troFrame();
+  if (st !== 'match' && st !== 'cer' && st !== 'replay' && st !== 'trophy') { S7.texAll(0); S7.weather(null, 0); }
+};
+S7.enter = function (st, old) {
+  if (st === 'menu') S7.music('menu'); else if (st !== 'cer' && st !== 'trophy') S7.musicOff();
+  if (st === 'trophy') { S7.music('fanfare'); mt7.fw = 0; mt7.cerT = performance.now(); S7.clip('roar', { g: 0.7 }); }
+  if (st === 'cer') { mt7.cerT = performance.now(); mt7.fw = 0; if (W._cer === 'open') { S7.music('anthem'); S7.clip('cheer', { g: 0.5 }); } else S7.musicOff(); }
+  if (st === 'replay') { mt7.rpCel = false; }
+  if (st === 'off') { S7.musicOff(); S7.texAll(0); }
+};
+/* stadium size → crowd loudness and echo */
+const sizeOf = (live) => { try { const lv = Math.max(1, Math.min(5, (W.dress(live).sd || {}).lv || 1)); return [0.6, 0.72, 0.84, 0.93, 1][lv - 1]; } catch (e) { return 0.7; } };
+S7.weather = function (wx, sz) {
+  const c = S7.ctx, F = wx ? CC.wxFx(wx) : null, rain = S7.tex('rain', 'rain', 'fx'), now = c.currentTime;
+  rain.want = F && F.wet ? (wx.k === 'storm' ? 0.55 : 0.32) * (F.wet > 1 ? 1.25 : 1) : 0;
+  S7.muffle = F && F.snow ? 6500 : wx && wx.k === 'fog' ? 11000 : 20000;
+  /* wind: filtered noise with gusts */
+  const wv = F ? F.wind : 0;
+  if (wv > 0.05 && !mt7.wind) { const s = c.createBufferSource(); s.buffer = noiseBuf(c); s.loop = true; const f = bp(c, S7.N.fx, 'bandpass', 480, 0.7), g = c.createGain(); g.gain.value = 0; s.connect(g); g.connect(f); s.start(); mt7.wind = { s, g, f }; }
+  if (mt7.wind) { if (rnd7() < 0.01) mt7.gust = rr(0.4, 1); mt7.gust *= 0.995; const tgt = wv > 0.05 ? wv * (0.12 + 0.22 * mt7.gust) : 0; mt7.wind.g.gain.setTargetAtTime(tgt, now, 0.4); mt7.wind.f.frequency.setTargetAtTime(380 + 500 * mt7.gust, now, 0.5);
+    if (wv <= 0.05 && tgt === 0 && rnd7() < 0.02) { const W0 = mt7.wind; mt7.wind = null; setTimeout(() => { try { W0.s.stop(); W0.g.disconnect(); } catch (e) {} }, 2500); } }
+  if (wx && wx.k === 'storm' && performance.now() > mt7.thAt) { mt7.thAt = performance.now() + rr(9000, 26000); if (S7.buf) S7.clip('thunder', { g: rr(0.5, 0.85), rate: rr(0.8, 1.05), pan: rr(-0.5, 0.5), lp: 1600 }, 'fx'); else S7.play('thunderSyn', { g: 0.6 }); }
+};
+S7.matchFrame = function () {
+  const live = W.live, m = W.m, c = S7.ctx; if (!m || !live) return; const A = W.atmoNow ? W.atmoNow() : null, sz = sizeOf(live), b = m.ball;
+  if (mt7.m !== m) { mt7.m = m; mt7.ev = m.ev.length; mt7.fl = b.fl; mt7.own = b.owner; mt7.sp = m.sp; mt7.ko0 = m.tick < 60 ? 1 : 0; mt7.chantAt = performance.now() + rr(15000, 30000); }
+  if (mt7.ko0 && m.tick > 0) { mt7.ko0 = 0; S7.play('whistle', { ls: [0.6], v: 0.32, must: 1 }); }
+  const wx = (live.home && live.home.wx) || (A && A.wx) || null, F = wx ? CC.wxFx(wx) : null, wet = F ? F.wet : 0;
+  S7.weather(wx, sz);
+  /* crowd bed: louder when attacks build, goals, big games; quieter at half time / before kick-off */
+  const el = (Date.now() - live.startAt) / 1000, ht = el > W.TIMING.HALF && el < W.TIMING.HALF + W.TIMING.BREAK, pre = el < 0;
+  const cr = A && A.crowd ? A.crowd : { st: [0.08, 0.08] }, poss = b.owner ? b.owner.side : null;
+  const dz = poss === 0 ? Math.max(0, (b.x - 62) / 43) : poss === 1 ? Math.max(0, (43 - b.x) / 43) * 0.6 : 0;
+  const ex = Math.min(1, HOME * cr.st[0] + (1 - HOME) * cr.st[1] + dz * 0.35), big = !!(A && A.ball && (A.ball.kind === 'final' || A.ball.kind === 'cl'));
+  const bedV = sz * (pre || ht ? 0.32 : m.over ? 0.3 : 0.42 + 0.38 * ex) * (big ? 1.12 : 1);
+  const L = S7.tex('bedL', 'bed', 'crowd', lo7() ? 0 : -0.55), R = lo7() ? null : S7.tex('bedR', 'bed', 'crowd', 0.55); L.want = bedV * (R ? 0.75 : 1); if (R) R.want = bedV * 0.75;
+  if (S7.N.revG) S7.N.revG.gain.setTargetAtTime(0.12 + 0.18 * sz, c.currentTime, 1);
+  /* chants + drums + claps every so often while the game is calm (home end), waves when leading late */
+  const ch = S7.tex('chant', 'chant', 'crowd', -0.2), nowMs = performance.now();
+  if (!pre && !ht && !m.over && nowMs > mt7.chantAt && ex < 0.5) { mt7.chantAt = nowMs + rr(35000, 70000); mt7.chantEnd = nowMs + rr(8000, 13000); if (big || sz > 0.8 || rnd7() < 0.5) S7.play('drum', { beats: [0, 0.5, 1, 1.25, 1.5, 2, 2.5, 3, 3.25, 3.5, 4, 4.5, 5, 5.25, 5.5], v: 0.32, g: sz }, 'crowd'); }
+  ch.want = nowMs < (mt7.chantEnd || 0) ? 0.5 * sz : 0;
+  if (cr.wave && nowMs > mt7.waveAt) { mt7.waveAt = nowMs + 6500; S7.clip('swell', { g: 0.4 * sz, off: 2, len: 5, pan: rr(-0.5, 0.5) }); }
+  /* ⚽ ball: a new flight = a kick (pass / long ball / cross / shot / header); the ball arriving at a player = a touch */
+  if (b.fl !== mt7.fl) { const f = b.fl; if (f && f.kind !== 'throw') { const dist = Math.sqrt((f.x1 - f.x0) * (f.x1 - f.x0) + (f.y1 - f.y0) * (f.y1 - f.y0)), sh = f.kind === 'shot';
+      const p = sh ? (f.from && f.from.st && f.from.st.shot === 'screamer' ? 1 : f.pen ? 0.85 : 0.82) : f.kind === 'cross' ? 0.62 : Math.min(0.7, 0.25 + dist / 60);
+      if (!f.header || !sh) S7.play('kick', { p, wet, pan: panX(f.x0), g: sh ? 1 : 0.8, rv: sh ? 0.3 : 0 }); else S7.play('kick', { p: 0.5, head: 1, pan: panX(f.x0) });
+      if (sh) mt7.lastShot = f; mt7.kicks++; }
+    else if (!f && mt7.fl && b.owner) S7.play('touch', { wet, pan: panX(b.x), g: 0.6 }); mt7.fl = f; }
+  /* 🗣️ whistle when the kick-off / penalty / big free kick is taken */
+  if (m.sp !== mt7.sp) { const o = mt7.sp; if (o && !m.sp && ((o.kind === 'ko' && m.tick > 100) || o.kind === 'pen' || o.kind === 'fkd')) S7.play('whistle', { ls: [o.kind === 'ko' ? 0.6 : 0.3], v: 0.3 }, 'fx'); mt7.sp = m.sp; }
+  /* match events (only fresh ones: no flood after catching up) */
+  if (m.ev.length < mt7.ev) mt7.ev = 0; const news = m.ev.slice(mt7.ev); mt7.ev = m.ev.length; if (news.length > 25) return;
+  for (const e of news) { if (e.t != null && m.t - e.t > 0.8) continue; S7.event(e, m, sz, wet); }
+};
+S7.event = function (e, m, sz, wet) {
+  const s = e.side, k = e.k, home = s === 0, sh = shareOf(s), ft = W.TIMING;
+  if (k === 'goal') { S7.play('net', { pan: panX(s === 0 ? 103 : 2), g: 0.9 });
+    if (home) { S7.clip(rnd7() < 0.5 ? 'roar' : 'roar2', { g: 0.95 * sz, rate: rr(0.97, 1.03) }); setTimeout(() => S7.play('claps', { beats: [0, 0.45, 0.9, 1.2, 1.5], v: 0.4, g: sz }, 'crowd'), 6500); mt7.chantEnd = performance.now() + 14000; }
+    else { S7.clip('cheer', { g: 0.55 * sz, pan: 0.55, rate: 1.04 }); S7.play('vowel', { k: 'aww', v: 0.45 * sz }, 'crowd'); } return; }
+  if (k === 'save') { const att = 1 - s, sa = shareOf(att); S7.play('gloves', { catch: e.catch, pan: panX(s === 0 ? 3 : 102) }); S7.play('vowel', { k: 'ooh', v: 0.5 * sa * sz }, 'crowd'); S7.clip('swell', { g: 0.45 * sa * sz, off: 4, len: 4.5 }); if (att === 1) S7.clip('cheer', { g: 0.25 * sz, off: 1, len: 3, pan: -0.2 }); return; }
+  if (k === 'miss') { const f = mt7.lastShot, near = e.near; let post = false;
+    if (near && f && f.y1 != null && !/deflect/.test(e.txt || '')) { const dy = Math.abs(f.y1 - 34); post = dy > 3.2 && dy < 4.3 && (hash('post:' + (m.seed || 0) + ':' + m.tick) % 100) < 55; }
+    if (post) S7.play('post', { pan: panX(s === 0 ? 104 : 1), g: 0.9 });
+    if (near) { S7.play('vowel', { k: 'ooh', v: (post ? 0.7 : 0.55) * sh * sz }, 'crowd'); S7.clip('swell', { g: 0.4 * sh * sz, off: 3, len: 4 }); } else S7.play('vowel', { k: 'aww', v: 0.2 * sh * sz }, 'crowd'); return; }
+  if (k === 'foul') { S7.play('whistle', { ls: [0.2], v: 0.32 }); if (e.sl) S7.play('tackle', { sl: 1, pan: 0 });
+    const fouled = 1 - s; if (fouled === 0) { S7.play('fanWhistle', { v: 0.28 * sz }, 'crowd'); S7.play('vowel', { k: 'boo', v: 0.3 * sz }, 'crowd'); } else S7.play('fanWhistle', { v: 0.12 * sz, pan: 0.5 }, 'crowd'); return; }
+  if (k === 'yellow' || k === 'red') { S7.play('whistle', { ls: [0.12, 0.35], gap: 0.09, v: 0.34 }); if (s === 1) S7.clip('cheer', { g: (k === 'red' ? 0.5 : 0.3) * sz, off: 1.5, len: 3.5 }); else S7.play('vowel', { k: 'boo', v: (k === 'red' ? 0.6 : 0.4) * sz }, 'crowd'); return; }
+  if (k === 'off') { S7.play('whistle', { ls: [0.18], v: 0.3 }); return; }
+  if (k === 'pen') { S7.play('whistle', { ls: [0.45], v: 0.4 }); if (s === 0) S7.clip('swell', { g: 0.7 * sz, off: 2, len: 6 }); else S7.play('vowel', { k: 'boo', v: 0.55 * sz }, 'crowd'); return; }
+  if (k === 'corner' || (k === 'fk' && /m out/.test(e.txt || ''))) { if (home) S7.play('claps', { beats: [0, 0.4, 0.8], v: 0.3 * sz }, 'crowd'); return; }
+  if (k === 'tackle') { S7.play('tackle', { sl: e.sl, pan: 0, g: 0.75 }); return; }
+  if (k === 'block') { S7.play('kick', { p: 0.7, pan: 0, g: 0.8 }); if (home === false) S7.clip('cheer', { g: 0.2 * sz, off: 2, len: 2.5 }); return; }
+  if (k === 'header' || k === 'duel') { S7.play('kick', { p: 0.45, head: 1 }); return; }
+  if (k === 'slip' || k === 'skid') { S7.play('splash', { v: wet ? 0.35 : 0.15 }); if (k === 'slip') S7.play('vowel', { k: 'ooh', v: 0.18 * sz }, 'crowd'); return; }
+  if (k === 'skill') { S7.play('vowel', { k: 'aah', v: 0.25 * sh * sz }, 'crowd'); return; }
+  if (k === 'ht') { S7.play('whistle', { ls: [0.3, 0.75], gap: 0.15, v: 0.36, must: 1 }); S7.clip('cheer', { g: 0.35 * sz }); return; }
+  if (k === 'ft') { S7.play('whistle', { ls: [0.3, 0.3, 0.95], gap: 0.15, v: 0.38, must: 1 }); const d = m.T[0].score - m.T[1].score;
+    if (d > 0) S7.clip('roar2', { g: 0.75 * sz, off: 1 }); else if (d === 0) S7.clip('cheer', { g: 0.4 * sz }); else { S7.play('vowel', { k: 'aww', v: 0.4 * sz }, 'crowd'); S7.play('fanWhistle', { v: 0.25 * sz }, 'crowd'); S7.clip('cheer', { g: 0.45 * sz, pan: 0.55 }); } return; }
+  if (k === 'shout') { if (s === (W.my > 0 ? 1 : 0)) { S7.play('claps', { beats: [0, 0.35, 0.7, 0.9, 1.1], v: 0.35 * (s === 0 ? 1 : 0.5) * sz, pan: s === 0 ? -0.2 : 0.5 }, 'crowd'); S7.clip('swell', { g: (s === 0 ? 0.4 : 0.2) * sz, off: 2, len: 3.5 }); } return; }
+  if (k === 'sub') { S7.clip('cheer', { g: 0.22 * sz, off: 2, len: 3, pan: s === 0 ? -0.3 : 0.5 }); return; }
+  if (k === 'alert') { S7.play('alert', {}, 'ui'); return; }
+  void ft;
+};
+/* 🎬 ceremonies: anthem + cheering on the walk-out (fireworks in finals / big nights), the winners' end after full time */
+S7.cerFrame = function () {
+  const live = W.live, sz = live ? sizeOf(live) : 0.8, t = (performance.now() - mt7.cerT) / 1000, A = W.atmoNow ? W.atmoNow() : null;
+  const L = S7.tex('bedL', 'bed', 'crowd', lo7() ? 0 : -0.55), R = lo7() ? null : S7.tex('bedR', 'bed', 'crowd', 0.55); const v = sz * (W._cer === 'open' ? 0.6 : 0.5); L.want = v * (R ? 0.75 : 1); if (R) R.want = v * 0.75;
+  S7.tex('chant', 'chant', 'crowd', -0.2).want = W._cer === 'open' && t > 6 ? 0.45 * sz : 0; S7.weather(live && live.home && live.home.wx, sz);
+  if (W._cer === 'open' && A && (A.smoke || (A.ball && A.ball.kind === 'final')) && mt7.fw < 6 && t > 1 + mt7.fw * 1.6) { mt7.fw++; S7.clip(['fw1', 'fw3', 'fw6'][mt7.fw % 3], { g: 0.6, pan: rr(-0.7, 0.7), rate: rr(0.9, 1.1) }, 'fx') || S7.play('firework', { pan: rr(-0.7, 0.7) }); }
+  if (W._cer === 'close' && mt7.fw === 0 && t > 0.5) { mt7.fw = 1; S7.play('claps', { beats: [0, 0.5, 1, 1.5, 2, 2.5], v: 0.3 * sz }, 'crowd'); }
+};
+S7.rpFrame = function () {
+  const v = G3.view, live = W.live, sz = live ? sizeOf(live) : 0.8; const L = S7.tex('bedL', 'bed', 'crowd', lo7() ? 0 : -0.55), R = S7.tx.bedR; L.want = 0.4 * sz; if (R) R.want = 0.3 * sz; if (S7.tx.chant) S7.tx.chant.want = 0;
+  if (v && v.cel && !mt7.rpCel) { mt7.rpCel = true; S7.play('net', { g: 0.7 }); S7.clip('roar', { g: 0.7 * sz, rate: 0.85, off: 1, len: 7 }); }
+};
+S7.troFrame = function () {
+  const t = (performance.now() - mt7.cerT) / 1000; S7.tex('bedL', 'bed', 'crowd', 0).want = 0.5; if (S7.tx.bedR) S7.tx.bedR.want = 0.4;
+  if (mt7.fw < 8 && t > 0.6 + mt7.fw * 0.9) { mt7.fw++; S7.clip(['fw1', 'fw3', 'fw6'][mt7.fw % 3], { g: 0.55, pan: rr(-0.8, 0.8), rate: rr(0.9, 1.12) }, 'fx') || S7.play('firework', { pan: rr(-0.8, 0.8) }); }
+};
+/* ---------- 🔁 the loop: runs while 11 Wonders is open (stops in the background) ---------- */
+S7.loop = function () { if (S7._raf) return; const f = () => { S7._raf = null; if (!document.getElementById('w11')) { S7.enter('off'); S7.mode = 'off'; return; } try { S7.frame(); } catch (e) { if (!S7._err++) console.warn('snd', e); } S7._raf = requestAnimationFrame(f); }; S7._err = 0; S7._raf = requestAnimationFrame(f); };
+S7.start = function () { if (!S7.init()) return; S7.resume(); S7.load(); S7.loop(); };
+document.addEventListener('visibilitychange', () => { const c = S7.ctx; if (!c) return; try { if (document.visibilityState === 'hidden') c.suspend(); else if (document.getElementById('w11')) { c.resume(); S7.loop(); } } catch (e) {} });
+/* phones only allow sound after a tap: every tap inside 11 Wonders wakes it (and plays a soft tick on buttons) */
+['pointerdown', 'touchend'].forEach(ev => document.addEventListener(ev, (e) => { if (!document.getElementById('w11')) return; S7.resume(); }, true));
+document.addEventListener('click', (e) => { const b = e.target && e.target.closest && e.target.closest('#w11 button'); if (!b || b.disabled) return; if (b.closest('#w11sh')) S7.play('tap', { g: 1.3 }, 'ui'); else S7.play('tap', {}, 'ui'); }, true);
+W.open = (function (b) { return async function () { try { S7.start(); } catch (e) {} return b.apply(this, arguments); }; })(W.open);
+W.close = (function (b) { return function () { const r = b.apply(this, arguments); try { S7.enter('off'); S7.mode = 'off'; if (mt7.wind) { try { mt7.wind.s.stop(); } catch (e) {} mt7.wind = null; } setTimeout(() => { if (!document.getElementById('w11') && S7.ctx) try { S7.ctx.suspend(); } catch (e) {} }, 1800); } catch (e) {} return r; }; })(W.close);
+W.tvWipe = (function (b) { return function () { S7.play('whoosh', { g: 0.8 }, 'ui'); return b.apply(this, arguments); }; })(W.tvWipe);
+/* 💎 / 🪙: a coin sound when they go up, a softer one when you spend */
+W.chips = (function (b) { return function () { const me = W.me, r = b.apply(this, arguments); try { if (me) { const k = [me.coins || 0, me.gems || 0]; if (S7._money && (k[0] !== S7._money[0] || k[1] !== S7._money[1])) S7.play(k[0] > S7._money[0] || k[1] > S7._money[1] ? 'coin' : 'spend', {}, 'ui'); S7._money = k; } } catch (e) {} return r; }; })(W.chips);
+W.ui = (function (b) { return function () { const r = b.apply(this, arguments); try { if (W.me && !S7._money) S7._money = [W.me.coins || 0, W.me.gems || 0]; } catch (e) {} return r; }; })(W.ui);
+/* 🔨 auctions: ticking in the last 10 s of a lot you lead, a buzz when someone outbids you, a fanfare when you win */
+W.mkDraw = (function (b) { return function () { const r = b.apply(this, arguments); try {
+  const me = uidNow(), now = W.nowS(), L = W._lots || {}, lead = S7._lead = S7._lead || {}; let tick = 0;
+  for (let i = 0; i < CC.MK_N; i++) { const x = L[i]; if (!x) continue; const k = i + ':' + x.n, E = CC.lotEff(x, now), mine = x.u === me && E.top === 'u';
+    if (mine && !E.closed) { const ms = E.end - now; if (ms < 10000) tick = Math.max(tick, ms < 3500 ? 2 : 1); }
+    if (lead[k] && !mine && !E.closed) S7.play('outbid', {}, 'ui'); if (lead[k] && E.closed && E.winner === 'u' && x.u === me && !S7._won[k]) { S7._won[k] = 1; S7.play('win', {}, 'ui'); } lead[k] = mine && !E.closed ? 1 : (E.closed ? lead[k] : 0); }
+  if (tick) S7.play('tick', { hi: tick === 2 }, 'ui');
+} catch (e) {} return r; }; })(W.mkDraw);
+S7._won = {};
+/* ---------- ⚙️ Club HQ → 🔊 Sound ---------- */
+W.sndCard = function () { const C = S7.cfg, sl = (k, t) => `<label style="display:flex;align-items:center;gap:10px;margin-top:8px;font-size:12px;font-weight:800"><span style="width:76px">${t}</span><input type="range" min="0" max="100" step="5" value="${C[k]}" oninput="W11.sndSet('${k}',this.value)" style="flex:1;accent-color:#22d3ee" aria-label="${t} volume"><span id="w11sv_${k}" style="width:30px;text-align:right;color:#67e8f9">${C[k]}</span></label>`;
+  return `<div class="card" id="w11snd"><p style="font-weight:900">🔊 Sound</p><p style="font-size:11px;color:#94a3b8;margin-top:4px">Stadium sounds, a crowd that follows the game, the referee's whistle, weather, ceremonies and menu music. Your phone's volume buttons work too.</p>
+    <button class="${C.on ? 'btn' : 'btn2'}" id="w11son" style="margin-top:8px" onclick="W11.sndToggle()">${C.on ? '🔊 Sound is ON · tap to mute' : '🔇 Sound is OFF · tap to turn on'}</button>
+    ${sl('cr', '🏟️ Crowd')}${sl('fx', '⚽ Effects')}${sl('mu', '🎵 Music')}
+    <p style="font-size:10px;color:#64748b;margin-top:10px">Crowd recordings: “Free Crowd Cheering Sounds” by Gregor Quendel, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:#67e8f9">CC BY 4.0</a> (cut and mixed). Rain, thunder and fireworks: free CC0 recordings. Music, whistle, ball and all other sounds are made by SINLESS GG.</p></div>`; };
+W.sndToggle = function () { S7.cfg.on = S7.cfg.on ? 0 : 1; S7.save(); S7.start(); S7.apply(); const el = document.getElementById('w11snd'); if (el) el.outerHTML = W.sndCard(); if (S7.cfg.on) setTimeout(() => S7.play('coin', {}, 'ui'), 120); };
+W.sndSet = function (k, v) { S7.cfg[k] = Math.max(0, Math.min(100, Number(v) || 0)); S7.save(); S7.start(); S7.apply(); const o = document.getElementById('w11sv_' + k); if (o) o.textContent = S7.cfg[k];
+  clearTimeout(S7._prv); S7._prv = setTimeout(() => { if (k === 'cr') S7.clip('swell', { g: 0.5, off: 4, len: 2.5 }); else if (k === 'fx') S7.play('kick', { p: 0.8 }); }, 180); };
+W.hq = (function (b) { return function () { const r = b.apply(this, arguments); try { const bd = document.querySelector('#w11b'); if (bd && !document.getElementById('w11snd')) bd.insertAdjacentHTML('beforeend', W.sndCard()); } catch (e) {} return r; }; })(W.hq);
+/* help text */
+W.helpL = (function (b) { return function () { b.apply(this, arguments); const el = document.querySelector('#w11b .card'); if (!el) return;
+  el.insertAdjacentHTML('beforeend', `<p style="margin-top:6px">🔊 <b>Sound</b>: the crowd reacts to every chance, the referee whistles fouls, half time and full time, and the weather can be heard. Mute it or set the crowd, effects and music volume in 🏟️ Club HQ → 🔊 Sound.</p>`); }; })(W.helpL);
+/* tests: render one recipe offline and measure it (peak, loudness) */
+S7.offline = async function (name, o, sec) { const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OC) return null; const c = new OC(2, Math.floor(44100 * (sec || 2)), 44100); SY[name](c, c.destination, 0.02, o || {}); const b = await c.startRendering(); let pk = 0, ss = 0; const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > pk) pk = v; ss += v * v; } return { peak: pk, rms: Math.sqrt(ss / d.length) }; };
+
 })();
