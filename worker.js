@@ -3062,7 +3062,7 @@ const legendId = (S, no) => 'L' + S + 'x' + no;
    A bid in the last 10 s puts the clock back to 10 s. 🤖 computer clubs (clearly marked) snipe 3 s before the end
    while the price is under the most they will pay. With no human bids, a computer club buys at the start price (or it's unsold). */
 const MK_N = 15, MK_LEN = 60000, MK_EXT = 10000, MK_AI = 3000;
-const lotT0 = (i) => EPOCH + i * 4000;
+const lotT0 = (i) => EPOCH0 + i * 4000;
 const lotPid = (i, n, st) => 'a' + clock(st).s + 'x' + i + 'x' + n;
 const stepOf = (p) => Math.max(500, r500(p * 0.05));
 const lotInfo = (i, n, st) => {
@@ -3089,7 +3089,11 @@ const squadIds = (ci) => POS_TEMPLATE.map((_, s) => ci + '-' + s);
 const avg = (ids, S) => Math.round(ids.slice(0, 11).map(id => player(id, S)).reduce((s, p) => s + p.ovr, 0) / 11);
 
 /* 📅 season clock: 28 days = 1 year. Days 1–26 one matchday each, day 27 last checks, day 28 promotion & prizes. */
-const DAY = 86400000, EPOCH = Date.UTC(2026, 10, 2), SDAYS = 28, MDS = 26;
+const DAY = 86400000, EPOCH0 = Date.UTC(2026, 10, 2), SDAYS = 28, MDS = 26, ENGINE = 2;
+/* G5: the season clock can be restarted (fresh Season 1): the start day is kept in w11meta/season.ep; the market keeps EPOCH0 */
+let EPOCH = EPOCH0;
+const setEpoch = (ms) => { ms = Number(ms) || 0; if (ms > Date.UTC(2026, 0, 1) && ms < Date.UTC(2040, 0, 1)) EPOCH = Math.floor(ms / DAY) * DAY; return EPOCH; };
+const epoch = () => EPOCH;
 const SLOTS = [6, 12, 18, 22], AI_HOUR = 18, MATCH_MS = 4 * 60000;
 const clock = (t) => { const e = Math.max(0, t - EPOCH), s = Math.floor(e / (SDAYS * DAY)) + 1, day = Math.floor((e % (SDAYS * DAY)) / DAY) + 1; return { s, day }; };
 const dayStart = (s, day) => EPOCH + ((s - 1) * SDAYS + (day - 1)) * DAY;
@@ -3197,7 +3201,8 @@ const sheetOf = (club, day, S) => {
     if (best > 0) { const x = ids[i]; ids[i] = ids[best]; ids[best] = x; }
   }
   const cond = {}; ids.forEach(id => { cond[id] = condNow(club, id, day); });
-  return { ids, form: FORM_NAMES.includes(club.form) ? club.form : '4-4-2', cond, tr: { att: Number(club.tr && club.tr.att) || 0, def: Number(club.tr && club.tr.def) || 0, fit: Number(club.tr && club.tr.fit) || 0 }, bo, io, n: club.name || 'My Club', sh: club.short || 'MYC', kit: ((club.kits || [])[0] || {}).c1 || '', kits: (club.kits || []).map(k => k && k.c1).filter(Boolean), kf: (club.kits || []).slice(0, 3).map(cleanKit), cr: cleanCrest(club.crest), sd: { lv: stdLv(club), nm: String((club.std && club.std.nm) || ((club.name || 'My Club') + ' Park')).slice(0, 30) } };
+  const tk = {}; for (const k of ['cap', 'pen', 'fk', 'ck']) { const v = club.tk && club.tk[k]; if (typeof v === 'string' && ids.includes(v)) tk[k] = v; }
+  return { tk, ids, form: FORM_NAMES.includes(club.form) ? club.form : '4-4-2', cond, tr: { att: Number(club.tr && club.tr.att) || 0, def: Number(club.tr && club.tr.def) || 0, fit: Number(club.tr && club.tr.fit) || 0 }, bo, io, n: club.name || 'My Club', sh: club.short || 'MYC', kit: ((club.kits || [])[0] || {}).c1 || '', kits: (club.kits || []).map(k => k && k.c1).filter(Boolean), kf: (club.kits || []).slice(0, 3).map(cleanKit), cr: cleanCrest(club.crest), sd: { lv: stdLv(club), nm: String((club.std && club.std.nm) || ((club.name || 'My Club') + ' Park')).slice(0, 30) } };
 };
 const aiSheet = (ci, key, S) => { const c = club(ci); return { ai: ci, ids: squadIds(ci), form: FORM_NAMES[hash(key + ':f') % 15], cond: {}, tr: {}, bo: [], io: [], n: c.name, sh: c.short, aiCond: AI_COND }; };
 const ENGINE_TICKS = 4200;
@@ -3318,7 +3323,7 @@ const cleanKit = (k) => { k = k || {}; const c1 = colOr(k.c1, '#22d3ee'), c2 = c
 const cleanCrest = (c) => { c = c || {}; const c1 = colOr(c.c1, '#22d3ee'), c2 = colOr(c.c2, '#a855f7');
   return { shape: SHAPES.includes(c.shape) ? c.shape : 'shield', c1, c2, sym: SYMS.includes(c.sym) ? c.sym : 'AB', bd: colOr(c.bd, '#ffffff'), band: BANDS.includes(c.band) ? c.band : 'none', bc: colOr(c.bc, '#ffffff'), est: !!c.est }; };
 
-return { OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
+return { EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
 })();
 // =====================================================================
 // ⚽ G2 · 11 WONDERS LEAGUE (worker side). The worker never plays matches (too heavy for the free plan).
@@ -3382,10 +3387,11 @@ const w11pristine = (s, t, g) => ({ s, t, g, clubs: C11.initClubs(t, g), users: 
 async function w11join(env, uid, sl) {
   const now = Date.now(), { s, day } = C11.clock(now);
   const cd = await w11get(env, `w11Clubs/${uid}`); if (!cd) return { ok: false, error: 'no club' };
-  const club = cd.data; if ((club.boot || []).length < 5) return { ok: false, error: 'finish Boot Camp first' };
+  const club = cd.data;
   if (club.lg && club.lg.s === s) return { ok: true, already: true, lg: club.lg };
   if (!(sl >= 0 && sl <= 3)) sl = 2;
-  let from = 0; for (let md = Math.max(1, day); md <= C11.MDS; md++) if (C11.ko(s, md, 0) - 20 * 60000 > now) { from = md; break; }
+  if (!(sl >= 0 && sl <= 3)) sl = 2;
+  let from = 0; for (let md = Math.max(1, day); md <= C11.MDS; md++) if (Math.min(C11.ko(s, md, sl), C11.ko(s, md, 2)) - 20 * 60000 > now) { from = md; break; }
   const meta = await w11meta(env, s);
   if (!from || meta.s !== s) {
     const w = meta.s !== s ? meta.s + 1 : s + 1;
@@ -3632,7 +3638,7 @@ async function w11season(env, budget) {
 
 // ---------- ⏱️ every 5 minutes ----------
 async function w11cron(env) {
-  const budget = { n: 44 }, out = {};
+  const budget = { n: 44 }, out = {}; try { await w11epoch(env); budget.n--; } catch (e) {}
   try { out.locked = await w11lock(env, budget); } catch (e) { out.lockErr = String(e); }
   try { out.settled = await w11settle(env, budget, false); } catch (e) { out.settleErr = String(e); }
   try { if (budget.n > 10) out.cups = await w11cups(env, budget); } catch (e) { out.cupErr = String(e); }
@@ -3646,7 +3652,8 @@ async function w11route(req, env, ctx, url, json) {
   const uid = await firebaseUid(req, env); if (!uid) return json({ ok: false, error: 'sign in' }, 401);
   if (tooFast('w11:' + uid, 30, 60000)) return json({ ok: false, error: 'slow down' }, 429);
   let b = {}; if (req.method === 'POST') { try { b = await req.json(); } catch (e) {} }
-  const p = url.pathname;
+  const p = url.pathname; await w11epoch(env);
+  const g5 = await w11g5route(p, env, uid, b); if (g5) return json(g5);
   if (p === '/w11/join') return json(await w11join(env, uid, Number(b.sl)));
   if (p === '/w11/result') return json(await w11result(env, uid, String(b.mid || ''), b.r));
   if (p === '/w11/job') return json({ ok: true, jobs: await w11jobs(env, uid) });
@@ -3942,5 +3949,59 @@ async function w11g4once(env, uid) {
 async function w11g4route(p, env, uid, b) {
   if (p === '/w11/design') return await w11design(env, uid, b);
   if (p === '/w11/g4') return await w11g4once(env, uid);
+  return null;
+}
+// =====================================================================
+// ⚽ G5 · 11 WONDERS: new match engine (v2), fresh Season 1, instant join, set-piece takers.
+// - Season start day lives in w11meta/season.ep (read once a minute per worker instance) so a fresh Season 1 can start any day.
+// - Results are only counted from phones running engine v2 (b.ev). Old phones are told to update.
+// - /w11/fresh (admin): wipes league + cup + Hall of Fame data, keeps clubs/squads/coins/GG Coins/Pioneers/stadium/market,
+//   and starts Season 1 today. Repeat the tap until it says done (big leagues need a few rounds).
+// =====================================================================
+let W11EP = { at: 0, ep: 0 };
+async function w11epoch(env, force) {
+  if (!force && Date.now() - W11EP.at < 60000) return W11EP.ep;
+  const m = await w11get(env, W11_META); const ep = Number(m && m.data && m.data.ep) || 0; W11EP = { at: Date.now(), ep };
+  if (ep) C11.setEpoch(ep); return ep;
+}
+/* set-piece takers: captain, penalties, free kicks, corners (must be in the squad) */
+async function w11takers(env, uid, b) {
+  const cd = await w11get(env, `w11Clubs/${uid}`); if (!cd) return { ok: false, error: 'no club' };
+  const ids = cd.data.ids || [], tk = {}; for (const k of ['cap', 'pen', 'fk', 'ck']) { const v = b && b.tk && b.tk[k]; if (typeof v === 'string' && ids.includes(v)) tk[k] = v; }
+  const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { tk }, mask: ['tk'] }]); return ok ? { ok: true, tk } : { ok: false, error: 'try again' };
+}
+async function w11list(env, coll, pageToken) {
+  const u = `${fsBase(env)}/${coll}?pageSize=300&mask.fieldPaths=s${pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''}`;
+  const r = await fetch(u, { headers: { Authorization: `Bearer ${await accessToken(env)}` } }); if (!r.ok) return { docs: [], next: '' };
+  const j = await r.json(); return { docs: (j.documents || []).map(d => d.name.split('/documents/')[1]), next: j.nextPageToken || '' };
+}
+async function w11deleteMany(env, paths) {
+  for (let i = 0; i < paths.length; i += 400) { const body = { writes: paths.slice(i, i + 400).map(p => ({ delete: w11name(env, p) })) };
+    const r = await fetch(`${fsBase(env)}:commit`, { method: 'POST', headers: { Authorization: `Bearer ${await accessToken(env)}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); if (!r.ok) return false; }
+  return true;
+}
+const W11_RESET_FIELDS = ['lg', 'wait', 'cond', 'cd', 'tr', 'trd', 'yc', 'ban', 'inj', 'lst', 'hist', 'tro', 'yd', 'sp', 'stf'];
+async function w11fresh(env, uid) {
+  if (!await isAdminUid(env, uid)) return { ok: false, error: 'admin only' };
+  let calls = 0; const done = [];
+  for (const coll of ['w11g', 'w11m', 'w11v', 'w11c', 'w11hof']) {
+    let tok = '', n = 0; do { const L = await w11list(env, coll, tok); calls++; if (L.docs.length) { if (!await w11deleteMany(env, L.docs)) return { ok: false, error: 'delete failed (' + coll + ')' }; calls++; n += L.docs.length; } tok = L.next; } while (tok && calls < 40);
+    if (tok) return { ok: true, more: true, note: 'Tap again to continue', done };
+    done.push(coll + ':' + n);
+  }
+  /* clubs keep squads, coins, GG Coins, Pioneer, stadium, kits; league life starts again */
+  let tok = '', nc = 0; do { const L = await w11list(env, 'w11Clubs', tok); calls++; const writes = L.docs.map(p => ({ path: p, data: { wait: 0 }, mask: W11_RESET_FIELDS }));
+    for (let i = 0; i < writes.length; i += 400) { if (!await w11commit(env, writes.slice(i, i + 400))) return { ok: false, error: 'club reset failed' }; calls++; } nc += L.docs.length; tok = L.next; } while (tok && calls < 45);
+  if (tok) return { ok: true, more: true, note: 'Tap again to continue', done };
+  const ep = Math.floor(Date.now() / C11.DAY) * C11.DAY;
+  await w11deleteMany(env, ['w11meta/hof']);
+  await w11commit(env, [{ path: W11_META, data: { s: 1, d6: 32, ph: '', cur: 0, plan: '', ep, eng: C11.ENGINE, fresh: Date.now() } }]);
+  await w11epoch(env, true);
+  return { ok: true, done: done.concat('clubs:' + nc), ep };
+}
+async function w11g5route(p, env, uid, b) {
+  if (p === '/w11/result' && Number(b && b.ev) !== C11.ENGINE) return { ok: false, update: 1, error: 'Please close and reopen SINLESS GG to update 11 Wonders' };
+  if (p === '/w11/tk') return await w11takers(env, uid, b);
+  if (p === '/w11/fresh') return await w11fresh(env, uid);
   return null;
 }
