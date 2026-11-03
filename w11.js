@@ -200,20 +200,33 @@ const squadIds = (ci) => POS_TEMPLATE.map((_, s) => ci + '-' + s);
 const avg = (ids, S) => Math.round(ids.slice(0, 11).map(id => player(id, S)).reduce((s, p) => s + p.ovr, 0) / 11);
 
 /* 📅 season clock: 28 days = 1 year. Days 1–26 one matchday each, day 27 last checks, day 28 promotion & prizes. */
-const DAY = 86400000, EPOCH0 = Date.UTC(2026, 10, 2), SDAYS = 28, MDS = 26, ENGINE = 3;
+const DAY = 86400000, EPOCH0 = Date.UTC(2026, 10, 2), SDAYS = 28, MDS = 26, ENGINE = 4;
 /* G5: the season clock can be restarted (fresh Season 1): the start day is kept in w11meta/season.ep; the market keeps EPOCH0 */
 let EPOCH = EPOCH0;
 const setEpoch = (ms) => { ms = Number(ms) || 0; if (ms > Date.UTC(2026, 0, 1) && ms < Date.UTC(2040, 0, 1)) EPOCH = Math.floor(ms / DAY) * DAY; return EPOCH; };
 const epoch = () => EPOCH;
-const SLOTS = [6, 12, 18, 22], AI_HOUR = 18, MATCH_MS = 4 * 60000;
+/* 🌍 G6: 6 world zones, each with its own league ladder. A manager's zone comes from his phone's time zone (minutes east of GMT). */
+const ZONES = 6, ZONE_NAME = ['Americas West', 'Americas East', 'Europe & Africa', 'Middle East & South Asia', 'East Asia', 'Oceania'], ZONE_FLAG = ['🌎', '🌎', '🌍', '🌏', '🌏', '🌏'];
+const ZONE_OF = [-480, -300, 60, 300, 480, 600];
+const cleanOf = (of) => { of = Math.round((Number(of) || 0) / 15) * 15; return of < -720 ? -720 : of > 840 ? 840 : of; };
+const zoneOf = (of) => { of = cleanOf(of); return of <= -420 ? 0 : of <= -91 ? 1 : of <= 180 ? 2 : of <= 390 ? 3 : of < 600 ? 4 : 5; };
+/* G6: kick-off slots are LOCAL times (10:00, 14:00, 18:00, 21:00 on the home manager's phone); computer games 18:00 zone time */
+const SLOTS = [10, 14, 18, 21], AI_HOUR = 18, MATCH_MS = 4 * 60000;
 const clock = (t) => { const e = Math.max(0, t - EPOCH), s = Math.floor(e / (SDAYS * DAY)) + 1, day = Math.floor((e % (SDAYS * DAY)) / DAY) + 1; return { s, day }; };
 const dayStart = (s, day) => EPOCH + ((s - 1) * SDAYS + (day - 1)) * DAY;
-const ko = (s, md, slot) => dayStart(s, md) + SLOTS[slot] * 3600000;
-const aiKo = (s, md) => dayStart(s, md) + AI_HOUR * 3600000;
+const ko = (s, md, slot, of) => dayStart(s, md) + SLOTS[slot] * 3600000 - cleanOf(of) * 60000;
+const aiKo = (s, md, z) => dayStart(s, md) + AI_HOUR * 3600000 - ZONE_OF[z == null ? 2 : z] * 60000;
 
-/* 🏔️ pyramid: Div 1 = 1 group … Div 5 = 16 groups, Div 6 = 32 groups (+ extra ones when full); 14 clubs a group */
-const TIER_START = [0, 14, 42, 98, 210, 434];
+/* 🏔️ pyramid per zone: Div 1 = 1 group … Div 5 = 16 groups, Div 6 = 32 groups (+ extra ones when full); 14 clubs a group.
+   G6: group g of division t belongs to zone g >> (t-1) (zone z owns groups z·2^(t-1) … (z+1)·2^(t-1) − 1).
+   Extra Div 6 groups have g >= 192: zone = (g − 192) % 6, k-th extra of that zone = floor((g − 192) / 6). */
+const TIER_START = [0, 84, 252, 588, 1260, 2604];
 const groupsIn = (t) => 1 << (t - 1);
+const NG = (t) => ZONES << (t - 1), X6 = ZONES << 5;
+const zoneOfG = (t, g) => t === 6 && g >= X6 ? (g - X6) % ZONES : g >> (t - 1);
+const extraG = (z, k) => X6 + k * ZONES + z;
+const groupNo = (t, g) => t === 6 && g >= X6 ? 33 + Math.floor((g - X6) / ZONES) : (g % groupsIn(t)) + 1;
+const aiZone = (ci) => { ci = Number(ci); if (!(ci >= 0) || ci >= 100000) return 2; let t = 6; for (let i = 1; i < 6; i++) if (ci < TIER_START[i]) { t = i; break; } return zoneOfG(t, Math.floor((ci - TIER_START[t - 1]) / 14)); };
 const gkey = (s, t, g) => s + '-' + t + '-' + g;
 const initClubs = (t, g) => { const o = []; for (let i = 0; i < 14; i++) o.push(TIER_START[t - 1] + g * 14 + i); return o; };
 
@@ -242,18 +255,19 @@ const quick = (key, oh, oa) => {
 const seatClub = (G, pos, md) => { const u = G.users && G.users[pos]; return u && md < (u.from || 1) && u.ai != null ? u.ai : G.clubs[pos]; };
 const isUserAt = (G, pos, md) => { const u = G.users && G.users[pos]; return !!(u && md >= (u.from || 1)); };
 const strengthCache = {};
+/* G6: a computer club's strength is its base rating (cheap: the season change must fit the free plan) */
 const strength = (G, pos, md) => {
   if (isUserAt(G, pos, md)) return G.users[pos].o || 55;
-  const ci = seatClub(G, pos, md), k = G.s + ':' + ci;
-  if (strengthCache[k] == null) strengthCache[k] = avg(squadIds(ci), G.s);
-  return strengthCache[k];
+  const ci = seatClub(G, pos, md);
+  if (strengthCache[ci] == null) strengthCache[ci] = club(ci).base;
+  return strengthCache[ci];
 };
 /* result of one fixture: [h, a] or null (waiting) */
 const result = (G, md, hp, ap, now) => {
   const k = md + '_' + hp, R = G.res && G.res[k];
   if (R) { const [h, a] = String(R).split('-').map(Number); return [h, a]; }
   if (isUserAt(G, hp, md) || isUserAt(G, ap, md)) return null;
-  if (now != null && now < aiKo(G.s, md) + MATCH_MS) return null;
+  if (now != null && now < aiKo(G.s, md, zoneOfG(G.t, G.g)) + MATCH_MS) return null;
   return quick(gkey(G.s, G.t, G.g) + ':' + md + ':' + hp, strength(G, hp, md), strength(G, ap, md));
 };
 /* 📊 league table: points, goal difference, goals scored, then seat order */
@@ -272,8 +286,8 @@ const table = (G, now, uptoMd) => {
 
 /* ⬆️⬇️ promotion: top 2 go up, bottom 4 go down (Div 1 has no "up", Div 6 has no "down") */
 const UP = 2, DOWN = 4;
-const parentOf = (t, g) => t > 1 && !(t === 6 && g >= 32) ? [t - 1, g >> 1] : null;
-const childrenOf = (t, g) => t < 6 && (t < 5 || g < 16) ? [[t + 1, 2 * g], [t + 1, 2 * g + 1]] : [];
+const parentOf = (t, g) => t > 1 && !(t === 6 && g >= X6) ? [t - 1, g >> 1] : null;
+const childrenOf = (t, g) => t < 6 && g < NG(t) ? [[t + 1, 2 * g], [t + 1, 2 * g + 1]] : [];
 /* fin = club ids in final order (1st … 14th). getFin(t, g) gives another group's final order. */
 const nextClubs = (t, g, s, getFin) => {
   const fin = getFin(t, g), par = parentOf(t, g), kids = childrenOf(t, g);
@@ -316,9 +330,11 @@ const sheetOf = (club, day, S) => {
   const sh = { tk, ids, form: FORM_NAMES.includes(club.form) ? club.form : '4-4-2', cond, tr: { att: Number(club.tr && club.tr.att) || 0, def: Number(club.tr && club.tr.def) || 0, fit: Number(club.tr && club.tr.fit) || 0 }, bo, io, n: club.name || 'My Club', sh: club.short || 'MYC', kit: ((club.kits || [])[0] || {}).c1 || '', kits: (club.kits || []).map(k => k && k.c1).filter(Boolean), kf: (club.kits || []).slice(0, 3).map(cleanKit), cr: cleanCrest(club.crest), sd: { lv: stdLv(club), nm: String((club.std && club.std.nm) || ((club.name || 'My Club') + ' Park')).slice(0, 30) } }
   /* G4c: learned positions + renamed players travel with the team sheet (only when there are any) */
   const lp = learnedMap(club, ids, S, Date.now()), rn = rnMap(club, ids, S); if (Object.keys(lp).length) sh.lp = lp; if (Object.keys(rn).length) sh.rn = rn;
+  /* G6: climate + time zone (weather, day/night) and the touchline manager's look */
+  sh.cz = climOk(club.cz); sh.of = cleanOf(club.of); if (club.mgr) sh.mg = cleanMgr(club.mgr);
   return sh;
 };
-const aiSheet = (ci, key, S) => { const c = club(ci); return { ai: ci, ids: squadIds(ci), form: FORM_NAMES[hash(key + ':f') % 15], cond: {}, tr: {}, bo: [], io: [], n: c.name, sh: c.short, aiCond: AI_COND }; };
+const aiSheet = (ci, key, S) => { const c = club(ci), z = aiZone(ci); return { ai: ci, ids: squadIds(ci), form: FORM_NAMES[hash(key + ':f') % 15], cond: {}, tr: {}, bo: [], io: [], n: c.name, sh: c.short, aiCond: AI_COND, cz: aiClim(ci), of: ZONE_OF[z] }; };
 const ENGINE_TICKS = 4200;
 /* parse "2-1|ids y/r;…|out>in@tick;…" */
 const parseRes = (r) => { const [sc, cards, subs] = String(r || '').split('|'); const [h, a] = String(sc).split('-').map(Number); const C = String(cards || '').split(';'), U = String(subs || '').split(';');
@@ -358,14 +374,24 @@ const CUP_GAP = 2 * 3600000, CUP_AI_HOUR = AI_HOUR + 2, OC_FIRST = 1, CL_FIRST =
 const cupOn = (s, k) => s >= (k === 'cl' ? CL_FIRST : OC_FIRST);
 /* G4: every cup match has its own kick-off time: a quarter hour between 06:15 and 23:45 GMT, never 20 minutes
    before or 10 minutes after a league kick-off (06/12/18/22). Same on every phone, nothing stored. */
-const CUP_TIMES = (() => { const o = []; for (let m = 375; m <= 1425; m += 15) { if (SLOTS.some(h => m > h * 60 - 25 && m < h * 60 + 15)) continue; o.push(m); } return o; })();
-const cupKoAt = (s, d, key) => dayStart(s, d) + CUP_TIMES[hash('ckt:' + key) % CUP_TIMES.length] * 60000;
+/* G6: cup times are LOCAL quarter hours 09:15–22:45 (of = the manager's minutes east of GMT) */
+const CUP_TIMES = (() => { const o = []; for (let m = 555; m <= 1365; m += 15) { if (SLOTS.some(h => m > h * 60 - 25 && m < h * 60 + 15)) continue; o.push(m); } return o; })();
+const cupKoAt = (s, d, key, of) => dayStart(s, d) + (CUP_TIMES[hash('ckt:' + key) % CUP_TIMES.length] - cleanOf(of)) * 60000;
+/* G6: a Champions League tie between two zones kicks off at the fairest hour for both (10:00–22:00 local if it can) */
+const badMin = (l) => { l = ((l % 1440) + 1440) % 1440; return l >= 600 && l <= 1320 ? 0 : l > 1320 ? l - 1320 : 600 - l; };
+const nearSlot = (l) => { l = ((l % 1440) + 1440) % 1440; return SLOTS.some(h => l > h * 60 - 25 && l < h * 60 + 15); };
+const fairKo = (s, d, key, a, b) => { a = cleanOf(a); b = cleanOf(b); let best = 1e9; const ok = [];
+  for (let u = 0; u < 1440; u += 15) { const x = badMin(u + a), y = badMin(u + b), sc = Math.max(x, y) * 2 + x + y + (nearSlot(u + a) || nearSlot(u + b) ? 30 : 0);
+    if (sc < best - 0.5) { best = sc; ok.length = 0; } if (sc <= best + 0.5) ok.push(u); }
+  return dayStart(s, d) + ok[hash('cft:' + key) % ok.length] * 60000; };
 const OC_WIN = 5000, CL_WIN = 15000, CL_DRAW = 5000, CUP_PRIZE = { oc: [300000, 100000], cl: [1000000, 300000] };
 const CUP_NAME = { oc: '🏆 Open Cup', cl: '⭐ Champions League' };
 const cupDays = (C) => C.k === 'cl' ? CL_DAYS : OC_DAYS.slice(OC_DAYS.length - C.R);
 const cupDay = (C, r) => cupDays(C)[r - 1];
 const cupKo = (s, d, sl) => ko(s, d, sl) + CUP_GAP;
-const cupAiKo = (s, d) => dayStart(s, d) + CUP_AI_HOUR * 3600000;
+const cupAiKo = (s, d, z) => dayStart(s, d) + CUP_AI_HOUR * 3600000 - (z == null ? 0 : ZONE_OF[z]) * 60000;
+/* G6: each zone has its own Open Cup (doc w11c/{S}-oc{z}); the Champions League is worldwide (w11c/{S}-cl) */
+const cupId = (C) => C.k === 'oc' && C.z != null ? 'oc' + C.z : C.k;
 const cupMid = (s, k, r, i) => s + '-' + k + '-' + r + '-' + i;
 const isCupDay = (s, d) => (cupOn(s, 'oc') && OC_DAYS.includes(d)) || (cupOn(s, 'cl') && CL_DAYS.includes(d));
 const isKO = (C, r) => C.k === 'oc' || r > CL_GR;
@@ -406,9 +432,13 @@ const cupPairs = (C, r) => {
   const w = P.map((p, k) => p[winSide(R[k], p)]), o = []; for (let k = 0; k < w.length; k += 2) o.push([w[k], w[k + 1]]); return o;
 };
 /* ⚡ a computer-vs-computer cup result */
-const cupQuick = (C, r, k, p) => { const key = cupMid(C.s, C.k, r, k), q = quick(key, cupStr(C, p[0]), cupStr(C, p[1])); return q[0] + '-' + q[1] + (isKO(C, r) && q[0] === q[1] ? '/' + pens(key).join('-') : ''); };
+const cupQuick = (C, r, k, p) => { const key = cupMid(C.s, cupId(C), r, k), q = quick(key, cupStr(C, p[0]), cupStr(C, p[1])); return q[0] + '-' + q[1] + (isKO(C, r) && q[0] === q[1] ? '/' + pens(key).join('-') : ''); };
 /* kick-off of pair k in round r: a match with a manager gets its own time (see CUP_TIMES); computer games 20:00 GMT */
-const cupKoOf = (C, r, p, k) => { const u = cupUser(C, p[0]) || cupUser(C, p[1]); return u ? cupKoAt(C.s, cupDay(C, r), cupMid(C.s, C.k, r, k)) : cupAiKo(C.s, cupDay(C, r)); };
+const cupOfs = (C, ci) => { const u = cupUser(C, ci); return u && u.of != null ? cleanOf(u.of) : ZONE_OF[ci >= 0 ? aiZone(seat(C, ci)) : 2]; };
+const cupKoOf = (C, r, p, k) => { const h = cupUser(C, p[0]), a = cupUser(C, p[1]), d = cupDay(C, r), key = cupMid(C.s, cupId(C), r, k);
+  if (!h && !a) return cupAiKo(C.s, d, C.k === 'oc' ? C.z : null);
+  if (C.k === 'cl') return fairKo(C.s, d, key, cupOfs(C, p[0]), cupOfs(C, p[1]));
+  return cupKoAt(C.s, d, key, h && h.of != null ? h.of : a && a.of != null ? a.of : ZONE_OF[C.z == null ? 2 : C.z]); };
 /* build the Open Cup bracket from all clubs, best first. Byes go to the best clubs, the rest are drawn at random */
 const ocBracket = (S, list) => {
   list = list.slice(0, 4096); let R = 1; while ((1 << R) < list.length) R++;
@@ -480,7 +510,65 @@ const nameProblem = (n) => { const raw = String(n || '').normalize('NFC').replac
 const rnMap = (club, ids, S) => { const o = {}, R = (club && club.rn) || {}; for (const id of (ids || []).slice(0, 18)) { const g = gidOf(id, S), r = R[g]; if (r && r.n) o[g] = { n: String(r.n).slice(0, 24), c: String(r.c || '').slice(0, 4) }; } return o; };
 const cleanPName = (n) => String(n || '').normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, 24);
 
-return { rnMap, DPOS, DLINE, DPOS_NAME, dpOf, canLearn, LEARN_MAX, LEARN_FAST, LEARN_FAST_DAYS, learnDays, gidOf, knownPos, learnedMap, posFit, COUNTRIES, nameProblem, cleanPName, normName, FAMOUS, EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
+/* ===================== 🌍 G6 · zones, climate + weather, touchline managers, balls ===================== */
+/* climate: 0 temperate north, 1 temperate south, 2 tropical, 3 dry/desert, 4 cold north (phone picks it from its time zone name) */
+const CLIM_NAME = ['Temperate', 'Temperate (south)', 'Tropical', 'Dry', 'Cold'];
+const climOk = (c) => { c = Math.floor(Number(c)); return c >= 0 && c <= 4 ? c : 0; };
+const CLIM_AI = [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 4, 4, 4, 2, 2, 2], [0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 4],
+  [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 4, 4, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2]];
+const aiClim = (ci) => CLIM_AI[aiZone(ci)][hash('clim:' + ci) % 20];
+const climFromTz = (tz) => { tz = String(tz || '');
+  if (/^(Australia\/|Pacific\/(Auckland|Chatham)|Antarctica|Atlantic\/(Stanley|South_Georgia)|America\/(Argentina|Santiago|Montevideo|Punta_Arenas|Asuncion|Sao_Paulo)|Africa\/(Johannesburg|Maseru|Mbabane|Windhoek|Gaborone))/.test(tz)) return 1;
+  if (/^(Asia\/(Dubai|Riyadh|Qatar|Kuwait|Bahrain|Muscat|Aden|Baghdad|Karachi|Tehran|Kabul|Ashgabat)|Africa\/(Cairo|Tripoli|Khartoum|Algiers|Tunis|Casablanca|El_Aaiun|Nouakchott|Niamey|Ndjamena|Bamako)|America\/(Phoenix|Hermosillo))/.test(tz)) return 3;
+  if (/^(Europe\/(Moscow|Helsinki|Stockholm|Oslo|Tallinn|Riga|Vilnius|Kirov|Samara|Volgograd)|Atlantic\/Reykjavik|Asia\/(Novosibirsk|Yekaterinburg|Omsk|Krasnoyarsk|Irkutsk|Yakutsk|Vladivostok|Magadan|Almaty|Astana|Ulaanbaatar)|America\/(Anchorage|Edmonton|Winnipeg|Regina|Montreal|Juneau|Nome))/.test(tz)) return 4;
+  if (/^(Africa\/|Indian\/|Asia\/(Singapore|Jakarta|Makassar|Jayapura|Manila|Kolkata|Calcutta|Dhaka|Colombo|Bangkok|Ho_Chi_Minh|Saigon|Kuala_Lumpur|Yangon|Rangoon|Phnom_Penh|Vientiane|Brunei|Dili)|America\/(Bogota|Caracas|Lima|Guayaquil|Panama|Jamaica|Santo_Domingo|Port_of_Spain|Port-au-Prince|Havana|Puerto_Rico|Barbados|Martinique|Guadeloupe|Belize|Guatemala|Tegucigalpa|Managua|El_Salvador|Costa_Rica|Cancun|Merida|Bahia|Belem|Fortaleza|Manaus|Recife|Maceio|Cuiaba|Porto_Velho|Rio_Branco|La_Paz|Paramaribo|Cayenne|Guyana)|Pacific\/(Fiji|Port_Moresby|Guadalcanal|Noumea|Tahiti|Apia|Tongatapu|Honolulu))/.test(tz)) return 2;
+  return 0; };
+/* 🌦️ weather of one match: same on every phone (match id + home climate + month of the kick-off).
+   k: clear · cloudy · rain · storm (heavy rain) · fog · snow.  t = temperature (°C), w = wind (m/s), dx/dy = wind direction on the pitch. */
+const WX_KINDS = ['clear', 'cloudy', 'rain', 'storm', 'fog', 'snow'];
+const WX_NAME = { clear: '☀️ Clear', cloudy: '☁️ Cloudy', rain: '🌧️ Rain', storm: '⛈️ Heavy rain', fog: '🌫️ Fog', snow: '❄️ Snow' };
+const WIND_DIR = [[1, 0], [0.7071, 0.7071], [0, 1], [-0.7071, 0.7071], [-1, 0], [-0.7071, -0.7071], [0, -1], [0.7071, -0.7071]];
+/* season by climate: 0 winter, 1 spring/autumn, 2 summer; tropics: 3 wet, 4 dry */
+const seasonOf = (cz, ko) => { const m = new Date(Number(ko) || 0).getUTCMonth();
+  if (cz === 2) return (m >= 4 && m <= 9) ? 3 : 4;
+  const n = (m === 11 || m <= 1) ? 0 : (m >= 5 && m <= 7) ? 2 : 1; return cz === 1 ? (n === 0 ? 2 : n === 2 ? 0 : 1) : n; };
+/* odds (out of 100) for clear, cloudy, rain, storm, fog, snow + temperature base and spread */
+const WX_ODDS = {
+  0: [[24, 26, 22, 7, 9, 12, 4, 8], [32, 30, 24, 6, 8, 0, 14, 9], [56, 22, 13, 8, 1, 0, 24, 8]],
+  1: [[30, 30, 26, 7, 7, 0, 10, 7], [36, 30, 24, 5, 5, 0, 16, 8], [58, 22, 12, 8, 0, 0, 25, 8]],
+  3: [[70, 18, 7, 2, 3, 0, 18, 8], [76, 14, 6, 2, 2, 0, 27, 8], [84, 10, 3, 3, 0, 0, 37, 6]],
+  4: [[16, 22, 8, 4, 10, 40, -6, 8], [30, 32, 22, 6, 6, 4, 8, 9], [50, 26, 16, 7, 1, 0, 20, 7]],
+  2: { 3: [26, 22, 26, 22, 4, 0, 28, 5], 4: [56, 26, 11, 4, 3, 0, 30, 5] } };
+const wxOf = (key, cz, ko) => { cz = climOk(cz); const sn = seasonOf(cz, ko), O = cz === 2 ? WX_ODDS[2][sn] : WX_ODDS[cz][sn], r = rng(hash('wx:' + key));
+  let x = r() * 100, k = 0; for (; k < 5; k++) { x -= O[k]; if (x < 0) break; }
+  let kind = WX_KINDS[k]; const t = Math.round(O[6] + (r() * 2 - 1) * O[7]);
+  if (kind === 'snow' && t > 3) kind = 'rain'; const temp = kind === 'snow' ? Math.min(t, 1) : kind === 'storm' || kind === 'rain' ? Math.min(t, 26) : t;
+  const wind = Math.round((r() * r() * 14 + (kind === 'storm' ? 6 : 0)) * 10) / 10, d = WIND_DIR[Math.floor(r() * 8)];
+  return { k: kind, t: temp, w: wind, dx: d[0], dy: d[1], cz, sn }; };
+/* how the weather changes play (engine 4): all plain numbers */
+const wxFx = (W) => { W = W || {}; const k = W.k, wet = k === 'rain' ? 1 : k === 'storm' ? 2 : 0, snow = k === 'snow' ? 1 : 0, heat = W.t >= 30 ? (W.t >= 35 ? 2 : 1) : 0, wind = W.w >= 7 ? (W.w - 6) / 8 : 0;
+  return { wet, snow, heat, wind: wind > 1 ? 1 : wind,
+    pass: 1 - 0.035 * wet - 0.03 * snow,
+    touch: 1 - 0.05 * wet - 0.04 * snow,
+    speed: 1 - 0.015 * wet - 0.06 * snow - 0.015 * heat,
+    skid: 1 + 0.12 * wet - 0.25 * snow,
+    slip: 0.0016 * wet + 0.0012 * snow,
+    foul: 1 + 0.12 * wet + 0.08 * snow,
+    tire: 1 + 0.18 * heat,
+    drain: 1 + 0.12 * heat }; };
+const wxLabel = (W) => W ? (WX_NAME[W.k] || '') + ' · ' + W.t + '°C' + (W.w >= 7 ? ' · 💨 windy' : '') : '';
+/* 🧥 touchline manager look (designer): first design free, then 2 🪙 GG Coins */
+const MGR_LIMITS = { sk: 8, hr: 12, hc: 8, bd: 5, gl: 3, fit: 4, col: COLORS.length, bu: 3, ag: 3 };
+const MGR_FIT = ['Suit', 'Tracksuit', 'Long coat', 'Polo + trousers'];
+const mgrOf = (ci) => { const r = rng(hash('mgr:' + ci)), o = {}; for (const k in MGR_LIMITS) o[k] = Math.floor(r() * MGR_LIMITS[k]); o.col = [10, 17, 8, 11, 0, 1, 23][Math.floor(r() * 7)]; return o; };
+const cleanMgr = (m) => { m = m || {}; const o = {}; for (const k in MGR_LIMITS) { const v = Math.floor(Number(m[k])); o[k] = v >= 0 && v < MGR_LIMITS[k] ? v : 0; } return o; };
+TOK.mgr = 2;
+/* ⚽ tournament balls (looks only): new designs every season */
+const ballOf = (kind, S, fin) => ({ kind: fin ? 'final' : kind, d: hash('ball:' + kind + ':' + S) % 4 });
+/* G6: league + cup kick-off times are listed per GMT day in w11kt/{day} (the lock reads only that small doc) */
+const ktDay = (t) => Math.floor(Number(t) / DAY);
+
+return { ZONES, ZONE_NAME, ZONE_FLAG, ZONE_OF, cleanOf, zoneOf, NG, X6, zoneOfG, extraG, groupNo, aiZone, fairKo, cupId, cupOfs, CLIM_NAME, climOk, aiClim, climFromTz, WX_KINDS, WX_NAME, seasonOf, wxOf, wxFx, wxLabel, MGR_LIMITS, MGR_FIT, mgrOf, cleanMgr, ballOf, ktDay,  rnMap, DPOS, DLINE, DPOS_NAME, dpOf, canLearn, LEARN_MAX, LEARN_FAST, LEARN_FAST_DAYS, learnDays, gidOf, knownPos, learnedMap, posFit, COUNTRIES, nameProblem, cleanPName, normName, FAMOUS, EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
 })();
 
 const { WORLD, hash, rng, pick, clamp } = W11C;
@@ -522,7 +610,7 @@ W.shape = function (form) {
 // ---------- ⚙️ match engine v2 (G5: full rules, set pieces, player styles; fixed 20 steps per second, same seed = same match) ----------
 const DT = 0.05, HALF = 105, BREAK = 30, LEN = HALF * 2, TOTAL = HALF * 2 + BREAK;
 W.TIMING = { HALF, BREAK, LEN, TOTAL };
-W.ENGINE = 3;
+W.ENGINE = 4;
 const BOX_X = 16.5, BOX_Y = 20.16;
 /* 🎯 every player's style comes from his id and stats (the same on every phone, never stored) */
 W.STYLE_NAME = { screamer: '💥 Long-range screamer', poacher: '🦊 Box poacher', curler: '🌀 Finesse curler', dribbler: '⚡ Dribbler-finisher', short: '🔁 Short passer', long: '🎯 Long passer', tempo: '🎼 Tempo controller', burst: '🚀 Explosive starter', engine: '🔋 Top-speed engine', steady: '🏃 Steady runner', power: 'power', curl: 'curl', knuckle: 'knuckle', place: 'placed', stutter: 'stutter run-up', chip: 'chip' };
@@ -564,6 +652,8 @@ function Match(home, away, seed) {
   this.T = [new Team(0, home), new Team(1, away)]; this.P = []; this.ball = { x: 52.5, y: 34, h: 0, owner: null, fl: null, px: 52.5, py: 34 };
   this.lastAlert = 0; this.cmds = []; this.sp = null; this.pend = []; this.stops = [0, 0]; this.added = [0, 0]; this.hug = -1; this.ln = [105, 0];
   this.ref = { x: 45, y: 30 };
+  /* G6 (engine 4): weather changes play (same numbers on every phone): rain/snow slips + skids, wind on long balls, heat tires */
+  this.wx = home.wx || null; this.fx = W11C.wxFx(this.wx);
   this.T.forEach(t => this.layTeam(t));
   this.kickoff(0, true);
 }
@@ -653,11 +743,12 @@ Match.prototype.carrier = function (o) {
   const r = this.r, d = this.dir(o.side), gx = this.goalX(o.side), T = this.T[o.side], mods = T.mods, st = o.st || {};
   const opp = this.P.filter(p => p.side !== o.side), mates = this.P.filter(p => p.side === o.side && p !== o);
   /* duels: standing tackles, slide tackles, shoulder battles */
-  const presser = this.nearest(opp, o.x, o.y), pd = presser ? hyp(presser.x - o.x, presser.y - o.y) : 99;
+  const presser = this.nearest(opp, o.x, o.y), pd = presser ? hyp(presser.x - o.x, presser.y - o.y) : 99, fx = this.fx;
+  if (fx.slip && o.role !== 'GK' && o.cd <= 0 && r() < fx.slip) { this.say('slip', `🫠 ${o.short} slips on the ${fx.snow ? 'snow' : 'wet grass'}`, o.side, o.id); this.ball.owner = null; this.ball.x = clamp(o.x + d * 1.4, 1, 104); this.ball.y = clamp(o.y + (r() - 0.5) * 2, 1, 67); o.cd = 0.9; return; }
   if (presser && pd < 1.6 && o.cd <= 0 && r() < 0.11 * (1 + this.T[presser.side].mods.press * 0.5)) {
     const behind = this.dir(presser.side) * (presser.x - o.x) > 0.3, slide = behind || r() < 0.22;
     const win = 0.42 + (presser.def - o.dri) / 160 + this.T[presser.side].mods.tight * 0.05 - (st.shot === 'dribbler' ? 0.08 : 0) + (slide ? 0.06 : 0);
-    if (r() < (slide ? 0.28 : 0.16) * (inBoxOf(this.goalX(o.side), o.x, o.y) ? 0.3 : 1)) { this.foul(presser, o, slide); return; }
+    if (r() < (slide ? 0.28 : 0.16) * fx.foul * (inBoxOf(this.goalX(o.side), o.x, o.y) ? 0.3 : 1)) { this.foul(presser, o, slide); return; }
     if (r() < win) { if (Math.abs(this.goalX(o.side) - o.x) < 30 && r() < 0.2) { this.say('tackle', `🦵 ${presser.short} pokes it out`, presser.side, presser.id, { sl: slide ? 1 : 0, on: o.id }); this.lastTouch = presser.side; this.ball.owner = null; const gl = Math.abs(this.goalX(o.side) - o.x) < 14 && r() < 0.6; if (gl) { this.T[o.side].corners++; return this.restart('corner', o.side, this.goalX(o.side), o.y < 34 ? 0 : 68); } return this.restart('throw', o.side, clamp(o.x, 1, 104), o.y < 34 ? 0 : 68); }
       this.say('tackle', `${slide ? '🛷 Slide tackle' : '🦵 Tackle'}: ${presser.short} wins it`, presser.side, presser.id, { sl: slide ? 1 : 0, on: o.id }); this.ball.owner = null; this.ball.x += (r() - 0.5) * 2; this.give(presser); return; }
     o.beat = this.t; if (st.shot === 'dribbler' && r() < 0.3) this.say('skill', `🌀 ${o.short} skips past ${presser.short}`, o.side, o.id);
@@ -704,8 +795,9 @@ Match.prototype.passTo = function (o, m, kind) {
   const b = this.ball, off = kind !== 'throw' && this.isOff(m) ? m : null; b.owner = null;
   let cut = null; const dx = tx - o.x, dy = ty - o.y, L2 = dx * dx + dy * dy || 1;
   for (const p of opp) { const k = ((p.x - o.x) * dx + (p.y - o.y) * dy) / L2; if (k < 0.15 || k > 0.92) continue; const ex = o.x + dx * k - p.x, ey = o.y + dy * k - p.y; if (ex * ex + ey * ey < 5 && r() < 0.16 + (p.def - o.pas) / 260 + this.T[p.side].mods.press * 0.04) { cut = { p, k }; break; } }
-  const miss = !cut && r() < 0.05 + (75 - o.pas) / 600 - T.mods.calm * 0.02;
-  const ex = miss ? tx + (r() - 0.5) * 12 : cut ? o.x + dx * cut.k : tx, ey = miss ? clamp(ty + (r() - 0.5) * 12, -1, 69) : cut ? o.y + dy * cut.k : ty;
+  const fx = this.fx, wl = fx.wind && dist > 28 ? fx.wind : 0, miss = !cut && r() < 0.05 + (75 - o.pas) / 600 - T.mods.calm * 0.02 + (1 - fx.pass) + wl * 0.06;
+  const wdx = wl && this.wx ? this.wx.dx * wl * 5 : 0, wdy = wl && this.wx ? this.wx.dy * wl * 5 : 0;
+  const ex = miss ? tx + (r() - 0.5) * 12 + wdx : cut ? o.x + dx * cut.k : tx, ey = miss ? clamp(ty + (r() - 0.5) * 12 + wdy, -1, 69) : cut ? o.y + dy * cut.k : ty;
   b.fl = { x0: o.x, y0: o.y, x1: ex, y1: ey, k: 0, dur: Math.max(0.35, hyp(ex - o.x, ey - o.y) / (dist > 28 ? 24 : 30)), arc: kind === 'throw' ? 1.1 : dist > 28 ? 2.2 : 0.3, to: cut ? cut.p : miss ? null : m, from: o, kind: kind || 'pass', off: cut || miss ? null : off, aer: dist > 30 };
 };
 /* 🎯 crosses (open play, corners, wide free kicks, long throws): an aerial duel in the box */
@@ -723,8 +815,9 @@ Match.prototype.aerial = function (f) {
   const r = this.r, b = this.ball, o = f.from, gx = this.goalX(o.side), dside = 1 - o.side, gk = this.P.find(p => p.side === dside && p.role === 'GK');
   const tgt = f.tgt && this.P.includes(f.tgt) ? f.tgt : this.nearest(this.P.filter(p => p.side === o.side && p !== o), b.x, b.y);
   const def = this.nearest(this.P.filter(p => p.side === dside && p.role !== 'GK'), b.x, b.y);
-  if (gk && Math.abs(gx - b.x) < 6.5 && Math.abs(b.y - 34) < 10 && r() < 0.3 * (gk.gk / 75)) { this.say('save', `🧤 ${gk.short} claims the cross`, dside, gk.id, { catch: 1 }); this.pauseT = 0.8; this._after = () => this.give(gk); return; }
-  const ah = tgt ? (tgt.st.head || 50) + (tgt.ovr || 60) * 0.3 : 0, dh = def ? ((def.st.head || 50) + def.def * 0.4) * 1.12 : 0;
+  const fx = this.fx;
+  if (gk && Math.abs(gx - b.x) < 6.5 && Math.abs(b.y - 34) < 10 && r() < 0.3 * (gk.gk / 75) * (1 - 0.15 * fx.wet - 0.2 * fx.wind)) { this.say('save', `🧤 ${gk.short} claims the cross`, dside, gk.id, { catch: 1 }); this.pauseT = 0.8; this._after = () => this.give(gk); return; }
+  const ah = tgt ? (tgt.st.head || 50) + (tgt.ovr || 60) * 0.3 : 0, dh = def ? ((def.st.head || 50) + def.def * 0.4) * 1.12 * (1 + fx.wind * 0.2) : 0;
   if (tgt && (!def || r() < ah / (ah + dh))) {
     this.say('header', `🗣️ ${tgt.short} rises highest`, o.side, tgt.id);
     if (inBoxOf(gx, tgt.x, tgt.y) && Math.abs(gx - tgt.x) < 13) { this.shoot(tgt, hyp(gx - tgt.x, 34 - tgt.y), { header: 1 }); return; }
@@ -746,7 +839,8 @@ Match.prototype.shoot = function (o, dg, x) {
   if (st.shot === 'screamer' && dg > 20) q += 0.035; if (st.shot === 'poacher') q += dg < 11 ? 0.06 : -0.04; if (st.shot === 'curler' && dg > 13 && dg < 25 && Math.abs(o.y - 34) > 4) q += 0.045; if (st.shot === 'dribbler' && o.beat && this.t - o.beat < 2.5) q += 0.04;
   if (x.header) q = clamp(0.15 + ((st.head || 50) - 50) / 220 - (gk ? gk.gk / 100 : 0.6) * 0.05, 0.04, 0.3);
   if (x.q != null) q = x.q;
-  const onT = x.onT != null ? x.onT : r() < (x.header ? 0.42 : 0.38 + o.sho / 260), goal = x.goal != null ? x.goal : onT && r() < q / 0.45;
+  const fx = this.fx; if (fx.wet && !x.header) q += 0.012 * fx.wet;
+  const onT = x.onT != null ? x.onT : r() < (x.header ? 0.42 : 0.38 + o.sho / 260) - (fx.wind ? fx.wind * (dg > 18 ? 0.08 : 0.02) : 0), goal = x.goal != null ? x.goal : onT && r() < q / 0.45;
   if (onT) T.onT++;
   const ty = goal ? 34 + (r() - 0.5) * 6.4 : onT ? 34 + (r() - 0.5) * 5 : 34 + (r() < 0.5 ? -1 : 1) * (4.5 + r() * 6);
   const curve = st.shot === 'curler' && !x.header ? (o.y < 34 ? -1 : 1) * 1.4 : x.fk && o.st.fk === 'curl' ? (o.y < 34 ? -1 : 1) * 2.2 : 0;
@@ -760,7 +854,7 @@ Match.prototype.land = function () {
     if (f.goal) { T.score++; const e = this.say('goal', `⚽ GOAL! ${sh.name} (${T.short}) ${this.T[0].score}–${this.T[1].score}`, sh.side, undefined, { how: f.pen ? 'pen' : f.fk ? 'fk' : f.header ? 'header' : (sh.st || {}).shot || '' }); void e;
       this.stops[this.t >= HALF ? 1 : 0]++; this.hug = sh.side; this.hugBy = sh; this.pauseT = 2.6; this._after = () => { this.hug = -1; this.kickoff(1 - sh.side); }; return; }
     if (f.onT && f.gk && this.P.includes(f.gk)) {
-      const hold = r() < 0.5 + (f.gk.gk - 60) / 200 - (sh.st && sh.st.fk === 'knuckle' && f.fk ? 0.2 : 0) - (f.pen ? 0.25 : 0);
+      const hold = r() < 0.5 + (f.gk.gk - 60) / 200 - (sh.st && sh.st.fk === 'knuckle' && f.fk ? 0.2 : 0) - (f.pen ? 0.25 : 0) - 0.09 * this.fx.wet - 0.05 * this.fx.snow;
       this.say('save', `🧤 ${hold ? 'Great save' : 'Save'} by ${f.gk.short}!`, f.gk.side, f.gk.id, { catch: hold ? 1 : 0 });
       if (hold) { this.pauseT = 0.8; this._after = () => { this.give(f.gk); }; return; }
       this.lastTouch = f.gk.side;
@@ -777,6 +871,7 @@ Match.prototype.land = function () {
   if (f.to && this.P.includes(f.to)) {
     const tp = f.to;
     if (f.aer) { const opp = this.nearest(this.P.filter(p => p.side !== tp.side && p.role !== 'GK'), b.x, b.y); if (opp && sq(opp.x - b.x) + sq(opp.y - b.y) < 6 && r() < ((opp.st.head || 50) + opp.def * 0.3) / ((opp.st.head || 50) + opp.def * 0.3 + (tp.st.head || 50) + tp.ovr * 0.3)) { this.say('duel', `💪 ${opp.short} wins the header`, opp.side, opp.id, { header: 1 }); this.give(opp); return; } }
+    const fx = this.fx; if (fx.touch < 1 && tp.role !== 'GK' && f.kind === 'pass' && r() < (1 - fx.touch) * 0.8) { this.say('skid', `💦 The ball skids away from ${tp.short}`, tp.side, tp.id); b.owner = null; b.x = clamp(b.x + this.dir(f.from.side) * 2.4, 1, 104); b.y = clamp(b.y + (r() - 0.5) * 3, 1, 67); return; }
     if (tp.side !== f.from.side) this.say('int', `✂️ ${tp.short} cuts it out`, tp.side); this.give(tp); return;
   }
   b.owner = null;
@@ -892,6 +987,7 @@ Match.prototype.target = function (p, bx, by, poss) {
 Match.prototype.moveAll = function (mode) {
   const b = this.ball, sp = this.sp, poss = sp ? sp.side : this.ball.owner ? this.ball.owner.side : (b.fl && b.fl.from ? b.fl.from.side : null), r = this.r;
   const bx = sp ? sp.x : b.fl ? b.fl.x1 : b.x, by = sp ? sp.y : b.fl ? b.fl.y1 : b.y;
+  const fx = this.fx, wxk = fx.speed * (fx.heat ? 1 - 0.04 * fx.heat * this.t / (2 * HALF) * (1 + (fx.tire - 1)) : 1);
   const chasers = {}; if (mode === 'play') [0, 1].forEach(s => { const L = this.P.filter(p => p.side === s && p.role !== 'GK'); const T = this.T[s], n = poss === s ? (b.owner ? 0 : 1) : 2 + T.mods.press; chasers[s] = L.sort((a, c) => (sq(a.x - bx) + sq(a.y - by)) - (sq(c.x - bx) + sq(c.y - by))).slice(0, n); });
   for (const p of this.P) {
     p.px = p.x; p.py = p.y;
@@ -908,7 +1004,7 @@ Match.prototype.moveAll = function (mode) {
     else if (chasers[p.side].includes(p)) { tx = bx - d * (poss === p.side ? 0 : 0.6); ty = by; }
     else [tx, ty] = this.target(p, bx, by, poss);
     /* acceleration: explosive starters get going fast, engines reach a higher top speed */
-    const ps = p.st.pace, top = (6.2 + p.pac * 0.075) * (b.owner === p ? 0.72 : 1) * (ps === 'engine' ? 1.05 : ps === 'burst' ? 0.97 : 1) * slow, acc = ps === 'burst' ? 13 : ps === 'engine' ? 7 : 9.5;
+    const ps = p.st.pace, top = (6.2 + p.pac * 0.075) * (b.owner === p ? 0.72 : 1) * (ps === 'engine' ? 1.05 : ps === 'burst' ? 0.97 : 1) * slow * wxk, acc = ps === 'burst' ? 13 : ps === 'engine' ? 7 : 9.5;
     const dx = tx - p.x, dy = ty - p.y, dist = hyp(dx, dy), want = dist < 0.05 ? 0 : Math.min(top, dist / 0.32), dvx = dist > 0.001 ? dx / dist * want : 0, dvy = dist > 0.001 ? dy / dist * want : 0;
     let ax = dvx - p.vx, ay = dvy - p.vy; const al = hyp(ax, ay), mx = acc * DT * (al > 0 && want < hyp(p.vx, p.vy) ? 1.6 : 1); if (al > mx) { ax *= mx / al; ay *= mx / al; }
     p.vx += ax; p.vy += ay; p.x = clamp(p.x + p.vx * DT, -1, 106); p.y = clamp(p.y + p.vy * DT, -1, 69);
@@ -1273,7 +1369,8 @@ W.finish = async function (live, m, offline) {
 const CC = W11C, MS = CC.MATCH_MS;
 const uidNow = () => (window.uidNow && window.uidNow()) || '';
 const localT = (ms, withDay) => { const d = new Date(ms); return (withDay ? d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' : '') + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
-const slotTxt = (sl) => { const d = new Date(Date.UTC(2026, 0, 1, CC.SLOTS[sl])); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
+/* G6: kick-off slots are your own local times */
+const slotTxt = (sl) => String(CC.SLOTS[sl]).padStart(2, '0') + ':00';
 const ord = (n) => n + (n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th');
 const left = (ms) => { if (ms <= 0) return 'now'; const h = Math.floor(ms / 3600000), m = Math.floor(ms / 60000) % 60, s = Math.floor(ms / 1000) % 60; return h ? `${h}h ${m}m` : `${m}:${String(s).padStart(2, '0')}`; };
 W.off = 0; W.nowS = () => Date.now() + (W.off || 0);
@@ -1292,7 +1389,7 @@ W.loadG = async function (force) {
   return W.G;
 };
 const seatName = (G, pos, md) => { const u = G.users && G.users[pos]; if (u && md >= (u.from || 1)) return { n: u.n, sh: u.sh, user: true, me: u.u === uidNow(), hue: CC.club(u.c).hue }; const c = CC.club(CC.seatClub(G, pos, md)); return { n: c.name, sh: c.short, hue: c.hue }; };
-const koOf = (G, md, hp, ap) => { const U = G.users || {}, hu = CC.isUserAt(G, hp, md) && U[hp], au = CC.isUserAt(G, ap, md) && U[ap]; return hu ? CC.ko(G.s, md, hu.sl) : au ? CC.ko(G.s, md, au.sl) : CC.aiKo(G.s, md); };
+const koOf = (G, md, hp, ap) => { const U = G.users || {}, hu = CC.isUserAt(G, hp, md) && U[hp], au = CC.isUserAt(G, ap, md) && U[ap]; return hu ? CC.ko(G.s, md, hu.sl, hu.of) : au ? CC.ko(G.s, md, au.sl, au.of) : CC.aiKo(G.s, md, CC.zoneOfG(G.t, G.g)); };
 const mini = (hue, sh) => `<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px;font-size:8px;font-weight:900;color:#fff;background:linear-gradient(135deg,hsl(${hue},80%,55%),hsl(${(hue + 60) % 360},80%,35%));flex-shrink:0">${esc(String(sh || '').slice(0, 3))}</span>`;
 W.myFixtures = (G) => { const pos = W.me.lg.pos, out = []; for (let md = 1; md <= CC.MDS; md++) { const [hp, ap] = CC.pairs(md).find(([h, a]) => h === pos || a === pos); out.push({ md, hp, ap, home: hp === pos, mine: CC.isUserAt(G, pos, md), ko: koOf(G, md, hp, ap), id: CC.mid(G.s, G.t, G.g, md, hp), res: G.res && G.res[md + '_' + hp] }); } return out; };
 W.nextMatch = (G) => W.myFixtures(G).find(f => f.mine && !f.res && W.nowS() < f.ko + MS + 15 * 60000);
@@ -1312,7 +1409,7 @@ W.leagueHome = async function () {
     }
     W.ui(top + `<div class="card"><p style="font-weight:900">🎓 Boot Camp done! Join the league</p><p style="font-size:12px;color:#cbd5e1;margin-top:6px">You'll take over a computer club in a Division 6 group that is already playing. You keep its points so far. Top 2 go up, bottom 4 go down. 6 divisions. 1 season = 28 days.</p>
       <p style="font-weight:900;margin-top:12px;font-size:12px">⏰ Pick your daily kick-off time</p><p style="font-size:11px;color:#94a3b8">Your home matches start at this time every day. Away matches start at the home manager's time.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">${[0, 1, 2, 3].map(sl => `<button class="btn2" onclick="W11.joinL(${sl})" style="padding:14px 6px"><b style="font-size:15px">${slotTxt(sl)}</b><br><span style="font-size:10px;color:#94a3b8">${String(CC.SLOTS[sl]).padStart(2, '0')}:00 GMT</span></button>`).join('')}</div></div>` + grid([`<button class="btn2" onclick="W11.squad()">👕 Squad & tactics</button>`, `<button class="btn2" onclick="W11.friendly()">🤝 Friendly</button>`]));
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">${[0, 1, 2, 3].map(sl => `<button class="btn2" onclick="W11.joinL(${sl})" style="padding:14px 6px"><b style="font-size:15px">${slotTxt(sl)}</b><br><span style="font-size:10px;color:#94a3b8">your time</span></button>`).join('')}</div></div>` + grid([`<button class="btn2" onclick="W11.squad()">👕 Squad & tactics</button>`, `<button class="btn2" onclick="W11.friendly()">🤝 Friendly</button>`]));
     return;
   }
   const G = await W.loadG(); if (!G) return;
@@ -1327,7 +1424,7 @@ W.leagueHome = async function () {
   } else if (day >= 27) nx = `<div class="card"><p style="font-weight:900">🏁 Season ${cs} is over</p><p style="font-size:12px;color:#cbd5e1;margin-top:6px">Last results are checked today. Promotion, relegation and prizes are worked out on day 28. Season ${cs + 1} starts ${localT(CC.dayStart(cs + 1, 1), true)}.</p></div>`;
   else nx = `<div class="card"><p style="font-weight:900">⚽ No match right now</p><p style="font-size:12px;color:#94a3b8;margin-top:6px">Your next league match will show here.</p></div>`;
   const trained = me.trd === CC.absDay(Date.now());
-  W.ui(top + `<div class="card" onclick="W11.tableL()" style="cursor:pointer"><p style="font-size:10px;font-weight:900;letter-spacing:.1em;color:#67e8f9">DIVISION ${G.t} · GROUP ${G.g + 1}</p><p style="font-size:26px;font-weight:900;margin-top:2px">${ord(rank + 1)} <span style="font-size:13px;color:#94a3b8">· ${row.pts} pts · P${row.p} W${row.w} D${row.d} L${row.l}</span></p>
+  W.ui(top + `<div class="card" onclick="W11.tableL()" style="cursor:pointer"><p style="font-size:10px;font-weight:900;letter-spacing:.1em;color:#67e8f9">DIVISION ${G.t} · GROUP ${CC.groupNo(G.t, G.g)} · ${CC.ZONE_FLAG[CC.zoneOfG(G.t, G.g)]} ${CC.ZONE_NAME[CC.zoneOfG(G.t, G.g)].toUpperCase()}</p><p style="font-size:26px;font-weight:900;margin-top:2px">${ord(rank + 1)} <span style="font-size:13px;color:#94a3b8">· ${row.pts} pts · P${row.p} W${row.w} D${row.d} L${row.l}</span></p>
       <p style="font-size:11px;margin-top:4px;color:${z === 'up' ? '#22d3ee' : z === 'down' ? '#ff2d95' : '#94a3b8'}">${z === 'up' ? '⬆️ Promotion place' : z === 'down' ? '⬇️ Relegation zone' : G.t === 1 && rank === 0 ? '👑 Top of the pyramid' : 'Tap for the full table'}</p></div>` + nx +
     grid([`<button class="btn2" onclick="W11.tableL()">📊 Table</button>`, `<button class="btn2" onclick="W11.fixturesL()">🗓️ Fixtures</button>`, `<button class="btn2" onclick="W11.trainL()">🏋️ Training ${trained ? '✅' : '· 1 today'}</button>`, `<button class="btn2" onclick="W11.squad()">👕 Squad & fitness</button>`, `<button class="btn2" onclick="W11.energyL()">⚡ Energy Pack (${me.energy})</button>`, `<button class="btn2" onclick="W11.friendly()">🤝 Friendly</button>`, `<button class="btn2" onclick="W11.histL()">📜 Club history</button>`, `<button class="btn2" onclick="W11.helpL()">❓ How it works</button>`]));
   if (n) { const tick = () => { const el = document.getElementById('w11lc'); if (!el) return; const ms = n.ko - W.nowS(); if (ms <= 15 * 60000 && !W._lcRe) { W._lcRe = 1; setTimeout(() => { W._lcRe = 0; if (document.getElementById('w11lc')) W.leagueHome(); }, 400); return; } el.textContent = ms > 0 ? 'in ' + left(ms) : 'playing'; setTimeout(tick, 1000); }; if (n.ko - now > 15 * 60000) tick(); }
@@ -1362,7 +1459,7 @@ W.tableL = async function () {
   const now = W.nowS(), { day } = CC.clock(now), md = clamp(day, 1, CC.MDS), tb = CC.table(G, now);
   const rows = tb.map((r, i) => { const n = seatName(G, r.pos, md), z = zone(G.t, i);
     return `<div class="row" style="${n.me ? 'background:rgba(34,211,238,.1);border-radius:10px;' : ''}border-left:3px solid ${z === 'up' ? '#22d3ee' : z === 'down' ? '#ff2d95' : 'transparent'};padding-left:6px"><span style="width:18px;font-weight:900;color:#94a3b8">${i + 1}</span>${mini(n.hue, n.sh)}<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:${n.me ? 900 : 700}">${esc(n.n)}${n.user ? ' <span style="font-size:9px">👤</span>' : ''}</span><span style="width:22px;text-align:center;color:#94a3b8">${r.p}</span><span style="width:30px;text-align:center;color:#94a3b8">${r.gf - r.ga > 0 ? '+' : ''}${r.gf - r.ga}</span><span style="width:26px;text-align:right;font-weight:900">${r.pts}</span></div>`; }).join('');
-  W.ui(`<div class="card"><p style="font-weight:900">📊 Division ${G.t} · Group ${G.g + 1} · Season ${G.s}</p><div class="row" style="font-size:10px;color:#94a3b8;font-weight:900"><span style="width:18px">#</span><span style="flex:1;padding-left:30px">Club</span><span style="width:22px;text-align:center">P</span><span style="width:30px;text-align:center">GD</span><span style="width:26px;text-align:right">Pts</span></div>${rows}
+  W.ui(`<div class="card"><p style="font-weight:900">📊 Division ${G.t} · Group ${CC.groupNo(G.t, G.g)} · ${CC.ZONE_NAME[CC.zoneOfG(G.t, G.g)]} · Season ${G.s}</p><div class="row" style="font-size:10px;color:#94a3b8;font-weight:900"><span style="width:18px">#</span><span style="flex:1;padding-left:30px">Club</span><span style="width:22px;text-align:center">P</span><span style="width:30px;text-align:center">GD</span><span style="width:26px;text-align:right">Pts</span></div>${rows}
     <p style="font-size:10px;color:#94a3b8;margin-top:8px">${G.t > 1 ? '<span style="color:#22d3ee">▌</span> promotion · ' : ''}${G.t < 6 ? '<span style="color:#ff2d95">▌</span> relegation · ' : ''}👤 = a real manager. Computer matches finish at ${localT(CC.aiKo(G.s, md))} each day.</p></div>`, '📊 Table', 'W11.home()');
 };
 W.fixturesL = async function (md) {
@@ -1678,7 +1775,7 @@ W.loadCups = async function (force) {
   const S = CC.clock(W.nowS()).s;
   if (!force && W._cups && W._cups.S === S && Date.now() - W._cups.at < 60000) return W._cups;
   const out = { S, at: Date.now(), oc: null, cl: null };
-  if (S >= CC.CUP_FIRST) { const f = await fbLoad(); for (const k of ['oc', 'cl']) { if (!CC.cupOn(S, k)) continue; try { const sn = await f.getDoc(f.doc(db(), 'w11c', S + '-' + k)); out[k] = sn.exists() ? sn.data() : null; } catch (e) {} } }
+  if (S >= CC.CUP_FIRST) { const f = await fbLoad(); for (const k of ['oc', 'cl']) { if (!CC.cupOn(S, k)) continue; try { const sn = await f.getDoc(f.doc(db(), 'w11c', S + '-' + (k === 'oc' ? 'oc' + (W.myZone ? W.myZone() : 2) : k))); out[k] = sn.exists() ? sn.data() : null; } catch (e) {} } }
   W._cups = out; W._nextCup = W.nextCup(); return out;
 };
 /* my cup matches (rounds that are drawn so far) */
@@ -1687,7 +1784,7 @@ W.myCupFix = function (C) {
   for (let r = 1; r <= C.R; r++) { const P = CC.cupPairs(C, r); if (!P) { if (C.k === 'cl' && r <= CC.CL_GR) continue; break; }
     P.forEach((p, k) => { const h = cupSeatMine(C, p[0]), a = cupSeatMine(C, p[1]); if (!h && !a) return;
       const ready = (C.pr || 0) >= r, real = !ready || ((C.pu && C.pu[r]) || []).includes(k);
-      out.push({ C, k: C.k, r, i: k, p, home: h, opp: p[h ? 1 : 0], ko: p[0] < 0 || p[1] < 0 ? 0 : CC.cupKoOf(C, r, p, k), mid: CC.cupMid(C.s, C.k, r, k), x: (C.rr && C.rr[r] && C.rr[r][k]) || (C.ur && C.ur[r + '_' + k]) || null, done: !!(C.rr && C.rr[r]), real }); }); }
+      out.push({ C, k: C.k, r, i: k, p, home: h, opp: p[h ? 1 : 0], ko: p[0] < 0 || p[1] < 0 ? 0 : CC.cupKoOf(C, r, p, k), mid: CC.cupMid(C.s, CC.cupId(C), r, k), x: (C.rr && C.rr[r] && C.rr[r][k]) || (C.ur && C.ur[r + '_' + k]) || null, done: !!(C.rr && C.rr[r]), real }); }); }
   return out;
 };
 W.nextCup = function () { const D = W._cups; if (!D) return null; let best = null;
@@ -1794,7 +1891,7 @@ W.hof = async function (s) {
   W.ui('<p style="text-align:center;padding:40px 0;color:#94a3b8">Opening the Hall of Fame…</p>', '🏛️ HALL OF FAME', 'W11.home()');
   const f = await fbLoad(), S = CC.clock(W.nowS()).s; let tro = {}, H = null;
   try { const sn = await f.getDoc(f.doc(db(), 'w11meta', 'hof')); tro = (sn.exists() && sn.data().tro) || {}; } catch (e) {}
-  if (s == null) { s = S - 1; try { const sn = await f.getDoc(f.doc(db(), 'w11hof', String(S))); if (sn.exists() && (sn.data().oc || sn.data().cl)) { s = S; H = sn.data(); } } catch (e) {} }
+  if (s == null) { s = S - 1; try { const sn = await f.getDoc(f.doc(db(), 'w11hof', String(S))); if (sn.exists() && Object.keys(sn.data()).some(k => /^(oc|cl)/.test(k))) { s = S; H = sn.data(); } } catch (e) {} }
   s = clamp(s, 1, S);
   if (!H) { try { const sn = await f.getDoc(f.doc(db(), 'w11hof', String(s))); H = sn.exists() ? sn.data() : null; } catch (e) {} }
   const nav = `<div style="display:flex;align-items:center;gap:8px"><button class="btn2" style="width:44px" onclick="W11.hof(${s - 1})" ${s <= 1 ? 'disabled' : ''}>◀</button><p style="flex:1;text-align:center;font-weight:900">Season ${s}</p><button class="btn2" style="width:44px" onclick="W11.hof(${s + 1})" ${s >= S ? 'disabled' : ''}>▶</button></div>`;
@@ -1802,7 +1899,7 @@ W.hof = async function (s) {
   let season = '';
   if (!H) season = `<p style="font-size:12px;color:#94a3b8;margin-top:10px">${s >= S ? 'This season is still being played. Champions are added on day 28 (cups when their final is played).' : 'No champions saved for this season.'}</p>`;
   else { const d = Object.values(H.d || {}).sort((a, b) => a.t - b.t || a.g - b.g), by = {}; d.forEach(e => { (by[e.t] = by[e.t] || []).push(e); });
-    season = ent('⭐', 'Champions League', H.cl) + ent('🏆', 'Open Cup', H.oc) + Object.keys(by).map(t => `<p style="font-size:10px;font-weight:900;color:#67e8f9;letter-spacing:.1em;margin-top:10px">DIVISION ${t} CHAMPIONS</p>${by[t].map(e => `<div class="row"><span style="width:62px;color:#94a3b8;font-size:10px">${Number(t) > 1 ? 'Group ' + (e.g + 1) : ''}</span><span style="flex:1;font-weight:${e.u ? 900 : 700}">🥇 ${esc(e.n)}${e.u ? ' <span style="font-size:10px;color:#67e8f9">👤</span>' : ''}</span></div>`).join('')}`).join(''); }
+    season = ent('⭐', 'Champions League', H.cl) + (H.oc ? ent('🏆', 'Open Cup', H.oc) : '') + CC.ZONE_NAME.map((zn, z) => H['oc' + z] ? ent('🏆', 'Open Cup · ' + zn, H['oc' + z]) : '').join('') + Object.keys(by).map(t => `<p style="font-size:10px;font-weight:900;color:#67e8f9;letter-spacing:.1em;margin-top:10px">DIVISION ${t} CHAMPIONS</p>${by[t].map(e => `<div class="row"><span style="width:62px;color:#94a3b8;font-size:10px">${Number(t) > 1 ? 'Group ' + (e.g + 1) : ''}</span><span style="flex:1;font-weight:${e.u ? 900 : 700}">🥇 ${esc(e.n)}${e.u ? ' <span style="font-size:10px;color:#67e8f9">👤</span>' : ''}</span></div>`).join('')}`).join(''); }
   const top = Object.entries(tro).map(([ci, x]) => ({ ci, n: x.n, l: x.l || 0, oc: x.oc || 0, cl: x.cl || 0 })).sort((a, b) => b.cl - a.cl || b.oc - a.oc || b.l - a.l || a.n.localeCompare(b.n)).slice(0, 25);
   W.ui(`<div class="card">${nav}${season}</div>
     <div class="card"><p style="font-weight:900">🏆 Most trophies (all time)</p><p style="font-size:10px;color:#94a3b8;margin-bottom:4px">⭐ Champions League · 🏆 Open Cup · 🥇 group titles</p>${top.length ? top.map((x, i) => `<div class="row"><b style="width:20px;color:#94a3b8">${i + 1}</b><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:800">${esc(x.n)}${Number(x.ci) >= 100000 ? ' 👤' : ''}</span><span style="font-size:11px;font-weight:900">${x.cl ? '⭐' + x.cl + ' ' : ''}${x.oc ? '🏆' + x.oc + ' ' : ''}${x.l ? '🥇' + x.l : ''}</span></div>`).join('') : '<p style="font-size:12px;color:#94a3b8">The first trophies are handed out at the end of Season 1.</p>'}</div>
@@ -2379,14 +2476,14 @@ G3.stop = function (view) {
   if (!view || G3.view === view) { const v = G3.view; G3.view = null; if (v && v.end) v.end(); if (G3.B3) G3.B3.stop(); }
 };
 ['team', 'freeTeam', 'fig', 'ball', 'world', 'drawWorld', 'particles', 'trophy', 'floor'].forEach(k => { G3[k] = function () { return (G3.be === 'b3' && G3.B3 ? G3.B3 : G3OLD)[k].apply(this, arguments); }; });
-W.W3D_V = 3;
+W.W3D_V = 4;
 W.w3d = { st: 0 };
 W.w3dLoad = function () {
   if (W.w3d.st || !G3.ok() || typeof window === 'undefined') return;
   try { if (localStorage.getItem('w11_3dq') === 'lite') return; const c = document.createElement('canvas'); if (!c.getContext('webgl2')) return; } catch (e) { return; }
   if (navigator.deviceMemory && navigator.deviceMemory < 2) return;
   W.w3d.st = 1; const base = new URL('./', document.baseURI).href;
-  import(base + 'w3d.js?v=' + W.W3D_V).then(() => window.W3D.load({ G3, base, v: W.W3D_V, weak: W.weak, tier: W.dev && W.dev.tier, hash, hx, kitN: W.kitN, crestSvg: W.crestSvg, numOf: (id) => { const p = W.player(id, W.S); return p ? p.num : null; }, nameOf: (id) => { const p = W.player(id, W.S); return p ? p.short.replace(/\.$/, '') : ''; }, lookOf: (id) => { const p = W11C.player(id, W.S); return p ? { cult: p.cult } : null; } }))
+  import(base + 'w3d.js?v=' + W.W3D_V).then(() => window.W3D.load({ G3, base, v: W.W3D_V, weak: W.weak, tier: W.dev && W.dev.tier, hash, hx, kitN: W.kitN, crestSvg: W.crestSvg, numOf: (id) => { const p = W.player(id, W.S); return p ? p.num : null; }, nameOf: (id) => { const p = W.player(id, W.S); return p ? p.short.replace(/\.$/, '') : ''; }, lookOf: (id) => { const p = W11C.player(id, W.S); return p ? { cult: p.cult } : null; }, atmo: () => (W.atmoNow ? W.atmoNow() : null) }))
     .then(B => { G3.B3 = B; W.w3d.st = 2; }).catch(e => { W.w3d.st = -1; console.warn('3D load', e); });
 };
 
@@ -2701,5 +2798,180 @@ W.renameGo = async function (id) {
 };
 /* help */
 W.helpL = (function (b) { return function () { b.apply(this, arguments); const el = document.querySelector('#w11b .card'); if (el) el.insertAdjacentHTML('beforeend', `<p style="margin-top:6px">🧩 <b>Positions</b>: every player has his own spot (DL DC DR · ML MC MR · AML AMC AMR · ST). Out of his spot he plays weaker. He can learn 2 nearby spots (free, half to a full season; or ${W11C.LEARN_FAST} 🪙 to finish in ${W11C.LEARN_FAST_DAYS} days). "🧩 Best fit" puts your starters in their best spots.</p>`); }; })(W.helpL);
+
+// =====================================================================
+// 🌍 G6 · 11 WONDERS: world zones + local kick-off times, weather that changes play (engine 4), atmosphere
+// (crowd reactions, touchline managers, weather, lighting, tournament balls), TV graphics, manager designer.
+// build.sh pastes this file into w11.js at the G6 marker. The 3D side lives in src3d/w3d.js (section "G6").
+// =====================================================================
+/* 🌍 this phone's time zone (minutes east of GMT) and climate (from the time zone name) */
+W.myOf = () => { try { return CC.cleanOf(-new Date().getTimezoneOffset()); } catch (e) { return 0; } };
+W.myTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } };
+W.myCz = () => CC.climFromTz(W.myTz());
+W.myZone = () => { const me = W.me, S = W.S; if (me && me.lg && me.lg.s === S && me.lg.z != null) return Number(me.lg.z); if (me && me.zn != null) return Number(me.zn); return CC.zoneOf(W.myOf()); };
+const zoneTxt = (z) => CC.ZONE_FLAG[z] + ' ' + CC.ZONE_NAME[z];
+/* join with the phone's time zone (your zone decides your league ladder) */
+W.joinL = async function (sl) {
+  toast('⏳ Finding your group…');
+  const r = await W.api('/w11/join', { sl, of: W.myOf(), cz: W.myCz() });
+  if (!r.ok) return toast('⚠️ ' + (r.error || 'Could not join. Try again.'));
+  await W.load(); W.G = null;
+  const zt = r.z != null ? ' · ' + zoneTxt(r.z) : '';
+  if (r.wait) toast(`✅ You're in${zt}! Your league starts in Season ${r.wait}.`); else toast(`✅ Welcome to Division 6${zt}! First match: matchday ${r.from}.`);
+  W.leagueHome();
+};
+/* the phone tells the server quietly when its time zone or climate changed (used for your next matches) */
+W.load = (function (b) { return async function () { const r = await b.apply(this, arguments); try {
+  const me = W.me; if (me && !W._tzSent && (me.of !== W.myOf() || me.cz !== W.myCz())) { W._tzSent = 1; W.api('/w11/tz', { of: W.myOf(), cz: W.myCz() }).then(x => { if (x && x.ok) { me.of = x.of; me.cz = x.cz; } }).catch(() => {}); }
+} catch (e) {} return r; }; })(W.load);
+
+/* 🌦️ weather + local time of a league / cup match (same on every phone) */
+const hourAt = (ms, of) => ((((Number(ms) / 60000 + (Number(of) || 0)) % 1440) + 1440) % 1440) / 60;
+const hourHere = (ms) => { const d = new Date(ms || Date.now()); return d.getHours() + d.getMinutes() / 60; };
+const hhmm = (h) => String(Math.floor(h)).padStart(2, '0') + ':' + String(Math.round((h % 1) * 60) % 60).padStart(2, '0');
+W.liveFrom = (function (b) { return function (mid, M) { const live = b.apply(this, arguments); try {
+  const s0 = M.s0 || {}, wx = CC.wxOf(mid, s0.cz, M.ko); live.home.wx = wx; live.wx = wx; live.tod = hourAt(M.ko, s0.of != null ? s0.of : CC.ZONE_OF[CC.aiZone(M.h)]);
+} catch (e) {} return live; }; })(W.liveFrom);
+/* friendlies + Boot Camp: your own weather and your own clock */
+W.play = (function (b) { return function (live) { try { if (live && !live.M && live.home && live.home.wx === undefined) {
+  live.home.wx = CC.wxOf('fr:' + live.seed, W.myCz(), live.startAt || Date.now()); live.wx = live.home.wx; live.tod = hourHere(live.startAt);
+  try { localStorage.setItem('w11_live', JSON.stringify(live)); } catch (e) {} } } catch (e) {} return b.apply(this, arguments); }; })(W.play);
+/* forecast for a league fixture (before the lock): home club's climate */
+W.forecast = function (G, md, hp, id, ko) { const u = G.users && G.users[hp], ci = CC.seatClub(G, hp, md), cz = u && CC.isUserAt(G, hp, md) && u.cz != null ? u.cz : CC.aiClim(ci); return CC.wxOf(id, cz, ko); };
+W.leagueHome = (function (b) { return async function () { const r = await b.apply(this, arguments); try {
+  const bd = document.getElementById('w11b'); if (!bd) return r;
+  if (!W.inLeague()) { const card = [...bd.querySelectorAll('.card')].find(c => /kick-off time/i.test(c.innerText)); if (card && !card.dataset.g6) { card.dataset.g6 = 1; const z = CC.zoneOf(W.myOf());
+      card.insertAdjacentHTML('beforeend', `<p style="font-size:11px;color:#67e8f9;margin-top:10px">🌍 Your zone: <b>${zoneTxt(z)}</b> (from your phone's time zone). You play managers near your time, at your own local kick-off time.</p>`); } return r; }
+  const G = W.G, n = G && W.nextMatch(G), lc = document.getElementById('w11lc');
+  if (n && lc && !document.getElementById('w11fc')) { const wx = W.forecast(G, n.md, n.hp, n.id, n.ko); lc.parentNode.insertAdjacentHTML('afterend', `<p id="w11fc" style="font-size:11px;color:#cbd5e1;margin-top:4px">🌦️ Forecast: <b>${CC.wxLabel(wx)}</b>${wxTip(wx)}</p>`); }
+} catch (e) {} return r; }; })(W.leagueHome);
+const wxTip = (wx) => { const F = CC.wxFx(wx); return F.wet ? ' · slippery: passes and first touches go wrong more often' : F.snow ? ' · slow, heavy pitch' : F.wind ? ' · long balls and long shots drift' : F.heat ? ' · players tire faster: rotate your squad' : ''; };
+
+/* =================== 🏟️ atmosphere for the 3D (read every frame by w3d.js through ctx.atmo) =================== */
+const B6 = { mgSpec: (raw, kit, ci) => { const m = CC.cleanMgr(raw || CC.mgrOf(ci == null ? 0 : ci)); return { ...m, c: CC.COLORS[m.col] || '#0b1f4d', c1: (kit && kit.c1) || '#22d3ee', c2: (kit && kit.c2) || '#ffffff', seed: ci == null ? 0 : ci }; } };
+W.mgSpec = B6.mgSpec;
+const atBase = (live) => {
+  if (live._at) return live._at; const D = W.dress(live), M = live.M;
+  const fin = !!(M && M.cup && M.rn === 'Final'), big = fin || !!(M && M.cup === 'cl' && M.cr > CC.CL_GR), kind = M ? (M.cup || 'lg') : 'fr';
+  const mg = [0, 1].map(i => { const sh = M && M['s' + i], ci = D.ci[i]; const raw = sh && sh.mg ? sh.mg : !M && i === 0 && W.me && W.me.mgr ? W.me.mgr : null; return B6.mgSpec(raw, D.k[i], ci); });
+  live._at = { tod: live.tod != null ? live.tod : hourHere(live.startAt), wx: (live.home && live.home.wx) || null, ball: CC.ballOf(kind, D.S, fin), mg, mc: [D.k[0], D.k[1]].map(k => ({ c1: k.c1, c2: k.c2 })), rc: W.refColor(D),
+    tifo: big ? { c1: D.k[0].c1, c2: D.k[0].c2 || '#ffffff', sh: D.sh[0] } : null, fin, big };
+  return live._at;
+};
+const evScan = (m) => { const T = m.tick, o = { shout: [null, null] }; for (let i = m.ev.length - 1; i >= 0; i--) { const e = m.ev[i], d = T - (e.tick == null ? T : e.tick); if (d > 240) break;
+    if (!o.goal && e.k === 'goal' && d < 170) o.goal = [e, d]; if (!o.near && ((e.k === 'miss' && e.near) || e.k === 'save') && d < 45) o.near = [e, d];
+    if (!o.card && (e.k === 'yellow' || e.k === 'red') && d < 70) o.card = [e, d]; if (e.k === 'shout' && d < 50 && e.side != null && !o.shout[e.side]) o.shout[e.side] = [e, d]; if (!o.sub && e.k === 'sub' && d < 140) o.sub = [e, d]; } return o; };
+const calmCrowd = () => ({ st: [0.08, 0.08], ar: [0, 0], jp: [0, 0], hd: [0, 0], sc: [0, 0], wave: 0, tifo: null });
+W.atmoNow = function () {
+  const live = W.live, v = G3.view, match = live && (W._cer || W._rp || (v && (v.live || v.cine)));
+  if (!match) return { tod: hourHere(), wx: null, key: 'hq' };
+  const A = atBase(live), m = W.m, crowd = calmCrowd(), ma = [{ k: 'idle' }, { k: 'idle' }]; let sub = null, smoke = null, plinth = false;
+  if (W._cer === 'open') { const t = (performance.now() - (W._cerT0 || 0)) / 1000, long = live.kind === 'league'; crowd.st = [1, 1]; crowd.sc = [1, 1]; crowd.ar = [0.35, 0.35];
+    if (A.big && t < (long ? 36 : 9)) { crowd.tifo = A.tifo; smoke = { t: W._cerWall || Date.now(), end: 2 }; } plinth = A.fin && t < (long ? 28 : 7.5); ma[0].k = ma[1].k = 'clap'; }
+  else if (W._cer === 'close' && m) { const ws = m.T[0].score > m.T[1].score ? 0 : m.T[1].score > m.T[0].score ? 1 : -1;
+    for (let s = 0; s < 2; s++) { if (ws === s) { crowd.st[s] = 1; crowd.jp[s] = 1; crowd.ar[s] = 1; crowd.sc[s] = 1; ma[s].k = 'cheer'; } else if (ws === -1) { crowd.st[s] = 0.7; crowd.ar[s] = 0.4; ma[s].k = 'clap'; } else { crowd.st[s] = 0.1; crowd.hd[s] = 0.5; ma[s].k = 'despair'; } } }
+  else if (W._rp && v && v.cel != null && W._rpG) { const s = W._rpG.side; if (v.cel) { crowd.st[s] = 1; crowd.jp[s] = 1; crowd.ar[s] = 1; crowd.sc[s] = 1; crowd.hd[1 - s] = 0.7; ma[s].k = 'cheer'; ma[1 - s].k = 'despair'; } else crowd.st[s] = 0.7; }
+  else if (m) {
+    const E = evScan(m), b = m.ball, poss = b.owner ? b.owner.side : null;
+    if (poss === 0 && b.x > 80) crowd.st[0] = 0.6; if (poss === 1 && b.x < 25) crowd.st[1] = 0.6;
+    if (E.near) { const e = E.near[0], s = e.k === 'save' ? 1 - e.side : e.side; crowd.st[s] = 1; crowd.hd[s] = 1; crowd.st[1 - s] = 0.5; if (E.near[1] < 30) ma[s].k = 'despair'; }
+    if (E.card) { const e = E.card[0]; crowd.st[1 - e.side] = Math.max(crowd.st[1 - e.side], 0.6); crowd.ar[1 - e.side] = 0.3; ma[e.side].k = 'argue'; }
+    for (let s = 0; s < 2; s++) if (E.shout[s]) ma[s].k = 'shout';
+    if (E.goal) { const [e, d] = E.goal, s = e.side; crowd.st[s] = 1; crowd.jp[s] = 1; crowd.ar[s] = 1; crowd.sc[s] = 1; crowd.st[1 - s] = 0.12; crowd.hd[1 - s] = d < 50 ? 0.8 : 0; crowd.hd[s] = 0;
+      ma[s].k = d < 90 ? 'cheer' : 'clap'; ma[1 - s].k = d < 70 ? 'despair' : ma[1 - s].k; if (A.big || A.fin) smoke = { t: Date.now() - d * 50, end: s === 1 ? 1 : 0 }; }
+    if (E.sub) { const e = E.sub[0], L = m.T[e.side] && m.T[e.side].subLog, x = L && L[L.length - 1]; if (x) { const po = W.player(x[0], m.S), pn = W.player(x[1], m.S); sub = { out: (po && po.num) || '', inn: (pn && pn.num) || '' }; } }
+    const mn = m.minute ? m.minute() : 0, lead = m.T[0].score - m.T[1].score; if (!E.goal && ((mn >= 70 && lead >= 2) || (mn >= 84 && lead >= 1))) crowd.wave = 1;
+  }
+  return { key: String(live.mid || live.seed || ''), tod: A.tod, wx: A.wx, ball: A.ball, mg: A.mg, mc: A.mc, rc: A.rc, crowd, ma, sub, smoke, plinth };
+};
+/* ceremonies: remember when they started (for the tifo, smoke and the ball on its stand); weather + local time chip */
+const ballName = (b) => b ? ({ lg: '⚽ League ball', oc: '🏆 Open Cup ball', cl: '⭐ Champions League ball', fr: '⚽ Friendly ball', final: '🥇 Gold final ball' }[b.kind] || '') : '';
+W.ceremony = (function (b) { return function (kind, live) { W._cerT0 = performance.now(); W._cerWall = Date.now(); const r = b.apply(this, arguments); try {
+  if (kind === 'open') { const o = document.getElementById('w11cer'), A = atBase(live); if (o && !document.getElementById('w11cwx')) o.insertAdjacentHTML('beforeend', `<div id="w11cwx" style="position:absolute;right:12px;top:12px;padding:7px 12px;border-radius:999px;font-size:11px;font-weight:900;background:rgba(7,11,24,.7);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.14);pointer-events:none">${A.wx ? CC.wxLabel(A.wx) + ' · ' : ''}🕘 ${hhmm(A.tod)} local · ${ballName(A.ball)}</div>`); }
+} catch (e) {} return r; }; })(W.ceremony);
+
+/* =================== 📺 TV graphics: score box, added time, pop-ups (goals, cards, subs), replay wipe =================== */
+const TV_CSS = `
+.w11bug{position:absolute;z-index:8;display:flex;align-items:center;gap:6px;padding:4px 8px 4px 4px;border-radius:10px;background:rgba(7,11,24,.82);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.14);box-shadow:0 0 14px rgba(0,0,0,.45);font-size:12px;font-weight:900;pointer-events:none;color:#fff}
+.w11bug .cp{font-size:8px;letter-spacing:.12em;padding:3px 6px;border-radius:7px;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);color:#070b18}
+.w11bug .sc{min-width:40px;text-align:center;font-size:15px;padding:0 4px;border-radius:6px;background:rgba(255,255,255,.1)}
+.w11bug .mn{font-size:11px;color:#67e8f9}.w11bug .at{font-size:10px;padding:1px 5px;border-radius:5px;background:#a3e635;color:#070b18}.w11bug .wx{font-size:10px;color:#cbd5e1}
+.w11bug .cr{width:16px;height:18px;display:inline-flex}.w11bug .cr svg,.w11bug .cr .w11crest{width:16px!important;height:18px!important}
+#w11lt{position:absolute;left:12px;bottom:14px;z-index:28;display:flex;flex-direction:column;gap:6px;pointer-events:none;max-width:min(420px,60vw)}
+#w11lt .lt{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 0;border-radius:10px;background:rgba(7,11,24,.86);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);box-shadow:0 0 16px rgba(0,0,0,.5);font-size:12px;font-weight:800;animation:w11lti .35s cubic-bezier(.2,.8,.2,1)}
+#w11lt .lt i{align-self:stretch;width:5px;border-radius:10px 0 0 10px}#w11lt .lt b{font-size:13px}#w11lt .lt small{color:#94a3b8;font-weight:700}
+@keyframes w11lti{from{transform:translateX(-30px);opacity:0}to{transform:none;opacity:1}}
+#w11wipe{position:absolute;inset:0;z-index:45;pointer-events:none;overflow:hidden}
+#w11wipe div{position:absolute;top:-20%;bottom:-20%;width:70%;left:-80%;transform:skewX(-18deg);background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);display:flex;align-items:center;justify-content:center;animation:w11wp .75s cubic-bezier(.6,.05,.3,1) forwards}
+#w11wipe span{transform:skewX(18deg);font-weight:900;font-size:22px;letter-spacing:.14em;color:#070b18;white-space:nowrap}
+@keyframes w11wp{from{left:-80%}to{left:120%}}`;
+const tvCss = () => { if (!document.getElementById('w11tvcss')) { const s = document.createElement('style'); s.id = 'w11tvcss'; s.textContent = TV_CSS; document.head.appendChild(s); } };
+const crestMini = (D, i) => { try { return D.cr[i] ? W.crestSvg(D.cr[i], D.sh[i], 16) : ''; } catch (e) { return ''; } };
+const compTag = (live) => { const M = live && live.M; return !M ? (live && live.kind === 'boot' ? 'BOOT CAMP' : 'FRIENDLY') : M.cup === 'cl' ? 'CHAMPIONS LEAGUE' : M.cup ? 'OPEN CUP' : 'DIV ' + M.t; };
+W.tvBug = function () {
+  const live = W.live, m = W.m; tvCss(); const host = document.getElementById('w11rp') || document.getElementById('w11cine') || (W.v3 && W.v3.on ? document.getElementById('w11l3') : null);
+  document.querySelectorAll('.w11bug').forEach(x => { if (!host || x.parentNode !== host) x.remove(); }); if (!host || !live || !m || W._cer) return;
+  let el = host.querySelector('.w11bug'); const D = W.dress(live), A = atBase(live), rp = host.id === 'w11rp';
+  if (!el) { el = document.createElement('div'); el.className = 'w11bug'; el.style.cssText = rp ? 'right:8px;top:8px' : host.id === 'w11cine' ? 'left:10px;top:max(10px,env(safe-area-inset-top))' : 'left:8px;top:8px'; host.appendChild(el);
+    if (host.id === 'w11cine') { const bar = host.children[1]; if (bar && bar.querySelector('#w11cinesc')) bar.style.visibility = 'hidden'; } }
+  const h = m.t >= W.TIMING.HALF ? 1 : 0, th = m.t - h * W.TIMING.HALF, inAdd = th >= W.TIMING.HALF * 0.92 && m.added[h];
+  const html = `<span class="cp">${compTag(live)}</span><span class="cr">${crestMini(D, 0)}</span><span>${esc(D.sh[0])}</span><span class="sc">${m.T[0].score}–${m.T[1].score}</span><span>${esc(D.sh[1])}</span><span class="cr">${crestMini(D, 1)}</span><span class="mn">${W.minLabel ? W.minLabel(m) : m.minute() + "'"}</span>${inAdd ? `<span class="at">+${m.added[h]}</span>` : ''}${A.wx && A.wx.k !== 'clear' ? `<span class="wx">${(CC.WX_NAME[A.wx.k] || '').split(' ')[0]} ${A.wx.t}°</span>` : ''}`;
+  if (el._h !== html) { el._h = html; el.innerHTML = html; }
+};
+/* lower-third pop-ups for goals, cards and subs (only new moments, no flood after catching up) */
+W.tvPop = function (h, color, ms) { tvCss(); const host = document.getElementById('w11'); if (!host) return; let box = document.getElementById('w11lt'); if (!box) { box = document.createElement('div'); box.id = 'w11lt'; host.appendChild(box); }
+  const d = document.createElement('div'); d.className = 'lt'; d.innerHTML = `<i style="background:${color}"></i>${h}`; box.appendChild(d); while (box.children.length > 2) box.firstChild.remove(); setTimeout(() => d.remove(), ms || 4200); };
+W.tvTick = function () {
+  const m = W.m, live = W.live; if (!m || !live || !document.getElementById('w11')) { W._tvM = null; return; }
+  if (W._tvM !== m) { W._tvM = m; W._tvN = m.ev.length; } if (W._cer) { W._tvN = m.ev.length; return; }
+  const D = W.dress(live); for (; W._tvN < m.ev.length; W._tvN++) { const e = m.ev[W._tvN]; if (e.tick != null && m.tick - e.tick > 60) continue; const tc = (s) => (D.k[s] && D.k[s].c1) || '#22d3ee', p = e.pid ? W.player(e.pid, m.S) : null;
+    if (e.k === 'goal') { const sc = (String(e.txt).match(/(\d+–\d+)\s*$/) || [])[1] || ''; W.tvPop(`<span>⚽</span><span><b>GOAL! ${p ? p.flag + ' ' + esc(p.name) : esc(D.sh[e.side])}</b><br><small>${e.min}' · ${esc(D.sh[e.side])} · ${sc}${e.how === 'pen' ? ' · penalty' : e.how === 'fk' ? ' · free kick' : e.how === 'header' ? ' · header' : ''}</small></span>`, tc(e.side), 5200); }
+    else if (e.k === 'yellow' || e.k === 'red') W.tvPop(`<span>${e.k === 'red' ? '🟥' : '🟨'}</span><span><b>${p ? p.flag + ' ' + esc(p.name) : ''}</b><br><small>${e.k === 'red' ? 'Red card' : 'Yellow card'} · ${esc(D.sh[e.side])} · ${e.min}'</small></span>`, e.k === 'red' ? '#ff2d95' : '#facc15');
+    else if (e.k === 'sub') { const L = m.T[e.side].subLog, x = L[L.length - 1]; if (x) { const po = W.player(x[0], m.S), pn = W.player(x[1], m.S); W.tvPop(`<span>🔁</span><span><b><span style="color:#22d3ee">⬆ ${pn.num} ${esc(pn.short)}</span> · <span style="color:#ff2d95">⬇ ${po.num} ${esc(po.short)}</span></b><br><small>Substitution · ${esc(D.sh[e.side])} · ${e.min}'</small></span>`, tc(e.side)); } }
+    else if (e.k === 'added') W.tvPop(`<span>⏱️</span><span><b>${esc(String(e.txt).replace(/^⏱️\s*/, ''))}</b></span>`, '#a3e635', 3200);
+  }
+  W.tvBug();
+};
+setInterval(() => { try { W.tvTick(); } catch (e) {} }, 300);
+/* SINLESS GG wipe into and out of every replay */
+W.tvWipe = function () { tvCss(); const host = document.getElementById('w11'); if (!host) return; const o = document.createElement('div'); o.id = 'w11wipe'; o.innerHTML = '<div><span>SINLESS GG · REPLAY</span></div>'; host.appendChild(o); setTimeout(() => o.remove(), 800); };
+W.replay = (function (b) { return function (F, g, live, liveMode) { W._rpG = g; W.tvWipe(); return b.apply(this, arguments).then((x) => { W.tvWipe(); W._rpG = null; return x; }); }; })(W.replay);
+
+/* =================== 🧥 touchline manager designer (Club HQ). First design free, then 2 🪙 GG Coins =================== */
+const MG_OPTS = { sk: ['#3f2618', '#5c3822', '#70442a', '#83512f', '#a8724a', '#b9835a', '#d9ab86', '#e0b590'], hr: ['Bald', 'Buzz', 'Crew', 'Short', 'Side part', 'Slicked', 'Quiff', 'Curls', 'Afro', 'Locks', 'Fade', 'High top'],
+  hc: ['#0a0a0c', '#24170f', '#5a3a20', '#a07a44', '#c9a55a', '#6b2f1a', '#8a8f96', '#d8dadd'], bd: ['None', 'Stubble', 'Short beard', 'Goatee', 'Full beard'], gl: ['None', 'Glasses', 'Sunglasses'], fit: CC.MGR_FIT, bu: ['Slim', 'Medium', 'Big'], ag: ['30s', '40s', '50s+'] };
+W.mgrCard = function () { const me = W.me; if (!me) return ''; const first = !me.mgr;
+  return `<div class="card" id="w11mgc"><p style="font-weight:900">🧥 Touchline manager</p><p style="font-size:11px;color:#94a3b8;margin-top:4px">Your manager stands in the technical area at every match: he shouts when you shout, celebrates your goals and argues with the 4th official. Design his face, hair, outfit and colours.</p>
+    <button class="btn2" style="margin-top:8px" onclick="W11.mgrUI()">✏️ Design your manager ${first ? '(first time free)' : '(' + CC.TOK.mgr + ' 🪙)'}</button></div>`; };
+W.hq = (function (b) { return function () { const r = b.apply(this, arguments); try { const bd = document.querySelector('#w11b'); if (bd && !document.getElementById('w11mgc')) bd.insertAdjacentHTML('beforeend', W.mgrCard()); } catch (e) {} return r; }; })(W.hq);
+W.mgrUI = function () {
+  const me = W.me; if (!me) return; W._mgrD = W._mgrD || CC.cleanMgr(me.mgr || CC.mgrOf(me.club));
+  const d = W._mgrD, kit = W.kitN((me.kits || [])[0]), cost = me.mgr ? CC.TOK.mgr : 0;
+  const sw = (k, list) => `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${list.map((c, i) => `<button onclick="W11.mgrSet('${k}',${i})" aria-label="${k} ${i}" style="width:28px;height:28px;border-radius:999px;background:${c};border:${d[k] === i ? '3px solid #22d3ee' : '1px solid rgba(255,255,255,.25)'}"></button>`).join('')}</div>`;
+  const ch = (k, list) => `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${list.map((t, i) => `<button onclick="W11.mgrSet('${k}',${i})" style="padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800;background:${d[k] === i ? 'linear-gradient(90deg,#22d3ee,#a855f7)' : 'rgba(255,255,255,.08)'};color:${d[k] === i ? '#070b18' : '#e2e8f0'};border:1px solid rgba(255,255,255,.15)">${t}</button>`).join('')}</div>`;
+  const row = (t, h) => `<p style="font-size:11px;font-weight:900;color:#67e8f9;margin-top:10px">${t}</p>${h}`;
+  W.ui(`<div class="card" style="grid-row:span 2"><p style="font-weight:900">🧥 Your touchline manager</p><div id="w11mgp" style="position:relative;height:300px;margin-top:8px;border-radius:14px;overflow:hidden;background:radial-gradient(circle at 50% 30%,rgba(168,85,247,.3),#070b18 70%)"></div>
+      <p style="font-size:11px;color:#94a3b8;margin-top:8px">Generic, made-up person (never a real manager). Shown in every match of your club.</p>
+      <button class="btn" style="margin-top:10px" onclick="W11.mgrSave()">💾 Save ${cost ? '(' + cost + ' 🪙 · you have ' + (me.gems || 0) + ')' : '(free)'}</button></div>
+    <div class="card">${row('Skin', sw('sk', MG_OPTS.sk))}${row('Hair', ch('hr', MG_OPTS.hr))}${row('Hair colour', sw('hc', MG_OPTS.hc))}${row('Beard', ch('bd', MG_OPTS.bd))}${row('Glasses', ch('gl', MG_OPTS.gl))}</div>
+    <div class="card">${row('Outfit', ch('fit', MG_OPTS.fit))}${row('Outfit colour', sw('col', CC.COLORS))}${row('Build', ch('bu', MG_OPTS.bu))}${row('Age', ch('ag', MG_OPTS.ag))}<p style="font-size:10px;color:#94a3b8;margin-top:10px">Tracksuits and polos use your club colours (${esc(kit.c1)}).</p></div>`, '🧥 Manager', 'W11.hq()');
+  W.mgrPreview(document.getElementById('w11mgp'));
+};
+W.mgrSet = function (k, i) { if (!W._mgrD) return; W._mgrD[k] = i; W._mgrD = CC.cleanMgr(W._mgrD); const sc = document.querySelector('#w11b') && document.querySelector('#w11b').scrollTop; W.mgrUI(); try { if (sc) document.querySelector('#w11b').scrollTop = sc; } catch (e) {} };
+W.mgrSave = async function () { const me = W.me, cost = me.mgr ? CC.TOK.mgr : 0; if (cost && !confirm(`Save this look for ${cost} 🪙 GG Coins?`)) return;
+  const r = await W.api('/w11/mgr', { mgr: W._mgrD }); if (!r || !r.ok) return toast('⚠️ ' + ((r && r.error) || 'Try again'));
+  me.mgr = r.mgr; me.gems = r.gems; W._mgrD = null; toast('🧥 Your manager is ready for the touchline!'); W.hq(); };
+W.mgrPreview = function (box) {
+  if (!box) return; if (!G3.ok() || G3.be !== 'b3' || !G3.B3 || !G3.B3.mgrFig) { box.innerHTML = '<p style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8;padding:16px;text-align:center">The 3D preview appears when 3D graphics are ready on this phone. Your choices are saved either way.</p>'; if (W.w3d && W.w3d.st === 1) setTimeout(() => { if (document.body.contains(box)) W.mgrPreview(box); }, 1500); return; }
+  const v = { alive: () => document.body.contains(box) && G3.view === v,
+    step(dt, now) { v.t = now / 1000; return { eye: [0, 1.45, 3.3], at: [0, 1.08, 0], fov: 36, fog: 0.001, bg: [0.03, 0.05, 0.11] }; },
+    draw() { const me = W.me, spec = B6.mgSpec(W._mgrD || me.mgr, W.kitN((me.kits || [])[0]), me.club); G3.floor(); G3.B3.mgrFig(spec, 0, 0, { yaw: Math.sin(v.t * 0.6) * 0.9 }); } };
+  G3.run(box, v);
+};
+/* help: zones, weather, managers */
+W.helpL = (function (b) { return function () { b.apply(this, arguments); const el = document.querySelector('#w11b .card'); if (!el) return;
+  el.insertAdjacentHTML('beforeend', `<p style="margin-top:6px">🌍 <b>World zones</b>: Americas West, Americas East, Europe & Africa, Middle East & South Asia, East Asia and Oceania each have their own 6 divisions, so you play people near your time. Kick-off slots are your <b>local</b> times (10:00, 14:00, 18:00, 21:00). Each zone has its own Open Cup; the Champions League is worldwide, at a fair hour for both clubs.</p>
+    <p style="margin-top:6px">🌦️ <b>Weather changes play</b>: rain and snow make players slip and the ball skid, wind moves long balls, crosses and long shots, heat tires players faster. The forecast shows before the team sheet locks. Day, sunset or night follows the home club's local time.</p>
+    <p style="margin-top:6px">🧥 <b>Your manager</b> stands on the touchline at every match (design him in 🏟️ Club HQ: first time free, then ${CC.TOK.mgr} 🪙).</p>`); }; })(W.helpL);
 
 })();
