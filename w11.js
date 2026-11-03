@@ -200,7 +200,7 @@ const squadIds = (ci) => POS_TEMPLATE.map((_, s) => ci + '-' + s);
 const avg = (ids, S) => Math.round(ids.slice(0, 11).map(id => player(id, S)).reduce((s, p) => s + p.ovr, 0) / 11);
 
 /* 📅 season clock: 28 days = 1 year. Days 1–26 one matchday each, day 27 last checks, day 28 promotion & prizes. */
-const DAY = 86400000, EPOCH0 = Date.UTC(2026, 10, 2), SDAYS = 28, MDS = 26, ENGINE = 2;
+const DAY = 86400000, EPOCH0 = Date.UTC(2026, 10, 2), SDAYS = 28, MDS = 26, ENGINE = 3;
 /* G5: the season clock can be restarted (fresh Season 1): the start day is kept in w11meta/season.ep; the market keeps EPOCH0 */
 let EPOCH = EPOCH0;
 const setEpoch = (ms) => { ms = Number(ms) || 0; if (ms > Date.UTC(2026, 0, 1) && ms < Date.UTC(2040, 0, 1)) EPOCH = Math.floor(ms / DAY) * DAY; return EPOCH; };
@@ -313,7 +313,10 @@ const sheetOf = (club, day, S) => {
   }
   const cond = {}; ids.forEach(id => { cond[id] = condNow(club, id, day); });
   const tk = {}; for (const k of ['cap', 'pen', 'fk', 'ck']) { const v = club.tk && club.tk[k]; if (typeof v === 'string' && ids.includes(v)) tk[k] = v; }
-  return { tk, ids, form: FORM_NAMES.includes(club.form) ? club.form : '4-4-2', cond, tr: { att: Number(club.tr && club.tr.att) || 0, def: Number(club.tr && club.tr.def) || 0, fit: Number(club.tr && club.tr.fit) || 0 }, bo, io, n: club.name || 'My Club', sh: club.short || 'MYC', kit: ((club.kits || [])[0] || {}).c1 || '', kits: (club.kits || []).map(k => k && k.c1).filter(Boolean), kf: (club.kits || []).slice(0, 3).map(cleanKit), cr: cleanCrest(club.crest), sd: { lv: stdLv(club), nm: String((club.std && club.std.nm) || ((club.name || 'My Club') + ' Park')).slice(0, 30) } };
+  const sh = { tk, ids, form: FORM_NAMES.includes(club.form) ? club.form : '4-4-2', cond, tr: { att: Number(club.tr && club.tr.att) || 0, def: Number(club.tr && club.tr.def) || 0, fit: Number(club.tr && club.tr.fit) || 0 }, bo, io, n: club.name || 'My Club', sh: club.short || 'MYC', kit: ((club.kits || [])[0] || {}).c1 || '', kits: (club.kits || []).map(k => k && k.c1).filter(Boolean), kf: (club.kits || []).slice(0, 3).map(cleanKit), cr: cleanCrest(club.crest), sd: { lv: stdLv(club), nm: String((club.std && club.std.nm) || ((club.name || 'My Club') + ' Park')).slice(0, 30) } }
+  /* G4c: learned positions + renamed players travel with the team sheet (only when there are any) */
+  const lp = learnedMap(club, ids, S, Date.now()), rn = rnMap(club, ids, S); if (Object.keys(lp).length) sh.lp = lp; if (Object.keys(rn).length) sh.rn = rn;
+  return sh;
 };
 const aiSheet = (ci, key, S) => { const c = club(ci); return { ai: ci, ids: squadIds(ci), form: FORM_NAMES[hash(key + ':f') % 15], cond: {}, tr: {}, bo: [], io: [], n: c.name, sh: c.short, aiCond: AI_COND }; };
 const ENGINE_TICKS = 4200;
@@ -434,7 +437,50 @@ const cleanKit = (k) => { k = k || {}; const c1 = colOr(k.c1, '#22d3ee'), c2 = c
 const cleanCrest = (c) => { c = c || {}; const c1 = colOr(c.c1, '#22d3ee'), c2 = colOr(c.c2, '#a855f7');
   return { shape: SHAPES.includes(c.shape) ? c.shape : 'shield', c1, c2, sym: SYMS.includes(c.sym) ? c.sym : 'AB', bd: colOr(c.bd, '#ffffff'), band: BANDS.includes(c.band) ? c.band : 'none', bc: colOr(c.bc, '#ffffff'), est: !!c.est }; };
 
-return { EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
+/* ===================== G4c: detailed positions, learning new positions, renaming ===================== */
+/* every player has a main spot (from his id, same on every phone); he can learn up to 2 nearby spots */
+const DPOS = ['GK', 'DL', 'DC', 'DR', 'ML', 'MC', 'MR', 'AML', 'AMC', 'AMR', 'ST'];
+const DLINE = { GK: 0, DL: 1, DC: 1, DR: 1, ML: 2, MC: 2, MR: 2, AML: 3, AMC: 3, AMR: 3, ST: 4 };
+const DPOS_NAME = { GK: 'Goalkeeper', DL: 'Left back', DC: 'Centre back', DR: 'Right back', ML: 'Left midfield', MC: 'Centre midfield', MR: 'Right midfield', AML: 'Left wing', AMC: 'Attacking midfield', AMR: 'Right wing', ST: 'Striker' };
+const dpOf = (p) => { if (!p) return 'MC'; const h = (hash('dp:' + (p.gid || p.id)) >>> 9) % 100;
+  return p.pos === 'GK' ? 'GK' : p.pos === 'DEF' ? (h < 50 ? 'DC' : h < 75 ? 'DL' : 'DR') : p.pos === 'MID' ? (h < 35 ? 'MC' : h < 50 ? 'ML' : h < 65 ? 'MR' : h < 85 ? 'AMC' : h < 93 ? 'AML' : 'AMR') : (h < 60 ? 'ST' : h < 80 ? 'AML' : 'AMR'); };
+/* nearby = same line (any side), or midfield <-> attacking midfield <-> striker. Never into defence or goal, never out of them. */
+const canLearn = (from, to) => { const a = DLINE[from], b = DLINE[to]; if (a == null || b == null || from === to || !a || !b) return false; if (a === b) return true; return a >= 2 && b >= 2 && Math.abs(a - b) === 1; };
+const LEARN_MAX = 2, LEARN_FAST = 3, LEARN_FAST_DAYS = 3;
+/* how fast he adapts: half a season (14 days) to a full season (28 days) */
+const learnDays = (gid) => 14 + hash('adapt:' + gid) % 15;
+const gidOf = (id, S) => { const p = player(id, S); return (p && p.gid) || String(id); };
+/* positions a player knows now: main + learned (+ the one in training once it is finished) */
+const knownPos = (club, id, S, now) => { const p = player(id, S), g = (p && p.gid) || String(id), out = [dpOf(p)], lp = (club && club.lp && club.lp[g]) || [];
+  for (const x of lp) if (DPOS.includes(x) && !out.includes(x)) out.push(x);
+  const t = club && club.trn; if (t && t.g === g && Number(t.end) <= (now == null ? Date.now() : now) && DPOS.includes(t.to) && !out.includes(t.to)) out.push(t.to);
+  return out; };
+/* learned positions of the top 18 for a team sheet / friendly ({id: [pos…]}, only players who learned something) */
+const learnedMap = (club, ids, S, now) => { const o = {}; for (const id of (ids || []).slice(0, 18)) { const k = knownPos(club, id, S, now); if (k.length > 1) o[id] = k.slice(1); } return o; };
+/* how well he plays in a spot: 1 = his own spot, a little less on the other side of the same line, a lot less far away */
+const posFit = (have, slot) => { if (!slot || have.includes(slot)) return 1; if (slot === 'GK' || have[0] === 'GK') return 0.45; let best = 0.72;
+  for (const h of have) { const a = DLINE[h], b = DLINE[slot]; const f = a === b ? 0.93 : Math.abs(a - b) === 1 ? (Math.min(a, b) >= 2 ? 0.86 : 0.8) : 0.72; if (f > best) best = f; } return best; };
+/* ✏️ rename: once per player (name + country). Letters only, no bad words, no famous footballers. */
+const COUNTRIES = 'AF AL DZ AD AO AG AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA BW BR BN BG BF BI CV KH CM CA CF TD CL CN CO KM CG CD CR CI HR CU CY CZ DK DJ DM DO EC EG SV GQ ER EE SZ ET FJ FI FR GA GM GE DE GH GR GD GT GN GW GY HT HN HU IS IN ID IR IQ IE IL IT JM JP JO KZ KE KI XK KW KG LA LV LB LS LR LY LI LT LU MG MW MY MV ML MT MH MR MU MX FM MD MC MN ME MA MZ MM NA NR NP NL NZ NI NE NG KP MK NO OM PK PW PS PA PG PY PE PH PL PT QA RO RU RW KN LC VC WS SM ST SA SN RS SC SL SG SK SI SB SO ZA KR SS ES LK SD SR SE CH SY TW TJ TZ TH TL TG TO TT TN TR TM TV UG UA AE GB US UY UZ VU VA VE VN YE ZM ZW HK PR CW FO GI EN SC2 WA NIR'.split(' ');
+/* bad words: whole words, plus a few that are never part of a real name anywhere inside */
+const BAD_W = 'fuck fuk fck shit sh1t bitch cunt dick cock pussy whore slut bastard asshole arsehole wank wanker twat nigger nigga faggot fag retard rape rapist nazi hitler porn penis vagina anus sex xxx kkk isis jihad terrorist pedo paedo molest boob boobs tits titty cum jizz dildo motherfucker mofo bollocks prick spastic tranny chink gook spic kike wetback coon paki crap piss'.split(' ');
+const BAD_IN = 'fuck cunt nigg fagg hitler whore porn bitch motherf rapist paedo pussy dildo jizz shit wank twat'.split(' '), BAD_ALL = 'fuck cunt nigg fagg hitler'.split(' ');
+/* unmistakable surnames block on their own; common ones only as a full name */
+const FAMOUS = 'messi ronaldo ronaldinho neymar mbappe haaland lewandowski modric debruyne vandijk pele maradona zidane beckham rooney ibrahimovic suarez griezmann pogba hazard bellingham rodrygo osimhen drogba okocha etoo kante kroos neuer buffon casillas iniesta puyol totti pirlo maldini baggio kaka rivaldo eusebio cruyff beckenbauer platini gerrard lampard cantona alisson courtois oblak donnarumma dibala lukaku foden rashford grealish odegaard kvaratskhelia hakimi mahrez aubameyang adebayor yamal mitoma heungmin'.split(' ').concat('mohamed salah|mo salah|harry kane|thierry henry|sadio mane|yaya toure|kolo toure|xavi hernandez|sergio ramos|gerard pique|toni kroos|thomas muller|manuel neuer|luka modric|kevin de bruyne|son heungmin|heung min son|gareth bale|frank lampard|john terry|paul scholes|ryan giggs|roberto carlos|luis figo|bukayo saka|declan rice|cole palmer|raheem sterling|jamie vardy|lautaro martinez|emiliano martinez|julian alvarez|fede valverde|federico valverde|alphonso davies|christian pulisic|takefusa kubo|michael essien|asamoah gyan|andre ayew|jordan ayew|thomas partey|mohammed kudus|tony yeboah|abedi pele|nwankwo kanu|george weah|samuel etoo|didier drogba|riyad mahrez|achraf hakimi|victor osimhen|rafael leao|lamine yamal|pedri gonzalez|vinicius junior|vini jr|gavi paez'.split('|'));
+const normName = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const nameProblem = (n) => { const raw = String(n || '').normalize('NFC').replace(/\s+/g, ' ').trim();
+  if (raw.length < 2 || raw.length > 24) return 'Use 2 to 24 letters';
+  if (!/^[\p{L}][\p{L}\p{M} .'\u2019\-]*$/u.test(raw)) return 'Use letters only (spaces, - . and ’ are fine)';
+  const flat = normName(raw).replace(/[^a-z]/g, ''), leet = normName(raw).replace(/0/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a').replace(/5/g, 's').replace(/[^a-z]/g, '');
+  const words = normName(raw).replace(/[^a-z ]/g, ' ').split(' ').filter(Boolean), lw = normName(raw).replace(/0/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a').replace(/5/g, 's').replace(/[^a-z ]/g, ' ').split(' ').filter(Boolean);
+  if (words.concat(lw).some(w => BAD_W.includes(w) || BAD_IN.some(b => w.includes(b))) || BAD_ALL.some(w => flat.includes(w) || leet.includes(w))) return 'Please choose a different name';
+  const sp = words.join(' ');
+  if (FAMOUS.some(f => f.includes(' ') ? (' ' + sp + ' ').includes(' ' + f + ' ') || flat === f.replace(/ /g, '') : words.includes(f.replace(/'/g, '')) || flat === f)) return 'Real footballers’ names can’t be used';
+  return ''; };
+const rnMap = (club, ids, S) => { const o = {}, R = (club && club.rn) || {}; for (const id of (ids || []).slice(0, 18)) { const g = gidOf(id, S), r = R[g]; if (r && r.n) o[g] = { n: String(r.n).slice(0, 24), c: String(r.c || '').slice(0, 4) }; } return o; };
+const cleanPName = (n) => String(n || '').normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, 24);
+
+return { rnMap, DPOS, DLINE, DPOS_NAME, dpOf, canLearn, LEARN_MAX, LEARN_FAST, LEARN_FAST_DAYS, learnDays, gidOf, knownPos, learnedMap, posFit, COUNTRIES, nameProblem, cleanPName, normName, FAMOUS, EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
 })();
 
 const { WORLD, hash, rng, pick, clamp } = W11C;
@@ -447,7 +493,14 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 try { const e = +localStorage.getItem('w11_ep'); if (e) W11C.setEpoch(e); } catch (e) {}
 W.C = W11C; W.S = W11C.clock(Date.now()).s;
 W.club = W11C.club;
-W.player = (id, S) => W11C.player(id, S || W.S);
+W.player = (id, S) => { const p = W11C.player(id, S || W.S), o = p && W.RNM[p.gid || p.id]; return o ? Object.assign({}, p, { name: o.n, short: W.shortOf(o.n), flag: W.flagOf(o.c) || p.flag, renamed: 1 }) : p; };
+/* G4c: renamed players (own club, team sheets, opponents) · flags from country codes */
+W.RNM = {};
+W.addRN = (rn) => { if (rn && typeof rn === 'object') for (const g in rn) if (rn[g] && rn[g].n) W.RNM[g] = rn[g]; return rn || {}; };
+W.shortOf = (n) => { const w = String(n || '').trim().split(/\s+/), l = w[w.length - 1] || ''; return l.length > 11 ? l.slice(0, 10) + '.' : l; };
+W.flagOf = (c) => { c = String(c || '').toUpperCase(); if (c === 'EN') return '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}'; if (c === 'SC2') return '\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}'; if (c === 'WA') return '\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}'; if (c === 'NIR') return '\u{1F1EC}\u{1F1E7}';
+  if (!/^[A-Z]{2}$/.test(c)) return ''; return String.fromCodePoint(...[...c].map(ch => 0x1F1E6 + ch.charCodeAt(0) - 65)); };
+W.lpOf = (club) => { try { return club && club.ids ? W11C.learnedMap(club, club.ids, W.S, W.nowS ? W.nowS() : Date.now()) : {}; } catch (e) { return {}; } };
 W.squadIds = W11C.squadIds;
 W.avg = (ids, S) => W11C.avg(ids, S || W.S);
 const hyp = (a, b) => Math.sqrt(a * a + b * b), sq = (a) => a * a;
@@ -455,15 +508,21 @@ const hyp = (a, b) => Math.sqrt(a * a + b * b), sq = (a) => a * a;
 // ---------- 📐 15 formations ----------
 W.FORMS = { '4-4-2': [4, 4, 2], '4-3-3': [4, 3, 3], '4-2-3-1': [4, 2, 3, 1], '4-1-4-1': [4, 1, 4, 1], '4-4-1-1': [4, 4, 1, 1], '4-3-2-1': [4, 3, 2, 1], '4-5-1': [4, 5, 1], '4-1-2-1-2': [4, 1, 2, 1, 2], '4-2-4': [4, 2, 4], '3-5-2': [3, 5, 2], '3-4-3': [3, 4, 3], '3-4-2-1': [3, 4, 2, 1], '3-3-3-1': [3, 3, 3, 1], '5-3-2': [5, 3, 2], '5-4-1': [5, 4, 1] };
 W.shape = function (form) {
-  const L = W.FORMS[form] || W.FORMS['4-4-2'], out = [{ x: 4, y: 34, role: 'GK' }], n = L.length, x0 = 17, x1 = n >= 4 ? 47 : 44;
-  L.forEach((k, li) => { const x = n === 1 ? 30 : x0 + (x1 - x0) * li / (n - 1); for (let i = 0; i < k; i++) out.push({ x, y: 8 + 52 * (i + 1) / (k + 1), role: li === 0 ? 'DEF' : li === n - 1 ? 'FWD' : 'MID' }); });
+  const L = W.FORMS[form] || W.FORMS['4-4-2'], out = [{ x: 4, y: 34, role: 'GK', dp: 'GK' }], n = L.length, x0 = 17, x1 = n >= 4 ? 47 : 44;
+  L.forEach((k, li) => { const x = n === 1 ? 30 : x0 + (x1 - x0) * li / (n - 1), role = li === 0 ? 'DEF' : li === n - 1 ? 'FWD' : 'MID';
+    /* G4c: the exact spot of every slot (DL DC DR · ML MC MR · AML AMC AMR · ST) */
+    const am = role === 'MID' && n >= 4 && li === n - 2;
+    for (let i = 0; i < k; i++) { const y = 8 + 52 * (i + 1) / (k + 1), side = y < 34 - 12 ? 'L' : y > 34 + 12 ? 'R' : 'C';
+      const dp = role === 'DEF' ? (k <= 3 || side === 'C' ? 'DC' : 'D' + side) : role === 'FWD' ? (k >= 3 && side !== 'C' ? 'AM' + side : 'ST') : am ? (k >= 3 && side !== 'C' ? 'AM' + side : 'AMC') : (k <= 3 || side === 'C' ? 'MC' : 'M' + side);
+      out.push({ x, y, role, dp }); } });
+  out[0].dp = 'GK';
   return out;
 };
 
 // ---------- ⚙️ match engine v2 (G5: full rules, set pieces, player styles; fixed 20 steps per second, same seed = same match) ----------
 const DT = 0.05, HALF = 105, BREAK = 30, LEN = HALF * 2, TOTAL = HALF * 2 + BREAK;
 W.TIMING = { HALF, BREAK, LEN, TOTAL };
-W.ENGINE = 2;
+W.ENGINE = 3;
 const BOX_X = 16.5, BOX_Y = 20.16;
 /* 🎯 every player's style comes from his id and stats (the same on every phone, never stored) */
 W.STYLE_NAME = { screamer: '💥 Long-range screamer', poacher: '🦊 Box poacher', curler: '🌀 Finesse curler', dribbler: '⚡ Dribbler-finisher', short: '🔁 Short passer', long: '🎯 Long passer', tempo: '🎼 Tempo controller', burst: '🚀 Explosive starter', engine: '🔋 Top-speed engine', steady: '🏃 Steady runner', power: 'power', curl: 'curl', knuckle: 'knuckle', place: 'placed', stutter: 'stutter run-up', chip: 'chip' };
@@ -479,12 +538,24 @@ W.styleOf = function (p) {
   try { Object.defineProperty(p, '_st', { value: st, enumerable: false }); } catch (e) {}
   return st;
 };
+/* G4c: how well a player fits a spot (1 = his own or a learned spot) */
+W.fitOf = function (p, slot, lp) { const have = [W11C.dpOf(p)].concat((lp && lp[p.id]) || []); return W11C.posFit(have, slot); };
+/* best order of the 11 starters for a formation (keeper stays first); used by computer clubs and the "Best fit" button */
+W.bestFit = function (ids, form, S, lp) {
+  const sh = W.shape(form), xi = ids.slice(0, 11), P = xi.map(id => W.player(id, S)), out = xi.slice(), used = new Set([0]);
+  const gk = P.findIndex(p => p && p.pos === 'GK'); if (gk > 0) { out[0] = xi[gk]; used.clear(); used.add(gk); } else used.add(0);
+  const order = sh.map((s, i) => i).slice(1).sort((a, b) => (sh[a].dp === 'ST' ? 0 : 1) - (sh[b].dp === 'ST' ? 0 : 1));
+  for (const si of order) { let best = -1, bs = -1; for (let j = 0; j < 11; j++) { if (used.has(j)) continue; const sc = W.fitOf(P[j], sh[si].dp, lp) * 100 + (P[j].ovr || 0) * 0.01; if (sc > bs) { bs = sc; best = j; } } if (best >= 0) { used.add(best); out[si] = xi[best]; } }
+  return out.concat(ids.slice(11));
+};
 function Team(side, info) {
   this.side = side; this.name = info.name; this.short = info.short; this.color = info.color; this.gkColor = info.gkColor;
   this.form = info.form || '4-4-2'; this.ids = info.ids.slice(0, 18); this.subsLeft = 5; this.mods = { attack: 0, tight: 0, press: 0, calm: 0 };
   this.score = 0; this.shots = 0; this.onT = 0; this.passes = 0; this.poss = 0; this.cards = 0; this.corners = 0; this.offs = 0; this.fouls = 0;
   /* G2: fitness (0–100 per player), training points, who can't play, manager present or not · G5: set-piece takers */
   this.ai = info.ai; this.cond = info.cond || {}; this.tr = info.tr || {}; this.out = new Set(info.out || []); this.tk = info.tk || {};
+  /* G4c: learned positions ({id: [pos]}); computer clubs line up their starters in their best spots */
+  this.lp = info.lp || {}; if (info.auto) this.ids = W.bestFit(this.ids, this.form, info.S || W.S, this.lp);
   this.off = new Set(); this.used = new Set(); this.subLog = []; this.cardLog = [];
 }
 function Match(home, away, seed) {
@@ -505,8 +576,9 @@ Match.prototype.layTeam = function (t) {
   t.ids.slice(0, 11).forEach((id, i) => {
     if (t.off.has(id)) return;
     const p0 = W.player(id, this.S), c = t.cond[id] == null ? 100 : clamp(Number(t.cond[id]) || 0, 0, 100), k = 0.8 + 0.2 * c / 100;
-    const pl = { ...p0, pac: (p0.pac + 0.4 * ft) * k, sho: (p0.sho + 0.4 * at) * k, dri: (p0.dri + 0.4 * at) * k, pas: p0.pas * k, def: (p0.def + 0.4 * df) * k, gk: (p0.gk + (p0.pos === 'GK' ? 0.4 * df : 0)) * k, cond: c };
-    const s = sh[i] || sh[sh.length - 1], prev = old.find(o => o.id === id), st = W.styleOf(p0);
+    const s = sh[i] || sh[sh.length - 1], f = W.fitOf(p0, i === 0 ? 'GK' : s.dp, t.lp), kf = k * f;
+    const pl = { ...p0, pac: (p0.pac + 0.4 * ft) * kf, sho: (p0.sho + 0.4 * at) * kf, dri: (p0.dri + 0.4 * at) * kf, pas: p0.pas * kf, def: (p0.def + 0.4 * df) * kf, gk: (p0.gk + (p0.pos === 'GK' ? 0.4 * df : 0)) * kf, cond: c, fit: f };
+    const prev = old.find(o => o.id === id), st = W.styleOf(p0);
     const bx = t.side === 0 ? s.x : 105 - s.x;
     this.P.push({ ...pl, st, side: t.side, role: i === 0 ? 'GK' : s.role, bx, by: t.side === 0 ? s.y : 68 - s.y, x: prev ? prev.x : bx, y: prev ? prev.y : (t.side === 0 ? s.y : 68 - s.y), px: 0, py: 0, vx: prev ? prev.vx : 0, vy: prev ? prev.vy : 0, cd: 0, ycard: prev ? prev.ycard : 0, ofs: -0.8, ofT: 0 });
   });
@@ -895,7 +967,7 @@ async function fbLoad() {
 W.load = async function () {
   const f = await fbLoad(); const uid = window.uidNow && window.uidNow(); if (!uid) return null;
   try { const s = await f.getDoc(f.doc(db(), 'w11Clubs', uid)); W.me = s.exists() ? s.data() : null; } catch (e) { W.me = W.me || null; }
-  return W.me;
+  if (W.me) W.addRN(W.me.rn); return W.me;
 };
 W.save = async function (patch) {
   const f = await fbLoad(); Object.assign(W.me, patch);
@@ -1063,7 +1135,8 @@ W.squad = function (sel) {
   const day = W11C.absDay(Date.now()), inLg = !!(me.lg && me.lg.s === W.S);
   const st = (id) => { if (!inLg) return ''; const c = W11C.condNow(me, id, day), inj = (me.inj || {})[id] || 0, ban = (me.ban || {})[id] || 0, yc = (me.yc || {})[id] || 0;
     return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:900">${inj ? `<button onclick="event.stopPropagation();W11.med('${id}')" style="padding:2px 6px;border-radius:8px;background:rgba(255,45,149,.2)">🤕 ${inj}</button>` : ''}${ban ? `<span title="banned">🚫${ban}</span>` : ''}${yc ? `<span>🟨${yc}</span>` : ''}<span style="width:34px;height:6px;border-radius:9px;background:rgba(255,255,255,.1);overflow:hidden;display:inline-block"><i style="display:block;height:100%;width:${c}%;background:${c >= 75 ? '#22d3ee' : c >= 50 ? '#facc15' : '#ff2d95'}"></i></span>${c}</span>`; };
-  const row = (p, i) => `<div class="row ${sel === i ? 'sel' : ''}" onclick="W11.swap(${i})"><span class="pos">${i < 11 ? W.shape(me.form)[i].role : 'SUB'}</span><span class="ovr" style="${p.legend ? 'background:linear-gradient(135deg,#facc15,#ff2d95,#a855f7);color:#fff' : 'background:' + ovrColor(p.ovr)}">${p.ovr}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.legend ? '👑 ' : p.wk && p.age <= 21 ? '🌟 ' : ''}${p.flag} <b>${esc(p.name)}</b> <span style="color:#94a3b8">· ${p.pos} · ${p.age}y</span></span>${st(p.id) || `<span style="font-size:10px;color:#94a3b8">#${p.num}</span>`}</div>`;
+  const SH = W.shape(me.form), LP = W.lpOf(me), fitC = (f) => f >= 1 ? '#22d3ee' : f >= 0.9 ? '#facc15' : '#ff2d95';
+  const row = (p, i) => { const f = i < 11 ? W.fitOf(p, SH[i].dp, LP) : 1; return `<div class="row ${sel === i ? 'sel' : ''}" onclick="W11.swap(${i})"><span class="pos" style="${i < 11 ? 'color:' + fitC(f) : ''}" title="${i < 11 ? 'Spot ' + SH[i].dp + (f < 1 ? ' · plays at ' + Math.round(f * 100) + '%' : '') : ''}">${i < 11 ? SH[i].dp : 'SUB'}</span><span class="ovr" style="${p.legend ? 'background:linear-gradient(135deg,#facc15,#ff2d95,#a855f7);color:#fff' : 'background:' + ovrColor(p.ovr)}">${p.ovr}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.legend ? '👑 ' : p.wk && p.age <= 21 ? '🌟 ' : ''}${p.flag} <b>${esc(p.name)}</b> <span style="color:#94a3b8">· ${[W11C.dpOf(p)].concat(LP[p.id] || []).join('/')} · ${p.age}y</span></span>${st(p.id) || `<span style="font-size:10px;color:#94a3b8">#${p.num}</span>`}<button onclick="event.stopPropagation();W11.pMenu('${p.id}')" style="margin-left:6px;padding:4px 9px;border-radius:9px;background:rgba(255,255,255,.08);font-weight:900" title="Player options">⋯</button></div>`; };
   W.ui(`<div class="card"><p style="font-weight:900">📐 Formation</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${Object.keys(W.FORMS).map(f => `<button onclick="W11.setForm('${f}')" style="padding:7px 10px;border-radius:10px;font-size:11px;font-weight:900;${f === me.form ? 'background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24' : 'background:rgba(255,255,255,.06)'}">${f}</button>`).join('')}</div></div>
     <div class="card">${inLg ? `<p style="font-size:11px;color:#94a3b8;margin-bottom:6px">Bars = fitness. 🤕 injured (tap to use a 🩹 Med-Pack) · 🚫 banned · 🟨 yellows (5 = ban). Your team sheet locks 15 minutes before kick-off; injured or banned starters are swapped for the best bench player.</p>` : ''}<p style="font-weight:900">Starting XI <span style="font-size:10px;color:#94a3b8;font-weight:700">· tap a player, then another to swap</span></p>${P.slice(0, 11).map(row).join('')}<p style="font-weight:900;margin-top:10px">Bench</p>${P.slice(11, 18).map((p, k) => row(p, k + 11)).join('')}${P.length > 18 ? `<p style="font-weight:900;margin-top:10px">Reserves <span style="font-size:10px;color:#94a3b8;font-weight:700">· can't play in matches. Swap them into the top 18 to use them.</span></p>${P.slice(18).map((p, k) => row(p, k + 18)).join('')}` : ''}<p style="font-size:11px;color:#94a3b8;margin-top:10px">Squad: ${P.length}/25 players</p><button class="btn2" style="margin-top:8px" onclick="W11.releaseMenu()">🗑️ Release a player</button></div>`, '👕 Squad', 'W11.home()');
 };
@@ -1090,7 +1163,7 @@ W.challenge = async function () {
 };
 
 // ---------- 🏟️ match flow ----------
-W.teamInfo = (src, side, color) => ({ name: src.name, short: src.short || W.club(src.club != null ? src.club : src.idx).short, color: color || (side === 0 ? '#22d3ee' : '#ff2d95'), gkColor: side === 0 ? '#facc15' : '#a3e635', form: src.form || '4-4-2', ids: src.ids, tk: src.tk || {} });
+W.teamInfo = (src, side, color) => ({ name: src.name, short: src.short || W.club(src.club != null ? src.club : src.idx).short, color: color || (side === 0 ? '#22d3ee' : '#ff2d95'), gkColor: side === 0 ? '#facc15' : '#a3e635', form: src.form || '4-4-2', ids: src.ids, tk: src.tk || {}, lp: W.lpOf(src), auto: !src.uid, rn: W.addRN(src.rn) });
 W.prematch = function (kind, opp) {
   const me = W.me; let o;
   if (kind === 'boot') { const n = W.bootNext(); if (!n || !n.ready) return W.home(); const c = W.club([700, 650, 500, 330, 260][n.i] + (me.club % 50)); o = { name: c.name, short: c.short, club: c.idx, ids: W.squadIds(c.idx), form: ['4-4-2', '4-3-3', '4-2-3-1', '4-4-2', '4-3-3'][n.i] }; }
@@ -1346,7 +1419,7 @@ W.cmdsFrom = function (live, raw) {
   }
   return out.sort((a, b) => a.tick - b.tick || (a.k < b.k ? -1 : 1));
 };
-W.teamL = (sh, side, color, S) => ({ name: sh.n, short: sh.sh, color, gkColor: side ? '#a3e635' : '#facc15', form: sh.form, ids: sh.ids, cond: sh.aiCond ? Object.fromEntries(sh.ids.map(i => [i, sh.aiCond])) : (sh.cond || {}), tr: sh.tr || {}, out: (sh.bo || []).concat(sh.io || []), tk: sh.tk || {}, S, league: true });
+W.teamL = (sh, side, color, S) => ({ name: sh.n, short: sh.sh, color, gkColor: side ? '#a3e635' : '#facc15', form: sh.form, ids: sh.ids, cond: sh.aiCond ? Object.fromEntries(sh.ids.map(i => [i, sh.aiCond])) : (sh.cond || {}), tr: sh.tr || {}, out: (sh.bo || []).concat(sh.io || []), tk: sh.tk || {}, lp: sh.lp || {}, auto: !!sh.aiCond, rn: W.addRN(sh.rn), S, league: true });
 W.liveFrom = function (mid, M) {
   const kits = (sh, ci) => sh.kits && sh.kits.length ? sh.kits.map(c => ({ c1: c })) : W.aiKits(ci);
   const [hc, ac] = W.pickKits(kits(M.s0, M.h), kits(M.s1, M.a));
@@ -2306,14 +2379,14 @@ G3.stop = function (view) {
   if (!view || G3.view === view) { const v = G3.view; G3.view = null; if (v && v.end) v.end(); if (G3.B3) G3.B3.stop(); }
 };
 ['team', 'freeTeam', 'fig', 'ball', 'world', 'drawWorld', 'particles', 'trophy', 'floor'].forEach(k => { G3[k] = function () { return (G3.be === 'b3' && G3.B3 ? G3.B3 : G3OLD)[k].apply(this, arguments); }; });
-W.W3D_V = 2;
+W.W3D_V = 3;
 W.w3d = { st: 0 };
 W.w3dLoad = function () {
   if (W.w3d.st || !G3.ok() || typeof window === 'undefined') return;
   try { if (localStorage.getItem('w11_3dq') === 'lite') return; const c = document.createElement('canvas'); if (!c.getContext('webgl2')) return; } catch (e) { return; }
   if (navigator.deviceMemory && navigator.deviceMemory < 2) return;
   W.w3d.st = 1; const base = new URL('./', document.baseURI).href;
-  import(base + 'w3d.js?v=' + W.W3D_V).then(() => window.W3D.load({ G3, base, v: W.W3D_V, weak: W.weak, hash, hx, kitN: W.kitN, crestSvg: W.crestSvg, numOf: (id) => { const p = W.player(id, W.S); return p ? p.num : null; } }))
+  import(base + 'w3d.js?v=' + W.W3D_V).then(() => window.W3D.load({ G3, base, v: W.W3D_V, weak: W.weak, tier: W.dev && W.dev.tier, hash, hx, kitN: W.kitN, crestSvg: W.crestSvg, numOf: (id) => { const p = W.player(id, W.S); return p ? p.num : null; }, nameOf: (id) => { const p = W.player(id, W.S); return p ? p.short.replace(/\.$/, '') : ''; }, lookOf: (id) => { const p = W11C.player(id, W.S); return p ? { cult: p.cult } : null; } }))
     .then(B => { G3.B3 = B; W.w3d.st = 2; }).catch(e => { W.w3d.st = -1; console.warn('3D load', e); });
 };
 
@@ -2541,5 +2614,92 @@ W.helpL = (function (b) { return function () { b.apply(this, arguments); const e
   W.isOwner().then(ok => { if (ok && document.getElementById('w11b')) document.getElementById('w11b').insertAdjacentHTML('beforeend', `<div class="card"><p style="font-weight:900">🛠️ Owner</p><button class="btn2" style="margin-top:8px" onclick="W11.freshSeason()">🔄 Start a fresh Season 1 (new engine)</button></div>`); }); }; })(W.helpL);
 /* Boot Camp is optional now: it never blocks friendlies; league and cup locks still apply */
 W.lockdown = function () { return W.leagueLock ? W.leagueLock() : null; };
+
+// =====================================================================
+// 🧬 G4c · looks, positions, renames, device profiling (build.sh pastes this file into w11.js at the G4c marker).
+// =====================================================================
+
+/* ---------- ⚙️ device check: graphics chip, CPU cores, memory + a short speed test → quality tier ---------- */
+W.dev = (function () {
+  const d = { cores: 0, mem: 0, gpu: '', bench: 0, tier: 'mid', auto: 'mid', pick: 'auto' };
+  try { d.cores = navigator.hardwareConcurrency || 0; d.mem = navigator.deviceMemory || 0; } catch (e) {}
+  try { const c = document.createElement('canvas'), gl = c.getContext('webgl2') || c.getContext('webgl'); if (gl) { const x = gl.getExtension('WEBGL_debug_renderer_info'); d.gpu = String(x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER) || ''); const lc = gl.getExtension('WEBGL_lose_context'); if (lc) lc.loseContext(); } } catch (e) {}
+  /* a quick speed test (~120 ms of maths): phones that hide their chip or memory are judged by this */
+  try { const t0 = performance.now(); let n = 0, a = 1.0001; while (performance.now() - t0 < 120) { for (let i = 0; i < 20000; i++) a = Math.sqrt(a * 1.0001 + i) * 0.5 + 1; n++; } d.bench = n; d._a = a; } catch (e) {}
+  const g = d.gpu.toLowerCase();
+  const gHigh = /adreno[^0-9]*(7[3-9]\d|8\d\d)|mali-g(7[1-9]|[89]\d|\d{3})|immortalis|xclipse|apple (m\d|a1[5-9])|geforce|radeon (rx|pro)|nvidia/.test(g);
+  const gLow = /adreno[^0-9]*([2-5]\d\d|6[0-1]\d)|mali-(4|t|g[0-5]\d\b)|powervr|swiftshader|llvmpipe|softpipe|intel\(r\) hd graphics [2-5]/.test(g);
+  let score = 0;
+  score += d.cores >= 8 ? 2 : d.cores >= 6 ? 1 : d.cores && d.cores <= 4 ? -2 : 0;
+  score += d.mem >= 6 ? 2 : d.mem >= 4 ? 1 : d.mem && d.mem <= 2 ? -3 : d.mem && d.mem <= 3 ? -1 : 0;
+  score += gHigh ? 2 : gLow ? -3 : 0;
+  score += d.bench >= 40 ? 2 : d.bench >= 22 ? 1 : d.bench && d.bench < 10 ? -2 : 0;
+  d.auto = score >= 5 ? 'high' : score >= 0 ? 'mid' : 'low';
+  try { d.pick = localStorage.getItem('w11_gfx') || 'auto'; } catch (e) {}
+  d.tier = ['high', 'mid', 'low'].includes(d.pick) ? d.pick : d.auto;
+  return d;
+})();
+/* the cheapest phones keep the 2D radar by default and draw at 30 fps; everything else stays the same for everyone */
+W.weak = W.dev.tier === 'low';
+W.gfxName = { auto: '🤖 Auto', high: '🔥 High', mid: '⚖️ Mid', low: '🔋 Low' };
+W.gfxSet = function (k) { try { localStorage.setItem('w11_gfx', k); } catch (e) {} toast(`${W.gfxName[k]} graphics. Close and reopen 11 Wonders to use it.`); W.hq && W.hq(); };
+W.gfxCard = () => `<div class="card" id="w11gfx"><p style="font-weight:900">⚙️ Graphics</p><p style="font-size:11px;color:#94a3b8;margin:4px 0 8px">Auto checks your phone (chip, memory, a quick speed test) and keeps adjusting while you play. Matches, rules, kits and players are the same on every setting; only background detail changes (crowd, shadows, sharpness). This phone: <b>${W.gfxName[W.dev.auto]}</b>.</p><div style="display:flex;gap:6px;flex-wrap:wrap">${['auto', 'high', 'mid', 'low'].map(k => `<button onclick="W11.gfxSet('${k}')" style="flex:1;padding:8px;border-radius:10px;font-size:12px;font-weight:900;${W.dev.pick === k || (k === 'auto' && !['high', 'mid', 'low'].includes(W.dev.pick)) ? 'background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24' : 'background:rgba(255,255,255,.06)'}">${W.gfxName[k]}</button>`).join('')}</div></div>`;
+W.hq = (function (b) { return function () { const r = b.apply(this, arguments); try { const bd = document.querySelector('#w11b'); if (bd && !document.getElementById('w11gfx')) bd.insertAdjacentHTML('beforeend', W.gfxCard()); } catch (e) {} return r; }; })(W.hq);
+
+/* ---------- 😤 reactions in 3D: near-miss disbelief, keeper shouting, fierce duels, despair ---------- */
+W.liveOpts = (function (b) { return function (m) { const f0 = b(m), hsh = (s) => hash(String(s)), R = {};
+  for (let i = m.ev.length - 1; i >= 0 && i > m.ev.length - 16; i--) { const e = m.ev[i]; if (e.tick == null || m.tick - e.tick > 60) break;
+    if (e.k === 'miss' && e.near) { R['h' + e.side] = R['h' + e.side] || e; R['y' + (1 - e.side)] = R['y' + (1 - e.side)] || e; }
+    if (e.k === 'goal') R['y' + (1 - e.side)] = R['y' + (1 - e.side)] || e;
+    if ((e.k === 'tackle' || e.k === 'duel' || e.k === 'foul') && e.pid != null && m.tick - e.tick < 24) R['f' + e.pid] = 1; }
+  return (p) => { const o = f0(p); if (o && (o.kick || o.dive || o.throwIn != null || o.catch || o.slide || o.header || o.arms)) return o;
+    const t = m.tick;
+    if (R['f' + p.id]) return Object.assign({}, o || {}, { fierce: 1 });
+    const hm = R['h' + p.side]; if (hm && p.role !== 'GK' && (p.id === hm.pid || hsh(p.id + ':nm') % 3 === 0)) return Object.assign({}, o || {}, { hands: Math.min(1, (t - hm.tick) / 10) });
+    const ye = R['y' + p.side]; if (ye && (p.role === 'GK' && hsh(p.id + ':' + ye.tick) % 3 !== 0 || p.id === (W._capOf && W._capOf(p.side)))) return Object.assign({}, o || {}, { yell: 1 });
+    return o; }; }; })(W.liveOpts);
+
+/* ---------- 🧩 Squad: best fit + player menu (positions, training, rename) ---------- */
+W.bestFitGo = async function () { const me = W.me, ids = W.bestFit(me.ids, me.form, W.S, W.lpOf(me)); if (ids.join() === me.ids.join()) return toast('✅ Everyone is already in his best spot'); await W.save({ ids, ovr: W.avg(ids) }); toast('🧩 Starters moved to their best spots'); W.squad(); };
+W.squad = (function (b) { return function () { const r = b.apply(this, arguments); try { const cards = document.querySelectorAll('#w11b .card'); const xi = [...cards].find(c => /Starting XI/.test(c.innerText));
+  if (xi && !document.getElementById('w11bf')) xi.insertAdjacentHTML('afterbegin', `<div id="w11bf" style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><button class="btn2" style="flex:1;padding:9px" onclick="W11.bestFitGo()">🧩 Best fit</button><span style="flex:2;font-size:10px;color:#94a3b8">Spot colour: <b style="color:#22d3ee">own spot</b> · <b style="color:#facc15">a bit weaker</b> · <b style="color:#ff2d95">much weaker</b>. Tap ⋯ to train a new position or rename.</span></div>`); } catch (e) {} return r; }; })(W.squad);
+W.trnLeft = (t) => { const ms = Math.max(0, Number(t.end) - W.nowS()), d = Math.floor(ms / 86400000), h = Math.ceil((ms % 86400000) / 3600000); return d ? `${d} day${d > 1 ? 's' : ''} ${h} h` : `${h} h`; };
+W.pMenu = function (id) {
+  const me = W.me, p = W.player(id), main = W11C.dpOf(p), known = W11C.knownPos(me, id, W.S, W.nowS()), extra = known.slice(1), t = me.trn && Number(me.trn.end) > W.nowS() ? me.trn : null, mine = t && t.id === id;
+  const can = W11C.DPOS.filter(x => W11C.canLearn(main, x) && !known.includes(x)), full = extra.length >= W11C.LEARN_MAX, g = W11C.gidOf(id, W.S), renamed = !!(me.rn && me.rn[g]);
+  const chip = (x, on) => `<span style="display:inline-block;padding:4px 9px;margin:2px;border-radius:9px;font-size:11px;font-weight:900;background:${on ? 'linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24' : 'rgba(255,255,255,.08)'}" title="${W11C.DPOS_NAME[x]}">${x}</span>`;
+  const days = W11C.learnDays(g);
+  let train = '';
+  if (mine) train = `<p style="font-size:12px;margin-top:6px">📚 Learning <b>${t.to}</b> · ready in <b>${W.trnLeft(t)}</b></p>${Number(t.end) - W.nowS() > W11C.LEARN_FAST_DAYS * 86400000 ? `<button class="btn" style="margin-top:8px" onclick="W11.learnFast()">⚡ Finish in ${W11C.LEARN_FAST_DAYS} days · ${W11C.LEARN_FAST} 🪙</button>` : ''}<button class="btn2" style="margin-top:6px" onclick="W11.learnCancel()">Stop training</button>`;
+  else if (p.pos === 'GK') train = `<p style="font-size:11px;color:#94a3b8;margin-top:6px">Goalkeepers stay in goal.</p>`;
+  else if (full) train = `<p style="font-size:11px;color:#94a3b8;margin-top:6px">He already knows ${W11C.LEARN_MAX} extra positions (the most).</p>`;
+  else if (t) train = `<p style="font-size:11px;color:#94a3b8;margin-top:6px">${esc(W.player(t.id).name)} is training now (one player at a time). Ready in ${W.trnLeft(t)}.</p>`;
+  else if (!can.length) train = `<p style="font-size:11px;color:#94a3b8;margin-top:6px">No nearby position left to learn.</p>`;
+  else train = `<p style="font-size:11px;color:#94a3b8;margin-top:6px">Free training takes about <b>${days} days</b> for him (some players learn faster than others). You can finish it in ${W11C.LEARN_FAST_DAYS} days for ${W11C.LEARN_FAST} 🪙 GG Coins.</p><div style="margin-top:6px">${can.map(x => `<button onclick="W11.learn('${id}','${x}')" style="padding:7px 11px;margin:3px;border-radius:10px;font-weight:900;background:rgba(34,211,238,.15)" title="${W11C.DPOS_NAME[x]}">📚 ${x}</button>`).join('')}</div>`;
+  let ov = document.getElementById('w11pm'); if (!ov) { ov = document.createElement('div'); ov.id = 'w11pm'; (document.getElementById('w11') || document.body).appendChild(ov); }
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(5,7,18,.94);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:max(14px,env(safe-area-inset-top)) 14px 24px';
+  ov.innerHTML = `<div class="card" style="max-width:560px;margin:0 auto;text-align:left"><p style="font-weight:900;font-size:15px">${p.flag} ${esc(p.name)} <span style="color:#94a3b8;font-size:12px">· ${p.ovr} · ${p.age}y · #${p.num}</span></p>
+    <p style="font-size:12px;margin-top:8px;font-weight:900">Positions</p><div>${known.map((x, i) => chip(x, i === 0)).join('')}</div><p style="font-size:10px;color:#94a3b8">${W11C.DPOS_NAME[main]} is his own spot. He can learn up to ${W11C.LEARN_MAX} nearby spots, one at a time. Never to a far line (a winger can't become a defender).</p>
+    ${train}
+    <p style="font-size:12px;margin-top:12px;font-weight:900">✏️ Name & country</p>${renamed ? `<p style="font-size:11px;color:#94a3b8">Already renamed (once per player).</p>` : `<p style="font-size:11px;color:#94a3b8">You can change his name and country once. Real footballers' names can't be used.</p><input id="w11rnN" maxlength="24" value="${esc(p.name)}" style="width:100%;margin-top:6px;padding:10px;border-radius:10px;background:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.15)"><select id="w11rnC" style="width:100%;margin-top:6px;padding:10px;border-radius:10px;background:#0f172a;color:#fff">${W.countryOpts(W.cultCountry[p.cult])}</select><button class="btn" style="margin-top:8px" onclick="W11.renameGo('${id}')">Save name (once)</button>`}
+    <button class="btn2" style="margin-top:12px" onclick="W11.ovClose()">Close</button></div>`;
+};
+W.ovClose = () => { const o = document.getElementById('w11pm'); if (o) o.remove(); };
+W.cultCountry = { gh: 'GH', ng: 'NG', ea: 'KE', za: 'ZA', fr: 'FR', ar: 'MA', cn: 'CN', jp: 'JP', kr: 'KR', in: 'IN', en: 'EN', es: 'ES', pt: 'BR', it: 'IT', de: 'DE', nl: 'NL', ee: 'PL', la: 'MX', ca: 'JM', tr: 'TR' };
+W.countryOpts = function (sel) { let dn = null; try { dn = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (e) {}
+  const special = { EN: 'England', SC2: 'Scotland', WA: 'Wales', NIR: 'Northern Ireland', XK: 'Kosovo' };
+  return W11C.COUNTRIES.map(c => [c, special[c] || (dn ? (() => { try { return dn.of(c); } catch (e) { return c; } })() : c)]).sort((a, b) => a[1].localeCompare(b[1])).map(([c, n]) => `<option value="${c}"${c === sel ? ' selected' : ''}>${W.flagOf(c)} ${esc(n)}</option>`).join(''); };
+W.learnApply = function (r) { if (!r || !r.ok) { toast('⚠️ ' + ((r && r.error) || 'Try again')); return false; } if (r.lp) W.me.lp = r.lp; if ('trn' in r) W.me.trn = r.trn; if (r.gems != null) W.me.gems = r.gems; W.chips && W.chips(); return true; };
+W.learn = async function (id, pos) { if (!confirm(`Start training ${W.player(id).name} as ${W11C.DPOS_NAME[pos]} (${pos})? It's free and takes about ${W11C.learnDays(W11C.gidOf(id, W.S))} days.`)) return; if (W.learnApply(await W.api('/w11/learn', { id, pos }))) { toast('📚 Training started'); W.ovClose(); W.squad(); } };
+W.learnFast = async function () { if ((W.me.gems || 0) < W11C.LEARN_FAST) return toast(`⚠️ You need ${W11C.LEARN_FAST} 🪙 GG Coins`); if (!confirm(`Use ${W11C.LEARN_FAST} 🪙 GG Coins to finish the training in ${W11C.LEARN_FAST_DAYS} days?`)) return; if (W.learnApply(await W.api('/w11/learn', { fast: 1 }))) { toast(`⚡ Ready in ${W11C.LEARN_FAST_DAYS} days`); W.ovClose(); W.squad(); } };
+W.learnCancel = async function () { if (!confirm('Stop this training? The days already done are lost.')) return; if (W.learnApply(await W.api('/w11/learn', { cancel: 1 }))) { W.ovClose(); W.squad(); } };
+W.renameGo = async function (id) {
+  const n = W11C.cleanPName(document.getElementById('w11rnN').value), c = document.getElementById('w11rnC').value, bad = W11C.nameProblem(n); if (bad) return toast('⚠️ ' + bad);
+  if (!confirm(`Rename to "${n}" ${W.flagOf(c)}? You can only do this once for this player.`)) return;
+  const r = await W.api('/w11/rename', { id, n, c }); if (!r || !r.ok) return toast('⚠️ ' + ((r && r.error) || 'Try again'));
+  W.me.rn = r.rn; W.addRN(r.rn); toast('✏️ Saved'); W.ovClose(); W.squad();
+};
+/* help */
+W.helpL = (function (b) { return function () { b.apply(this, arguments); const el = document.querySelector('#w11b .card'); if (el) el.insertAdjacentHTML('beforeend', `<p style="margin-top:6px">🧩 <b>Positions</b>: every player has his own spot (DL DC DR · ML MC MR · AML AMC AMR · ST). Out of his spot he plays weaker. He can learn 2 nearby spots (free, half to a full season; or ${W11C.LEARN_FAST} 🪙 to finish in ${W11C.LEARN_FAST_DAYS} days). "🧩 Best fit" puts your starters in their best spots.</p>`); }; })(W.helpL);
 
 })();
