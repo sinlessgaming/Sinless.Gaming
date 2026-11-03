@@ -67,7 +67,10 @@ const attrs = (r, pos, ovr) => {
     : pos === 'MID' ? { pac: a(0), sho: a(-4), pas: a(6), dri: a(4), def: a(-6), gk: 20 }
     : { pac: a(5), sho: a(7), pas: a(-3), dri: a(4), def: a(-22), gk: 20 };
 };
-const named = (r) => { const cult = pickCult(r), C = CULT[cult], first = pick(r, C[1].split(' ')), last = pick(r, C[2].split(' ')); return { cult, flag: C[0], name: first + ' ' + last, short: last.length > 11 ? last.slice(0, 10) + '.' : last }; };
+/* G8 legal check: a random first + last name must never spell a real footballer (found by the name audit: tests/g8_names.mjs).
+   Same random numbers are used, so every other player stays exactly the same; a clash just takes the next surname. */
+const REAL_NAMES = new Set(['kyle walker', 'thiago silva']);
+const named = (r) => { const cult = pickCult(r), C = CULT[cult], L = C[2].split(' '), first = pick(r, C[1].split(' ')); let li = Math.floor(r() * L.length); if (REAL_NAMES.has((first + ' ' + L[li]).toLowerCase())) li = (li + 1) % L.length; const last = L[li]; return { cult, flag: C[0], name: first + ' ' + last, short: last.length > 11 ? last.slice(0, 10) + '.' : last }; };
 /* the original G1 player (season 1) — must never change */
 const base = function (id) {
   const [ci, slot] = String(id).split('-').map(Number), c = club(ci), r = rng(hash(WORLD + ':p:' + id));
@@ -200,7 +203,7 @@ const squadIds = (ci) => POS_TEMPLATE.map((_, s) => ci + '-' + s);
 const avg = (ids, S) => Math.round(ids.slice(0, 11).map(id => player(id, S)).reduce((s, p) => s + p.ovr, 0) / 11);
 
 /* 📅 season clock: 28 days = 1 year. Days 1–26 one matchday each, day 27 last checks, day 28 promotion & prizes. */
-const DAY = 86400000, EPOCH0 = Date.UTC(2026, 10, 2), SDAYS = 28, MDS = 26, ENGINE = 4;
+const DAY = 86400000, EPOCH0 = Date.UTC(2026, 10, 2), SDAYS = 28, MDS = 26, ENGINE = 5;
 /* G5: the season clock can be restarted (fresh Season 1): the start day is kept in w11meta/season.ep; the market keeps EPOCH0 */
 let EPOCH = EPOCH0;
 const setEpoch = (ms) => { ms = Number(ms) || 0; if (ms > Date.UTC(2026, 0, 1) && ms < Date.UTC(2040, 0, 1)) EPOCH = Math.floor(ms / DAY) * DAY; return EPOCH; };
@@ -496,7 +499,7 @@ const COUNTRIES = 'AF AL DZ AD AO AG AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT B
 const BAD_W = 'fuck fuk fck shit sh1t bitch cunt dick cock pussy whore slut bastard asshole arsehole wank wanker twat nigger nigga faggot fag retard rape rapist nazi hitler porn penis vagina anus sex xxx kkk isis jihad terrorist pedo paedo molest boob boobs tits titty cum jizz dildo motherfucker mofo bollocks prick spastic tranny chink gook spic kike wetback coon paki crap piss'.split(' ');
 const BAD_IN = 'fuck cunt nigg fagg hitler whore porn bitch motherf rapist paedo pussy dildo jizz shit wank twat'.split(' '), BAD_ALL = 'fuck cunt nigg fagg hitler'.split(' ');
 /* unmistakable surnames block on their own; common ones only as a full name */
-const FAMOUS = 'messi ronaldo ronaldinho neymar mbappe haaland lewandowski modric debruyne vandijk pele maradona zidane beckham rooney ibrahimovic suarez griezmann pogba hazard bellingham rodrygo osimhen drogba okocha etoo kante kroos neuer buffon casillas iniesta puyol totti pirlo maldini baggio kaka rivaldo eusebio cruyff beckenbauer platini gerrard lampard cantona alisson courtois oblak donnarumma dibala lukaku foden rashford grealish odegaard kvaratskhelia hakimi mahrez aubameyang adebayor yamal mitoma heungmin'.split(' ').concat('mohamed salah|mo salah|harry kane|thierry henry|sadio mane|yaya toure|kolo toure|xavi hernandez|sergio ramos|gerard pique|toni kroos|thomas muller|manuel neuer|luka modric|kevin de bruyne|son heungmin|heung min son|gareth bale|frank lampard|john terry|paul scholes|ryan giggs|roberto carlos|luis figo|bukayo saka|declan rice|cole palmer|raheem sterling|jamie vardy|lautaro martinez|emiliano martinez|julian alvarez|fede valverde|federico valverde|alphonso davies|christian pulisic|takefusa kubo|michael essien|asamoah gyan|andre ayew|jordan ayew|thomas partey|mohammed kudus|tony yeboah|abedi pele|nwankwo kanu|george weah|samuel etoo|didier drogba|riyad mahrez|achraf hakimi|victor osimhen|rafael leao|lamine yamal|pedri gonzalez|vinicius junior|vini jr|gavi paez'.split('|'));
+const FAMOUS = 'messi ronaldo ronaldinho neymar mbappe haaland lewandowski modric debruyne vandijk pele maradona zidane beckham rooney ibrahimovic suarez griezmann pogba hazard bellingham rodrygo osimhen drogba okocha etoo kante kroos neuer buffon casillas iniesta puyol totti pirlo maldini baggio kaka rivaldo eusebio cruyff beckenbauer platini gerrard lampard cantona alisson courtois oblak donnarumma dibala lukaku foden rashford grealish odegaard kvaratskhelia hakimi mahrez aubameyang adebayor yamal mitoma heungmin'.split(' ').concat('mohamed salah|mo salah|harry kane|thierry henry|sadio mane|yaya toure|kolo toure|xavi hernandez|sergio ramos|gerard pique|toni kroos|thomas muller|manuel neuer|luka modric|kevin de bruyne|son heungmin|heung min son|gareth bale|frank lampard|john terry|paul scholes|ryan giggs|roberto carlos|luis figo|bukayo saka|declan rice|cole palmer|raheem sterling|jamie vardy|lautaro martinez|emiliano martinez|julian alvarez|fede valverde|federico valverde|alphonso davies|christian pulisic|takefusa kubo|michael essien|asamoah gyan|andre ayew|jordan ayew|thomas partey|mohammed kudus|tony yeboah|abedi pele|nwankwo kanu|george weah|samuel etoo|didier drogba|riyad mahrez|achraf hakimi|victor osimhen|rafael leao|lamine yamal|pedri gonzalez|vinicius junior|vini jr|gavi paez|lionel messi|cristiano ronaldo|kylian mbappe|erling haaland|abedi ayew|sulley muntari|kevin prince boateng|jerome boateng|inaki williams|nico williams|ademola lookman|alex iwobi|wilfred ndidi|samuel chukwueze|kelechi iheanacho|jay jay okocha|john obi mikel|joseph yobo|vincent enyeama|odion ighalo|ahmed musa|taiwo awoniyi|calvin bassey|kalidou koulibaly|edouard mendy|idrissa gueye|ismaila sarr|hakim ziyech|yassine bounou|sofyan amrabat|ismael bennacer|wilfried zaha|nicolas pepe|franck kessie|sebastien haller|andre onana|vincent aboubakar|bryan mbeumo|pierre emerick aubameyang|naby keita|serhou guirassy|mohamed elneny|omar marmoush|percy tau|teboho mokoena|ronwen williams|benni mccarthy|lucas radebe|steven pienaar|jude bellingham|phil foden|marcus rashford|jack grealish|john stones|kyle walker|jordan pickford|harry maguire|mason mount|trent alexander arnold|jordan henderson|wayne rooney|steven gerrard|david beckham|alan shearer|michael owen|gary neville|rio ferdinand|ashley cole|ollie watkins|ivan toney|antoine griezmann|ousmane dembele|kingsley coman|paul pogba|ngolo kante|olivier giroud|hugo lloris|mike maignan|theo hernandez|lucas hernandez|raphael varane|aurelien tchouameni|eduardo camavinga|william saliba|dayot upamecano|jules kounde|karim benzema|zinedine zidane|patrick vieira|claude makelele|franck ribery|marcus thuram|randal kolo muani|michael olise|desire doue|bradley barcola|robert lewandowski|wojciech szczesny|joshua kimmich|leon goretzka|jamal musiala|florian wirtz|kai havertz|leroy sane|serge gnabry|antonio rudiger|ilkay gundogan|marc andre ter stegen|mario gotze|miroslav klose|michael ballack|bastian schweinsteiger|philipp lahm|mats hummels|pedri|gavi|rodri|alvaro morata|dani olmo|ferran torres|mikel oyarzabal|unai simon|dani carvajal|carles puyol|andres iniesta|iker casillas|david villa|fernando torres|sergio busquets|jordi alba|cesc fabregas|david silva|isco alarcon|marco asensio|raul gonzalez|luis suarez|edinson cavani|darwin nunez|ronald araujo|jose gimenez|diego godin|rodrigo bentancur|angel di maria|paulo dybala|rodrigo de paul|enzo fernandez|alexis mac allister|sergio aguero|gonzalo higuain|carlos tevez|javier mascherano|gabriel batistuta|juan roman riquelme|neymar junior|rodrygo goes|raphinha|casemiro|marquinhos|alisson becker|ederson moraes|gabriel jesus|gabriel martinelli|gabriel magalhaes|richarlison|bruno guimaraes|lucas paqueta|thiago silva|dani alves|ronaldinho gaucho|ricardo kaka|endrick felipe|bruno fernandes|bernardo silva|joao felix|ruben dias|joao cancelo|diogo jota|joao neves|vitinha|nuno mendes|pepe|rui costa|ricardo quaresma|gianluigi buffon|gianluigi donnarumma|francesco totti|alessandro del piero|andrea pirlo|paolo maldini|fabio cannavaro|roberto baggio|giorgio chiellini|leonardo bonucci|federico chiesa|nicolo barella|sandro tonali|lorenzo insigne|ciro immobile|marco verratti|jorginho|gianluca scamacca|mateo retegui|virgil van dijk|frenkie de jong|matthijs de ligt|memphis depay|cody gakpo|xavi simons|denzel dumfries|nathan ake|arjen robben|robin van persie|wesley sneijder|johan cruyff|ruud gullit|marco van basten|dennis bergkamp|clarence seedorf|edwin van der sar|patrick kluivert|son heung min|heungmin son|kim min jae|lee kang in|hwang hee chan|park ji sung|kaoru mitoma|wataru endo|takumi minamino|daichi kamada|takehiro tomiyasu|ritsu doan|shinji kagawa|keisuke honda|hidetoshi nakata|wu lei|sunil chhetri|arda guler|hakan calhanoglu|kenan yildiz|ferdi kadioglu|burak yilmaz|arda turan|jonathan david|weston mckennie|tyler adams|gio reyna|timothy weah|folarin balogun|landon donovan|clint dempsey|tim howard|hirving lozano|raul jimenez|edson alvarez|guillermo ochoa|santiago gimenez|javier hernandez|james rodriguez|luis diaz|radamel falcao|juan cuadrado|jhon duran|moises caicedo|enner valencia|piero hincapie|alexis sanchez|arturo vidal|claudio bravo|khvicha kvaratskhelia|ivan rakitic|mateo kovacic|josko gvardiol|dominik livakovic|zlatan ibrahimovic|alexander isak|viktor gyokeres|dejan kulusevski|martin odegaard|christian eriksen|kasper schmeichel|peter schmeichel|rasmus hojlund|aaron ramsey|eden hazard|thibaut courtois|romelu lukaku|jeremy doku|leandro trossard|youri tielemans|dusan vlahovic|aleksandar mitrovic|victor wanyama|dennis oliech|mbwana samatta|roger milla|emmanuel adebayor|frederic kanoute|seydou keita|abdul rahman baba|inaki williams|antoine semenyo|tariq lamptey|mohammed salisu|daniel amartey|kamaldeen sulemana|ernest nuamah|joseph paintsil|fatawu issahaku|jeremie frimpong|christopher wreh|diego maradona'.split('|'));
 const normName = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const nameProblem = (n) => { const raw = String(n || '').normalize('NFC').replace(/\s+/g, ' ').trim();
   if (raw.length < 2 || raw.length > 24) return 'Use 2 to 24 letters';
@@ -610,7 +613,11 @@ W.shape = function (form) {
 // ---------- ⚙️ match engine v2 (G5: full rules, set pieces, player styles; fixed 20 steps per second, same seed = same match) ----------
 const DT = 0.05, HALF = 105, BREAK = 30, LEN = HALF * 2, TOTAL = HALF * 2 + BREAK;
 W.TIMING = { HALF, BREAK, LEN, TOTAL };
-W.ENGINE = 4;
+W.ENGINE = 5;
+/* G8 (engine 5): 🧭 mentality (-2 hard defending … +2 hard attacking) and 🤝 teamplay points (attack, defence, possession, condition; 0–10 each, 20 in total, 5 each = neutral) */
+W.MEN = [['-2', '🛡️ Hard defending'], ['-1', '🧱 Defensive'], ['0', '⚖️ Normal'], ['1', '⚔️ Attacking'], ['2', '🔥 Hard attacking']];
+W.TP_KEYS = ['att', 'def', 'pos', 'con']; W.TP_MAX = 10; W.TP_SUM = 20;
+W.tpOk = (v) => Array.isArray(v) && v.length === 4 && v.every(x => Number.isInteger(x) && x >= 0 && x <= 10) && v.reduce((a, b) => a + b, 0) <= 20;
 const BOX_X = 16.5, BOX_Y = 20.16;
 /* 🎯 every player's style comes from his id and stats (the same on every phone, never stored) */
 W.STYLE_NAME = { screamer: '💥 Long-range screamer', poacher: '🦊 Box poacher', curler: '🌀 Finesse curler', dribbler: '⚡ Dribbler-finisher', short: '🔁 Short passer', long: '🎯 Long passer', tempo: '🎼 Tempo controller', burst: '🚀 Explosive starter', engine: '🔋 Top-speed engine', steady: '🏃 Steady runner', power: 'power', curl: 'curl', knuckle: 'knuckle', place: 'placed', stutter: 'stutter run-up', chip: 'chip' };
@@ -638,7 +645,7 @@ W.bestFit = function (ids, form, S, lp) {
 };
 function Team(side, info) {
   this.side = side; this.name = info.name; this.short = info.short; this.color = info.color; this.gkColor = info.gkColor;
-  this.form = info.form || '4-4-2'; this.ids = info.ids.slice(0, 18); this.subsLeft = 5; this.mods = { attack: 0, tight: 0, press: 0, calm: 0 };
+  this.form = info.form || '4-4-2'; this.ids = info.ids.slice(0, 18); this.subsLeft = 5; this.mods = { attack: 0, tight: 0, press: 0, calm: 0 }; this.men = 0; this.tp = [5, 5, 5, 5];
   this.score = 0; this.shots = 0; this.onT = 0; this.passes = 0; this.poss = 0; this.cards = 0; this.corners = 0; this.offs = 0; this.fouls = 0;
   /* G2: fitness (0–100 per player), training points, who can't play, manager present or not · G5: set-piece takers */
   this.ai = info.ai; this.cond = info.cond || {}; this.tr = info.tr || {}; this.out = new Set(info.out || []); this.tk = info.tk || {};
@@ -662,12 +669,12 @@ Match.prototype.goalX = function (side) { return side === 0 ? 105 : 0; };
 Match.prototype.layTeam = function (t) {
   const sh = W.shape(t.form), old = this.P.filter(p => p.side === t.side);
   this.P = this.P.filter(p => p.side !== t.side);
-  const tr = t.tr, at = Number(tr.att) || 0, df = Number(tr.def) || 0, ft = Number(tr.fit) || 0;
+  const tr = t.tr, at = Number(tr.att) || 0, df = Number(tr.def) || 0, ft = Number(tr.fit) || 0, ta = (t.tp[0] - 5) * 1.1, td = (t.tp[1] - 5) * 1.1, tq = (t.tp[2] - 5) * 0.9, tc = (t.tp[3] - 5) * 0.7;
   t.ids.slice(0, 11).forEach((id, i) => {
     if (t.off.has(id)) return;
     const p0 = W.player(id, this.S), c = t.cond[id] == null ? 100 : clamp(Number(t.cond[id]) || 0, 0, 100), k = 0.8 + 0.2 * c / 100;
     const s = sh[i] || sh[sh.length - 1], f = W.fitOf(p0, i === 0 ? 'GK' : s.dp, t.lp), kf = k * f;
-    const pl = { ...p0, pac: (p0.pac + 0.4 * ft) * kf, sho: (p0.sho + 0.4 * at) * kf, dri: (p0.dri + 0.4 * at) * kf, pas: p0.pas * kf, def: (p0.def + 0.4 * df) * kf, gk: (p0.gk + (p0.pos === 'GK' ? 0.4 * df : 0)) * kf, cond: c, fit: f };
+    const pl = { ...p0, pac: (p0.pac + 0.4 * ft + tc) * kf, sho: (p0.sho + 0.4 * at + ta) * kf, dri: (p0.dri + 0.4 * at + ta) * kf, pas: (p0.pas + tq) * kf, def: (p0.def + 0.4 * df + td) * kf, gk: (p0.gk + (p0.pos === 'GK' ? 0.4 * df + td * 0.6 : 0)) * kf, cond: c, fit: f };
     const prev = old.find(o => o.id === id), st = W.styleOf(p0);
     const bx = t.side === 0 ? s.x : 105 - s.x;
     this.P.push({ ...pl, st, side: t.side, role: i === 0 ? 'GK' : s.role, bx, by: t.side === 0 ? s.y : 68 - s.y, x: prev ? prev.x : bx, y: prev ? prev.y : (t.side === 0 ? s.y : 68 - s.y), px: 0, py: 0, vx: prev ? prev.vx : 0, vy: prev ? prev.vy : 0, cd: 0, ycard: prev ? prev.ycard : 0, ofs: -0.8, ofT: 0 });
@@ -692,6 +699,8 @@ Match.prototype.applyCmd = function (side, c) {
   const t = this.T[side];
   if (c.here) t.ai = false;
   if (c.shout) { t.mods = { attack: 0, tight: 0, press: 0, calm: 0 }; if (c.shout !== 'none') t.mods[c.shout] = 1; this.say('shout', { attack: '📣 ALL OUT ATTACK!', tight: '🧱 KEEP IT TIGHT!', press: '⚡ PRESS HIGH!', calm: '🧘 CALM DOWN, KEEP THE BALL!' }[c.shout] || '', side); }
+  if (c.men != null) { const v = Number(c.men); if (Number.isInteger(v) && v >= -2 && v <= 2 && v !== t.men) { t.men = v; this.say('men', '🧭 ' + t.short + ': ' + W.MEN[v + 2][1].replace(/^\S+ /, '').toUpperCase(), side); } }
+  if (c.tp != null && W.tpOk(c.tp) && c.tp.join() !== t.tp.join()) { t.tp = c.tp.slice(); this.layTeam(t); this.say('tp', '🤝 ' + t.short + ' teamplay: ' + W.TP_KEYS.map((k, i) => k.toUpperCase() + ' ' + t.tp[i]).join(' · '), side); }
   if (c.form && W.FORMS[c.form]) { t.form = c.form; this.layTeam(t); this.say('form', '📐 ' + t.short + ' switch to ' + c.form, side); }
   if (c.sub && t.subsLeft > 0) { const [o, n] = c.sub; const i = t.ids.indexOf(o), j = t.ids.indexOf(n); if (i >= 0 && i < 11 && j >= 11 && !t.off.has(o) && !t.used.has(n) && !t.out.has(n)) { t.used.add(o); t.subLog.push([o, n, this.tick]); const own = this.ball.owner && this.ball.owner.id === o, wasTk = this.sp && this.sp.taker && this.sp.taker.id === o; t.ids[i] = n; t.ids[j] = o; t.subsLeft--; this.layTeam(t); const np = this.P.find(p => p.id === n); if (own && np) this.give(np); if (wasTk && np) this.sp.taker = np; this.stops[this.t >= HALF ? 1 : 0]++; this.say('sub', `🔁 ${W.player(n).short} on for ${W.player(o).short}`, side); } }
 };
@@ -738,6 +747,7 @@ Match.prototype.aiShout = function (side) {
   if (t.ai === false) return;
   let s = 'none'; if (t.score < o.score && m > 55) s = 'attack'; else if (t.score > o.score && m > 65) s = 'tight'; else if (r() < 0.3) s = pick(r, ['press', 'calm', 'none']);
   const cur = Object.keys(t.mods).find(k => t.mods[k]) || 'none'; if (s !== cur) this.applyCmd(side, { shout: s });
+  const df = t.score - o.score, mn = df < 0 ? (m > 75 ? 2 : m > 55 ? 1 : 0) : df > 0 ? (m > 80 && df === 1 ? -2 : m > 65 ? -1 : 0) : 0; if (mn !== t.men) this.applyCmd(side, { men: mn });
 };
 Match.prototype.carrier = function (o) {
   const r = this.r, d = this.dir(o.side), gx = this.goalX(o.side), T = this.T[o.side], mods = T.mods, st = o.st || {};
@@ -747,7 +757,7 @@ Match.prototype.carrier = function (o) {
   if (fx.slip && o.role !== 'GK' && o.cd <= 0 && r() < fx.slip) { this.say('slip', `🫠 ${o.short} slips on the ${fx.snow ? 'snow' : 'wet grass'}`, o.side, o.id); this.ball.owner = null; this.ball.x = clamp(o.x + d * 1.4, 1, 104); this.ball.y = clamp(o.y + (r() - 0.5) * 2, 1, 67); o.cd = 0.9; return; }
   if (presser && pd < 1.6 && o.cd <= 0 && r() < 0.11 * (1 + this.T[presser.side].mods.press * 0.5)) {
     const behind = this.dir(presser.side) * (presser.x - o.x) > 0.3, slide = behind || r() < 0.22;
-    const win = 0.42 + (presser.def - o.dri) / 160 + this.T[presser.side].mods.tight * 0.05 - (st.shot === 'dribbler' ? 0.08 : 0) + (slide ? 0.06 : 0);
+    const win = 0.42 + (presser.def - o.dri) / 160 + this.T[presser.side].mods.tight * 0.05 - this.T[presser.side].men * 0.035 - (st.shot === 'dribbler' ? 0.08 : 0) + (slide ? 0.06 : 0);
     if (r() < (slide ? 0.28 : 0.16) * fx.foul * (inBoxOf(this.goalX(o.side), o.x, o.y) ? 0.3 : 1)) { this.foul(presser, o, slide); return; }
     if (r() < win) { if (Math.abs(this.goalX(o.side) - o.x) < 30 && r() < 0.2) { this.say('tackle', `🦵 ${presser.short} pokes it out`, presser.side, presser.id, { sl: slide ? 1 : 0, on: o.id }); this.lastTouch = presser.side; this.ball.owner = null; const gl = Math.abs(this.goalX(o.side) - o.x) < 14 && r() < 0.6; if (gl) { this.T[o.side].corners++; return this.restart('corner', o.side, this.goalX(o.side), o.y < 34 ? 0 : 68); } return this.restart('throw', o.side, clamp(o.x, 1, 104), o.y < 34 ? 0 : 68); }
       this.say('tackle', `${slide ? '🛷 Slide tackle' : '🦵 Tackle'}: ${presser.short} wins it`, presser.side, presser.id, { sl: slide ? 1 : 0, on: o.id }); this.ball.owner = null; this.ball.x += (r() - 0.5) * 2; this.give(presser); return; }
@@ -755,17 +765,17 @@ Match.prototype.carrier = function (o) {
     o.cd = 0.5;
   }
   this.dec -= DT; if (this.dec > 0) return;
-  this.dec = (0.45 + r() * 0.7) * (1 + mods.calm * 0.35) * (1 - mods.attack * 0.2) * (st.pass === 'tempo' ? 0.8 : 1);
+  this.dec = (0.45 + r() * 0.7) * (1 + mods.calm * 0.35) * (1 - mods.attack * 0.2) * (st.pass === 'tempo' ? 0.8 : 1) * (1 - T.men * 0.05) * (1 - (T.tp[2] - 5) * -0.012);
   if (o.role === 'GK') { this.passTo(o, this.bestPass(o, mates, opp, true)); return; }
   const dg = hyp(gx - o.x, 34 - o.y);
   /* shoot? each scoring style has its own range */
   const range = st.shot === 'screamer' ? 33 : st.shot === 'poacher' ? 21 : st.shot === 'curler' ? 28 : 25;
   if (dg < range && Math.abs(o.y - 34) < 21) {
-    let want = 0.16 + (range - dg) / (range + 1) + mods.attack * 0.12 - mods.calm * 0.06; if (st.shot === 'poacher' && dg > 13) want *= 0.45; if (st.shot === 'dribbler' && o.beat && this.t - o.beat < 2.5) want += 0.25;
+    let want = 0.16 + (range - dg) / (range + 1) + mods.attack * 0.12 - mods.calm * 0.06 + T.men * 0.018 + Math.max(0, this.T[1 - o.side].men) * 0.03; if (st.shot === 'poacher' && dg > 13) want *= 0.45; if (st.shot === 'dribbler' && o.beat && this.t - o.beat < 2.5) want += 0.25;
     if (r() < want) { this.shoot(o, dg); return; }
   }
   const space = pd > 4, room = Math.abs(gx - o.x) > 6;
-  const dribW = (space ? 0.5 : 0.12) + (o.dri - 60) / 160 + mods.attack * 0.1 - mods.calm * 0.12 + (o.role === 'FWD' ? 0.12 : o.role === 'DEF' ? -0.15 : 0) + (st.shot === 'dribbler' ? 0.15 : 0);
+  const dribW = (space ? 0.5 : 0.12) + (o.dri - 60) / 160 + mods.attack * 0.1 - mods.calm * 0.12 + T.men * 0.03 + (o.role === 'FWD' ? 0.12 : o.role === 'DEF' ? -0.15 : 0) + (st.shot === 'dribbler' ? 0.15 : 0);
   if (room && r() < dribW) { o.dribT = 0.5 + r() * 0.7; this.dec = o.dribT; return; }
   /* a cross from the wing into the box */
   if (Math.abs(gx - o.x) < 30 && Math.abs(o.y - 34) > 11 && r() < 0.5 + (o.pas - 60) / 200) { if (this.cross(o)) return; }
@@ -776,7 +786,7 @@ Match.prototype.bestPass = function (o, mates, opp, safe, maxD) {
   for (const m of mates) {
     const dist = hyp(m.x - o.x, m.y - o.y); if (dist < 5 || dist > far) continue;
     const gain = d * (m.x - o.x), open = Math.min(10, Math.min(...opp.map(p => hyp(p.x - m.x, p.y - m.y)))), risk = this.lineRisk(o, m, opp);
-    let sc = (safe ? 0.03 : 0.14 + this.T[o.side].mods.attack * 0.05) * gain + open * 0.12 - risk * (0.9 + this.T[o.side].mods.calm * 0.6) - dist * 0.01 + r() * 0.7 + (m.role === 'GK' ? -4 : 0) + (gain < -3 && !safe ? -1.2 : 0);
+    const TT = this.T[o.side]; let sc = (safe ? 0.03 : 0.14 + TT.mods.attack * 0.05 + TT.men * 0.02) * gain + open * 0.12 - risk * (0.9 + TT.mods.calm * 0.6 - TT.men * 0.07 + (TT.tp[2] - 5) * 0.03) - dist * 0.01 + r() * 0.7 + (m.role === 'GK' ? -4 : 0) + (gain < -3 && !safe ? -1.2 : 0);
     if (st.pass === 'long' && dist > 28) sc += 0.6 + Math.abs(m.y - o.y) * 0.02; if (st.pass === 'tempo' && gain > 3 && dist < 25) sc += 0.4;
     if (this.isOff(m)) sc -= 0.1 + o.pas / 260;
     if (sc > bs) { bs = sc; best = m; }
@@ -833,9 +843,9 @@ Match.prototype.shoot = function (o, dg, x) {
   T.shots++; this.lastTouch = o.side;
   /* a defender in the way can block it */
   if (!x.pen && !x.fk) { const opp = this.P.filter(p => p.side !== o.side && p.role !== 'GK'), bl = opp.find(p => { const k = (p.x - o.x) / (gx - o.x); if (k < 0.08 || k > 0.6) return false; const ly = o.y + (34 - o.y) * k; return Math.abs(p.y - ly) < 1.3; });
-    if (bl && r() < 0.28) { this.say('block', `🛡️ ${bl.short} blocks ${o.short}'s shot`, bl.side, bl.id); this.ball.owner = null; this.lastTouch = bl.side;
+    if (bl && r() < 0.28 - Math.min(0, this.T[bl.side].men) * 0.06) { this.say('block', `🛡️ ${bl.short} blocks ${o.short}'s shot`, bl.side, bl.id); this.ball.owner = null; this.lastTouch = bl.side;
       if (r() < 0.55) { T.corners++; this.restart('corner', o.side, gx, o.y < 34 ? 0 : 68); return; } this.ball.x = bl.x - this.dir(o.side) * 2; this.ball.y = clamp(bl.y + (r() - 0.5) * 6, 2, 66); return; } }
-  let q = clamp(0.07 + (o.sho / 100) * 0.42 * (1 - dg / 36) - (gk ? gk.gk / 100 : 0.6) * 0.16 + T.mods.attack * 0.03 + (r() - 0.5) * 0.05, 0.02, 0.55);
+  let q = clamp(0.07 + (o.sho / 100) * 0.42 * (1 - dg / 36) - (gk ? gk.gk / 100 : 0.6) * 0.16 + T.mods.attack * 0.03 + T.men * 0.016 + Math.min(0, this.T[1 - o.side].men) * 0.03 + Math.max(0, this.T[1 - o.side].men) * 0.045 + (r() - 0.5) * 0.05, 0.02, 0.55);
   if (st.shot === 'screamer' && dg > 20) q += 0.035; if (st.shot === 'poacher') q += dg < 11 ? 0.06 : -0.04; if (st.shot === 'curler' && dg > 13 && dg < 25 && Math.abs(o.y - 34) > 4) q += 0.045; if (st.shot === 'dribbler' && o.beat && this.t - o.beat < 2.5) q += 0.04;
   if (x.header) q = clamp(0.15 + ((st.head || 50) - 50) / 220 - (gk ? gk.gk / 100 : 0.6) * 0.05, 0.04, 0.3);
   if (x.q != null) q = x.q;
@@ -974,11 +984,11 @@ Match.prototype.execSP = function () {
 Match.prototype.target = function (p, bx, by, poss) {
   const T = this.T[p.side], d = this.dir(p.side), att = poss === p.side, b = this.ball; let tx, ty;
   if (p.role === 'GK') { tx = p.side === 0 ? 3.5 + clamp((bx - 10) / 30, 0, 4) : 101.5 - clamp((95 - bx) / 30, 0, 4); ty = clamp(34 + (by - 34) * 0.35, 29, 39); return [tx, ty]; }
-  const shift = clamp((bx - 52.5) * 0.55, -20, 20) + d * (att ? 7 + T.mods.attack * 6 : -5 - T.mods.tight * 5);
+  const shift = clamp((bx - 52.5) * 0.55, -20, 20) + d * (att ? 7 + T.mods.attack * 6 + T.men * 2.5 : -5 - T.mods.tight * 5 + T.men * 2);
   tx = p.bx + shift; ty = p.by + (by - 34) * (0.22 + T.mods.tight * 0.08);
   if (att && p.role === 'FWD') { tx = Math.max(d * tx, d * (bx + d * (9 + (p.num % 3) * 3))) * d; if (p.st.shot === 'poacher' && d * (bx - 52.5) > 10) { tx = this.goalX(p.side) - d * (8 + (p.num % 3) * 2); ty = 34 + (p.by - 34) * 0.35; } }
   if (att && p.role === 'MID') tx = d > 0 ? Math.max(tx, bx - 4) : Math.min(tx, bx + 4);
-  if (!att && p.role === 'DEF') { const depth = 15 + T.mods.tight * 8 + (poss == null ? 4 : 0); tx = d > 0 ? clamp(tx, bx - depth, bx - 6) : clamp(tx, bx + 6, bx + depth); }
+  if (!att && p.role === 'DEF') { const depth = Math.max(8, 15 + T.mods.tight * 8 - T.men * 2.5 + (poss == null ? 4 : 0)); tx = d > 0 ? clamp(tx, bx - depth, bx - 6) : clamp(tx, bx + 6, bx + depth); }
   if (!att && T.mods.tight) tx -= d * 3;
   /* attackers try to stay onside (good timing most of the time) */
   if (att && p.role !== 'DEF') { const L = this.ln[p.side] + d * p.ofs; if (p.role === 'FWD' && d * (bx - 52.5) > -14) tx = d > 0 ? Math.max(tx, L - 2) : Math.min(tx, L + 2); tx = d > 0 ? Math.min(tx, L) : Math.max(tx, L); }
@@ -988,7 +998,7 @@ Match.prototype.moveAll = function (mode) {
   const b = this.ball, sp = this.sp, poss = sp ? sp.side : this.ball.owner ? this.ball.owner.side : (b.fl && b.fl.from ? b.fl.from.side : null), r = this.r;
   const bx = sp ? sp.x : b.fl ? b.fl.x1 : b.x, by = sp ? sp.y : b.fl ? b.fl.y1 : b.y;
   const fx = this.fx, wxk = fx.speed * (fx.heat ? 1 - 0.04 * fx.heat * this.t / (2 * HALF) * (1 + (fx.tire - 1)) : 1);
-  const chasers = {}; if (mode === 'play') [0, 1].forEach(s => { const L = this.P.filter(p => p.side === s && p.role !== 'GK'); const T = this.T[s], n = poss === s ? (b.owner ? 0 : 1) : 2 + T.mods.press; chasers[s] = L.sort((a, c) => (sq(a.x - bx) + sq(a.y - by)) - (sq(c.x - bx) + sq(c.y - by))).slice(0, n); });
+  const chasers = {}; if (mode === 'play') [0, 1].forEach(s => { const L = this.P.filter(p => p.side === s && p.role !== 'GK'); const T = this.T[s], n = poss === s ? (b.owner ? 0 : 1) : Math.max(1, 2 + T.mods.press + (T.men === 2 ? 1 : 0) - (T.men === -2 ? 1 : 0)); chasers[s] = L.sort((a, c) => (sq(a.x - bx) + sq(a.y - by)) - (sq(c.x - bx) + sq(c.y - by))).slice(0, n); });
   for (const p of this.P) {
     p.px = p.x; p.py = p.y;
     if (mode === 'frozen') { p.vx *= 0.8; p.vy *= 0.8; continue; }
@@ -1004,7 +1014,7 @@ Match.prototype.moveAll = function (mode) {
     else if (chasers[p.side].includes(p)) { tx = bx - d * (poss === p.side ? 0 : 0.6); ty = by; }
     else [tx, ty] = this.target(p, bx, by, poss);
     /* acceleration: explosive starters get going fast, engines reach a higher top speed */
-    const ps = p.st.pace, top = (6.2 + p.pac * 0.075) * (b.owner === p ? 0.72 : 1) * (ps === 'engine' ? 1.05 : ps === 'burst' ? 0.97 : 1) * slow * wxk, acc = ps === 'burst' ? 13 : ps === 'engine' ? 7 : 9.5;
+    const TP = this.T[p.side], fade = 1 - Math.max(0, 0.015 * Math.abs(TP.men) - 0.004 * (TP.tp[3] - 5)) * this.t / LEN, ps = p.st.pace, top = (6.2 + p.pac * 0.075) * (b.owner === p ? 0.72 : 1) * (ps === 'engine' ? 1.05 : ps === 'burst' ? 0.97 : 1) * slow * wxk * fade, acc = ps === 'burst' ? 13 : ps === 'engine' ? 7 : 9.5;
     const dx = tx - p.x, dy = ty - p.y, dist = hyp(dx, dy), want = dist < 0.05 ? 0 : Math.min(top, dist / 0.32), dvx = dist > 0.001 ? dx / dist * want : 0, dvy = dist > 0.001 ? dy / dist * want : 0;
     let ax = dvx - p.vx, ay = dvy - p.vy; const al = hyp(ax, ay), mx = acc * DT * (al > 0 && want < hyp(p.vx, p.vy) ? 1.6 : 1); if (al > mx) { ax *= mx / al; ay *= mx / al; }
     p.vx += ax; p.vy += ay; p.x = clamp(p.x + p.vx * DT, -1, 106); p.y = clamp(p.y + p.vy * DT, -1, 69);
@@ -1502,7 +1512,7 @@ W.histL = function () {
 
 // ---------- 📡 live league match (both managers, orders 2 seconds later) ----------
 const tickAtMs = (startAt, ms) => { const e = (ms - startAt) / 1000; const pl = e <= 0 ? 0 : e <= HALF ? e : e <= HALF + BREAK ? HALF : Math.min(LEN, e - BREAK); return Math.floor(pl / DT); };
-const CMD_KEYS = { shout: 1, form: 1, sub: 1, here: 1 };
+const CMD_KEYS = { shout: 1, form: 1, sub: 1, here: 1, men: 1, tp: 1 };
 W.cmdsFrom = function (live, raw) {
   const per = [0, 0], M = live.M, out = [];
   for (const k of Object.keys(raw || {}).sort()) {
@@ -1528,7 +1538,7 @@ W.cmdsOnce = async function (live) { const R = await rt(); if (!R) return []; tr
 W.sendL = async function (c) {
   const live = W.live; if (!live || W.my < 0) return; const R = await rt(); if (!R) return toast('⚠️ No live connection');
   const t = Math.max(W.m.tick, tickAtMs(live.startAt, W.nowS())) + 40;
-  try { await R.D.push(R.D.ref(R.d, 'w11live/' + live.mid), { by: uidNow(), s: W.my, t, c: JSON.stringify(c), at: R.D.serverTimestamp() }); if (!c.here) toast('📣 Order sent: on the pitch in 2 seconds'); } catch (e) { toast('⚠️ Order not sent. Check your internet.'); }
+  try { await R.D.push(R.D.ref(R.d, 'w11live/' + live.mid), { by: uidNow(), s: W.my, t, c: JSON.stringify(c), at: R.D.serverTimestamp() }); if (!c.here && !W._quiet) toast('📣 Order sent: on the pitch in 2 seconds'); } catch (e) { toast('⚠️ Order not sent. Check your internet.'); }
 };
 W.openL = async function (mid) {
   const f = await fbLoad(); let M = null;
@@ -3304,5 +3314,203 @@ W.helpL = (function (b) { return function () { b.apply(this, arguments); const e
   el.insertAdjacentHTML('beforeend', `<p style="margin-top:6px">🔊 <b>Sound</b>: the crowd reacts to every chance, the referee whistles fouls, half time and full time, and the weather can be heard. Mute it or set the crowd, effects and music volume in 🏟️ Club HQ → 🔊 Sound.</p>`); }; })(W.helpL);
 /* tests: render one recipe offline and measure it (peak, loudness) */
 S7.offline = async function (name, o, sec) { const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OC) return null; const c = new OC(2, Math.floor(44100 * (sec || 2)), 44100); SY[name](c, c.destination, 0.02, o || {}); const b = await c.startRendering(); let pk = 0, ss = 0; const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > pk) pk = v; ss += v * v; } return { peak: pk, rms: Math.sqrt(ss / d.length) }; };
+
+// ---------- 🖥️ G8 · full-screen match (like a console manager game) ----------
+/* The match fills the whole screen (100vw × 100vh). Small buttons sit on the left and right edges and open glass
+   panels that slide over the pitch: ⭐ Highlights, 📐 Formation (left) and 📣 Tactics, 🧭 Mentality, 🤝 Teamplay (right).
+   A camera button switches between 📺 TV, 🏃 Sideline, ⚖️ Balanced and 🗺️ 2D Radar at any time (every match starts on TV).
+   Match news and your own orders scroll along the bottom third (white bold text with a shadow).
+   Engine 5 (w11eng.js): 🧭 mentality and 🤝 teamplay are real orders (same on every phone, sent like shouts). */
+const G8_CSS = `
+#w11.fs{padding:0!important}
+#w11.fs>.hd{display:none}
+#w11.fs .bd.mt{padding:0!important;overflow:hidden}
+#w11.fs .w11match{display:block!important;position:absolute;inset:0;width:100vw;height:100vh;height:100dvh;gap:0}
+#w11.fs .w11pitch{position:absolute!important;inset:0;display:flex;align-items:center;justify-content:center}
+#w11.fs .w11pitch>[data-g4]{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+#w11.fs .w11pitch canvas{border-radius:10px}
+#w11.fs #w11l3{border-radius:0!important;box-shadow:none!important}
+#w11.fs .w11side{display:none!important}
+#w11.fs #w11v3b,#w11.fs .w11bug{display:none!important}
+#w11.fs #w11ov .ov{position:fixed;z-index:29;background:rgba(5,8,20,.9)}
+#w11.fs #w11ov .ov[data-ht]{background:rgba(5,8,20,.72);backdrop-filter:blur(4px)}
+#w11.fs #w11rp>div:nth-child(2){top:62px!important;left:max(14px,env(safe-area-inset-left))!important}
+#w11.fs #w11lt{left:max(78px,calc(env(safe-area-inset-left) + 70px));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 70px)}
+#g8ui{position:absolute;inset:0;z-index:28;pointer-events:none;color:#fff;font-family:inherit}
+#g8ui button{pointer-events:auto;font-family:inherit;color:#fff}
+#g8top{position:absolute;left:0;right:0;top:max(8px,env(safe-area-inset-top));display:flex;align-items:flex-start;justify-content:center;padding:0 max(10px,env(safe-area-inset-right)) 0 max(10px,env(safe-area-inset-left))}
+#g8top .g8b{position:absolute;top:0;width:42px;height:42px;border-radius:13px;font-size:17px;background:rgba(7,11,24,.72);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);box-shadow:0 2px 10px rgba(0,0,0,.45)}
+#g8top .g8back{left:max(10px,env(safe-area-inset-left))}
+#g8top .g8cam{right:max(10px,env(safe-area-inset-right));width:auto;padding:0 12px;font-size:12px;font-weight:900;letter-spacing:.04em}
+#g8top .sb{pointer-events:none;display:flex;align-items:center;gap:10px;margin:0;padding:6px 8px 6px 6px;border-radius:12px;background:rgba(7,11,24,.8);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.16);box-shadow:0 2px 14px rgba(0,0,0,.55);font-size:13px;text-shadow:0 1px 3px #000;max-width:62vw}
+#g8top .sb>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#g8top .sb .sc{font-size:19px;min-width:52px;text-align:center;padding:1px 6px;border-radius:8px;background:rgba(255,255,255,.1)}
+#g8top .sb .tm{order:-1;font-size:11px;padding:4px 8px;border-radius:8px;color:#070b18;background:linear-gradient(90deg,#22d3ee,#a855f7)}
+#g8al{position:absolute;left:50%;top:calc(max(8px,env(safe-area-inset-top)) + 48px);transform:translateX(-50%);padding:6px 14px;border-radius:999px;font-size:12px;font-weight:900;letter-spacing:.06em;background:linear-gradient(90deg,#ff2d95,#a855f7);box-shadow:0 0 18px rgba(255,45,149,.6);text-shadow:0 1px 3px rgba(0,0,0,.6);display:none;white-space:nowrap}
+#g8al.on{display:block;animation:w11p 1s ease-in-out 4}
+.g8rail{position:absolute;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px}
+#g8L{left:max(8px,env(safe-area-inset-left))}#g8R{right:max(8px,env(safe-area-inset-right))}
+.g8rail button{width:58px;min-height:54px;padding:6px 2px 5px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:19px;line-height:1;background:rgba(7,11,24,.7);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.16);box-shadow:0 2px 10px rgba(0,0,0,.45);transition:transform .15s,background .15s}
+.g8rail button small{font-size:8px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#cbd5e1;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g8rail button.on{background:linear-gradient(135deg,rgba(34,211,238,.9),rgba(168,85,247,.9));border-color:transparent}.g8rail button.on small{color:#070b18}
+.g8rail button.hot{animation:w11p 1s ease-in-out 4;border-color:#ff2d95}
+.g8rail button:active{transform:scale(.94)}
+.g8p{position:absolute;top:calc(max(8px,env(safe-area-inset-top)) + 52px);bottom:calc(max(10px,env(safe-area-inset-bottom)) + 62px);width:min(46vw,370px);overflow-y:auto;pointer-events:auto;padding:12px;border-radius:18px;background:rgba(7,11,24,.86);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 30px rgba(0,0,0,.6);transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .28s;opacity:0}
+.g8p.l{left:calc(max(8px,env(safe-area-inset-left)) + 66px);transform:translateX(-30px)}.g8p.r{right:calc(max(8px,env(safe-area-inset-right)) + 66px);transform:translateX(30px)}
+.g8p.open{opacity:1;transform:none}.g8p:not(.open){pointer-events:none}
+.g8p h4{font-size:11px;font-weight:900;letter-spacing:.14em;color:#67e8f9;margin:0 0 8px}
+.g8p p.g8h{font-size:11px;color:#94a3b8;margin:8px 0 0;line-height:1.35}
+.g8p .g8g{display:grid;gap:7px}
+.g8p .g8o{width:100%;padding:11px 10px;border-radius:13px;font-size:13px;font-weight:900;text-align:left;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)}
+.g8p .g8o.on{background:linear-gradient(90deg,#22d3ee,#a855f7);color:#070b18;border-color:transparent}
+.g8p .g8o small{display:block;font-size:10px;font-weight:700;opacity:.75;margin-top:2px}
+.g8p .g8f{display:flex;flex-wrap:wrap;gap:6px}.g8p .g8f button{padding:8px 10px;border-radius:10px;font-size:12px;font-weight:900;background:rgba(255,255,255,.08)}.g8p .g8f button.on{background:linear-gradient(90deg,#22d3ee,#a855f7);color:#070b18}
+.g8tp{display:grid;grid-template-columns:1fr auto 30px auto;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:12px;font-weight:800}
+.g8tp button{width:34px;height:34px;border-radius:10px;font-size:18px;font-weight:900;background:rgba(255,255,255,.1)}
+.g8tp b{text-align:center;font-size:16px}.g8tp i{grid-column:1/-1;height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;font-style:normal}.g8tp i u{display:block;height:100%;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)}
+.g8st{width:100%;font-size:12px;border-collapse:collapse;margin-top:4px}.g8st td{padding:4px 2px;text-align:center}.g8st td:nth-child(2){color:#94a3b8;font-size:11px}
+.g8hl{display:flex;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px}.g8hl em{font-style:normal;color:#67e8f9;font-weight:900;min-width:34px}
+#g8tk{position:absolute;left:50%;transform:translateX(-50%);bottom:max(12px,env(safe-area-inset-bottom));width:min(62vw,640px);pointer-events:none;text-align:center}
+#g8tk .tick{margin:0;min-height:0;font-size:inherit}
+#g8tk .tick p{margin:0 auto;padding:0;color:#fff;font-weight:900;text-shadow:0 2px 4px #000,0 0 10px rgba(0,0,0,.85)}
+#g8tk .tick p:first-child{display:inline-block;max-width:100%;font-size:15px;padding:8px 16px;border-radius:12px;background:linear-gradient(90deg,rgba(7,11,24,.15),rgba(7,11,24,.78) 12%,rgba(7,11,24,.78) 88%,rgba(7,11,24,.15));border-bottom:2px solid #22d3ee}
+#g8tk .tick p:first-child.new{animation:g8in .45s cubic-bezier(.2,.8,.2,1)}
+#g8tk .tick p:nth-child(2){font-size:12px;opacity:.78;margin-bottom:6px;order:-1}
+#g8tk .tick{display:flex;flex-direction:column-reverse}
+#g8tk .tick p:nth-child(n+3){display:none}
+#g8tk .tick p span{color:#67e8f9!important;margin-right:4px}
+@keyframes g8in{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
+#g8cm{position:absolute;right:max(10px,env(safe-area-inset-right));top:calc(max(8px,env(safe-area-inset-top)) + 48px);display:none;flex-direction:column;gap:6px;pointer-events:auto;padding:8px;border-radius:14px;background:rgba(7,11,24,.88);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.16)}
+#g8cm.open{display:flex}#g8cm button{padding:9px 14px;border-radius:10px;font-size:12px;font-weight:900;text-align:left;background:rgba(255,255,255,.07)}#g8cm button.on{background:linear-gradient(90deg,#22d3ee,#a855f7);color:#070b18}
+#w11.fs.g8cer #g8ui,#w11.fs.g8tro #g8ui{display:none}
+#w11.fs.g8rp #g8tk{display:none}
+@media (max-height:340px){.g8rail button{min-height:46px;width:52px;font-size:16px}.g8rail{gap:5px}#g8tk .tick p:first-child{font-size:13px;padding:6px 12px}}`;
+const g8css = () => { if (!document.getElementById('w11g8')) { const s = document.createElement('style'); s.id = 'w11g8'; s.textContent = G8_CSS; document.head.appendChild(s); } };
+
+/* 🎥 cameras: every match starts on the TV camera */
+W.CAMS = [['tv', '📺', 'TV'], ['side', '🏃', 'Sideline'], ['bal', '⚖️', 'Balanced'], ['radar', '🗺️', '2D Radar']];
+W.cam = 'tv';
+/* G8: every phone (Low too) starts the live match in 3D; Low runs it at the lowest quality (fewer fans, no shadows, 30 fps) */
+W.v3pref = () => G3.ok();
+const camTarget = (mode, X, Z) => mode === 'side' ? { eye: [X * 0.9, 3.9, 39.5], at: [X, 1.0, Z * 0.85], fov: 40 }
+  : mode === 'bal' ? { eye: [X * 0.86, 11.5, 34 + 18], at: [X * 0.95, 0.4, Z * 0.7], fov: 44 } : null;
+W.v3live = (function (b) { return function (box) {
+  const v = b(box), s0 = v.step; let c2 = null, lastMode = 'tv';
+  v.step = function (dt, now) { const cam = s0.call(this, dt, now); if (!cam) return cam; const mode = W.cam;
+    const tg = camTarget(mode, PX(v.bx), PZ(v.by)); if (!tg) { lastMode = mode; c2 = null; return cam; }
+    const k = c2 && lastMode === mode ? 1 - Math.exp(-dt * 3) : 1; lastMode = mode;
+    c2 = { eye: sm(c2 && k < 1 ? c2.eye : null, tg.eye, k), at: sm(c2 && k < 1 ? c2.at : null, tg.at, Math.min(1, k * 1.4)), fov: tg.fov }; return c2; };
+  return v; }; })(W.v3live);
+W.camSet = function (mode) {
+  if (!W.CAMS.some(c => c[0] === mode)) return; W.cam = mode;
+  if (mode === 'radar') W.v3set(false); else if (!W.v3.on) W.v3set(true);
+  if (mode !== 'radar' && !W.v3.on) { W.cam = 'radar'; toast('🗺️ 3D is not available on this phone, showing the 2D radar'); }
+  const cm = document.getElementById('g8cm'); if (cm) cm.classList.remove('open'); W.g8sync(true);
+};
+W.camMenu = function () { const cm = document.getElementById('g8cm'); if (!cm) return; cm.innerHTML = W.CAMS.map(([k, i, n]) => `<button class="${W.cam === k ? 'on' : ''}" onclick="W11.camSet('${k}')">${i} ${n}</button>`).join(''); cm.classList.toggle('open'); W.g8panel(null); };
+
+/* 🧭 mentality + 🤝 teamplay: your choice is kept on this phone and sent at kick-off of every match */
+const TP_NAME = [['⚔️', 'Attack', 'Sharper shooting and dribbling'], ['🛡️', 'Defence', 'Stronger tackles, keeper and blocks'], ['🔁', 'Possession', 'Cleaner, calmer passing'], ['🔋', 'Condition', 'Faster legs, less tiring late on']];
+W.tpSaved = () => { try { const v = JSON.parse(localStorage.getItem('w11_tp') || 'null'); if (W.tpOk(v)) return v; } catch (e) {} return [5, 5, 5, 5]; };
+const myT = () => (W.m && W.my >= 0 ? W.m.T[W.my > 0 ? 1 : 0] : null);
+const ctlOn = () => W.my === 0 || W.my === 1;
+W.menSet = function (v) { const t = myT(); if (!t || !W.m || W.m.over) return; v = Number(v); W._menWant = v; W.command({ men: v }); W.g8sync(true); };
+W.tpDraft = null;
+W.tpAdj = function (i, d) { const t = myT(); if (!t) return; const v = (W.tpDraft || t.tp).slice(), left = W.TP_SUM - v.reduce((a, b) => a + b, 0);
+  if (d > 0 && (left <= 0 || v[i] >= W.TP_MAX)) return; if (d < 0 && v[i] <= 0) return; v[i] += d; W.tpDraft = v; W.g8panel('tp', true); };
+W.tpApply = function () { const v = W.tpDraft; if (!v || !W.tpOk(v)) return; try { localStorage.setItem('w11_tp', JSON.stringify(v)); } catch (e) {} W._tpWant = v.join(); W.command({ tp: v }); W.tpDraft = null; W.g8panel('tp', true); };
+W.tpReset = function () { W.tpDraft = [5, 5, 5, 5]; W.g8panel('tp', true); };
+
+/* panels */
+const PANELS = { hl: ['l', '⭐', 'Highlights'], form: ['l', '📐', 'Formation'], tac: ['r', '📣', 'Tactics'], men: ['r', '🧭', 'Mentality'], tp: ['r', '🤝', 'Teamplay'] };
+const HL_K = { goal: 1, save: 1, pen: 1, red: 1, yellow: 1, sub: 1, miss: 1, ht: 1, ft: 1, added: 1, men: 1, tp: 1, form: 1, shout: 1, off: 1 };
+W.g8open = null;
+W.g8panel = function (k, refresh) {
+  const ui = document.getElementById('g8ui'); if (!ui) return;
+  if (!refresh) { W.g8open = W.g8open === k ? null : k; if (k !== 'tp') W.tpDraft = null; const cm = document.getElementById('g8cm'); if (cm && k) cm.classList.remove('open'); }
+  ['l', 'r'].forEach(side => { const p = document.getElementById('g8p' + side); if (!p) return; const cur = W.g8open && PANELS[W.g8open][0] === side ? W.g8open : null;
+    p.classList.toggle('open', !!cur); if (cur) { const sh0 = document.getElementById('w11sh'), pk = document.getElementById('g8park'); if (sh0 && pk && p.contains(sh0)) pk.appendChild(sh0); p.innerHTML = W.g8body(cur); const sh = document.getElementById('w11sh'); if (cur === 'tac' && sh && !p.contains(sh)) p.querySelector('[data-sh]').appendChild(sh); } });
+  ui.querySelectorAll('.g8rail button[data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === W.g8open));
+  /* the shout buttons live in the Tactics panel; park them when it closes so W.feed can still mark the active one */
+  const sh = document.getElementById('w11sh'), park = document.getElementById('g8park'); if (sh && park && W.g8open !== 'tac' && !park.contains(sh)) park.appendChild(sh);
+};
+W.g8body = function (k) {
+  const m = W.m, t = myT(), live = W.live; if (!m) return '';
+  if (k === 'hl') {
+    const a = m.T[0], b = m.T[1], pt = a.poss + b.poss || 1, row = (x, y, n) => `<tr><td>${x}</td><td>${n}</td><td>${y}</td></tr>`;
+    const ev = m.ev.filter(e => HL_K[e.k] && e.txt).slice(-14).reverse();
+    const tip = document.querySelector('#w11 .w11side2 .tip');
+    return `<h4>⭐ HIGHLIGHTS</h4><table class="g8st"><tr><td style="color:${a.color};font-weight:900">${esc(a.short)}</td><td></td><td style="color:${b.color};font-weight:900">${esc(b.short)}</td></tr>${row(Math.round(a.poss / pt * 100) + '%', Math.round(b.poss / pt * 100) + '%', 'Possession')}${row(a.shots, b.shots, 'Shots')}${row(a.onT, b.onT, 'On target')}${row(a.corners || 0, b.corners || 0, 'Corners')}${row(a.fouls || 0, b.fouls || 0, 'Fouls')}${row(W.MEN[a.men + 2][0], W.MEN[b.men + 2][0], 'Mentality')}</table>
+      <div style="margin-top:8px">${ev.length ? ev.map(e => `<div class="g8hl"><em>${esc(String(e.min))}'</em><span>${esc(e.txt)}</span></div>`).join('') : '<p class="g8h">Big moments show up here.</p>'}</div>${tip ? `<p class="g8h">${esc(tip.textContent)}</p>` : ''}<p class="g8h">🎬 Goals replay in 3D after they happen. All goal replays are on the full-time screen.</p>`;
+  }
+  if (!t) return '<p class="g8h">👀 You are watching this match.</p>';
+  if (k === 'form') return `<h4>📐 FORMATION</h4><div class="g8f">${Object.keys(W.FORMS).map(f => `<button class="${f === t.form ? 'on' : ''}" onclick="W11.command({form:'${f}'}); setTimeout(() => W11.g8panel('form', true), 60)">${f}</button>`).join('')}</div>
+    <button class="g8o" style="margin-top:12px" onclick="W11.subMenu()">🔁 Substitutions <small>${t.subsLeft} left</small></button><p class="g8h">Formation changes and subs reach the pitch ${live && live.kind === 'league' ? '2 seconds after you tap' : 'straight away'}.</p>`;
+  if (k === 'tac') return `<h4>📣 TACTICS · TOUCHLINE SHOUTS</h4><div data-sh></div><p class="g8h">📣 Attack: more men forward · 🧱 Tight: hold your shape · ⚡ Press: hunt the ball · 🧘 Calm: keep the ball. Tap again to stop shouting. Every 30 seconds a touchline moment lights this button up.</p>`;
+  if (k === 'men') { const want = W._menWant != null ? W._menWant : t.men;
+    return `<h4>🧭 MENTALITY</h4><div class="g8g">${W.MEN.slice().reverse().map(([v, n]) => `<button class="g8o ${Number(v) === t.men ? 'on' : ''}" onclick="W11.menSet(${v})">${n}${Number(v) === want && want !== t.men ? ' <small>⏳ on the pitch in a moment</small>' : ''}<small>${{ 2: 'All in: more goals for you, and more against', 1: 'Push up and shoot more', 0: 'Balanced', '-1': 'Drop deeper, fewer risks', '-2': 'Park the bus: hard to score against, hard to score' }[v]}</small></button>`).join('')}</div><p class="g8h">Changes how your whole team plays, right now. Hard attacking tires legs faster.</p>`; }
+  if (k === 'tp') { const v = W.tpDraft || t.tp, used = v.reduce((a, b) => a + b, 0), dirty = W.tpDraft && W.tpDraft.join() !== t.tp.join();
+    return `<h4>🤝 TEAMPLAY · ${W.TP_SUM - used} POINTS LEFT</h4>${TP_NAME.map(([i, n, d], k2) => `<div class="g8tp"><span>${i} ${n}<br><small style="color:#94a3b8;font-weight:700;font-size:10px">${d}</small></span><button onclick="W11.tpAdj(${k2},-1)">−</button><b>${v[k2]}</b><button onclick="W11.tpAdj(${k2},1)">+</button><i><u style="width:${v[k2] * 10}%"></u></i></div>`).join('')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px"><button class="g8o" style="text-align:center" onclick="W11.tpReset()">↺ Even (5 each)</button><button class="g8o ${dirty ? 'on' : ''}" style="text-align:center" ${dirty ? '' : 'disabled'} onclick="W11.tpApply()">✅ Apply</button></div>
+      <p class="g8h">You have ${W.TP_SUM} points for 4 areas (max ${W.TP_MAX} each). 5 each is even. Points you add to one area come from another. Your split is saved and used at the start of your next matches too.</p>`; }
+  return '';
+};
+
+/* build the full-screen layer once the match screen is on */
+W.g8build = function () {
+  const host = document.getElementById('w11'), mt = host && host.querySelector('.w11match'); if (!mt) return;
+  g8css(); host.classList.add('fs'); if (document.getElementById('g8ui')) return;
+  const back = host.querySelector('.hd .bk'), bk = back ? back.getAttribute('onclick') : 'W11.leaveMatch()', ctl = ctlOn();
+  const ui = document.createElement('div'); ui.id = 'g8ui';
+  ui.innerHTML = `<div id="g8top"><button class="g8b g8back" onclick="${bk}" aria-label="Back">←</button><button class="g8b g8cam" id="g8camb" onclick="W11.camMenu()"></button></div><div id="g8al">📢 TOUCHLINE MOMENT · SHOUT NOW!</div><div id="g8cm"></div>
+    <div class="g8rail" id="g8L">${['hl', ctl ? 'form' : null].filter(Boolean).map(k => `<button data-p="${k}" onclick="W11.g8panel('${k}')">${PANELS[k][1]}<small>${PANELS[k][2]}</small></button>`).join('')}</div>
+    ${ctl ? `<div class="g8rail" id="g8R">${['tac', 'men', 'tp'].map(k => `<button data-p="${k}" onclick="W11.g8panel('${k}')">${PANELS[k][1]}<small>${PANELS[k][2]}</small></button>`).join('')}</div>` : ''}
+    <div class="g8p l" id="g8pl"></div><div class="g8p r" id="g8pr"></div><div id="g8tk"></div><div id="g8park" style="display:none"></div>`;
+  host.appendChild(ui);
+  const sb = mt.querySelector('.sb'); if (sb) ui.querySelector('#g8top').insertBefore(sb, ui.querySelector('.g8cam'));
+  const tk = document.getElementById('w11tk'); if (tk) ui.querySelector('#g8tk').appendChild(tk);
+  const sh = document.getElementById('w11sh'); if (sh) ui.querySelector('#g8park').appendChild(sh);
+  W.g8open = null; W.tpDraft = null; W._menWant = null; W._tpWant = null; W.cam = W.v3.on ? 'tv' : 'radar';
+  clearInterval(W._g8iv); W._g8iv = setInterval(() => { if (!document.getElementById('g8ui')) { clearInterval(W._g8iv); return; } W.g8sync(); }, 250);
+  W.g8sync(true);
+};
+W.g8sync = function (force) {
+  const host = document.getElementById('w11'), ui = document.getElementById('g8ui'); if (!host || !ui) return;
+  host.classList.toggle('g8cer', !!W._cer); host.classList.toggle('g8rp', !!W._rp); host.classList.toggle('g8tro', !!W._tro);
+  if (W.cam !== 'radar' && !W.v3.on && !W._cer && !W._rp && !(W.cine && W.cine.cur)) W.cam = 'radar';
+  const cb = document.getElementById('g8camb'), c = W.CAMS.find(x => x[0] === W.cam); if (cb && c) cb.textContent = c[1] + ' ' + c[2] + ' ▾';
+  const t = myT(), mb = ui.querySelector('[data-p="men"]'); if (t && mb) { const n = W.MEN[t.men + 2]; mb.innerHTML = `${n[1].split(' ')[0]}<small>${n[1].replace(/^\S+ /, '')}</small>`; }
+  if (t && W._menWant === t.men) W._menWant = null;
+  const fb = ui.querySelector('[data-p="form"] small'); if (t && fb) fb.textContent = t.form;
+  /* refresh the open panel now and then (stats, subs left, pending orders) — never the teamplay draft */
+  const sig = W.m ? [W.m.ev.length, t ? t.men + t.form + t.subsLeft + t.tp.join() : ''].join('|') : '';
+  if (W.g8open && (force || sig !== W._g8sig) && !(W.g8open === 'tp' && W.tpDraft)) W.g8panel(W.g8open, true);
+  W._g8sig = sig;
+};
+/* the touchline moment lights up the Tactics button + a banner under the score */
+W.pulse = (function (b) { return function () { b.apply(this, arguments); const al = document.getElementById('g8al'), tb = document.querySelector('#g8R [data-p="tac"]'); if (!al) return;
+  al.classList.remove('on'); void al.offsetWidth; al.classList.add('on'); if (tb) { tb.classList.remove('hot'); void tb.offsetWidth; tb.classList.add('hot'); }
+  clearTimeout(W._g8pT); W._g8pT = setTimeout(() => { al.classList.remove('on'); if (tb) tb.classList.remove('hot'); }, 8000); }; })(W.pulse);
+/* ticker: the newest line slides in */
+W.feed = (function (b) { return function (m) { const el = document.getElementById('w11tk'), old = el && el.firstElementChild ? el.firstElementChild.textContent : ''; b.apply(this, arguments);
+  if (el && !el.firstElementChild && m && m.T) el.innerHTML = `<p>⚽ GAME TIME! ${esc(m.T[0].name)} vs ${esc(m.T[1].name)}</p>`;
+  if (el && el.firstElementChild && el.firstElementChild.textContent !== old) el.firstElementChild.classList.add('new'); }; })(W.feed);
+/* start every match with your saved teamplay split */
+W.play = (function (b) { return function (live) {
+  let c0 = null; if (live && live.kind !== 'league' && Array.isArray(live.cmds) && !live.cmds.some(c => c && c.c && c.c.tp)) { const tp = W.tpSaved(); if (tp.join() !== '5,5,5,5') { c0 = { tick: 0, side: 0, c: { tp } }; live.cmds.push(c0); try { localStorage.setItem('w11_live', JSON.stringify(live)); } catch (e) {} } }
+  const r = b.apply(this, arguments);
+  /* before kick-off nothing has been simulated yet, so put the tick-0 order on the pitch now (resumed matches already have it) */
+  if (c0 && W.m && W.m.tick === 0 && !W.m.cmds.includes(c0)) { W.m.applyCmd(0, c0.c); W.m.cmds.push(c0); }
+  W.g8build(); return r; }; })(W.play);
+W.playL = (function (b) { return async function (live, my) { const r = await b.apply(this, arguments); W.g8build();
+  try { const tp = W.tpSaved(); if ((my === 0 || my === 1) && tp.join() !== '5,5,5,5' && W.m && W.m.tick < 4000 && !(W._cmds || []).some(c => c.side === my && c.c && c.c.tp)) { W._quiet = 1; await W.sendL({ tp }); W._quiet = 0; } } catch (e) { W._quiet = 0; }
+  return r; }; })(W.playL);
+W.ui = (function (b) { return function () { const r = b.apply(this, arguments); const h = document.getElementById('w11'); if (h && !h.querySelector('.w11match')) { h.classList.remove('fs', 'g8cer', 'g8rp', 'g8tro'); clearInterval(W._g8iv); } return r; }; })(W.ui);
+W.helpL = (function (b) { return function () { b.apply(this, arguments); const el = document.querySelector('#w11b .card'); if (!el) return;
+  el.insertAdjacentHTML('beforeend', `<p style="margin-top:6px">🖥️ <b>Full-screen match</b>: the pitch fills your screen. Buttons on the left (⭐ Highlights, 📐 Formation) and right (📣 Tactics, 🧭 Mentality, 🤝 Teamplay) open panels over the pitch; tap again to close. Match news runs along the bottom. Switch the camera at the top right: 📺 TV, 🏃 Sideline, ⚖️ Balanced or 🗺️ 2D Radar.</p>
+    <p style="margin-top:6px">🧭 <b>Mentality</b> (Hard defending → Hard attacking) changes how your whole team plays at once. Hard attacking scores more but also lets in more, and tires legs faster. 🤝 <b>Teamplay</b>: share ${W.TP_SUM} points between Attack, Defence, Possession and Condition (max ${W.TP_MAX} each; 5 each is even). Both are real orders: they change the match for both managers in the same way.</p>`); }; })(W.helpL);
+/* the 3D goal camera has its own row of shout buttons; in full screen the side buttons stay on top instead */
+W.cineStart = (function (b) { return function () { const r = b.apply(this, arguments); const el = document.getElementById('w11cine'), h = document.getElementById('w11');
+  if (el && h && h.classList.contains('fs')) [...el.children].forEach(d => { if (d.querySelector && d.querySelector('button[onclick*="shout"]')) d.remove(); }); return r; }; })(W.cineStart);
 
 })();
