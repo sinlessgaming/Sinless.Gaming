@@ -2486,7 +2486,7 @@ G3.stop = function (view) {
   if (!view || G3.view === view) { const v = G3.view; G3.view = null; if (v && v.end) v.end(); if (G3.B3) G3.B3.stop(); }
 };
 ['team', 'freeTeam', 'fig', 'ball', 'world', 'drawWorld', 'particles', 'trophy', 'floor'].forEach(k => { G3[k] = function () { return (G3.be === 'b3' && G3.B3 ? G3.B3 : G3OLD)[k].apply(this, arguments); }; });
-W.W3D_V = 4;
+W.W3D_V = 5;
 W.w3d = { st: 0 };
 W.w3dLoad = function () {
   if (W.w3d.st || !G3.ok() || typeof window === 'undefined') return;
@@ -3512,5 +3512,50 @@ W.helpL = (function (b) { return function () { b.apply(this, arguments); const e
 /* the 3D goal camera has its own row of shout buttons; in full screen the side buttons stay on top instead */
 W.cineStart = (function (b) { return function () { const r = b.apply(this, arguments); const el = document.getElementById('w11cine'), h = document.getElementById('w11');
   if (el && h && h.classList.contains('fs')) [...el.children].forEach(d => { if (d.querySelector && d.querySelector('button[onclick*="shout"]')) d.remove(); }); return r; }; })(W.cineStart);
+
+/* ================= G9 · 11 Wonders human fidelity: 📸 player profile card =================
+   The 3D (w3d.js v5) now has athlete proportions, real 3D hair/beards, natural brows, skin sheen and a crowd of real people.
+   Here: a studio portrait of the player (rendered once by G3.B3.portrait, kept for the session) on top of his ⋯ menu,
+   with his name, position, rating and a radar of his attributes. Fictional players only (names are already checked by FAMOUS). */
+W.PORTR = new Map();
+W.portraitOf = function (id) {
+  const B = W.G3 && W.G3.B3; if (!B || !B.ready || !B.portrait) return null;
+  const me = W.me || {}, p = W.player(id), K = W.kitN((me.kits || [])[0]), key = id + '|' + JSON.stringify(K) + '|' + (p && p.name) + '|' + (p && p.num);
+  if (W.PORTR.has(key)) return W.PORTR.get(key);
+  let url = null; try { const T = B.team(K, null, me.crest || null, me.short || ''); url = B.portrait(T, p && p.pos === 'GK', id, p && p.num, 720, 900); } catch (e) { url = null; }
+  if (url) { W.PORTR.set(key, url); if (W.PORTR.size > 12) W.PORTR.delete(W.PORTR.keys().next().value); }
+  return url;
+};
+W.radarSvg = function (p) {
+  const gk = p.pos === 'GK', L = gk ? [['Diving', p.gk], ['Pace', p.pac], ['Passing', p.pas], ['Kicking', p.sho], ['Reflexes', Math.round((p.gk * 2 + p.def) / 3)], ['Handling', p.def]]
+    : [['Pace', p.pac], ['Shooting', p.sho], ['Passing', p.pas], ['Dribbling', p.dri], ['Defending', p.def], ['Physical', Math.round((p.def + p.pac + p.ovr) / 3)]];
+  const cx = 110, cy = 92, R = 58, pt = (i, r) => { const a = -Math.PI / 2 + i * Math.PI / 3; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; };
+  const ring = (f) => L.map((_, i) => pt(i, R * f).map(v => v.toFixed(1)).join(',')).join(' ');
+  const val = L.map(([, v], i) => pt(i, R * Math.max(0.08, Math.min(1, (v || 0) / 99))).map(v => v.toFixed(1)).join(',')).join(' ');
+  const lab = L.map(([n, v], i) => { const [x, y] = pt(i, R + 22), a = x < cx - 5 ? 'end' : x > cx + 5 ? 'start' : 'middle'; return `<text x="${x.toFixed(1)}" y="${(y - 3).toFixed(1)}" text-anchor="${a}" font-size="10" fill="#cbd5e1">${n}</text><text x="${x.toFixed(1)}" y="${(y + 9).toFixed(1)}" text-anchor="${a}" font-size="11" font-weight="900" fill="#fff">${v || 0}</text>`; }).join('');
+  return `<svg viewBox="0 0 220 190" style="width:100%;max-width:230px;display:block"><polygon points="${ring(1)}" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.18)"/><polygon points="${ring(0.66)}" fill="none" stroke="rgba(255,255,255,.1)"/><polygon points="${ring(0.33)}" fill="none" stroke="rgba(255,255,255,.1)"/>
+    <polygon points="${val}" fill="rgba(34,211,238,.35)" stroke="#22d3ee" stroke-width="2"/>${lab}</svg>`;
+};
+W.profileCard = function (id) {
+  const me = W.me || {}, p = W.player(id); if (!p) return '';
+  let crest = ''; try { crest = W.crestSvg(me.crest, me.short, 260); } catch (e) {}
+  const dp = (() => { try { return W11C.dpOf(p); } catch (e) { return p.pos; } })();
+  return `<div id="w11pc" style="position:relative;overflow:hidden;border-radius:16px;margin-bottom:10px;background:radial-gradient(120% 90% at 70% 30%,#1b2140 0%,#0b0f24 60%,#060914 100%);border:1px solid rgba(255,255,255,.08);min-height:250px">
+    <div style="position:absolute;right:-30px;top:10px;width:260px;opacity:.07;pointer-events:none">${crest}</div>
+    <div id="w11pcImg" style="position:absolute;right:0;bottom:0;width:58%;height:100%;display:flex;align-items:flex-end;justify-content:center"><p style="font-size:11px;color:#64748b;margin:auto">📸 Making his portrait…</p></div>
+    <div style="position:relative;padding:12px 12px 6px;width:52%"><div style="border-left:4px solid #22d3ee;padding-left:8px"><p style="font-size:10px;font-weight:900;letter-spacing:.12em;color:#67e8f9">PLAYER PROFILE</p>
+      <p style="font-weight:900;font-size:17px;line-height:1.15">${esc(p.name)}</p><p style="font-size:12px;color:#cbd5e1;font-weight:900">${dp} · ${p.ovr} OVR · ${p.flag || ''}</p></div>
+      <div style="margin-top:6px">${W.radarSvg(p)}</div></div>
+    <p style="position:absolute;right:10px;bottom:6px;font-size:10px;font-weight:900;color:rgba(255,255,255,.55)">11 WONDERS</p></div>`;
+};
+W.pMenu = (function (b) { return function (id) { const r = b.apply(this, arguments);
+  try { const ov = document.getElementById('w11pm'), card = ov && ov.querySelector('.card'); if (!card || document.getElementById('w11pc')) return r;
+    card.insertAdjacentHTML('afterbegin', W.profileCard(id));
+    const fill = () => { const box = document.getElementById('w11pcImg'); if (!box) return; const url = W.portraitOf(id);
+      if (url) box.innerHTML = `<img src="${url}" alt="" style="height:100%;max-width:100%;object-fit:contain;object-position:bottom;display:block">`;
+      else if (W.w3d && W.w3d.st === 1 && (fill.n = (fill.n || 0) + 1) < 40) setTimeout(fill, 500);
+      else box.innerHTML = `<p style="font-size:11px;color:#64748b;margin:auto;text-align:center;padding:10px">3D portrait needs 3D graphics on this phone</p>`; };
+    setTimeout(fill, 30);
+  } catch (e) {} return r; }; })(W.pMenu);
 
 })();

@@ -28147,10 +28147,10 @@ ${news.length ? `<p class="text-[11px] font-black text-gray-300 mt-3">📰 News<
 window.renderCommunityPulse = (function(b) { return function(...a) { const r = b ? b.apply(this, a) : undefined; try { const box = document.getElementById('communityPulseBox'); if (box) box.querySelectorAll('h3,h2').forEach(h => { if (/Trending worldwide/i.test(h.textContent)) h.innerHTML = h.innerHTML.replace(/Trending worldwide/i, 'Community'); }); } catch (e) {} return r; }; })(window.renderCommunityPulse);
 setInterval(() => { try { if (!document.getElementById('view-trending')?.classList.contains('hidden')) window.renderTrendingTopics(); } catch (e) {} }, 120000);
 
-window.SG_BUILD = 73;
+window.SG_BUILD = 74;
 window.open11W = async function() {
 if (window.needSignIn && window.needSignIn('play 11 Wonders')) return;
-try { if (!window.W11 || !window.W11.open) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'w11.js?v=12'; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); window.W11.open(); }
+try { if (!window.W11 || !window.W11.open) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'w11.js?v=13'; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); window.W11.open(); }
 catch (e) { showToast('⚠️ Could not open 11 Wonders. Check your internet.'); }
 };
 window.sg11Card = function() {
