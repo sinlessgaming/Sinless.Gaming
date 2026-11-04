@@ -1313,7 +1313,7 @@ W.play = function (live) {
     const el = (Date.now() - live.startAt) / 1000, tm = document.getElementById('w11tm');
     if (tm) tm.textContent = el < 0 ? 'Kick-off ' + Math.ceil(-el) + 's' : el > HALF && el < HALF + BREAK ? `HT · ${Math.ceil(HALF + BREAK - el)}s` : m.over ? 'FT' : W.minLabel(m);
     if (m.ev.length !== seenEv) { const news = m.ev.slice(seenEv); seenEv = m.ev.length; W.feed(m); if (news.some(e => e.k === 'alert')) W.pulse(); if (news.some(e => e.k === 'goal' && e.side === 0) && navigator.vibrate) try { navigator.vibrate([80, 40, 120]); } catch (e) {} }
-    W.halfTime(el > HALF && el < HALF + BREAK, m);
+    W.halfTime(el > HALF && el < HALF + BREAK, m, HALF + BREAK - el);
     const subs = document.getElementById('w11subs'); if (subs) subs.textContent = m.T[0].subsLeft;
     if (m.over && el > TOTAL + W.cerDur(live).close && !W.hold()) { W.stopLoop(); return W.finish(live, m, false); }
     W._raf = requestAnimationFrame(frame);
@@ -1343,14 +1343,17 @@ W.formMenu = function () {
   const ov = document.getElementById('w11ov');
   ov.innerHTML = `<div class="ov"><p style="font-weight:900;margin-bottom:10px">📐 Change formation</p><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">${Object.keys(W.FORMS).map(f => `<button onclick="W11.command({form:'${f}'}); document.getElementById('w11ov').innerHTML=''" style="padding:9px 11px;border-radius:10px;font-size:12px;font-weight:900;${f === W.m.T[W.my > 0 ? 1 : 0].form ? 'background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24' : 'background:rgba(255,255,255,.08)'}">${f}</button>`).join('')}</div><button class="btn2" style="margin-top:12px" onclick="document.getElementById('w11ov').innerHTML=''">Cancel</button></div>`;
 };
-W.halfTime = function (on, m) {
+W.halfTime = function (on, m, left) {
   const ov = document.getElementById('w11ov'); if (!ov) return;
+  /* G11: the break counts down live (30, 29, 28 …) with a draining bar */
+  const tick = () => { const s = ov.querySelector('[data-hts]'), bar = ov.querySelector('[data-htb]'); if (!s || left == null) return; const n = Math.max(0, Math.ceil(left)); if (s.textContent !== String(n)) s.textContent = n; if (bar) bar.style.width = Math.max(0, Math.min(100, n / 30 * 100)) + '%'; };
   if (on && !ov.querySelector('[data-ht]') && !ov.innerHTML) {
     const a = m.T[0], b = m.T[1], pt = a.poss + b.poss || 1;
-    ov.innerHTML = `<div class="ov" data-ht><p style="font-size:12px;color:#94a3b8;font-weight:900">HALF TIME · 30 seconds</p><p style="font-size:30px;font-weight:900;margin:6px 0">${a.score}–${b.score}</p>
+    ov.innerHTML = `<div class="ov" data-ht><p style="font-size:12px;color:#94a3b8;font-weight:900">HALF TIME · second half in <b data-hts style="color:#22d3ee;font-size:16px">30</b>s</p><div style="width:100%;max-width:300px;height:5px;border-radius:9px;background:rgba(255,255,255,.08);margin-top:6px;overflow:hidden"><i data-htb style="display:block;height:100%;width:100%;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);transition:width .25s linear"></i></div><p style="font-size:30px;font-weight:900;margin:6px 0">${a.score}–${b.score}</p>
       <table style="width:100%;max-width:300px;font-size:12px;margin:8px 0"><tr><td>${Math.round(a.poss / pt * 100)}%</td><td style="color:#94a3b8">Possession</td><td>${Math.round(b.poss / pt * 100)}%</td></tr><tr><td>${a.shots}</td><td style="color:#94a3b8">Shots</td><td>${b.shots}</td></tr><tr><td>${a.onT}</td><td style="color:#94a3b8">On target</td><td>${b.onT}</td></tr><tr><td>${a.passes}</td><td style="color:#94a3b8">Passes</td><td>${b.passes}</td></tr></table>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%;max-width:300px"><button class="btn2" onclick="W11.subMenu()">🔁 Subs</button><button class="btn2" onclick="W11.formMenu()">📐 Formation</button></div></div>`;
   } else if (!on && ov.querySelector('[data-ht]')) ov.innerHTML = '';
+  if (on) tick();
 };
 W.leaveMatch = function () { W.stopLoop(); toast('⏱️ The match keeps playing. Come back any time.'); W.home(); };
 W.finish = async function (live, m, offline) {
@@ -1537,8 +1540,8 @@ async function rt() { const d = window.rtdbInit ? await window.rtdbInit() : null
 W.cmdsOnce = async function (live) { const R = await rt(); if (!R) return []; try { const sn = await R.D.get(R.D.ref(R.d, 'w11live/' + live.mid)); return W.cmdsFrom(live, sn.val() || {}); } catch (e) { return []; } };
 W.sendL = async function (c) {
   const live = W.live; if (!live || W.my < 0) return; const R = await rt(); if (!R) return toast('⚠️ No live connection');
-  const t = Math.max(W.m.tick, tickAtMs(live.startAt, W.nowS())) + 40;
-  try { await R.D.push(R.D.ref(R.d, 'w11live/' + live.mid), { by: uidNow(), s: W.my, t, c: JSON.stringify(c), at: R.D.serverTimestamp() }); if (!c.here && !W._quiet) toast('📣 Order sent: on the pitch in 2 seconds'); } catch (e) { toast('⚠️ Order not sent. Check your internet.'); }
+  const t = Math.max(W.m.tick, tickAtMs(live.startAt, W.nowS())) + 20;
+  try { await R.D.push(R.D.ref(R.d, 'w11live/' + live.mid), { by: uidNow(), s: W.my, t, c: JSON.stringify(c), at: R.D.serverTimestamp() }); if (!c.here && !W._quiet) toast('📣 Order sent: on the pitch in 1 second'); } catch (e) { toast('⚠️ Order not sent. Check your internet.'); }
 };
 W.openL = async function (mid) {
   const f = await fbLoad(); let M = null;
@@ -1581,7 +1584,7 @@ W.playL = async function (live, my) {
     const sc = document.getElementById('w11sc'); if (sc) sc.textContent = `${m.T[0].score}–${m.T[1].score}`;
     const tm = document.getElementById('w11tm'); if (tm) tm.textContent = e < 0 ? 'Kick-off ' + left(-e * 1000) : e > HALF && e < HALF + BREAK ? `HT · ${Math.ceil(HALF + BREAK - e)}s` : m.over ? 'FT' : W.minLabel(m);
     if (m.ev.length !== seenEv) { const news = m.ev.slice(seenEv); seenEv = m.ev.length; W.feed(m); if (ctl && news.some(x => x.k === 'alert')) W.pulse(); if (news.some(x => x.k === 'goal' && x.side === my) && navigator.vibrate) try { navigator.vibrate([80, 40, 120]); } catch (er) {} }
-    if (ctl) { W.halfTime(e > HALF && e < HALF + BREAK, m); const subs = document.getElementById('w11subs'); if (subs) subs.textContent = m.T[my].subsLeft; }
+    if (ctl) { W.halfTime(e > HALF && e < HALF + BREAK, m, HALF + BREAK - e); const subs = document.getElementById('w11subs'); if (subs) subs.textContent = m.T[my].subsLeft; }
     if (m.over && e > TOTAL + Math.max(6, W.cerDur(live).close) && !W.hold()) { W.stopLoop(); return W.finishL(live); }
     W._raf = requestAnimationFrame(frame);
   };
@@ -2251,7 +2254,11 @@ W.cerDur = (live) => live && live.kind === 'league' ? { open: 45, close: 15 } : 
 const teamsOf = (live) => { const D = W.dress(live); if (!D.T || D.Tbe !== G3.be) { D.T = [G3.team(D.k[0], D.gk[0], D.cr[0], D.sh[0]), G3.team(D.k[1], D.gk[1], D.cr[1], D.sh[1])]; D.Tbe = G3.be; } return D; };
 /* draw everybody from an engine-like list: [{ side, gk, x, y, id }] (engine metres) */
 const drawPlayers = (D, list, st, dt, opt) => { for (const p of list) { const x = PX(p.x), z = PZ(p.y), o = opt ? opt(p) : null, face = o && o.face != null ? o.face : null, a = anim(st, p.id, x, z, dt, face);
-  G3.fig(D.T[p.side], p.gk, p.id, x, z, { phase: a.phase, run: o && o.run != null ? o.run : a.run, yaw: o && o.yaw != null ? o.yaw : a.yaw, jump: o && o.jump, arms: o && o.arms, lean: o && o.lean, kick: o && o.kick, dive: o && o.dive, num: p.num, throwIn: o && o.throwIn, wall: o && o.wall, slide: o && o.slide, header: o && o.header, catch: o && o.catch }); } };
+  G3.fig(D.T[p.side], p.gk, p.id, x, z, { phase: a.phase, run: o && o.run != null ? o.run : a.run, yaw: o && o.yaw != null ? o.yaw : a.yaw, jump: o && o.jump, cel: o && o.cel, arms: o && o.arms, lean: o && o.lean, kick: o && o.kick, dive: o && o.dive, num: p.num, throwIn: o && o.throwIn, wall: o && o.wall, slide: o && o.slide, header: o && o.header, catch: o && o.catch }); } };
+/* G11: who celebrates how. Scorer: knee slide or jump; team-mates: jumps and fist pumps (mixed per player, never in step).
+   jump is still passed for the old block engine (no mocap there). */
+W.celOf = (id, star, t) => { const h = hash(String(id)); const k = star ? (h % 3 === 0 ? 'jump' : 'slide') : (h % 5 < 3 ? 'jump' : 'arms');
+  return { cel: k, arms: 'up', jump: k === 'arms' ? 0 : Math.abs(Math.sin((t || performance.now() / 1000) * 5 + h % 7)) * 0.4, run: star && k === 'slide' ? 0 : undefined }; };
 /* what each player is doing right now in the live engine: kicking, diving, celebrating */
 W.liveOpts = function (m) {
   const b = m.ball, f = b.fl, g = m.ev.length && m.ev[m.ev.length - 1], cel = m.hug >= 0 ? m.hug : g && g.k === 'goal' && m.pauseT > 0 && m.tick - g.tick < 60 ? g.side : -1;
@@ -2266,7 +2273,7 @@ W.liveOpts = function (m) {
     if (e && (e.k === 'tackle' || e.k === 'foul') && e.sl) return { slide: 1 };
     if (e && (e.k === 'header' || e.header)) return { header: 1, jump: 0.4 };
     if (e && e.k === 'save' && e.catch && p.role === 'GK') return { catch: 1, run: 0 };
-    if (cel >= 0) { const ph = hash(p.id) % 7; return p.side === cel ? { jump: Math.abs(Math.sin(performance.now() / 160 + ph)) * 0.5, arms: 'up', run: 0.3 } : { lean: 0.3, run: 0 }; }
+    if (cel >= 0) { if (p.side !== cel) return { lean: 0.3, run: 0 }; let sc = null; for (let i = m.ev.length - 1; i >= 0; i--) if (m.ev[i].k === 'goal') { sc = m.ev[i].pid; break; } return W.celOf(p.id, p.id === sc); }
     return null; };
 };
 const tvCam = (bx, bz, k) => ({ eye: [bx * 0.8, 21 * (k || 1), 34 + 38 * (k || 1)], at: [bx * 0.93, 0, bz * 0.55] });
@@ -2317,6 +2324,9 @@ W.replay = function (F, g, live, liveMode) {
       <div style="position:absolute;left:0;right:0;bottom:0;padding:10px 12px;background:linear-gradient(0deg,rgba(7,11,24,.92),rgba(7,11,24,0))"><p style="font-size:16px;font-weight:900">⚽ GOAL! ${scorerTxt} · ${g.min}'</p><p style="font-size:11px;color:#cbd5e1">${esc(D.n[0])} vs ${esc(D.n[1])}</p></div>
       ${liveMode ? '<div style="position:absolute;right:8px;bottom:52px;width:36%;max-width:180px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.35);box-shadow:0 0 12px rgba(0,0,0,.6)"><canvas id="w11mini" style="border-radius:0;box-shadow:none"></canvas><p style="position:absolute;left:4px;top:2px;font-size:8px;font-weight:900;color:#ff2d95">● LIVE</p></div>' : ''}`;
     box = document.getElementById('w11rpb');
+    /* G11: camera changes inside a replay dip through a quick dissolve instead of a hard cut */
+    const dip = document.createElement('div'); dip.style.cssText = 'position:absolute;inset:0;background:#070b18;opacity:0;pointer-events:none;transition:opacity .22s ease-out;z-index:2'; host.appendChild(dip);
+    const dipNow = () => { dip.style.transition = 'none'; dip.style.opacity = '0.85'; void dip.offsetWidth; dip.style.transition = 'opacity .26s ease-out'; dip.style.opacity = '0'; };
     if (liveMode) { const mc = document.getElementById('w11mini'); W._mini = new Pitch(mc); W._mini.size(); }
     const t0 = performance.now(), fiAt = (t) => { let left = t; for (const s of SEG) { const len = (s[1] - s[0]) * 0.05 / s[2]; if (left <= len) return [s[0] + left / len * (s[1] - s[0]), s]; left -= len; } const s = SEG[SEG.length - 1] || [0, F.length - 1, 1, 'tv']; return [s[1], s]; };
     const finish = () => { if (!W._rp) return; W._rp = 0; W._mini = null; if (G3.view === v3) G3.stop(v3); host.remove(); clearInterval(iv2); if (liveMode && W.v3.on) W.v3set(true); done(); };
@@ -2328,9 +2338,9 @@ W.replay = function (F, g, live, liveMode) {
         else if (s[3] === 'goal') tg = { eye: [gx + Math.sign(gx) * 13, 4.2, bz * 0.35 + 3], at: [bx, 1, bz] };
         else { const sp = f.p.find(q => q.id === g.pid) || f.p[0], th = t * 0.9; tg = { eye: [PX(sp.x) + Math.sin(th) * 7.5, 3.2, PZ(sp.y) + Math.cos(th) * 7.5], at: [PX(sp.x), 1.3, PZ(sp.y)] }; }
         if (v3.cel && !burst) { burst = true; G3.burst(parts3, 60, [gx, 3, 0], 7); }
-        const k = s[3] === cam?.m ? 1 - Math.exp(-dt * 5) : 1; cam = { eye: sm(k < 1 && cam ? cam.eye : null, tg.eye, k), at: sm(k < 1 && cam ? cam.at : null, tg.at, k), fov: 42, m: s[3] }; return cam; },
+        if (cam && s[3] !== cam.m) dipNow(); const k = s[3] === cam?.m ? 1 - Math.exp(-dt * 5) : 1; cam = { eye: sm(k < 1 && cam ? cam.eye : null, tg.eye, k), at: sm(k < 1 && cam ? cam.at : null, tg.at, k), fov: 42, m: s[3] }; return cam; },
       draw() { const f = v3.f; G3.drawWorld(v3.Wd, v3.cel ? Math.abs(Math.sin(v3.t * 9)) * 0.35 : 0);
-        drawPlayers(v3.D, f.p, st, v3.dt, (p) => v3.cel && p.side === side && !p.gk ? { jump: Math.abs(Math.sin(v3.t * 7 + (hash(p.id) % 7))) * (p.id === g.pid ? 0.8 : 0.4), arms: p.id === g.pid || hash(p.id) % 2 ? 'up' : '' } : null);
+        drawPlayers(v3.D, f.p, st, v3.dt, (p) => v3.cel && p.side === side && !p.gk ? W.celOf(p.id, p.id === g.pid, v3.t) : null);
         if (f.rf) drawRef(v3.D, f.rf[0], f.rf[1]);
         G3.ball(PX(f.b[0]), PZ(f.b[1]), f.b[2], spin); parts3.splice(0, parts3.length, ...G3.particles(parts3, v3.dt)); } };
     if (!G3.run(box, v3)) {
@@ -2399,7 +2409,7 @@ W.ceremony = function (kind, live) {
       let eye, at; const P = PH;
       if (kind === 'open') {
         if (t < P[1]) { const th = t * 0.22 + 0.6; eye = [Math.sin(th) * 88, 40, Math.cos(th) * 72]; at = [0, 0, 0]; }
-        else if (t < P[2]) { const u = (t - P[1]) / (P[2] - P[1]); at = [0, 1.2, lerp(30, 3, ease(u))]; eye = [9, 4.5, at[2] + 15]; if (!fired) { fired = 1; G3.burst(parts3, 80, [0, 2, 34], 5); } }
+        else if (t < P[2]) { const u = (t - P[1]) / (P[2] - P[1]), z0 = Math.min(26, 1.5 * (P[2] - P[1])); at = [0, 1.2, lerp(z0, 2, u)]; eye = [9, 4.5, at[2] + 15]; if (!fired) { fired = 1; G3.burst(parts3, 80, [0, 2, 34], 5); } }
         else if (t < P[4]) { const sd2 = short ? (t < P[3] ? 0 : 1) : (t < P[3] ? 0 : 1), u = short ? (t - P[2]) / (P[4] - P[2]) : (t - (sd2 ? P[3] : P[2])) / (P[3] - P[2]); const x = short ? lerp(-21, 21, u) : sd2 ? lerp(2, 21, u) : lerp(-2, -21, u); at = [x, 1.5, 0]; eye = [x * 0.9, 2.2, 7]; }
         else { const u = ease((t - P[4]) / (P[5] - P[4])); eye = [0, lerp(6, 21, u), lerp(16, 72, u)]; at = [0, lerp(1.2, 0, u), 0]; }
       } else {
@@ -2411,15 +2421,20 @@ W.ceremony = function (kind, live) {
     draw() { const t = v.t, P = PH; G3.drawWorld(v.Wd, Math.abs(Math.sin(t * (kind === 'close' ? 8 : 3))) * (kind === 'close' ? 0.3 : 0.12));
       if (kind === 'open') {
         const list = []; for (let s = 0; s < 2; s++) L[s].forEach((p, i) => { const id = (D.ids[s] || [])[i] || s + ':' + i, lx = s ? 2 + i * 1.9 : -2 - i * 1.9, k0 = kick0.find(q => q.id === id) || { x: 52.5, y: 34 };
-          let x, z, face = 0; if (t < P[1]) { x = s ? 1.2 : -1.2; z = 40 + i * 1.3; }
-          else if (t < P[2]) { const u = clamp(((t - P[1]) / (P[2] - P[1])) * 1.35 - i * 0.03, 0, 1); x = lerp(s ? 1.2 : -1.2, lx, ease(u)); z = lerp(40 + i * 1.3, 0, ease(u)); }
+          /* G11: the walk-out is a WALK (≈1.5 m/s, walking animation): each player walks straight from the tunnel line to his spot;
+             when the walk-out is short (friendlies) they are already on their way in, never sprinting */
+          const tx = s ? 1.2 : -1.2, tz = 26 + i * 1.1, dx0 = lx - tx, dist = Math.hypot(dx0, tz), dmax = 1.35 * (P[2] - P[1]) * 0.92, kw = Math.max(0, 1 - dmax / dist), sx = tx + dx0 * kw, sz = tz * (1 - kw);
+          let x, z, face = 0, walk = 0; if (t < P[1]) { x = sx; z = sz; }
+          else if (t < P[2]) { const u = clamp((t - P[1]) / ((P[2] - P[1]) * 0.92), 0, 1), e = u < 0.1 ? u * u / 0.18 : u > 0.9 ? 1 - (1 - u) * (1 - u) / 0.18 : (u - 0.05) / 0.9; x = lerp(sx, lx, e); z = lerp(sz, 0, e); walk = u < 1 ? 1 : 0; }
           else if (t < P[4]) { x = lx; z = 0; }
-          else { const u = ease((t - P[4]) / (P[5] - P[4]) * 1.4); x = lerp(lx, PX(k0.x), u); z = lerp(0, PZ(k0.y), u); face = u > 0.9 ? (s ? -Math.PI / 2 : Math.PI / 2) : 0; }
-          list.push({ side: s, gk: i === 0, x: x + 52.5, y: z + 34, id, face, num: p.num }); });
-        drawPlayers(v.D, list, st, v.dt, (p) => ({ face: p.face })); if (t >= P[4]) G3.ball(0, 0, 0, 0);
+          else { /* G11: break from the line and WALK towards the kick-off spot (≤1.6 m/s); the cut to the live match camera does the rest, like TV */
+            const gx = PX(k0.x), gz = PZ(k0.y), dd = Math.hypot(gx - lx, gz), tt = Math.max(0, t - P[4] - 0.3), go = Math.min(dd, 1.6 * tt) / Math.max(0.001, dd);
+            x = lerp(lx, gx, go); z = lerp(0, gz, go); walk = go > 0 && go < 1 ? 1 : 0; face = go >= 1 ? (s ? -Math.PI / 2 : Math.PI / 2) : 0; }
+          list.push({ side: s, gk: i === 0, x: x + 52.5, y: z + 34, id, face, num: p.num, walk }); });
+        drawPlayers(v.D, list, st, v.dt, (p) => (p.walk ? { run: 0.2 } : { face: p.face })); if (t >= P[4]) G3.ball(0, 0, 0, 0);
       } else if (mEnd) {
         drawPlayers(v.D, mEnd.P.map(p => ({ side: p.side, gk: p.role === 'GK', x: p.x, y: p.y, id: p.id, num: p.num })), st, v.dt, (p) => { const win = ws === p.side, ph = hash(p.id) % 7;
-          return win ? { jump: Math.abs(Math.sin(t * 6 + ph)) * 0.5, arms: 'up', run: 0 } : ws === -1 ? { arms: Math.sin(t * 5 + ph) > 0.6 ? 'up' : '', run: 0 } : { lean: 0.35, run: 0 }; });
+          return win ? Object.assign(W.celOf(p.id, best && p.id === best.id, t), { run: 0 }) : ws === -1 ? { cel: ph % 2 ? 'arms' : null, arms: ph % 2 ? 'up' : '', run: 0 } : { lean: 0.35, run: 0 }; });
       }
       parts3.splice(0, parts3.length, ...G3.particles(parts3, v.dt)); } };
   const iv = setInterval(() => { const t = clockT(); setCap(captions(Math.max(0, t))); if (!G3.ok() && (t >= dur || !document.body.contains(o))) finish(); }, 200);
@@ -2441,8 +2456,8 @@ W.trophyLift = function (title, sub) {
       if (Math.random() < dt * 6) G3.burst(parts3, 14, [(Math.random() - 0.5) * 16, 14, (Math.random() - 0.5) * 10], 3);
       const th = t * 0.35 + 0.4, tg = { eye: [Math.sin(th) * 11, 3.4 + Math.sin(t * 0.5), Math.cos(th) * 11], at: [0, 1.8, 0] }; const k = 1 - Math.exp(-dt * 3); cam = { eye: sm(cam && cam.eye, tg.eye, cam ? k : 1), at: sm(cam && cam.at, tg.at, cam ? k : 1), fov: 45 }; return cam; },
     draw() { const t = v.t; G3.drawWorld(v.Wd, Math.abs(Math.sin(t * 8)) * 0.35);
-      drawPlayers(v.D, ids.map((id, i) => { const a = (i - 5) / 5 * 1.25; return { side: 0, gk: i === 0, x: 52.5 + (i === 10 ? 0 : Math.sin(a) * 4.2), y: 34 + (i === 10 ? 1.4 : -Math.cos(a) * 4.2 + 3), id }; }), st, v.dt, (p) => ({ face: 0, jump: Math.abs(Math.sin(t * 5 + hash(p.id) % 5)) * 0.45, arms: 'up', run: 0 }));
-      const lift = 2.9 + Math.abs(Math.sin(t * 2.5)) * 0.5; G3.trophy(0, lift, 1.4, t * 1.2, 0.9);
+      drawPlayers(v.D, ids.map((id, i) => { const a = (i - 5) / 5 * 1.25; return { side: 0, gk: i === 0, x: 52.5 + (i === 10 ? 0 : Math.sin(a) * 4.2), y: 34 + (i === 10 ? 1.4 : -Math.cos(a) * 4.2 + 3), id }; }), st, v.dt, (p) => ({ face: 0, cel: p.id === ids[10] ? 'trophy' : 'jump', jump: Math.abs(Math.sin(t * 5 + hash(p.id) % 5)) * 0.45, arms: 'up', run: 0 }));
+      const lift = 2.75 + Math.sin(t * 1.6) * 0.12; G3.trophy(0, lift, 1.4, t * 1.2, 0.9);
       parts3.splice(0, parts3.length, ...G3.particles(parts3, v.dt)); } };
   if (!G3.run(box, v)) { box.style.background = 'radial-gradient(circle at 50% 30%,rgba(250,204,21,.35),rgba(7,11,24,0) 70%)'; box.innerHTML = '<p style="text-align:center;font-size:90px;margin-top:18vh">🏆</p>'; cap.style.justifyContent = 'center'; }
 };
@@ -2486,7 +2501,7 @@ G3.stop = function (view) {
   if (!view || G3.view === view) { const v = G3.view; G3.view = null; if (v && v.end) v.end(); if (G3.B3) G3.B3.stop(); }
 };
 ['team', 'freeTeam', 'fig', 'ball', 'world', 'drawWorld', 'particles', 'trophy', 'floor'].forEach(k => { G3[k] = function () { return (G3.be === 'b3' && G3.B3 ? G3.B3 : G3OLD)[k].apply(this, arguments); }; });
-W.W3D_V = 6;
+W.W3D_V = 7;
 W.w3d = { st: 0 };
 W.w3dLoad = function () {
   if (W.w3d.st || !G3.ok() || typeof window === 'undefined') return;
@@ -2630,7 +2645,7 @@ W.cineStart = function (c, m, live) {
       const X = PX(bx), Z = PZ(by), scored = mm.ev.some(e => e.k === 'goal' && e.tick >= c.start), shot = b.fl && b.fl.kind === 'shot';
       let tg;
       if (scored && c.k === 'goal') { const sp = mm.P.find(p => p.id === c.pid) || b.owner || mm.P[0], th = performance.now() / 1000 * 0.7, px = PX(L(sp, 'x')), pz = PZ(L(sp, 'y')); tg = { eye: [px + Math.sin(th) * 11, 3.6, pz + Math.cos(th) * 11], at: [px, 1.2, pz] }; }
-      else if (shot || Math.abs(gx - X) < 9) tg = { eye: [gx + dirx * 7.5, 2.3, (Z > 0 ? 1 : -1) * 8.5], at: [X * 0.5 + gx * 0.5, 1.1, Z * 0.6] };
+      else if (shot || Math.abs(gx - X) < 9) tg = { eye: [gx - dirx * 7, 2.6, (Z > 0 ? 1 : -1) * 15], at: [X * 0.45 + gx * 0.55, 1.0, Z * 0.5] };
       else { const cx = b.owner ? PX(L(b.owner, 'x')) : X, cz = b.owner ? PZ(L(b.owner, 'y')) : Z; tg = { eye: [cx - dirx * 8.5, 3.4, cz + (cz > 0 ? -3.5 : 3.5)], at: [cx + dirx * 9, 1.0, cz * 0.7] }; }
       const k = cam ? 1 - Math.exp(-dt * 3.2) : 1; cam = { eye: sm(cam && cam.eye, tg.eye, k), at: sm(cam && cam.at, tg.at, k), fov: 46 };
       const scE = document.getElementById('w11cinesc'), mnE = document.getElementById('w11cinemn'), cpE = document.getElementById('w11cinec');
@@ -2750,7 +2765,14 @@ W.dev = (function () {
 W.weak = W.dev.tier === 'low';
 W.gfxName = { auto: '🤖 Auto', high: '🔥 High', mid: '⚖️ Mid', low: '🔋 Low' };
 W.gfxSet = function (k) { try { localStorage.setItem('w11_gfx', k); } catch (e) {} toast(`${W.gfxName[k]} graphics. Close and reopen 11 Wonders to use it.`); W.hq && W.hq(); };
-W.gfxCard = () => `<div class="card" id="w11gfx"><p style="font-weight:900">⚙️ Graphics</p><p style="font-size:11px;color:#94a3b8;margin:4px 0 8px">Auto checks your phone (chip, memory, a quick speed test) and keeps adjusting while you play. Matches, rules, kits and players are the same on every setting; only background detail changes (crowd, shadows, sharpness). This phone: <b>${W.gfxName[W.dev.auto]}</b>.</p><div style="display:flex;gap:6px;flex-wrap:wrap">${['auto', 'high', 'mid', 'low'].map(k => `<button onclick="W11.gfxSet('${k}')" style="flex:1;padding:8px;border-radius:10px;font-size:12px;font-weight:900;${W.dev.pick === k || (k === 'auto' && !['high', 'mid', 'low'].includes(W.dev.pick)) ? 'background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24' : 'background:rgba(255,255,255,.06)'}">${W.gfxName[k]}</button>`).join('')}</div></div>`;
+W.gfxCard = () => `<div class="card" id="w11gfx"><p style="font-weight:900">⚙️ Graphics</p><p style="font-size:11px;color:#94a3b8;margin:4px 0 8px">Auto checks your phone (chip, memory, a quick speed test) and keeps adjusting while you play. Matches, rules, kits and players are the same on every setting; only background detail changes (crowd, shadows, sharpness). This phone: <b>${W.gfxName[W.dev.auto]}</b>.</p>${W.gfxStatus()}<div style="display:flex;gap:6px;flex-wrap:wrap">${['auto', 'high', 'mid', 'low'].map(k => `<button onclick="W11.gfxSet('${k}')" style="flex:1;padding:8px;border-radius:10px;font-size:12px;font-weight:900;${W.dev.pick === k || (k === 'auto' && !['high', 'mid', 'low'].includes(W.dev.pick)) ? 'background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24' : 'background:rgba(255,255,255,.06)'}">${W.gfxName[k]}</button>`).join('')}</div></div>`;
+/* G11: which players does this phone show? New MakeHuman athletes, or the old ones (with the reason and a retry) */
+W.gfxStatus = () => { const st = W.w3d.st, B = G3.B3, I = st === 2 && B && B.mhInfo ? B.mhInfo() : null;
+  const line = (ok, t) => `<p style="font-size:11px;margin:0 0 8px;padding:6px 8px;border-radius:10px;background:${ok ? 'rgba(34,211,238,.1)' : 'rgba(250,204,21,.1)'}">${t}</p>`;
+  if (st === 1 || st === 0) return line(true, '⏳ Players: loading the 3D athletes…');
+  if (st === -1 || !I) return line(false, `⚠️ 3D is off on this phone, matches use the 2D radar. <button onclick="W11.mhRetry()" style="margin-left:6px;padding:3px 8px;border-radius:8px;background:rgba(255,255,255,.1);font-weight:900">Retry</button>`);
+  return I.ok ? line(true, `✅ Players: new athletes${I.hero ? ' + close-ups' : ''}`) : line(false, `⚠️ Players: old version. The new files didn't load (${esc(I.err || 'unknown')}). <button onclick="W11.mhRetry()" style="margin-left:6px;padding:3px 8px;border-radius:8px;background:rgba(255,255,255,.1);font-weight:900">Retry</button>`); };
+W.mhRetry = async () => { try { const ks = await caches.keys(); for (const k of ks) { const c = await caches.open(k); for (const q of await c.keys()) if (/w3d|basis_transcoder/.test(q.url)) await c.delete(q); } } catch (e) {} try { localStorage.removeItem('w11_3dq'); } catch (e) {} location.reload(); };
 W.hq = (function (b) { return function () { const r = b.apply(this, arguments); try { const bd = document.querySelector('#w11b'); if (bd && !document.getElementById('w11gfx')) bd.insertAdjacentHTML('beforeend', W.gfxCard()); } catch (e) {} return r; }; })(W.hq);
 
 /* ---------- 😤 reactions in 3D: near-miss disbelief, keeper shouting, fierce duels, despair ---------- */
@@ -3557,5 +3579,131 @@ W.pMenu = (function (b) { return function (id) { const r = b.apply(this, argumen
       else box.innerHTML = `<p style="font-size:11px;color:#64748b;margin:auto;text-align:center;padding:10px">3D portrait needs 3D graphics on this phone</p>`; };
     setTimeout(fill, 30);
   } catch (e) {} return r; }; })(W.pMenu);
+
+/* ================================================================================================
+   G11 · ONE SCREEN, NO SCROLLING. 11 Wonders is locked to the phone screen like a native game.
+   Every screen is fitted after it is drawn (and again when it changes or the phone turns):
+     1. a card that is taller than the screen gets its list split into pages  ‹ 1/3 ›  (tap to see more)
+     2. if the cards still don't fit, they are split into tabs at the bottom (tap a tab to see the other things)
+     3. a card that still can't fit (long help text) is shrunk a little, then paged by paragraph
+   Match screens: the side panels (tactics, subs) get the same list pages. Nothing ever scrolls.
+   Taps: every button reacts on the frame it is touched (pressed look + no 300 ms delay).
+   ================================================================================================ */
+const FIT_CSS = `
+html.w11on,html.w11on body{overflow:hidden!important;overscroll-behavior:none}
+#w11{height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#w11 .hd{min-height:40px!important;padding:3px 12px!important;padding-top:max(3px,env(safe-area-inset-top))!important;flex:none}
+#w11 .hd b{font-size:14px!important}#w11 .bk{width:36px!important;height:36px!important}
+#w11 .bd{overflow:hidden!important;position:relative;min-height:0}
+#w11 .bd:not(.mt){grid-template-columns:repeat(auto-fit,minmax(240px,1fr))!important;gap:8px!important;padding:8px 12px 6px!important}
+#w11 .card{padding:10px 12px;border-radius:14px}
+#w11 .row{padding:5px 4px!important;font-size:12px!important}
+#w11 .btn{padding:11px!important;font-size:13px!important}#w11 .btn2{padding:9px!important;font-size:12px!important}
+#w11 .tip{padding:6px 8px;margin-top:6px}
+#w11 select,#w11 input{max-width:100%;min-width:0}
+#w11 .w11two{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:14px;align-content:start}#w11 .w11two>*{min-width:0}#w11 .w11two>:not(.row){grid-column:1/-1}
+#w11 .g8p,#w11 .ov,#w11 .w11side2{overflow:hidden!important}
+#w11 button{touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .06s,filter .06s}
+#w11 button.w11tap{transform:scale(.96);filter:brightness(1.25)}
+.w11pg{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px}
+.w11pg button{min-width:46px;height:30px;border-radius:10px;background:rgba(255,255,255,.08);font-weight:900;font-size:14px}
+.w11pg button:disabled{opacity:.3}
+.w11pg span{font-size:11px;font-weight:900;color:#94a3b8;min-width:44px;text-align:center}
+#w11tabs{display:flex;gap:6px;padding:4px 12px;padding-bottom:max(6px,env(safe-area-inset-bottom));flex:none}
+#w11tabs button{flex:1;min-width:0;padding:8px 6px;border-radius:12px;font-size:11px;font-weight:900;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#w11tabs button.on{background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24;border-color:transparent}
+#w11 .w11hide,.w11hide{display:none!important}`;
+W.fitCss = function () { if (document.getElementById('w11fit')) return; const st = document.createElement('style'); st.id = 'w11fit'; st.textContent = FIT_CSS; document.head.appendChild(st); };
+const FIT = { busy: false, key: '', pg: {}, tab: 0, raf: 0, tm: 0, mo: null };
+const visible = (e) => e && e.nodeType === 1 && !/^(STYLE|SCRIPT)$/.test(e.tagName) && getComputedStyle(e).display !== 'none' && !e.classList.contains('w11pg');
+const fitsIn = (box, H) => box.getBoundingClientRect().height <= H + 1;
+/* our own DOM changes must not wake the observer again */
+const quiet = () => { const h = document.getElementById('w11'); if (h && h._fitMo) h._fitMo.takeRecords(); };
+/* the biggest list inside a box: an element with 4+ visible children that are all row-sized */
+const listIn = (box) => { let best = null, bs = 0; const scan = (e, d) => { if (d > 6) return; const ch = [...e.children].filter(visible);
+    if (ch.length >= 4) { const hs = ch.map(c => c.offsetHeight), tot = hs.reduce((a, b) => a + b, 0); if (Math.max(...hs) < 130 && tot > bs) { bs = tot; best = e; } }
+    for (const c of ch) scan(c, d + 1); };
+  scan(box, 0); return best; };
+const labelOf = (e) => { let h = null; for (const q of e.querySelectorAll('p,b,span,div,button')) { if (q.children.length > 2) continue; const t = (q.innerText || '').trim(); if (t && parseInt(getComputedStyle(q).fontWeight) >= 800 && t.length > 2) { h = t; break; } }
+  const t = h || e.innerText || ''; return t.split('\n').map(s => s.trim()).filter(Boolean)[0] || '•'; };
+/* split the children of list L (inside box) into pages so the box fits in H */
+function pageList(box, L, H, key) {
+  const items = [...L.children].filter(visible); if (items.length < 2) return false;
+  const pg = document.createElement('div'); pg.className = 'w11pg'; pg.innerHTML = '<button data-d="-1">‹</button><span></span><button data-d="1">›</button>';
+  if (L === box) box.appendChild(pg); else L.after(pg);
+  let per = items.length; while (per > 1 && !fitsIn(box, H)) { per--; items.forEach((it, i) => it.classList.toggle('w11hide', i >= per)); }
+  FIT.per = per; if (per >= items.length) { pg.remove(); items.forEach(it => it.classList.remove('w11hide')); return fitsIn(box, H); }
+  const n = Math.ceil(items.length / per); let cur = Math.min(FIT.pg[key] || 0, n - 1);
+  const show = () => { items.forEach((it, i) => it.classList.toggle('w11hide', Math.floor(i / per) !== cur)); pg.children[1].textContent = `${cur + 1} / ${n}`; pg.children[0].disabled = cur === 0; pg.children[2].disabled = cur === n - 1; FIT.pg[key] = cur; };
+  pg.onclick = (ev) => { const d = Number(ev.target && ev.target.dataset && ev.target.dataset.d); if (!d) return; ev.stopPropagation(); cur = Math.max(0, Math.min(n - 1, cur + d)); FIT.busy = true; show(); quiet(); FIT.busy = false; };
+  show(); return fitsIn(box, H);
+}
+function fitBox(box, H, key) {
+  if (fitsIn(box, H)) return true;
+  /* a wide screen with 3+ columns: let a tall card take 2 columns first (text gets shorter, lists stay long) */
+  const bd = box.parentElement, cols = bd && getComputedStyle(bd).gridTemplateColumns.split(' ').length;
+  if (cols >= 3 && !box.style.gridColumn) { box.style.gridColumn = 'span 2'; box.dataset.fz = 1; if (fitsIn(box, H)) return true; }
+  /* a list inside: rows in two columns when there is room, then pages of at least 3 rows */
+  const L = listIn(box);
+  if (L) { if (L.clientWidth >= 500) L.classList.add('w11two'); if (pageList(box, L, H, key) && (FIT.per || 9) >= 3) return true; undoList(L); }
+  /* forms and pictures (designers, stadium): shrink to fit, down to 60 % */
+  const z0 = H / box.getBoundingClientRect().height; if (z0 >= 0.6) { box.style.zoom = String(Math.max(0.6, z0 - 0.01)); box.dataset.fz = 1; if (fitsIn(box, H)) return true; box.style.zoom = ''; }
+  /* last resort: pages of the list (any size), shrink the rest */
+  if (L && L.clientWidth >= 500) L.classList.add('w11two'); if (L && pageList(box, L, H, key)) return true;
+  const z = Math.max(0.6, H / box.getBoundingClientRect().height); box.style.zoom = String(z); box.dataset.fz = 1; if (fitsIn(box, H)) return true;
+  /* no list and too much to shrink: pages of the card's own blocks (each shrunk if needed) */
+  box.style.zoom = ''; if (L) undoList(L); let host = box; while (host.children.length === 1 && host.firstElementChild.children.length) host = host.firstElementChild;
+  if ([...host.children].filter(visible).length >= 2) { pageList(box, host, H, key + 'b'); if (fitsIn(box, H)) return true; }
+  const z2 = Math.max(0.5, H / box.getBoundingClientRect().height); box.style.zoom = String(z2); box.dataset.fz = 1; return fitsIn(box, H);
+}
+function undoList(L) { L.classList.remove('w11two'); [...L.children].forEach(c => c.classList.remove('w11hide')); const g = L.nextElementSibling && L.nextElementSibling.classList.contains('w11pg') ? L.nextElementSibling : L.querySelector(':scope > .w11pg'); if (g) g.remove(); }
+function reset(root) { root.querySelectorAll('.w11two').forEach(e => e.classList.remove('w11two')); root.querySelectorAll('.w11hide').forEach(e => e.classList.remove('w11hide')); root.querySelectorAll('.w11pg').forEach(e => e.remove()); root.querySelectorAll('[data-fz]').forEach(e => { e.style.zoom = ''; e.style.gridColumn = ''; delete e.dataset.fz; }); if (root.dataset && root.dataset.fz) { root.style.zoom = ''; root.style.gridColumn = ''; delete root.dataset.fz; } }
+W.fit = function () {
+  const h = document.getElementById('w11'), bd = document.getElementById('w11b'); if (!h || !bd || FIT.busy) return; FIT.busy = true;
+  try {
+    const title = (h.querySelector('.hd b') || {}).textContent || ''; if (title !== FIT.key) { FIT.key = title; FIT.pg = {}; FIT.tab = 0; }
+    let tabs = document.getElementById('w11tabs');
+    if (bd.classList.contains('mt')) { if (tabs) tabs.remove(); reset(h);
+      /* match: side panels and pick-lists */
+      h.querySelectorAll('.g8p, .ov, .w11side2').forEach((p, i) => { if (!visible(p) || p.offsetHeight < 40) return; const L = listIn(p); if (L && p.scrollHeight > p.clientHeight + 1) pageListIn(p, L, 'm' + i); });
+      return; }
+    reset(bd); if (tabs) tabs.remove(); tabs = null;
+    const cs = getComputedStyle(bd), padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    let H = bd.clientHeight - padV; const items = [...bd.children].filter(visible);
+    items.forEach((it, i) => { if (it.getBoundingClientRect().height > H + 1) fitBox(it, H, 'c' + i); });
+    if (bd.scrollHeight <= bd.clientHeight + 1 || items.length < 2) return;
+    /* tabs: groups of cards that fit together; tap a tab to see the other things */
+    tabs = document.createElement('div'); tabs.id = 'w11tabs'; tabs.innerHTML = '<button>•</button>'; bd.after(tabs);
+    H = bd.clientHeight - padV; items.forEach((it, i) => { reset(it); if (it.getBoundingClientRect().height > H + 1) fitBox(it, H, 'c' + i); });
+    const pages = []; let page = [];
+    items.forEach(it => it.classList.add('w11hide'));
+    for (const it of items) { it.classList.remove('w11hide'); if (page.length && bd.scrollHeight > bd.clientHeight + 1) { page.forEach(x => x.classList.add('w11hide')); pages.push(page); page = []; } page.push(it); }
+    if (page.length) pages.push(page);
+    const cur = Math.min(FIT.tab, pages.length - 1); FIT.tab = cur;
+    const show = (k) => { FIT.busy = true; pages.forEach((p, j) => p.forEach(x => x.classList.toggle('w11hide', j !== k))); [...tabs.children].forEach((b, j) => b.classList.toggle('on', j === k)); FIT.tab = k; quiet(); FIT.busy = false; };
+    tabs.innerHTML = pages.map(p => `<button>${esc(labelOf(p[0]).slice(0, 26))}</button>`).join('');
+    [...tabs.children].forEach((b, j) => { b.onclick = (ev) => { ev.stopPropagation(); show(j); }; });
+    show(cur); FIT.busy = true;
+  } catch (e) { console.warn('fit', e); } finally { quiet(); FIT.busy = false; }
+};
+/* panels inside the match keep their own height: page their list to fit */
+function pageListIn(p, L, key) { const H = p.clientHeight; const items = [...L.children].filter(visible); if (items.length < 2) return;
+  const pg = document.createElement('div'); pg.className = 'w11pg'; pg.innerHTML = '<button data-d="-1">‹</button><span></span><button data-d="1">›</button>'; L.after(pg);
+  let per = items.length; while (per > 1 && p.scrollHeight > H + 1) { per--; items.forEach((it, i) => it.classList.toggle('w11hide', i >= per)); }
+  const n = Math.ceil(items.length / per); if (n <= 1) { pg.remove(); return; } let cur = Math.min(FIT.pg[key] || 0, n - 1);
+  const show = () => { items.forEach((it, i) => it.classList.toggle('w11hide', Math.floor(i / per) !== cur)); pg.children[1].textContent = `${cur + 1} / ${n}`; pg.children[0].disabled = cur === 0; pg.children[2].disabled = cur === n - 1; FIT.pg[key] = cur; };
+  pg.onclick = (ev) => { const d = Number(ev.target && ev.target.dataset && ev.target.dataset.d); if (!d) return; ev.stopPropagation(); cur = Math.max(0, Math.min(n - 1, cur + d)); FIT.busy = true; show(); quiet(); FIT.busy = false; };
+  show(); }
+W.fitSoon = function () { if (FIT.busy || FIT.raf || FIT.tm) return; const bd = document.getElementById('w11b');
+  /* live match: the ticker changes all the time; only panels/pick-lists need fitting, at most ~3 times a second */
+  if (bd && bd.classList.contains('mt')) { if (!document.querySelector('#w11 .g8p, #w11 .ov')) return; FIT.tm = setTimeout(() => { FIT.tm = 0; W.fit(); }, 300); return; }
+  FIT.raf = requestAnimationFrame(() => { FIT.raf = 0; W.fit(); }); };
+W.ui = (function (b) { return function () { W.fitCss(); const r = b.apply(this, arguments); document.documentElement.classList.add('w11on');
+  const h = document.getElementById('w11');
+  if (h && !h._fitMo && typeof MutationObserver !== 'undefined') { h._fitMo = new MutationObserver(() => { if (!FIT.busy) W.fitSoon(); }); h._fitMo.observe(h, { childList: true, subtree: true }); }
+  if (h && !h._tapOn) { h._tapOn = 1; h.addEventListener('pointerdown', (e) => { const bt = e.target.closest && e.target.closest('button'); if (bt) { bt.classList.add('w11tap'); setTimeout(() => bt.classList.remove('w11tap'), 140); } }, { passive: true }); }
+  W.fit(); return r; }; })(W.ui);
+W.close = (function (b) { return function () { document.documentElement.classList.remove('w11on'); return b.apply(this, arguments); }; })(W.close);
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('resize', () => { if (document.getElementById('w11')) W.fitSoon(); });
 
 })();
