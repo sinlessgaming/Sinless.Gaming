@@ -28166,3 +28166,28 @@ setTimeout(window.sg11Card, 0); document.addEventListener('DOMContentLoaded', wi
 window.switchView = (function(b) { return function(v, ...r) { const o = b.call(this, v, ...r); if (v === 'play') setTimeout(window.sg11Card, 30); return o; }; })(window.switchView);
 window.addEventListener('hashchange', () => { if (location.hash === '#11wonders') window.open11W(); });
 setTimeout(() => { if (location.hash === '#11wonders') window.open11W(); }, 3000);
+
+/* ==== G11b · "New version ready" bar ====
+The service worker downloads a new version quietly. When it is ready it tells the open page, and a small bar
+appears at the top: "✨ New version ready · Restart". Tapping Restart reloads the app onto the new files.
+Not shown on the very first visit (nothing to update from). */
+window.SG_BUILD = 77;
+(function () {
+if (!('serviceWorker' in navigator)) return;
+const hadCtl = !!navigator.serviceWorker.controller;
+window.sgShowUpdate = function () {
+if (!hadCtl || window._sgUpd || document.getElementById('sgupd')) return; window._sgUpd = 1;
+const d = document.createElement('div'); d.id = 'sgupd';
+d.style.cssText = 'position:fixed;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);z-index:2147483600;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:999px;background:rgba(7,11,24,.94);border:1px solid rgba(34,211,238,.5);box-shadow:0 0 24px rgba(168,85,247,.45);color:#e2e8f0;font:800 13px system-ui,sans-serif;max-width:94vw';
+d.innerHTML = '<span>✨ New version ready</span><button style="border:0;padding:8px 14px;border-radius:999px;font-weight:900;color:#0b0f24;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)">Restart</button><button aria-label="Later" style="border:0;background:none;color:#94a3b8;font-size:16px;padding:4px 8px">✕</button>';
+d.children[1].onclick = () => location.reload();
+d.children[2].onclick = () => d.remove();
+document.body.appendChild(d);
+};
+navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.sgUpdated) window.sgShowUpdate(); });
+navigator.serviceWorker.addEventListener('controllerchange', () => window.sgShowUpdate());
+/* look for a new version whenever the app comes back to the screen (phones keep apps alive for days) */
+const check = () => { navigator.serviceWorker.getRegistration().then((r) => { if (r) r.update().catch(() => {}); }).catch(() => {}); };
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+setInterval(check, 30 * 60000);
+})();

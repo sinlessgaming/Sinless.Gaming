@@ -3,18 +3,25 @@
 // - Opens instantly from the saved copy. A new version is downloaded whole, then used on the next open.
 // - Each update has a new CACHE name, so the newest files are fetched as soon as an update is uploaded.
 // - If there's no internet, it opens the last saved copy of the app instead of a blank page.
-const CACHE = 'sinless-gg-v104';
+const CACHE = 'sinless-gg-v105';
 const APP_FILES = ['./', './index.html', './tailwind.css', './styles.css', './app.js', './firebase-config.js', './manifest.json', './icon-192.png', './icon-512.png', './logo-96.png', './icon-180.png'];
 
+// G11b: every app file is fetched with a one-off ?sgv= tag, so GitHub's servers can never hand back an old copy
+// (they keep files up to ~10 minutes). It is saved under its normal name. If index.html or app.js fails to download, the update waits for the next open.
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(APP_FILES.map((u) => new Request(u, { cache: 'reload' })))).catch(() => {}));
-  self.skipWaiting();
+  event.waitUntil(caches.open(CACHE).then((c) => Promise.all(APP_FILES.map(async (u) => {
+    const core = u === './' || u === './index.html' || u === './app.js';
+    try { const res = await fetch(new Request(u + (u.includes('?') ? '&' : '?') + 'sgv=' + CACHE + '-' + Date.now(), { cache: 'reload' }));
+      if (!res.ok) throw new Error('update file failed: ' + u); await c.put(new Request(u), res); } catch (e) { if (core) throw e; }
+  }))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
+      // tell open pages a new version is ready (they show a "Restart" bar)
+      .then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true })).then((list) => list.forEach((c) => { try { c.postMessage({ sgUpdated: CACHE }); } catch (e) {} }))
   );
 });
 
