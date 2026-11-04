@@ -2998,7 +2998,7 @@ const oplayer = function (id, S) {
    a{S}x{slot}x{n}  = player sold in the market (born in season S)
    y{S}x{club}x{k}  = one of the 15 youngsters a club sees in its youth draft in season S
    L{S}x{no}        = the 150-OVR wonder given to Pioneer #no (1–50). Only 50 can ever exist. */
-const NEW_RE = /^([ayL])(\d+)x(\d+)(?:x(\d+))?$/;
+const NEW_RE = /^([aybL])(\d+)x(\d+)(?:x(\d+))?$/;
 const isNew = (id) => NEW_RE.test(String(id));
 const POS15 = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD', 'GK'];
 const LEG_POS = ['FWD', 'MID', 'FWD', 'DEF', 'MID', 'FWD', 'MID', 'DEF', 'FWD', 'GK'];
@@ -3010,7 +3010,9 @@ const legAttrs = (r, pos) => {
     : pos === 'MID' ? { pac: v(110), sho: v(125), pas: v(140), dri: v(135), def: v(100), gk: 20 }
     : { pac: v(115), sho: v(140), pas: v(118), dri: v(138), def: v(70), gk: 20 };
 };
-const posOfNew = (m) => m[1] === 'L' ? LEG_POS[Number(m[3]) % 10] : POS15[Number(m[1] === 'a' ? m[3] : m[4]) % 15];
+/* G12 market lots ('b'): any position, picked from the lot (not the slot) */
+const POSB = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD'];
+const posOfNew = (m) => m[1] === 'L' ? LEG_POS[Number(m[3]) % 10] : m[1] === 'b' ? POSB[hash('pb:' + m[0]) % 16] : POS15[Number(m[1] === 'a' ? m[3] : m[4]) % 15];
 /* the player as he is in his first season (g = 0), or the 17-year-old who replaces him after he retires (g > 0) */
 const nbase = function (id, gid, g) {
   const m = NEW_RE.exec(id), k = m[1], r = rng(hash(WORLD + ':n:' + gid)), nm = named(r), pos = posOfNew(m), num = 21 + hash(gid + ':num') % 70;
@@ -3029,7 +3031,24 @@ const nbase = function (id, gid, g) {
     if (age <= 19 && r() < 0.05) { wk = true; ovr = 66 + Math.floor(r() * 11); }
     pot = wk ? 91 + Math.floor(r() * 7) : age < 27 ? clamp(ovr + 3 + Math.floor(r() * 14), ovr, 94) : ovr;
   }
+  if (k === 'b') return bplayer(id, k, nm, pos, r, num);
   return { id, k, ...nm, pos, age, ovr, pot, wk, ...attrs(r, pos, ovr), num };
+};
+/* G12: market players with heavy variety: every age 16–35, OVR 42–93, and a profile that makes him special
+   (a sprinter, a pure finisher, a passer, a dribbler, a rock at the back...), not just 'good at everything a bit' */
+const B_PROF = { GK: [{ gk: 8, pas: -6 }, { pas: 12, pac: 6, gk: -2 }, { gk: 4, def: 6 }],
+  DEF: [{ def: 9, pac: -6 }, { pac: 14, def: -2, dri: 4 }, { pas: 12, def: 2 }, { def: 5, sho: 10 }, { dri: 10, pac: 8, def: -4 }],
+  MID: [{ pas: 12, def: -4 }, { def: 10, pas: 4, sho: -8 }, { sho: 12, pas: -2 }, { dri: 12, pac: 6, def: -8 }, { pac: 12, pas: 3 }, { pas: 6, def: 6, pac: 4, sho: -6 }],
+  FWD: [{ sho: 12, pac: -4, pas: -6 }, { pac: 16, sho: 2, pas: -6 }, { dri: 13, sho: 4 }, { pas: 10, dri: 4, sho: -2 }, { sho: 6, def: 8, pac: -6 }] };
+const bplayer = function (id, k, nm, pos, r, num) {
+  const age = 16 + Math.floor(r() * 20), x = r();
+  let ovr = x < 0.18 ? 42 + Math.floor(r() * 12) : x < 0.45 ? 54 + Math.floor(r() * 10) : x < 0.72 ? 64 + Math.floor(r() * 10) : x < 0.9 ? 74 + Math.floor(r() * 9) : x < 0.98 ? 83 + Math.floor(r() * 6) : 89 + Math.floor(r() * 5);
+  if (age <= 19) ovr = Math.min(ovr, 50 + (age - 16) * 7); if (age >= 33) ovr = Math.max(48, ovr - (age - 32) * 2);
+  let wk = false; if (age <= 19 && r() < 0.07) { wk = true; ovr = 64 + Math.floor(r() * 12); }
+  const pot = wk ? 90 + Math.floor(r() * 8) : age < 27 ? clamp(ovr + 2 + Math.floor(r() * (age < 22 ? 22 : 12)), ovr, 94) : ovr;
+  const A = attrs(r, pos, ovr), P = B_PROF[pos][Math.floor(r() * B_PROF[pos].length)], sp = 0.8 + r() * 0.7;
+  for (const q in P) A[q] = clamp(Math.round(A[q] + P[q] * sp), 25, 99);
+  return { id, k, ...nm, pos, age, ovr, pot, wk, ...A, num };
 };
 const nplayer = function (id, S) {
   const m = NEW_RE.exec(id), S0 = Number(m[2]); S = Math.max(S0, Math.floor(S || 1));
@@ -3065,8 +3084,12 @@ const legendId = (S, no) => 'L' + S + 'x' + no;
    A bid in the last 10 s puts the clock back to 10 s. 🤖 computer clubs (clearly marked) snipe 3 s before the end
    while the price is under the most they will pay. With no human bids, a computer club buys at the start price (or it's unsold). */
 const MK_N = 15, MK_LEN = 60000, MK_EXT = 10000, MK_AI = 3000;
+/* G12: from MK_T2 every auction lasts 2 min 30 s (MK_LEN2) and sells a 'b' player (any position, much more variety).
+   Lots that started before MK_T2 keep 60 s and their 'a' players, so nothing already sold or owned ever changes. */
+const MK_T2 = Date.UTC(2026, 10, 6, 0, 0), MK_LEN2 = 150000;
+const mkLen = (st) => st >= MK_T2 ? MK_LEN2 : MK_LEN;
 const lotT0 = (i) => EPOCH0 + i * 4000;
-const lotPid = (i, n, st) => 'a' + clock(st).s + 'x' + i + 'x' + n;
+const lotPid = (i, n, st) => (st >= MK_T2 ? 'b' : 'a') + clock(st).s + 'x' + i + 'x' + n;
 const stepOf = (p) => Math.max(500, r500(p * 0.05));
 const lotInfo = (i, n, st) => {
   const pid = lotPid(i, n, st), p = player(pid, clock(st).s), v = value(p), start = Math.max(1000, r500(v * 0.4)), r = rng(hash('mkai:' + pid));
@@ -3076,18 +3099,24 @@ const lotInfo = (i, n, st) => {
 /* L = a stored lot { i, n, st, end, p, u, un, c, nb } (or a fresh one { i, n, st }); answers how it stands at time `now` */
 const lotEff = (L, now) => {
   const I = lotInfo(L.i, L.n, L.st);
-  if (!L.u) { const end = L.st + MK_LEN; return { ...I, top: null, price: I.start, end, closed: now >= end, winner: now >= end ? (I.aiMax >= I.start ? 'ai' : null) : null, minNext: I.start }; }
+  if (!L.u) { const end = L.st + mkLen(L.st); return { ...I, top: null, price: I.start, end, closed: now >= end, winner: now >= end ? (I.aiMax >= I.start ? 'ai' : null) : null, minNext: I.start }; }
   const e = L.end, aiNext = L.p + stepOf(L.p);
   if (aiNext <= I.aiMax && now >= e - MK_AI) { const end = e - MK_AI + MK_EXT; return { ...I, top: 'ai', price: aiNext, end, closed: now >= end, winner: now >= end ? 'ai' : null, minNext: aiNext + stepOf(aiNext), aiAt: e - MK_AI }; }
   return { ...I, top: 'u', price: L.p, end: e, closed: now >= e, winner: now >= e ? 'u' : null, minNext: L.p + stepOf(L.p) };
 };
 /* which lot is running in slot i right now, given the last stored lot of that slot (or none) */
-const lotCur = (i, L, now) => {
-  if (!L) { const t0 = lotT0(i), n = Math.max(0, Math.floor((now - t0) / MK_LEN)); return { i, n, st: t0 + n * MK_LEN }; }
-  const E = lotEff(L, now); if (!E.closed) return L;
-  const k = Math.max(0, Math.floor((now - E.end) / MK_LEN)); return { i, n: L.n + 1 + k, st: E.end + k * MK_LEN };
+/* the n-th lot after a lot that started at st0 (60 s lots before MK_T2, 150 s lots from the first start after it) */
+const lotChain = (i, n0, st0, now) => {
+  if (st0 >= MK_T2) { const k = Math.max(0, Math.floor((now - st0) / MK_LEN2)); return { i, n: n0 + k, st: st0 + k * MK_LEN2 }; }
+  const k1 = Math.max(0, Math.floor((now - st0) / MK_LEN)); if (st0 + k1 * MK_LEN < MK_T2) return { i, n: n0 + k1, st: st0 + k1 * MK_LEN };
+  const nB = Math.ceil((MK_T2 - st0) / MK_LEN), tB = st0 + nB * MK_LEN, k = Math.max(0, Math.floor((now - tB) / MK_LEN2)); return { i, n: n0 + nB + k, st: tB + k * MK_LEN2 };
 };
-
+/* which lot is running in slot i right now, given the last stored lot of that slot (or none) */
+const lotCur = (i, L, now) => {
+  if (!L) return lotChain(i, 0, lotT0(i), now);
+  const E = lotEff(L, now); if (!E.closed) return L;
+  return lotChain(i, L.n + 1, E.end, now);
+};
 const squadIds = (ci) => POS_TEMPLATE.map((_, s) => ci + '-' + s);
 const avg = (ids, S) => Math.round(ids.slice(0, 11).map(id => player(id, S)).reduce((s, p) => s + p.ovr, 0) / 11);
 
@@ -3460,7 +3489,7 @@ const ballOf = (kind, S, fin) => ({ kind: fin ? 'final' : kind, d: hash('ball:' 
 /* G6: league + cup kick-off times are listed per GMT day in w11kt/{day} (the lock reads only that small doc) */
 const ktDay = (t) => Math.floor(Number(t) / DAY);
 
-return { ZONES, ZONE_NAME, ZONE_FLAG, ZONE_OF, cleanOf, zoneOf, NG, X6, zoneOfG, extraG, groupNo, aiZone, fairKo, cupId, cupOfs, CLIM_NAME, climOk, aiClim, climFromTz, WX_KINDS, WX_NAME, seasonOf, wxOf, wxFx, wxLabel, MGR_LIMITS, MGR_FIT, mgrOf, cleanMgr, ballOf, ktDay,  rnMap, DPOS, DLINE, DPOS_NAME, dpOf, canLearn, LEARN_MAX, LEARN_FAST, LEARN_FAST_DAYS, learnDays, gidOf, knownPos, learnedMap, posFit, COUNTRIES, nameProblem, cleanPName, normName, FAMOUS, EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
+return { ZONES, ZONE_NAME, ZONE_FLAG, ZONE_OF, cleanOf, zoneOf, NG, X6, zoneOfG, extraG, groupNo, aiZone, fairKo, cupId, cupOfs, CLIM_NAME, climOk, aiClim, climFromTz, WX_KINDS, WX_NAME, seasonOf, wxOf, wxFx, wxLabel, MGR_LIMITS, MGR_FIT, mgrOf, cleanMgr, ballOf, ktDay,  rnMap, DPOS, DLINE, DPOS_NAME, dpOf, canLearn, LEARN_MAX, LEARN_FAST, LEARN_FAST_DAYS, learnDays, gidOf, knownPos, learnedMap, posFit, COUNTRIES, nameProblem, cleanPName, normName, FAMOUS, EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_LEN2, MK_T2, mkLen, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
 })();
 // =====================================================================
 // ⚽ G2 · 11 WONDERS LEAGUE (worker side). The worker never plays matches (too heavy for the free plan).
