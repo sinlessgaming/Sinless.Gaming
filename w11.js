@@ -109,7 +109,7 @@ const oplayer = function (id, S) {
    a{S}x{slot}x{n}  = player sold in the market (born in season S)
    y{S}x{club}x{k}  = one of the 15 youngsters a club sees in its youth draft in season S
    L{S}x{no}        = the 150-OVR wonder given to Pioneer #no (1–50). Only 50 can ever exist. */
-const NEW_RE = /^([ayL])(\d+)x(\d+)(?:x(\d+))?$/;
+const NEW_RE = /^([aybL])(\d+)x(\d+)(?:x(\d+))?$/;
 const isNew = (id) => NEW_RE.test(String(id));
 const POS15 = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD', 'GK'];
 const LEG_POS = ['FWD', 'MID', 'FWD', 'DEF', 'MID', 'FWD', 'MID', 'DEF', 'FWD', 'GK'];
@@ -121,7 +121,9 @@ const legAttrs = (r, pos) => {
     : pos === 'MID' ? { pac: v(110), sho: v(125), pas: v(140), dri: v(135), def: v(100), gk: 20 }
     : { pac: v(115), sho: v(140), pas: v(118), dri: v(138), def: v(70), gk: 20 };
 };
-const posOfNew = (m) => m[1] === 'L' ? LEG_POS[Number(m[3]) % 10] : POS15[Number(m[1] === 'a' ? m[3] : m[4]) % 15];
+/* G12 market lots ('b'): any position, picked from the lot (not the slot) */
+const POSB = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD'];
+const posOfNew = (m) => m[1] === 'L' ? LEG_POS[Number(m[3]) % 10] : m[1] === 'b' ? POSB[hash('pb:' + m[0]) % 16] : POS15[Number(m[1] === 'a' ? m[3] : m[4]) % 15];
 /* the player as he is in his first season (g = 0), or the 17-year-old who replaces him after he retires (g > 0) */
 const nbase = function (id, gid, g) {
   const m = NEW_RE.exec(id), k = m[1], r = rng(hash(WORLD + ':n:' + gid)), nm = named(r), pos = posOfNew(m), num = 21 + hash(gid + ':num') % 70;
@@ -140,7 +142,24 @@ const nbase = function (id, gid, g) {
     if (age <= 19 && r() < 0.05) { wk = true; ovr = 66 + Math.floor(r() * 11); }
     pot = wk ? 91 + Math.floor(r() * 7) : age < 27 ? clamp(ovr + 3 + Math.floor(r() * 14), ovr, 94) : ovr;
   }
+  if (k === 'b') return bplayer(id, k, nm, pos, r, num);
   return { id, k, ...nm, pos, age, ovr, pot, wk, ...attrs(r, pos, ovr), num };
+};
+/* G12: market players with heavy variety: every age 16–35, OVR 42–93, and a profile that makes him special
+   (a sprinter, a pure finisher, a passer, a dribbler, a rock at the back...), not just 'good at everything a bit' */
+const B_PROF = { GK: [{ gk: 8, pas: -6 }, { pas: 12, pac: 6, gk: -2 }, { gk: 4, def: 6 }],
+  DEF: [{ def: 9, pac: -6 }, { pac: 14, def: -2, dri: 4 }, { pas: 12, def: 2 }, { def: 5, sho: 10 }, { dri: 10, pac: 8, def: -4 }],
+  MID: [{ pas: 12, def: -4 }, { def: 10, pas: 4, sho: -8 }, { sho: 12, pas: -2 }, { dri: 12, pac: 6, def: -8 }, { pac: 12, pas: 3 }, { pas: 6, def: 6, pac: 4, sho: -6 }],
+  FWD: [{ sho: 12, pac: -4, pas: -6 }, { pac: 16, sho: 2, pas: -6 }, { dri: 13, sho: 4 }, { pas: 10, dri: 4, sho: -2 }, { sho: 6, def: 8, pac: -6 }] };
+const bplayer = function (id, k, nm, pos, r, num) {
+  const age = 16 + Math.floor(r() * 20), x = r();
+  let ovr = x < 0.18 ? 42 + Math.floor(r() * 12) : x < 0.45 ? 54 + Math.floor(r() * 10) : x < 0.72 ? 64 + Math.floor(r() * 10) : x < 0.9 ? 74 + Math.floor(r() * 9) : x < 0.98 ? 83 + Math.floor(r() * 6) : 89 + Math.floor(r() * 5);
+  if (age <= 19) ovr = Math.min(ovr, 50 + (age - 16) * 7); if (age >= 33) ovr = Math.max(48, ovr - (age - 32) * 2);
+  let wk = false; if (age <= 19 && r() < 0.07) { wk = true; ovr = 64 + Math.floor(r() * 12); }
+  const pot = wk ? 90 + Math.floor(r() * 8) : age < 27 ? clamp(ovr + 2 + Math.floor(r() * (age < 22 ? 22 : 12)), ovr, 94) : ovr;
+  const A = attrs(r, pos, ovr), P = B_PROF[pos][Math.floor(r() * B_PROF[pos].length)], sp = 0.8 + r() * 0.7;
+  for (const q in P) A[q] = clamp(Math.round(A[q] + P[q] * sp), 25, 99);
+  return { id, k, ...nm, pos, age, ovr, pot, wk, ...A, num };
 };
 const nplayer = function (id, S) {
   const m = NEW_RE.exec(id), S0 = Number(m[2]); S = Math.max(S0, Math.floor(S || 1));
@@ -176,8 +195,12 @@ const legendId = (S, no) => 'L' + S + 'x' + no;
    A bid in the last 10 s puts the clock back to 10 s. 🤖 computer clubs (clearly marked) snipe 3 s before the end
    while the price is under the most they will pay. With no human bids, a computer club buys at the start price (or it's unsold). */
 const MK_N = 15, MK_LEN = 60000, MK_EXT = 10000, MK_AI = 3000;
+/* G12: from MK_T2 every auction lasts 2 min 30 s (MK_LEN2) and sells a 'b' player (any position, much more variety).
+   Lots that started before MK_T2 keep 60 s and their 'a' players, so nothing already sold or owned ever changes. */
+const MK_T2 = Date.UTC(2026, 10, 6, 0, 0), MK_LEN2 = 150000;
+const mkLen = (st) => st >= MK_T2 ? MK_LEN2 : MK_LEN;
 const lotT0 = (i) => EPOCH0 + i * 4000;
-const lotPid = (i, n, st) => 'a' + clock(st).s + 'x' + i + 'x' + n;
+const lotPid = (i, n, st) => (st >= MK_T2 ? 'b' : 'a') + clock(st).s + 'x' + i + 'x' + n;
 const stepOf = (p) => Math.max(500, r500(p * 0.05));
 const lotInfo = (i, n, st) => {
   const pid = lotPid(i, n, st), p = player(pid, clock(st).s), v = value(p), start = Math.max(1000, r500(v * 0.4)), r = rng(hash('mkai:' + pid));
@@ -187,18 +210,24 @@ const lotInfo = (i, n, st) => {
 /* L = a stored lot { i, n, st, end, p, u, un, c, nb } (or a fresh one { i, n, st }); answers how it stands at time `now` */
 const lotEff = (L, now) => {
   const I = lotInfo(L.i, L.n, L.st);
-  if (!L.u) { const end = L.st + MK_LEN; return { ...I, top: null, price: I.start, end, closed: now >= end, winner: now >= end ? (I.aiMax >= I.start ? 'ai' : null) : null, minNext: I.start }; }
+  if (!L.u) { const end = L.st + mkLen(L.st); return { ...I, top: null, price: I.start, end, closed: now >= end, winner: now >= end ? (I.aiMax >= I.start ? 'ai' : null) : null, minNext: I.start }; }
   const e = L.end, aiNext = L.p + stepOf(L.p);
   if (aiNext <= I.aiMax && now >= e - MK_AI) { const end = e - MK_AI + MK_EXT; return { ...I, top: 'ai', price: aiNext, end, closed: now >= end, winner: now >= end ? 'ai' : null, minNext: aiNext + stepOf(aiNext), aiAt: e - MK_AI }; }
   return { ...I, top: 'u', price: L.p, end: e, closed: now >= e, winner: now >= e ? 'u' : null, minNext: L.p + stepOf(L.p) };
 };
 /* which lot is running in slot i right now, given the last stored lot of that slot (or none) */
-const lotCur = (i, L, now) => {
-  if (!L) { const t0 = lotT0(i), n = Math.max(0, Math.floor((now - t0) / MK_LEN)); return { i, n, st: t0 + n * MK_LEN }; }
-  const E = lotEff(L, now); if (!E.closed) return L;
-  const k = Math.max(0, Math.floor((now - E.end) / MK_LEN)); return { i, n: L.n + 1 + k, st: E.end + k * MK_LEN };
+/* the n-th lot after a lot that started at st0 (60 s lots before MK_T2, 150 s lots from the first start after it) */
+const lotChain = (i, n0, st0, now) => {
+  if (st0 >= MK_T2) { const k = Math.max(0, Math.floor((now - st0) / MK_LEN2)); return { i, n: n0 + k, st: st0 + k * MK_LEN2 }; }
+  const k1 = Math.max(0, Math.floor((now - st0) / MK_LEN)); if (st0 + k1 * MK_LEN < MK_T2) return { i, n: n0 + k1, st: st0 + k1 * MK_LEN };
+  const nB = Math.ceil((MK_T2 - st0) / MK_LEN), tB = st0 + nB * MK_LEN, k = Math.max(0, Math.floor((now - tB) / MK_LEN2)); return { i, n: n0 + nB + k, st: tB + k * MK_LEN2 };
 };
-
+/* which lot is running in slot i right now, given the last stored lot of that slot (or none) */
+const lotCur = (i, L, now) => {
+  if (!L) return lotChain(i, 0, lotT0(i), now);
+  const E = lotEff(L, now); if (!E.closed) return L;
+  return lotChain(i, L.n + 1, E.end, now);
+};
 const squadIds = (ci) => POS_TEMPLATE.map((_, s) => ci + '-' + s);
 const avg = (ids, S) => Math.round(ids.slice(0, 11).map(id => player(id, S)).reduce((s, p) => s + p.ovr, 0) / 11);
 
@@ -571,7 +600,7 @@ const ballOf = (kind, S, fin) => ({ kind: fin ? 'final' : kind, d: hash('ball:' 
 /* G6: league + cup kick-off times are listed per GMT day in w11kt/{day} (the lock reads only that small doc) */
 const ktDay = (t) => Math.floor(Number(t) / DAY);
 
-return { ZONES, ZONE_NAME, ZONE_FLAG, ZONE_OF, cleanOf, zoneOf, NG, X6, zoneOfG, extraG, groupNo, aiZone, fairKo, cupId, cupOfs, CLIM_NAME, climOk, aiClim, climFromTz, WX_KINDS, WX_NAME, seasonOf, wxOf, wxFx, wxLabel, MGR_LIMITS, MGR_FIT, mgrOf, cleanMgr, ballOf, ktDay,  rnMap, DPOS, DLINE, DPOS_NAME, dpOf, canLearn, LEARN_MAX, LEARN_FAST, LEARN_FAST_DAYS, learnDays, gidOf, knownPos, learnedMap, posFit, COUNTRIES, nameProblem, cleanPName, normName, FAMOUS, EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
+return { ZONES, ZONE_NAME, ZONE_FLAG, ZONE_OF, cleanOf, zoneOf, NG, X6, zoneOfG, extraG, groupNo, aiZone, fairKo, cupId, cupOfs, CLIM_NAME, climOk, aiClim, climFromTz, WX_KINDS, WX_NAME, seasonOf, wxOf, wxFx, wxLabel, MGR_LIMITS, MGR_FIT, mgrOf, cleanMgr, ballOf, ktDay,  rnMap, DPOS, DLINE, DPOS_NAME, dpOf, canLearn, LEARN_MAX, LEARN_FAST, LEARN_FAST_DAYS, learnDays, gidOf, knownPos, learnedMap, posFit, COUNTRIES, nameProblem, cleanPName, normName, FAMOUS, EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_LEN2, MK_T2, mkLen, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
 })();
 
 const { WORLD, hash, rng, pick, clamp } = W11C;
@@ -1701,7 +1730,7 @@ const prevTxt = (i, L, cur, same, now) => {
   if (!cur.n) return '';
   let w, un, pr, ai, pid;
   if (same && L.prev && L.prev.n === cur.n - 1) ({ w, un, p: pr, ai, pid } = L.prev);
-  else { const PL = !same && L && L.n === cur.n - 1 ? L : { i, n: cur.n - 1, st: cur.st - CC.MK_LEN }, E = CC.lotEff(PL, now); w = E.winner || ''; un = PL.un; pr = E.price; ai = E.aiClub; pid = E.pid; }
+  else { const PL = !same && L && L.n === cur.n - 1 ? L : { i, n: cur.n - 1, st: cur.st - (cur.st - CC.MK_LEN2 >= CC.MK_T2 ? CC.MK_LEN2 : CC.MK_LEN) }, E = CC.lotEff(PL, now); w = E.winner || ''; un = PL.un; pr = E.price; ai = E.aiClub; pid = E.pid; }
   const p = W.player(pid);
   return `<p style="font-size:10px;color:#64748b;margin-top:6px">Last: ${esc(p.short)} (${p.ovr}) ${w === 'u' ? `sold to 👤 ${esc(un || 'a manager')} for ${fmt(pr)}` : w === 'ai' ? `bought by 🤖 ${esc(CC.club(ai).name)} for ${fmt(pr)}` : 'unsold'}</p>`;
 };
@@ -2254,7 +2283,9 @@ W.cerDur = (live) => live && live.kind === 'league' ? { open: 45, close: 15 } : 
 const teamsOf = (live) => { const D = W.dress(live); if (!D.T || D.Tbe !== G3.be) { D.T = [G3.team(D.k[0], D.gk[0], D.cr[0], D.sh[0]), G3.team(D.k[1], D.gk[1], D.cr[1], D.sh[1])]; D.Tbe = G3.be; } return D; };
 /* draw everybody from an engine-like list: [{ side, gk, x, y, id }] (engine metres) */
 const drawPlayers = (D, list, st, dt, opt) => { for (const p of list) { const x = PX(p.x), z = PZ(p.y), o = opt ? opt(p) : null, face = o && o.face != null ? o.face : null, a = anim(st, p.id, x, z, dt, face);
-  G3.fig(D.T[p.side], p.gk, p.id, x, z, { phase: a.phase, run: o && o.run != null ? o.run : a.run, yaw: o && o.yaw != null ? o.yaw : a.yaw, jump: o && o.jump, cel: o && o.cel, arms: o && o.arms, lean: o && o.lean, kick: o && o.kick, dive: o && o.dive, num: p.num, throwIn: o && o.throwIn, wall: o && o.wall, slide: o && o.slide, header: o && o.header, catch: o && o.catch }); } };
+  /* G12: a diving keeper moves across his line towards the ball (he used to dive on the spot, metres away from it) */
+  const zs = o && o.sh ? PZ(p.y + o.sh) : z;
+  G3.fig(D.T[p.side], p.gk, p.id, x, zs, { phase: a.phase, run: o && o.run != null ? o.run : a.run, yaw: o && o.yaw != null ? o.yaw : a.yaw, jump: o && o.jump, cel: o && o.cel, arms: o && o.arms, lean: o && o.lean, kick: o && o.kick, dive: o && o.dive, num: p.num, throwIn: o && o.throwIn, wall: o && o.wall, slide: o && o.slide, header: o && o.header, catch: o && o.catch }); } };
 /* G11: who celebrates how. Scorer: knee slide or jump; team-mates: jumps and fist pumps (mixed per player, never in step).
    jump is still passed for the old block engine (no mocap there). */
 W.celOf = (id, star, t) => { const h = hash(String(id)); const k = star ? (h % 3 === 0 ? 'jump' : 'slide') : (h % 5 < 3 ? 'jump' : 'arms');
@@ -2266,7 +2297,7 @@ W.liveOpts = function (m) {
   const rec = {}; for (let i = m.ev.length - 1; i >= 0 && i > m.ev.length - 12; i--) { const e = m.ev[i]; if (e.tick == null || m.tick - e.tick > 16) break; if (e.pid != null && !rec[e.pid]) rec[e.pid] = e; }
   const sp = m.sp, wall = sp && sp.wall ? new Set(sp.wall.map(p => p.id)) : null, gxOf = (s) => s === 0 ? 105 : 0;
   return (p) => { if (f && f.from && f.from.id === p.id && f.k < 0.35) return f.kind === 'throw' ? { throwIn: 1 - f.k / 0.35 } : f.header ? { header: 1 } : { kick: (f.kind === 'shot' ? 1 : 0.55) * (1 - f.k / 0.35) };
-    if (f && f.kind === 'shot' && f.gk && f.gk.id === p.id && f.k > 0.15) { const d = clamp((f.y1 - p.y) / 3.2, -1, 1); return { dive: d * Math.min(1, (f.k - 0.15) * 2.5) * (Math.abs(f.y1 - p.y) > 0.8 ? 1 : 0.3), run: 0 }; }
+    if (f && f.kind === 'shot' && f.gk && f.gk.id === p.id && f.k > 0.05) { const gap = f.y1 - p.y, pr = Math.min(1, (f.k - 0.05) * 2.2), sh = Math.sign(gap) * Math.max(0, Math.abs(gap) - (f.goal ? 2.1 : f.wide ? 3 : 0.9)) * pr, rest = gap - sh, d = clamp(rest / 1.6, -1, 1); return { dive: d * Math.min(1, pr * 1.3) * (Math.abs(gap) > 0.8 ? 1 : 0.3), sh, run: 0 }; }
     if (wall && wall.has(p.id)) return { wall: 1, run: 0, face: Math.atan2(sp.x - p.x, sp.y - p.y) };
     if (sp && sp.taker && sp.taker.id === p.id) { if (sp.kind === 'throw') return { throwIn: 0.01, run: 0 }; const gx = gxOf(p.side); return { face: Math.atan2(gx - p.x, 34 - p.y) }; }
     const e = rec[p.id];
@@ -2276,7 +2307,8 @@ W.liveOpts = function (m) {
     if (cel >= 0) { if (p.side !== cel) return { lean: 0.3, run: 0 }; let sc = null; for (let i = m.ev.length - 1; i >= 0; i--) if (m.ev[i].k === 'goal') { sc = m.ev[i].pid; break; } return W.celOf(p.id, p.id === sc); }
     return null; };
 };
-const tvCam = (bx, bz, k) => ({ eye: [bx * 0.8, 21 * (k || 1), 34 + 38 * (k || 1)], at: [bx * 0.93, 0, bz * 0.55] });
+/* G12: the TV camera is much lower and closer and follows the ball across the pitch (was 21 m high, 38 m behind the touchline) */
+const tvCam = (bx, bz, k) => k ? { eye: [bx * 0.8, 21 * k, 34 + 38 * k], at: [bx * 0.93, 0, bz * 0.55] } : { eye: [bx * 0.9, 13, 51], at: [bx * 0.97, 0.6, bz * 0.72] };
 
 // ---------- 📺 3D live match ----------
 W.v3 = { on: false };
@@ -3414,8 +3446,9 @@ W.CAMS = [['tv', '📺', 'TV'], ['side', '🏃', 'Sideline'], ['bal', '⚖️', 
 W.cam = 'tv';
 /* G8: every phone (Low too) starts the live match in 3D; Low runs it at the lowest quality (fewer fans, no shadows, 30 fps) */
 W.v3pref = () => G3.ok();
-const camTarget = (mode, X, Z) => mode === 'side' ? { eye: [X * 0.9, 3.9, 39.5], at: [X, 1.0, Z * 0.85], fov: 40 }
-  : mode === 'bal' ? { eye: [X * 0.86, 11.5, 34 + 18], at: [X * 0.95, 0.4, Z * 0.7], fov: 44 } : null;
+/* G12: closer cameras (owner: "cameras are just too far") */
+const camTarget = (mode, X, Z) => mode === 'side' ? { eye: [X * 0.94, 3.2, Math.min(40, Math.max(37, Z + 14))], at: [X, 1.0, Z * 0.9], fov: 38 }
+  : mode === 'bal' ? { eye: [X * 0.9, 8, Math.min(46, Z * 0.35 + 43)], at: [X * 0.97, 0.6, Z * 0.8], fov: 42 } : null;
 W.v3live = (function (b) { return function (box) {
   const v = b(box), s0 = v.step; let c2 = null, lastMode = 'tv';
   v.step = function (dt, now) { const cam = s0.call(this, dt, now); if (!cam) return cam; const mode = W.cam;
@@ -3705,5 +3738,352 @@ W.ui = (function (b) { return function () { W.fitCss(); const r = b.apply(this, 
   W.fit(); return r; }; })(W.ui);
 W.close = (function (b) { return function () { document.documentElement.classList.remove('w11on'); return b.apply(this, arguments); }; })(W.close);
 if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('resize', () => { if (document.getElementById('w11')) W.fitSoon(); });
+
+/* ================================================================================================
+   G12 · NEW INTERFACES (owner's 7 reference screens). Native-game look: night stadium behind every screen,
+   neon glass cards, big bold numbers, nothing scrolls (every screen is laid out for a landscape phone).
+     🏠 Hub (W.leagueHome when in the league): club · next match (league or cup, whichever is first) · division,
+        Transfer Market, Youth Draft, then Squad / Cups · Club HQ / Hall of Fame.
+     ⚽ Match centre (W.matchC): next league match, forecast, VS card with a live countdown, 8 tiles, Boot Camp bar.
+     🔨 Transfer Market: filters left, the selected auction big on top, a live table of all auctions under it.
+     👕 Squad: formation list · pitch with the XI + bench · player list (paged). Tab 🎯 Set pieces: takers + ONE style each.
+     📇 Player profile: portrait, OVR + stars, positions, stats in groups, tabs Overview / Style / Positions / Name.
+   ONE player style (owner: "players should have one player style"): W.oneStyle(p) picks a single style from his stats.
+   (G13 makes the match engine use it; here it is shown everywhere a style is shown.)
+   ================================================================================================ */
+const G12CSS = `
+#w11{background:#050816!important;isolation:isolate}
+#w11::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:
+ radial-gradient(38% 30% at 6% 14%,rgba(255,255,255,.22),rgba(150,190,255,.06) 45%,transparent 70%),
+ radial-gradient(38% 30% at 94% 14%,rgba(255,255,255,.22),rgba(150,190,255,.06) 45%,transparent 70%),
+ radial-gradient(70% 45% at 50% 100%,rgba(34,197,94,.30),transparent 70%),
+ linear-gradient(180deg,transparent 18%,rgba(120,140,220,.07) 19%,rgba(120,140,220,.04) 40%,transparent 41%),
+ linear-gradient(180deg,#05081a 0%,#0a1238 22%,#101a46 38%,#0c1a33 56%,#0b2e25 74%,#0a2a1c 100%)}
+#w11::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(5,8,22,.25),rgba(5,8,22,.55))}
+#w11 .hd{background:transparent!important;border:0!important;gap:10px}
+#w11 .hd .bk{border-radius:12px!important;background:rgba(255,255,255,.07)!important;border:1px solid rgba(255,255,255,.12)!important}
+#w11 .hd b{font-size:clamp(15px,5vh,22px)!important;font-weight:900;letter-spacing:.02em;background:linear-gradient(90deg,#22d3ee,#a855f7 60%,#ff2d95);-webkit-background-clip:text;background-clip:text;color:transparent!important}
+#w11 .chips span{padding:5px 12px!important;border-radius:99px!important;font-weight:900!important;font-size:clamp(12px,3.8vh,16px)!important;background:linear-gradient(180deg,rgba(40,70,160,.55),rgba(20,30,80,.6))!important;border:1px solid rgba(120,160,255,.35)!important}
+#w11 .chips span+span{background:linear-gradient(180deg,rgba(120,90,20,.5),rgba(60,40,10,.6))!important;border-color:rgba(250,204,21,.35)!important}
+#w11 .card{background:linear-gradient(160deg,rgba(42,54,120,.50),rgba(16,20,50,.66))!important;border:1px solid rgba(140,160,255,.22)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 8px 22px rgba(0,0,0,.35)!important;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#w11 .btn2{background:linear-gradient(160deg,rgba(42,54,120,.55),rgba(16,20,50,.7))!important;border:1px solid rgba(140,160,255,.25)!important;border-radius:14px!important;font-weight:900}
+#w11b.g12bd{display:block!important;padding:4px 12px 8px!important}
+.g12{height:100%;min-height:0;display:grid;gap:clamp(6px,2vh,12px);color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.g12,.g12 *{box-sizing:border-box}.g12 p{margin:0}
+.g12 .gc{position:relative;min-height:0;overflow:hidden;border-radius:18px;padding:clamp(8px,2.6vh,14px) clamp(10px,2vw,16px);background:linear-gradient(160deg,rgba(46,58,128,.52),rgba(16,20,52,.70));border:1px solid rgba(140,160,255,.24);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 10px 26px rgba(0,0,0,.38);-webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px)}
+.g12 .gc.hot{border:2px solid transparent;background:linear-gradient(160deg,rgba(40,30,110,.78),rgba(14,16,48,.84)) padding-box,linear-gradient(135deg,#22d3ee,#a855f7 55%,#ff2d95) border-box;box-shadow:0 0 26px rgba(168,85,247,.35),0 10px 26px rgba(0,0,0,.4)}
+.g12 button{border:0;color:#fff;font:inherit;cursor:pointer;background:none}
+.g12 .tile{display:flex;align-items:center;gap:clamp(8px,1.6vw,14px);text-align:left;width:100%;height:100%;min-height:0}
+.g12 .tile .ic{font-size:clamp(22px,8vh,40px);line-height:1;flex:none;filter:drop-shadow(0 4px 8px rgba(0,0,0,.4))}
+.g12 .t1{font-weight:900;font-size:clamp(13px,4.6vh,20px);line-height:1.1}
+.g12 .t2{font-weight:800;font-size:clamp(11px,3.4vh,15px);color:#c7d2fe}
+.g12 .pk{color:#ff5fae}.g12 .cy{color:#22d3ee}.g12 .gd{color:#facc15}.g12 .mu{color:#94a3b8}.g12 .lm{color:#a3e635}
+.g12 .dot{display:inline-block;width:8px;height:8px;border-radius:99px;background:#ff2d95;box-shadow:0 0 8px #ff2d95;margin-left:6px;vertical-align:middle;animation:g12b 1.4s infinite}
+@keyframes g12b{50%{opacity:.35}}
+.g12 .cap{font-size:clamp(9px,2.9vh,12px);font-weight:900;letter-spacing:.08em;color:#67e8f9;text-transform:uppercase}
+.g12 .big{font-weight:900;font-size:clamp(30px,13vh,64px);line-height:1}
+.g12 .crest{flex:none;display:grid;place-items:center}.g12 .crest svg{width:100%!important;height:100%!important}
+.g12 .stat{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:14px;padding:6px;background:rgba(10,14,40,.55);border:1px solid rgba(140,160,255,.22)}
+.g12 .stat b{font-size:clamp(16px,6.5vh,30px);font-weight:900;line-height:1}.g12 .stat span{font-size:clamp(10px,3vh,13px);font-weight:800}
+.g12 .cta{width:100%;border-radius:14px;padding:clamp(7px,2.4vh,12px);font-weight:900;font-size:clamp(12px,4vh,17px);background:linear-gradient(90deg,#0ea5e9,#7c3aed 55%,#db2777);box-shadow:0 0 20px rgba(168,85,247,.45)}
+.g12 .cta2{width:100%;border-radius:14px;padding:clamp(7px,2.4vh,12px);font-weight:900;font-size:clamp(12px,4vh,17px);background:rgba(10,14,40,.6);border:1px solid rgba(140,160,255,.3)!important}
+.g12 .chip{padding:clamp(5px,1.8vh,9px) clamp(8px,1.4vw,14px);border-radius:12px;font-weight:900;font-size:clamp(11px,3.4vh,15px);background:rgba(10,14,40,.6);border:1px solid rgba(140,160,255,.22)!important;white-space:nowrap}
+.g12 .chip.on{background:linear-gradient(90deg,#0ea5e9,#7c3aed);border-color:transparent!important;box-shadow:0 0 14px rgba(34,211,238,.35)}
+.g12 .pgr{display:flex;align-items:center;justify-content:center;gap:10px;flex:none}
+.g12 .pgr button{min-width:44px;height:clamp(24px,7vh,32px);border-radius:10px;background:rgba(255,255,255,.08);font-weight:900}
+.g12 .pgr button:disabled{opacity:.3}.g12 .pgr span{font-size:11px;font-weight:900;color:#94a3b8;min-width:40px;text-align:center}
+.g12 .ovr{display:inline-grid;place-items:center;min-width:clamp(26px,8vh,38px);height:clamp(22px,7vh,32px);border-radius:9px;font-weight:900;font-size:clamp(12px,3.8vh,16px);color:#0b0f24}
+.g12 .rl{display:inline-block;padding:1px 6px;border-radius:6px;font-size:clamp(9px,2.8vh,11px);font-weight:900;background:rgba(250,204,21,.18);color:#fde68a;border:1px solid rgba(250,204,21,.35);margin-right:3px}
+.g12 .stars{letter-spacing:1px;font-size:clamp(10px,3.2vh,14px);white-space:nowrap}
+.g12 .stars i{font-style:normal;color:#facc15}.g12 .stars i.h{background:linear-gradient(90deg,#facc15 50%,rgba(255,255,255,.18) 50%);-webkit-background-clip:text;background-clip:text;color:transparent}.g12 .stars i.e{color:rgba(255,255,255,.18)}
+.g12 .sty{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:9px;font-weight:900;font-size:clamp(10px,3.2vh,13px);color:#0b0f24;white-space:nowrap}
+.g12 .bar{display:inline-block;flex:none;vertical-align:middle;height:clamp(6px,2vh,9px);border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}.g12 .bar i{display:block;height:100%;border-radius:99px}
+.g12 .tb{width:100%;border-collapse:collapse;table-layout:fixed}
+.g12 .tb th{font-size:clamp(9px,2.8vh,12px);font-weight:900;color:#67e8f9;text-align:left;padding:3px 4px;letter-spacing:.04em}
+.g12 .tb td{font-size:clamp(11px,3.4vh,14px);font-weight:800;padding:0 4px;height:clamp(22px,7.2vh,32px);border-top:1px solid rgba(255,255,255,.06);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g12 .tb tr.g12s td{background:rgba(34,211,238,.12)}.g12 .tb tr.mine td{background:rgba(163,230,53,.10)}
+.g12 .tok{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;width:clamp(44px,9vw,70px)}.g12 .tok .dp{position:absolute;top:-2px;right:2px;font-size:clamp(7px,2.3vh,10px);font-weight:900;padding:0 3px;border-radius:4px;background:rgba(5,8,22,.85)}
+.g12 .tok .nm{margin-top:1px;padding:1px 5px;border-radius:6px;background:rgba(5,8,22,.82);font-size:clamp(9px,2.7vh,11px);font-weight:900;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(255,255,255,.12)}
+.g12 .tok.g12s .nm{background:#22d3ee;color:#0b0f24}.g12 .tok.g12s svg{filter:drop-shadow(0 0 8px #22d3ee)}
+.g12 .tok svg{width:clamp(22px,8.2vh,34px);height:auto;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5))}
+.g12 .pitch{position:relative;border-radius:14px;overflow:hidden;background:repeating-linear-gradient(180deg,#1f8f43 0 10%,#22a04b 10% 20%);box-shadow:inset 0 0 40px rgba(0,0,0,.45)}
+.g12 .pitch svg.ln{position:absolute;inset:0;width:100%;height:100%}
+#w11pm.g12pm{position:fixed;inset:0;z-index:99999;overflow:hidden!important;padding:0!important;background:#050816}
+`;
+const G12 = { pg: {} };
+W.g12Css = function () { if (document.getElementById('w11g12')) return; const s = document.createElement('style'); s.id = 'w11g12'; s.textContent = G12CSS; document.head.appendChild(s); };
+/* every G12 screen fits by design: the G11 auto-fitter leaves it alone */
+W.fit = (function (b) { return function () { const bd = document.getElementById('w11b');
+  if (bd && bd.firstElementChild && bd.firstElementChild.classList.contains('g12')) { const t = document.getElementById('w11tabs'); if (t) t.remove(); return; }
+  if (bd) bd.classList.remove('g12bd'); return b.apply(this, arguments); }; })(W.fit);
+W.ui = (function (b) { return function () { W.g12Css(); return b.apply(this, arguments); }; })(W.ui);
+/* draw a G12 screen: the usual header + one full-height grid */
+const g12ui = (html, title, back, cols, rows) => { W.ui(`<div class="g12" style="grid-template-columns:${cols || '1fr'};grid-template-rows:${rows || '1fr'}">${html}</div>`, title, back); const bd = document.getElementById('w11b'); if (bd) bd.classList.add('g12bd'); requestAnimationFrame(g12pages); };
+
+/* ---------- small pieces ---------- */
+const g12hms = (ms) => { ms = Math.max(0, ms); const h = Math.floor(ms / 3600000), m = Math.floor(ms / 60000) % 60, s = Math.floor(ms / 1000) % 60; return h ? `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s` : `${m}:${String(s).padStart(2, '0')}`; };
+const g12hm = (ms) => { ms = Math.max(0, ms); const h = Math.floor(ms / 3600000), m = Math.floor(ms / 60000) % 60; return h ? `${h}h ${m}m` : `${m}m ${Math.floor(ms / 1000) % 60}s`; };
+const g12crest = (hue, sh, size) => `<span class="crest" style="width:${size};height:calc(${size} * 1.13)"><svg viewBox="0 0 46 52"><defs><linearGradient id="g12c${hue}${esc(sh)}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${hue},85%,58%)"/><stop offset="1" stop-color="hsl(${(hue + 50) % 360},80%,34%)"/></linearGradient></defs><path d="M23 2 L44 9 L41 34 Q37 45 23 50 Q9 45 5 34 L2 9 Z" fill="url(#g12c${hue}${esc(sh)})" stroke="rgba(255,255,255,.9)" stroke-width="2"/><text x="23" y="31" text-anchor="middle" font-size="13" font-weight="900" fill="#fff" font-family="system-ui">${esc(sh)}</text></svg></span>`;
+const g12mine = (size) => { const me = W.me; return `<span class="crest" style="width:${size};height:calc(${size} * 1.13)">${me.crest ? W.crestSvg(me.crest, me.short) : badge(W.club(me.club), me.short)}</span>`; };
+W.g12stars = (ovr) => { const v = Math.max(0.5, Math.min(5, Math.round(((ovr - 35) / 11) * 2) / 2)); let s = ''; for (let i = 1; i <= 5; i++) s += v >= i ? '<i>★</i>' : v >= i - 0.5 ? '<i class="h">★</i>' : '<i class="e">★</i>'; return `<span class="stars">${s}</span>`; };
+const g12ovr = (p) => `<span class="ovr" style="${p.legend ? 'background:linear-gradient(135deg,#facc15,#ff2d95,#a855f7);color:#fff' : 'background:' + ovrColor(p.ovr)}">${p.ovr}</span>`;
+const g12shirt = (c1, c2, num) => `<svg viewBox="0 0 40 40"><path d="M13 3 L8 5 L1 12 L6 19 L10 16 L10 37 L30 37 L30 16 L34 19 L39 12 L32 5 L27 3 Q20 9 13 3 Z" fill="${c1}" stroke="rgba(0,0,0,.45)" stroke-width="1.4"/><path d="M13 3 Q20 9 27 3" fill="none" stroke="${c2}" stroke-width="2.4"/><text x="20" y="29" text-anchor="middle" font-size="13" font-weight="900" fill="${c2}" stroke="rgba(0,0,0,.55)" stroke-width=".7" font-family="system-ui">${num}</text></svg>`;
+const g12pos = { GK: '#facc15', DEF: '#22d3ee', MID: '#a855f7', FWD: '#ff2d95' };
+
+/* ---------- ONE player style ---------- */
+W.STYLE1 = {
+  poacher: ['🦊', 'Box poacher', 'Lives in the box and finishes chances from close range.', '#fb7185'],
+  screamer: ['💥', 'Long-range screamer', 'Shoots from far out with real power.', '#f59e0b'],
+  curler: ['🌀', 'Finesse curler', 'Curls shots and free kicks into the corners.', '#a78bfa'],
+  dribbler: ['🪄', 'Dribbler', 'Beats defenders one-on-one with close control.', '#22d3ee'],
+  maestro: ['🎩', 'Playmaker', 'Short, sharp passes that keep the ball moving.', '#34d399'],
+  longball: ['🎯', 'Long passer', 'Switches play and finds runners with long balls.', '#2dd4bf'],
+  speed: ['⚡', 'Speedster', 'Explosive pace. Runs in behind the defence.', '#fde047'],
+  engine: ['🔋', 'Box-to-box engine', 'Never stops running. Helps in attack and defence.', '#4ade80'],
+  wall: ['🧱', 'Wall', 'Wins tackles and blocks shots.', '#60a5fa'],
+  aerial: ['🦅', 'Aerial threat', 'Wins headers in both boxes.', '#c084fc'],
+  stopper: ['🧤', 'Shot stopper', 'Lightning reflexes on his line.', '#facc15'],
+  sweeper: ['🧹', 'Sweeper keeper', 'Comes off his line and starts attacks with his feet.', '#fbbf24']
+};
+W.oneStyle = function (p) {
+  if (!p) return 'engine'; if (p._s1) return p._s1;
+  const st = W.styleOf(p), pos = p.pos; let k;
+  if (pos === 'GK') k = st.pass === 'short' || (p.pas || 0) >= (p.gk || 0) - 6 ? 'sweeper' : 'stopper';
+  else { const F = pos === 'FWD', M = pos === 'MID', D = pos === 'DEF';
+    const dp = W11C.dpOf(p), FB = dp === 'DL' || dp === 'DR', WG = /^(AM|M)[LR]$/.test(dp);
+    const sc = { poacher: p.sho + (F ? 6 : -10) + (st.shot === 'poacher' ? 7 : 0), screamer: p.sho - 2 + (M ? 3 : 0) + (st.shot === 'screamer' ? 7 : 0), curler: (p.sho + p.dri) / 2 + (st.shot === 'curler' ? 7 : 0),
+      dribbler: p.dri + (D ? -10 : 0) + (st.shot === 'dribbler' ? 9 : 0), maestro: p.pas + (M ? 4 : -5) + (st.pass !== 'long' ? 4 : 0), longball: p.pas - 2 + (D ? 3 : 0) + (st.pass === 'long' ? 6 : 0),
+      speed: p.pac - 1 + (st.pace === 'burst' ? 7 : 0) + (FB || WG ? 5 : 0), engine: (p.pac + p.def + p.pas) / 3 + (M ? 4 : FB ? 3 : -6) + (st.pace === 'engine' ? 7 : 0), wall: p.def + (D ? (FB ? 0 : 8) : -12), aerial: st.head - 5 + (D || F ? 2 : -6) };
+    k = Object.keys(sc).reduce((a, b) => sc[b] > sc[a] ? b : a, 'engine'); }
+  try { Object.defineProperty(p, '_s1', { value: k, enumerable: false }); } catch (e) {}
+  return k;
+};
+W.styleChip = (p) => { const S = W.STYLE1[W.oneStyle(p)]; return `<span class="sty" style="background:${S[3]}">${S[0]} ${S[1]}</span>`; };
+
+/* ---------- pages: a .gpg box shows as many rows of its .glist as fit, ‹ n/N › to see more ---------- */
+function g12pages() {
+  document.querySelectorAll('#w11 .gpg').forEach(box => {
+    const L = box.querySelector('.glist'), key = box.dataset.k || 'x'; if (!L) return; const rows = [...L.children]; if (!rows.length) return;
+    let pg = box.querySelector('.pgr'); rows.forEach(r => r.style.display = '');
+    const avail = L.parentElement.getBoundingClientRect().bottom - L.getBoundingClientRect().top - (pg ? 0 : 0);
+    const room = box.getBoundingClientRect().bottom - L.getBoundingClientRect().top - (pg ? pg.offsetHeight + 4 : 34) - 6;
+    const head = L.tagName === 'TBODY' ? 0 : 0; let per = rows.length, used = 0;
+    for (let i = 0; i < rows.length; i++) { used += rows[i].getBoundingClientRect().height; if (used > room + head) { per = Math.max(1, i); break; } }
+    void avail;
+    const n = Math.ceil(rows.length / per); let cur = Math.min(G12.pg[key] || 0, n - 1);
+    if (!pg) { pg = document.createElement('div'); pg.className = 'pgr'; pg.innerHTML = '<button data-d="-1">‹</button><span></span><button data-d="1">›</button>'; box.appendChild(pg);
+      pg.onclick = (e) => { const d = Number(e.target.dataset && e.target.dataset.d); if (!d) return; e.stopPropagation(); G12.pg[key] = Math.max(0, Math.min(n - 1, (G12.pg[key] || 0) + d)); g12pages(); }; }
+    pg.style.visibility = n > 1 ? 'visible' : 'hidden';
+    rows.forEach((r, i) => { r.style.display = Math.floor(i / per) === cur ? '' : 'none'; });
+    pg.children[1].textContent = `${cur + 1} / ${n}`; pg.children[0].disabled = cur === 0; pg.children[2].disabled = cur >= n - 1; G12.pg[key] = cur;
+  });
+}
+W.g12pages = g12pages;
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('resize', () => { if (document.querySelector('#w11 .gpg')) requestAnimationFrame(g12pages); });
+
+/* ================================== 🏠 HUB ================================== */
+const LH0 = W.leagueHome;
+W.leagueHome = async function () {
+  if (!W.inLeague()) return LH0.apply(this, arguments);
+  const me = W.me, now = W.nowS(), { s: cs, day } = CC.clock(now); W.S = cs;
+  const G = await W.loadG(); if (!G) return LH0.apply(this, arguments);
+  try { await W.loadCups(); } catch (e) {}
+  if (!document.getElementById('w11') || W.live) return;
+  const tb = CC.table(G, now), rank = tb.findIndex(r => r.pos === me.lg.pos), row = tb[rank] || { pts: 0, p: 0, w: 0, d: 0, l: 0 }, z = zone(G.t, rank), zt = CC.zoneOfG(G.t, G.g);
+  const ln = W.nextMatch(G), cn = W._nextCup;
+  const L = ln ? { ko: ln.ko, id: ln.id, title: `⚽ League · Matchday ${ln.md}`, short: `Matchday ${ln.md}`, opp: seatName(G, ln.home ? ln.ap : ln.hp, ln.md), home: ln.home } : null;
+  const C = cn ? (() => { const o = cupNm(cn.C, cn.opp); return { ko: cn.ko, id: cn.mid, title: `🏆 ${CC.CUP_NAME[cn.k]} · ${CC.roundName(cn.C, cn.r)}`, short: CC.roundName(cn.C, cn.r), opp: o, home: cn.home }; })() : null;
+  const A = L && C ? (C.ko < L.ko ? C : L) : (L || C), B = A === L ? C : L;
+  const ydone = me.yd === cs, boot = (me.boot || []).length, gift = W.giftWaiting();
+  const centre = A ? (() => { const ms = A.ko - now, live = ms <= 0, soon = ms < 15 * 60000;
+    return `<div class="gc hot" style="display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer" onclick="${A === L ? 'W11.matchC()' : 'W11.cups()'}">
+      <p class="t1" style="font-size:clamp(14px,5.6vh,26px);letter-spacing:.02em">${live ? '<span class="pk">● LIVE NOW</span> · ' : ''}${esc(A.title).toUpperCase()}</p>
+      <div style="height:1px;width:92%;background:rgba(255,255,255,.14);margin:clamp(4px,1.6vh,10px) 0"></div>
+      <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:clamp(10px,2vw,20px);width:100%">${g12crest(A.opp.hue, A.opp.sh, 'clamp(40px,17vh,76px)')}<div style="text-align:left;min-width:0"><p class="mu" style="font-weight:900;font-size:clamp(10px,3vh,13px)">${A.home ? 'HOME vs' : 'AWAY @'}</p><p style="font-weight:900;font-size:clamp(18px,8.4vh,40px);line-height:1.05;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:32vw">${esc(A.opp.n)}</p>${A.opp.user ? '<p class="cy" style="font-size:11px;font-weight:900">👤 real manager</p>' : ''}</div></div>
+      <p class="t2" style="color:#93c5fd">🗓️ ${esc(localT(A.ko, true))}</p>
+      <p style="font-weight:900;font-size:clamp(14px,5.4vh,24px);color:#22d3ee;text-shadow:0 0 14px rgba(34,211,238,.6)" id="g12cd" data-ko="${A.ko}">${live ? 'Playing now' : '⏱️ Starts in ' + g12hm(ms)}</p>
+      ${soon ? `<button class="cta" style="margin-top:6px" onclick="event.stopPropagation();W11.openL('${A.id}')">${live ? '▶ Go to the touchline' : '🔒 Team sheet locked · open match'}</button>` : B ? `<button class="cta2" style="margin-top:6px;display:flex;align-items:center;gap:8px;justify-content:center" onclick="event.stopPropagation();${B === L ? 'W11.matchC()' : 'W11.cups()'}"><span>${B === L ? '⚽' : '🏆'} THEN · ${esc(B.short).toUpperCase()}</span><span class="mu" style="font-size:.8em">vs ${esc(B.opp.n)} · ${esc(localT(B.ko))}</span></button>` : `<button class="cta2" style="margin-top:6px" onclick="event.stopPropagation();W11.matchC()">⚽ MATCH CENTRE</button>`}</div>`; })()
+    : `<div class="gc hot" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer" onclick="W11.matchC()"><p class="t1">${day >= 27 ? `🏁 Season ${cs} is over` : '⚽ No match right now'}</p><p class="t2" style="margin-top:6px">${day >= 27 ? `Season ${cs + 1} starts ${esc(localT(CC.dayStart(cs + 1, 1), true))}` : 'Your next match shows here.'}</p><button class="cta2" style="margin-top:12px">⚽ MATCH CENTRE</button></div>`;
+  const left = `<div class="gc" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:clamp(2px,1vh,6px)">
+      ${g12mine('clamp(44px,19vh,92px)')}
+      <p style="font-weight:900;font-size:clamp(15px,6.4vh,30px);line-height:1.05;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(me.name).toUpperCase()}</p>
+      ${me.pioneer ? '<p class="gd" style="font-weight:900;font-size:clamp(11px,3.6vh,16px)">🛡️ Founder</p>' : ''}
+      <p class="t2">Team ${W.avg(me.ids)} OVR · ${esc(me.form)}</p><p class="t2 mu">Season ${cs} · Day ${day}/28</p>
+      ${gift ? `<button class="cta" onclick="W11.gift()">🎁 Claim your Pioneer wonder</button>` : `<div style="display:flex;gap:8px;width:100%;flex:1;min-height:0;max-height:16vh"><button class="stat" onclick="W11.energyL()"><b>⚡ ${me.energy}</b><span>Energy</span></button><button class="stat" onclick="W11.squad()"><b>🩹 ${me.med}</b><span>Med-Packs</span></button></div>`}</div>`;
+  const right = `<div style="display:grid;grid-template-rows:1.5fr 1fr 1fr;gap:clamp(6px,2vh,12px);min-height:0">
+      <div class="gc" style="cursor:pointer;display:flex;flex-direction:column;justify-content:center" onclick="W11.tableL()"><p class="cap" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Division ${G.t} · Group ${CC.groupNo(G.t, G.g)} · ${CC.ZONE_FLAG[zt]} ${esc(CC.ZONE_NAME[zt])}</p>
+        <p class="big">${ord(rank + 1)}</p><p class="t2" style="color:#e2e8f0">${row.pts} pts · P${row.p} W${row.w} D${row.d} L${row.l}</p><p style="font-size:clamp(10px,3vh,13px);font-weight:800;margin-top:2px;color:${z === 'up' ? '#22d3ee' : z === 'down' ? '#ff5fae' : '#cbd5e1'}">${z === 'up' ? '⬆️ Promotion place' : z === 'down' ? '⬇️ Relegation zone' : 'Tap for the full table →'}</p></div>
+      <button class="gc tile" onclick="W11.market()"><span class="ic">🔨</span><span><span class="t1" style="display:block">Transfer Market</span><span class="t2 pk">15 live auctions<span class="dot"></span></span></span></button>
+      <button class="gc tile" onclick="W11.youthD()"><span class="ic">🧒</span><span><span class="t1" style="display:block">Youth Draft</span><span class="t2 ${ydone ? 'lm' : 'gd'}">${ydone ? '✅ Done this season' : '15 youngsters waiting'}${ydone ? '' : '<span class="dot" style="background:#facc15;box-shadow:0 0 8px #facc15"></span>'}</span></span></button></div>`;
+  const bottom = `<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1.35fr 1fr;gap:clamp(6px,1.4vw,12px);height:clamp(44px,16vh,66px)">
+      <button class="gc tile" onclick="W11.squad()"><span style="width:clamp(26px,9vh,40px);display:block">${g12mine('100%')}</span><span class="t1">👕 Squad<span class="t2 mu" style="display:block;font-size:.72em">${esc(me.short)} · ${esc(me.form)}</span></span></button>
+      <div class="gc" style="padding:0;display:grid;grid-template-columns:1fr 1fr"><button class="tile" style="justify-content:center;border-right:1px solid rgba(255,255,255,.12)!important" onclick="W11.cups()"><span class="ic" style="font-size:clamp(18px,6.5vh,30px)">🏆</span><span class="t1">Cups</span></button><button class="tile" style="justify-content:center" onclick="W11.hq()"><span class="ic" style="font-size:clamp(18px,6.5vh,30px)">🏟️</span><span class="t1">Club HQ</span></button></div>
+      <button class="gc tile" style="justify-content:center" onclick="W11.hof()"><span class="ic" style="font-size:clamp(18px,6.5vh,30px)">🏛️</span><span class="t1">Hall of Fame</span></button></div>`;
+  g12ui(left + centre + right + bottom, '11 WONDERS', 'W11.close()', '1fr 1.35fr 1fr', 'minmax(0,1fr) auto');
+  if (boot < 5) { const b = document.querySelector('#w11 .hd'); if (b && !document.getElementById('g12boot')) b.querySelector('b').insertAdjacentHTML('afterend', `<button id="g12boot" class="chip" style="margin-left:6px;font-size:11px;padding:4px 9px;border-radius:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14)" onclick="W11.bootHome()">🏕️ Boot Camp ${boot}/5</button>`); }
+  if (gift && !W._giftTried) { W._giftTried = 1; W.gift(true); }
+  if (A) { const tick = () => { const el = document.getElementById('g12cd'); if (!el) return; const ms = A.ko - W.nowS();
+      if (ms <= 15 * 60000 && ms > 15 * 60000 - 1500 && !W._lcRe) { W._lcRe = 1; setTimeout(() => { W._lcRe = 0; if (document.getElementById('g12cd')) W.leagueHome(); }, 400); return; }
+      el.textContent = ms > 0 ? '⏱️ Starts in ' + g12hm(ms) : 'Playing now'; setTimeout(tick, 1000); }; tick(); }
+  W.bgCheck(); W.cupCheck();
+};
+
+/* ================================== ⚽ MATCH CENTRE ================================== */
+W.matchC = async function () {
+  if (!W.inLeague()) return W.leagueHome();
+  const me = W.me, G = await W.loadG(); if (!G) return W.home();
+  const now = W.nowS(), { s: cs, day } = CC.clock(now), n = W.nextMatch(G), trained = me.trd === CC.absDay(Date.now()), boot = (me.boot || []).length;
+  let info, vs, act;
+  if (n) { const ms = n.ko - now, live = ms <= 0, opp = seatName(G, n.home ? n.ap : n.hp, n.md), my = { n: me.name, sh: me.short };
+    let fc = ''; try { const wx = W.forecast(G, n.md, n.hp, n.id, n.ko); fc = `<p class="t2" style="color:#e2e8f0;display:flex;gap:8px;align-items:flex-start"><span style="font-size:1.5em;line-height:1">🌦️</span><span>Forecast: <b style="color:#fff">${esc(CC.wxLabel(wx))}</b>${esc(wxTip(wx))}</span></p>`; } catch (e) {}
+    info = `<div class="gc" style="display:flex;flex-direction:column;gap:clamp(4px,1.8vh,10px)"><p class="t1">⚽ Next match · Matchday ${n.md}</p>
+      <div style="display:flex;align-items:center;gap:10px">${g12crest(opp.hue, opp.sh, 'clamp(26px,9vh,40px)')}<p style="font-weight:900;font-size:clamp(15px,6vh,26px);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.home ? 'vs' : '@'} ${esc(opp.n)}</p></div>
+      <p class="t2">🗓️ ${n.home ? 'Home' : 'Away'} · ${esc(localT(n.ko, true))}</p>
+      <div style="height:1px;background:rgba(255,255,255,.12)"></div>${fc}<div style="height:1px;background:rgba(255,255,255,.12)"></div>
+      <p class="t2" style="color:#e2e8f0;display:flex;gap:8px"><span class="pk">ⓘ</span><span>Your team sheet locks 15 minutes before kick-off. Not there? 🧠 GG AI shouts for you.</span></p></div>`;
+    vs = `<div class="gc hot" style="display:flex;flex-direction:column;padding:0">
+      <div style="display:flex;align-items:center;justify-content:center;gap:clamp(6px,1.4vw,14px);padding:clamp(6px,2vh,12px)">${g12mine('clamp(22px,8vh,36px)')}<b style="font-size:clamp(12px,4.6vh,20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:13vw">${esc(my.n)}</b><b style="font-size:clamp(20px,8vh,38px);font-style:italic;background:linear-gradient(90deg,#22d3ee,#a855f7);-webkit-background-clip:text;background-clip:text;color:transparent">VS</b><b style="font-size:clamp(12px,4.6vh,20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:13vw">${esc(opp.n)}</b>${g12crest(opp.hue, opp.sh, 'clamp(22px,8vh,36px)')}</div>
+      <div style="flex:1;min-height:0;position:relative;background:radial-gradient(60% 50% at 20% 0%,rgba(255,255,255,.22),transparent 60%),radial-gradient(60% 50% at 80% 0%,rgba(255,255,255,.22),transparent 60%),linear-gradient(180deg,#0b1438,#132a52 45%,#1b7a3e 46%,#156b34)">
+        <svg viewBox="0 0 400 200" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><g fill="none" stroke="rgba(255,255,255,.8)" stroke-width="1.6"><path d="M70 196 L130 96 L270 96 L330 196 Z"/><path d="M100 146 L300 146"/><ellipse cx="200" cy="146" rx="34" ry="11"/><path d="M152 196 L163 172 L237 172 L248 196"/><path d="M168 96 L165 106 L235 106 L232 96"/></g><g fill="rgba(255,255,255,.12)">${Array.from({ length: 60 }, (_, i) => `<rect x="${(i * 6.7) % 400}" y="${60 + (i % 5) * 6}" width="4" height="4"/>`).join('')}</g></svg>
+        <p class="cap" style="position:absolute;top:8%;left:50%;transform:translateX(-50%);padding:3px 10px;border-radius:99px;background:rgba(5,8,22,.7);color:#e2e8f0">VS MATCHUP · ${n.home ? 'HOME' : 'AWAY'}</p>
+        <p style="position:absolute;bottom:6%;left:50%;transform:translateX(-50%);white-space:nowrap;padding:4px 14px;border-radius:12px;background:rgba(5,8,22,.78);font-weight:900;font-size:clamp(13px,5vh,22px)">${live ? '<span class="pk">● Playing now</span>' : `Kickoff in <span class="cy" id="g12kc">${g12hms(ms)}</span> ⏱️`}</p></div></div>`;
+    act = ms < 15 * 60000 ? `<button class="cta" onclick="W11.openL('${n.id}')">${live ? '▶ Go to the touchline' : '🔒 Team sheet locked · open match'}</button>` : `<button class="cta" onclick="W11.squad()">⚽ Next match · Matchday ${n.md} · Set your team</button>`;
+  } else {
+    info = `<div class="gc"><p class="t1">${day >= 27 ? `🏁 Season ${cs} is over` : '⚽ No match right now'}</p><p class="t2" style="margin-top:8px">${day >= 27 ? `Last results are checked today. Promotion, relegation and prizes are worked out on day 28. Season ${cs + 1} starts ${esc(localT(CC.dayStart(cs + 1, 1), true))}.` : 'Your next league match will show here.'}</p></div>`;
+    vs = `<div class="gc hot" style="display:grid;place-items:center"><p class="big">⚽</p></div>`; act = `<button class="cta" onclick="W11.friendly()">🤝 Play a friendly</button>`;
+  }
+  const t = (ic, l, js, extra) => `<button class="gc tile" style="padding:6px 10px;justify-content:flex-start" onclick="${js}"><span style="font-size:clamp(16px,5.6vh,24px)">${ic}</span><span class="t1" style="font-size:clamp(12px,3.9vh,17px)">${l}${extra || ''}</span></button>`;
+  const tiles = `<div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,minmax(0,1fr));gap:clamp(5px,1.6vh,9px);min-height:0">${t('📊', 'Table', 'W11.tableL()')}${t('🗓️', 'Fixtures', 'W11.fixturesL()')}${t('🏋️', 'Training', 'W11.trainL()', trained ? ' ✅' : ' · <span class="pk" style="font-size:.8em">1 today</span>')}${t('👕', 'Squad & fitness', 'W11.squad()')}${t('⚡', 'Energy (' + me.energy + ')', 'W11.energyL()')}${t('🤝', 'Friendly', 'W11.friendly()')}${t('📜', 'Club history', 'W11.histL()')}${t('❓', 'How it works', 'W11.helpL()')}</div>`;
+  const bot = `<div style="grid-column:1/-1;display:grid;grid-template-columns:${boot < 5 ? '1.2fr 1fr' : '1fr'};gap:10px;height:clamp(40px,14vh,58px)">${boot < 5 ? `<button class="gc tile" style="padding:6px 12px" onclick="W11.bootHome()"><span style="font-size:clamp(18px,6vh,28px)">🏕️</span><span style="flex:1;min-width:0"><span class="t1" style="display:block;font-size:clamp(11px,3.6vh,15px)">Boot Camp practice (${boot}/5)</span><span class="bar" style="display:block;margin-top:4px"><i style="width:${boot * 20}%;background:linear-gradient(90deg,#22d3ee,#a855f7)"></i></span></span></button>` : ''}${act}</div>`;
+  g12ui(info + vs + tiles + bot, '⚽ MATCH CENTRE', 'W11.home()', '1fr 1.25fr 1fr', 'minmax(0,1fr) auto');
+  if (n && n.ko > now) { const tick = () => { const el = document.getElementById('g12kc'); if (!el) return; el.textContent = g12hms(n.ko - W.nowS()); setTimeout(tick, 1000); }; tick(); }
+};
+
+/* ================================== 🔨 TRANSFER MARKET ================================== */
+W.market = async function (pos, sort) {
+  const F = W._mkF = W._mkF || { pos: 'ALL', sort: 'end' }; if (pos) F.pos = pos; if (sort) F.sort = sort;
+  if (document.getElementById('w11mk')) { W.mkChips(); return W.mkDraw(); }
+  W.stopMk();
+  g12ui(`<div class="gc" style="display:flex;flex-direction:column;gap:clamp(4px,1.4vh,8px);padding:8px 10px"><p style="font-size:clamp(9px,2.9vh,12px);line-height:1.35;color:#e2e8f0">15 auctions at once, <b>${W.nowS() >= CC.MK_T2 ? "2 min 30 s" : "60 s"}</b> each. A bid in the last 10 s resets the clock to <b>10 s</b>. 🤖 = computer club. Your 💎 are held while you lead.</p><div id="w11mkf" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:clamp(4px,1.3vh,7px)"></div></div>
+    <div style="display:grid;grid-template-rows:auto minmax(0,1fr);gap:clamp(6px,2vh,10px);min-height:0"><div class="gc hot" id="g12lot" style="padding:clamp(5px,1.6vh,10px) 12px"></div><div class="gc gpg" data-k="mk" style="display:flex;flex-direction:column;padding:6px 10px"><p class="t1" style="text-align:center;font-size:clamp(11px,3.6vh,16px)" id="g12mkn">LIVE AUCTIONS</p><div id="g12last" class="mu" style="text-align:center;font-size:clamp(9px,2.7vh,11px)"></div><table class="tb"><thead><tr><th style="width:25%">NAME</th><th style="width:9%">POS</th><th style="width:7%">AGE</th><th style="width:21%">STYLE</th><th style="width:16%">QLTY</th><th style="width:13%">PRICE</th><th style="width:9%">⏱</th></tr></thead><tbody class="glist" id="w11mk"></tbody></table></div></div>`, '🔨 TRANSFER MARKET', 'W11.stopMk();W11.home()', 'minmax(0,.85fr) minmax(0,2fr)');
+  W.mkChips();
+  try { rt(); } catch (e) {}
+  W._lots = W._lots || {};
+  try { const f = await fbLoad();
+    W._mkUnsub = f.onSnapshot(f.collection(db(), 'w11a'), (qs) => { const me = uidNow();
+      qs.forEach(d => { const i = Number(d.id), o = W._lots[i], L = { ...d.data(), i };
+        if (o && o.u === me && o.n === L.n && L.u !== me) { toast(`😮 Outbid on ${W.player(CC.lotPid(i, L.n, L.st)).short}! Your ${fmt(o.p)} 💎 are back.`); W.load().then(W.chips); }
+        W._lots[i] = L; });
+      W.mkDraw(); }, (e) => console.warn('11W market', e));
+  } catch (e) { console.warn(e); }
+  W._mkIv = setInterval(W.mkDraw, 1000); W.mkDraw();
+};
+W.mkChips = function () {
+  const el = document.getElementById('w11mkf'); if (!el) return; const F = W._mkF;
+  const c = (on, l, js) => `<button class="chip ${on ? 'on' : ''}" style="padding:clamp(3px,1.2vh,7px) clamp(7px,1.2vw,11px);font-size:clamp(10px,3.1vh,14px)" onclick="${js}">${l}</button>`;
+  el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:6px">${['ALL', 'GK', 'DEF', 'MID', 'FWD'].map(p => c(F.pos === p, p === 'ALL' ? 'All' : p, `W11.market('${p}')`)).join('')}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${c(F.pos === 'MINE', '⭐ My bids', "W11.market('MINE')")}${[['end', '⏱️ Ending soon'], ['ovr', '📈 Best OVR'], ['price', '💎 Cheapest']].map(([k, l]) => c(F.sort === k, l, `W11.market(null,'${k}')`)).join('')}</div>
+    <div class="chip" style="margin-top:auto;display:flex;align-items:center;gap:8px;padding:4px 10px;font-size:clamp(10px,3.1vh,14px)">👥 Squad ${(W.me.ids || []).length}/25</div>`;
+};
+W.mkPick = (i) => { W._mkSel = i; W.mkDraw(); };
+W.mkDraw = function () {
+  const el = document.getElementById('w11mk'); if (!el) return W.stopMk();
+  const now = W.nowS(), me = uidNow(), F = W._mkF, rows = [];
+  for (let i = 0; i < CC.MK_N; i++) { const L = W._lots[i] || null, cur = CC.lotCur(i, L, now), same = !!(L && L.n === cur.n), E = CC.lotEff(same ? L : { i, n: cur.n, st: cur.st }, now), p = W.player(E.pid, CC.clock(cur.st).s);
+    rows.push({ i, L, cur, same, E, p, mine: same && L.u === me });
+    if (L && L.u === me && !L.done && CC.lotEff(L, now).closed) W.mkClaim(L); }
+  const list = rows.filter(r => F.pos === 'ALL' || (F.pos === 'MINE' ? r.mine : r.p.pos === F.pos));
+  list.sort(F.sort === 'ovr' ? (a, b) => b.p.ovr - a.p.ovr : F.sort === 'price' ? (a, b) => a.E.minNext - b.E.minNext : (a, b) => a.E.end - b.E.end);
+  const mm = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
+  /* the big auction on top: the one you tapped, else the first in the list */
+  const S = list.find(r => r.i === W._mkSel) || list[0], box = document.getElementById('g12lot'), hd = document.getElementById('g12mkn');
+  const lst = document.getElementById('g12last'); if (lst && S) lst.innerHTML = prevTxt(S.i, S.L, S.cur, S.same, now).replace(/<p[^>]*>|<\/p>/g, '');
+  if (hd) hd.textContent = `LIVE AUCTIONS · ${list.length} ${F.pos === 'ALL' ? 'ACTIVE' : F.pos === 'MINE' ? 'WITH YOUR BIDS' : F.pos}`;
+  if (box) { if (!S) box.innerHTML = '<p class="t2" style="text-align:center;padding:8px">No players here right now. Try another filter.</p>';
+    else { const { i, L, cur, same, E, p, mine } = S, ms = Math.max(0, E.end - now), hot = ms < 10000, step = CC.stepOf(E.minNext);
+      const top = E.top === 'u' ? (mine ? '<b class="lm">🟢 You are the top bidder</b>' : `👤 ${esc(L.un || 'a manager')} leads`) : E.top === 'ai' ? `🤖 ${esc(CC.club(E.aiClub).name)} leads` : `No bids yet · start ${fmt(E.start)}`;
+      box.innerHTML = `<div style="display:flex;align-items:center;gap:12px">${g12ovr(p)}<div style="flex:1;min-width:0"><p style="font-weight:900;font-size:clamp(14px,5.4vh,24px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.flag} ${esc(p.name)} ${ptag(p)}</p><p style="font-weight:800;font-size:clamp(10px,3.3vh,14px)"><b style="color:${g12pos[p.pos]}">${W11C.dpOf(p)}</b> · ${p.age}y · ⚡${p.pac} 🎯${p.sho} 🎩${p.pas} 🪄${p.dri} 🛡️${p.def}${p.pos === 'GK' ? ' 🧤' + p.gk : ''} · ${W.styleChip(p)}</p></div><span style="font-weight:900;font-size:clamp(15px,5.6vh,28px);padding:2px 12px;border-radius:12px;${hot ? 'background:rgba(255,45,149,.3);color:#ff8cc6' : 'background:rgba(255,45,149,.18);color:#fbcfe8'}">${mm(ms)}</span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;margin-top:clamp(3px,1.2vh,8px)"><span style="font-size:clamp(10px,3.3vh,14px);font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${top}${E.top ? ' · <b>' + fmt(E.price) + ' 💎</b>' : ''}</span>${mine && E.top === 'u' ? `<button class="cta2" style="grid-column:span 2" disabled>✅ Leading</button>` : `<button class="cta" style="padding:clamp(6px,2vh,10px) clamp(12px,2.4vw,26px)" onclick="W11.bid(${i},${cur.n},${E.minNext})">Bid ${fmt(E.minNext)}</button><button class="cta2" style="padding:clamp(6px,2vh,10px) clamp(10px,2vw,20px)" onclick="W11.bid(${i},${cur.n},${E.minNext + 2 * step})">Bid ${fmt(E.minNext + 2 * step)}</button>`}</div>`; } }
+  el.innerHTML = list.map(({ i, E, p, mine }) => { const ms = Math.max(0, E.end - now);
+    return `<tr class="${S && S.i === i ? 'g12s' : ''} ${mine ? 'mine' : ''}" onclick="W11.mkPick(${i})" style="cursor:pointer"><td>${p.flag} ${esc(p.short)}${mine ? ' ⭐' : ''}</td><td><span class="rl" style="color:${g12pos[p.pos]}">${W11C.dpOf(p)}</span></td><td>${p.age}</td><td style="font-size:.85em">${W.STYLE1[W.oneStyle(p)][0]} ${W.STYLE1[W.oneStyle(p)][1]}</td><td>${W.g12stars(p.ovr)}</td><td class="${E.top ? 'cy' : ''}">${fmt(E.top ? E.price : E.start)}</td><td style="${ms < 10000 ? 'color:#ff5fae' : ''}">${mm(ms)}</td></tr>`; }).join('');
+  g12pages();
+};
+
+/* ================================== 👕 SQUAD ================================== */
+W.squad = function (sel) {
+  const me = W.me, P = me.ids.map(id => W.player(id)), tab = W._sqTab || 'form';
+  if (tab === 'sp') return W.setPieces();
+  const SH = W.shape(me.form), LP = W.lpOf(me), day = W11C.absDay(Date.now()), inLg = !!(me.lg && me.lg.s === W.S);
+  const kit = (me.kits && me.kits[0]) || { c1: '#22d3ee', c2: '#ffffff' }, fitC = (f) => f >= 1 ? '#22d3ee' : f >= 0.9 ? '#facc15' : '#ff2d95';
+  const cond = (id) => inLg ? W11C.condNow(me, id, day) : 100;
+  const flags = (id) => { const inj = (me.inj || {})[id] || 0, ban = (me.ban || {})[id] || 0; return (inj ? '🤕' : '') + (ban ? '🚫' : ''); };
+  const toks = P.slice(0, 11).map((p, i) => { const s = SH[i], f = W.fitOf(p, s.dp, LP), top = 90 - ((s.x - 4) / 43) * 78, lf = 9 + (s.y / 68) * 82;
+    return `<div class="tok ${sel === i ? 'g12s' : ''}" style="top:${top}%;left:${lf}%" onclick="W11.swap(${i})">${g12shirt(i === 0 ? '#facc15' : kit.c1, i === 0 ? '#0b0f24' : (kit.c2 || '#fff'), p.num)}<span class="dp" style="color:${fitC(f)}">${s.dp}</span><span class="nm"><b style="color:${ovrColor(p.ovr)}">${p.ovr}</b> ${flags(p.id)}${esc(p.short)}</span></div>`; }).join('');
+  const bench = P.slice(11, 18).map((p, k) => `<div onclick="W11.swap(${k + 11})" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;min-width:0;${sel === k + 11 ? 'filter:drop-shadow(0 0 8px #22d3ee)' : ''}">${g12shirt(p.pos === 'GK' ? '#facc15' : kit.c1, p.pos === 'GK' ? '#0b0f24' : (kit.c2 || '#fff'), p.num).replace('<svg', '<svg style="width:clamp(18px,6.4vh,28px)"')}<span style="font-size:clamp(8px,2.6vh,11px);font-weight:900;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;padding:0 3px;border-radius:5px;background:${sel === k + 11 ? '#22d3ee;color:#0b0f24' : 'rgba(5,8,22,.75)'}">${p.ovr} ${esc(p.short)}</span></div>`).join('');
+  const lines = `<svg class="ln" viewBox="0 0 100 100" preserveAspectRatio="none"><g fill="none" stroke="rgba(255,255,255,.55)" stroke-width=".5" vector-effect="non-scaling-stroke"><rect x="3" y="3" width="94" height="94"/><path d="M3 50 H97"/><ellipse cx="50" cy="50" rx="11" ry="9"/><rect x="25" y="3" width="50" height="15"/><rect x="38" y="3" width="24" height="6"/><rect x="25" y="82" width="50" height="15"/><rect x="38" y="91" width="24" height="6"/></g></svg>`;
+  const rowsHtml = P.map((p, i) => { const c = cond(p.id), f = i < 11 ? W.fitOf(p, SH[i].dp, LP) : 1;
+    return `<div onclick="W11.swap(${i})" style="display:flex;align-items:center;gap:8px;padding:3px 4px;border-radius:9px;cursor:pointer;${sel === i ? 'background:rgba(34,211,238,.16)' : ''}"><span style="width:clamp(30px,9vh,40px);font-size:clamp(9px,2.8vh,11px);font-weight:900;text-align:center;padding:2px 0;border-radius:6px;background:${i < 11 ? 'rgba(34,211,238,.16)' : i < 18 ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.03)'};color:${i < 11 ? fitC(f) : i < 18 ? '#cbd5e1' : '#64748b'}">${i < 11 ? SH[i].dp : i < 18 ? 'SUB' : 'RES'}</span>${g12ovr(p)}<span style="flex:1;min-width:0;font-weight:900;font-size:clamp(11px,3.6vh,15px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.legend ? '👑 ' : p.wk && p.age <= 21 ? '🌟 ' : ''}${flags(p.id)}${esc(p.short)}</span><span class="bar" style="width:22%"><i style="width:${c}%;background:${c >= 75 ? '#34d399' : c >= 50 ? '#facc15' : '#ff2d95'}"></i></span><span style="width:30px;font-size:11px;font-weight:900;color:${c >= 75 ? '#34d399' : c >= 50 ? '#facc15' : '#ff5fae'}">${c}%</span><button onclick="event.stopPropagation();W11.pMenu('${p.id}')" style="padding:2px 8px;border-radius:8px;background:rgba(255,255,255,.08);font-weight:900">⋯</button></div>`; }).join('');
+  const forms = Object.keys(W.FORMS);
+  g12ui(`<div class="gc gpg" data-k="fm" style="display:flex;flex-direction:column;gap:6px;padding:8px"><p class="t1" style="font-size:clamp(12px,4vh,17px)">📐 Formation</p><div class="glist" style="display:flex;flex-direction:column;gap:5px">${forms.map(f => `<button class="chip ${f === me.form ? 'on' : ''}" style="width:100%" onclick="W11.setForm('${f}')">${f}${f === me.form ? ' ✓' : ''}</button>`).join('')}</div></div>
+    <div style="display:grid;grid-template-rows:minmax(0,1fr) auto;gap:6px;min-height:0"><div class="pitch">${lines}${toks}</div><div class="gc" style="padding:4px 8px"><p class="cap" style="text-align:center">Bench · tap a player, then another to swap</p><div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">${bench}</div></div></div>
+    <div class="gc gpg" data-k="sq" style="display:flex;flex-direction:column;gap:4px;padding:8px"><p class="t1" style="font-size:clamp(12px,4vh,17px)">👥 Players (${P.length}/25)</p><div class="glist" style="display:flex;flex-direction:column;gap:2px">${rowsHtml}</div></div>
+    <div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;height:clamp(36px,12vh,50px)"><button class="cta" onclick="W._sqTab='form';W11.squad()">📐 Formation</button><button class="cta2" onclick="W._sqTab='sp';W11.squad()">🎯 Set pieces & styles</button><button class="cta2" style="width:auto;padding:0 14px" onclick="W11.bestFitGo()">🧩 Best fit</button><button class="cta2" style="width:auto;padding:0 14px" onclick="W11.releaseMenu()">🗑️ Release</button></div>`,
+    '👕 SQUAD', W.live ? 'W11.home()' : 'W11.home()', 'minmax(0,.55fr) minmax(0,1.5fr) minmax(0,1.2fr)', 'minmax(0,1fr) auto');
+};
+W.setPieces = function () {
+  const me = W.me, ids = me.ids || [], tk = me.tk || {}, top = ids.slice(0, 18).map(id => W.player(id));
+  const sel = (k, l) => { const auto = autoTaker(ids, k); return `<div style="display:flex;align-items:center;gap:10px"><span class="t1" style="min-width:clamp(90px,16vw,150px);font-size:clamp(12px,4.2vh,18px)">${l}</span><select onchange="W11.setTk('${k}', this.value)" style="flex:1;min-width:0;padding:clamp(6px,2vh,10px);border-radius:12px;background:rgba(10,14,40,.7);color:#fff;border:1px solid rgba(140,160,255,.35);font-weight:800;font-size:clamp(12px,3.8vh,16px)"><option value="">Auto${auto ? ' · ' + esc(auto.short) : ''}</option>${top.filter(p => p.pos !== 'GK' || k === 'cap').map(p => `<option value="${p.id}" ${tk[k] === p.id ? 'selected' : ''}>${esc(p.short)} · ${p.pos} ${p.ovr}${k === 'fk' ? ' · ' + W.styleOf(p).fk : k === 'pen' ? ' · ' + W.STYLE_NAME[W.styleOf(p).pen] : ''}</option>`).join('')}</select></div>`; };
+  const st = top.map((p, i) => { const S = W.STYLE1[W.oneStyle(p)];
+    return `<div style="display:flex;align-items:center;gap:8px;padding:3px 6px;border-radius:10px;background:rgba(10,14,40,.45)"><span style="width:clamp(26px,8vh,34px);font-size:10px;font-weight:900;color:${i < 11 ? '#67e8f9' : '#94a3b8'}">${i < 11 ? W11C.dpOf(p) : 'SUB'}</span><b style="flex:0 0 22%;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(11px,3.6vh,15px)">${esc(p.short)}</b>${W.styleChip(p)}<span class="mu" style="flex:1;min-width:0;font-size:clamp(9px,2.8vh,12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(S[2])}</span></div>`; }).join('');
+  g12ui(`<div class="gc" style="display:flex;flex-direction:column;gap:clamp(6px,2.4vh,14px)"><p class="t1" style="font-size:clamp(15px,5.6vh,26px)">🎯 Set pieces</p><p class="t2" style="color:#e2e8f0">Pick your takers (only players in your top 18). Auto uses your best player for it.</p>${TK.map(([k, l]) => sel(k, l)).join('')}</div>
+    <div class="gc hot gpg" data-k="sty" style="display:flex;flex-direction:column;gap:4px"><p class="t1" style="font-size:clamp(15px,5.6vh,26px)">🧬 Player styles</p><p class="t2" style="color:#e2e8f0">Every player has <b>one</b> style. It comes from his stats and never changes.</p><div class="glist" style="display:flex;flex-direction:column;gap:3px">${st}</div></div>
+    <div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;height:clamp(36px,12vh,50px)"><button class="cta2" onclick="W._sqTab='form';W11.squad()">📐 Formation</button><button class="cta" onclick="W._sqTab='sp';W11.squad()">🎯 Set pieces & styles</button></div>`,
+    '👕 SQUAD', 'W11.home()', 'minmax(0,1fr) minmax(0,1.25fr)', 'minmax(0,1fr) auto');
+};
+
+/* ================================== 📇 PLAYER PROFILE ================================== */
+W.pMenu = function (id, tab) {
+  const me = W.me, p = W.player(id), mineP = (me.ids || []).includes(id), main = W11C.dpOf(p), known = mineP ? W11C.knownPos(me, id, W.S, W.nowS()) : [main];
+  tab = tab || W._pmTab || 'ov'; W._pmTab = tab;
+  const st = W.styleOf(p), S1 = W.STYLE1[W.oneStyle(p)], inLg = !!(me.lg && me.lg.s === W.S), cond = mineP && inLg ? W11C.condNow(me, id, W11C.absDay(Date.now())) : null;
+  const kit = (me.kits && me.kits[0]) || { c1: '#22d3ee', c2: '#fff' };
+  const grp = (t, c, ic, list) => { const v = Math.round(list.reduce((a, x) => a + x[1], 0) / list.length);
+    return `<div style="min-width:0"><p style="font-weight:900;font-size:clamp(12px,4vh,18px);color:${c}">${ic} ${t}</p><p style="font-weight:900;font-size:clamp(24px,10vh,46px);line-height:1;color:${c}">${v}</p>${list.map(([n, x]) => `<div style="display:flex;justify-content:space-between;padding:clamp(2px,1vh,5px) 8px;margin-top:3px;border-radius:7px;background:rgba(10,14,40,.55);border-left:3px solid ${c};font-size:clamp(11px,3.6vh,15px);font-weight:800"><span>${n}</span><b>${x}</b></div>`).join('')}</div>`; };
+  const ov = p.pos === 'GK'
+    ? [grp('KEEPING', '#facc15', '🧤', [['Goalkeeping', p.gk], ['Defending', p.def]]), grp('DISTRIBUTION', '#22d3ee', '🎩', [['Passing', p.pas], ['Set pieces', st.set]]), grp('PHYSICAL', '#818cf8', '💪', [['Pace', p.pac], ['Heading', st.head]].concat(cond != null ? [['Fitness', cond]] : []))]
+    : [grp('DEFENCE', '#34d399', '🛡️', [['Defending', p.def], ['Heading', st.head]]), grp('ATTACK', '#fb7185', '🎯', [['Shooting', p.sho], ['Dribbling', p.dri], ['Passing', p.pas]]), grp('PHYSICAL', '#818cf8', '💪', [['Pace', p.pac], ['Set pieces', st.set]].concat(cond != null ? [['Fitness', cond]] : []))];
+  let body = '';
+  if (tab === 'ov') body = `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,1.6vw,16px)">${ov.join('')}</div>`;
+  else if (tab === 'sty') body = `<div style="display:flex;flex-direction:column;gap:clamp(6px,2.4vh,14px)"><p class="cap">Player style · one per player, never changes</p><div style="display:flex;align-items:center;gap:14px"><span style="font-size:clamp(34px,15vh,70px)">${S1[0]}</span><div><p style="font-weight:900;font-size:clamp(18px,7vh,32px);color:${S1[3]}">${S1[1]}</p><p class="t2" style="color:#e2e8f0">${esc(S1[2])}</p></div></div>
+      ${p.pos === 'GK' ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="stat" style="align-items:flex-start;padding:8px 12px"><span class="mu">🦶 Free kicks</span><b style="font-size:clamp(14px,5vh,22px);text-transform:capitalize">${esc(st.fk)}</b></div><div class="stat" style="align-items:flex-start;padding:8px 12px"><span class="mu">🎯 Penalties</span><b style="font-size:clamp(14px,5vh,22px);text-transform:capitalize">${esc(W.STYLE_NAME[st.pen] || st.pen)}</b></div></div>`}</div>`;
+  else if (tab === 'pos') { const t = me.trn && Number(me.trn.end) > W.nowS() ? me.trn : null, mine = t && t.id === id, extra = known.slice(1), full = extra.length >= W11C.LEARN_MAX, g = W11C.gidOf(id, W.S), can = W11C.DPOS.filter(x => W11C.canLearn(main, x) && !known.includes(x)), days = W11C.learnDays(g);
+    let tr; if (!mineP) tr = '<p class="t2">Only for players in your squad.</p>';
+    else if (mine) tr = `<p class="t2" style="color:#e2e8f0">📚 Learning <b>${t.to}</b> · ready in <b>${W.trnLeft(t)}</b></p>${Number(t.end) - W.nowS() > W11C.LEARN_FAST_DAYS * 86400000 ? `<button class="cta" onclick="W11.learnFast()">⚡ Finish in ${W11C.LEARN_FAST_DAYS} days · ${W11C.LEARN_FAST} 🪙</button>` : ''}<button class="cta2" onclick="W11.learnCancel()">Stop training</button>`;
+    else if (p.pos === 'GK') tr = '<p class="t2">Goalkeepers stay in goal.</p>';
+    else if (full) tr = `<p class="t2">He already knows ${W11C.LEARN_MAX} extra positions (the most).</p>`;
+    else if (t) tr = `<p class="t2">${esc(W.player(t.id).name)} is training now (one player at a time). Ready in ${W.trnLeft(t)}.</p>`;
+    else if (!can.length) tr = '<p class="t2">No nearby position left to learn.</p>';
+    else tr = `<p class="t2" style="color:#e2e8f0">Free training takes about <b>${days} days</b> for him. Or finish it in ${W11C.LEARN_FAST_DAYS} days for ${W11C.LEARN_FAST} 🪙.</p><div style="display:flex;flex-wrap:wrap;gap:8px">${can.map(x => `<button class="chip" onclick="W11.learn('${id}','${x}')">📚 ${x} · ${esc(W11C.DPOS_NAME[x])}</button>`).join('')}</div>`;
+    body = `<div style="display:flex;flex-direction:column;gap:clamp(6px,2.2vh,12px)"><p class="cap">Positions he can play</p><div style="display:flex;flex-wrap:wrap;gap:8px">${known.map((x, i) => `<span class="chip ${i === 0 ? 'on' : ''}">${x} · ${esc(W11C.DPOS_NAME[x])}</span>`).join('')}</div><p class="t2 mu">His own spot is ${esc(W11C.DPOS_NAME[main])}. He can learn up to ${W11C.LEARN_MAX} nearby spots, one at a time. Never a far line (a winger can't become a defender).</p>${tr}</div>`; }
+  else if (tab === 'nm') { const g = W11C.gidOf(id, W.S), renamed = !!(me.rn && me.rn[g]);
+    body = `<div style="display:flex;flex-direction:column;gap:clamp(6px,2.2vh,12px);max-width:520px"><p class="cap">Name & country</p>${!mineP ? '<p class="t2">Only for players in your squad.</p>' : renamed ? '<p class="t2">Already renamed (once per player).</p>' : `<p class="t2" style="color:#e2e8f0">You can change his name and country once. Real footballers' names can't be used.</p><input id="w11rnN" maxlength="24" value="${esc(p.name)}" style="padding:10px;border-radius:12px;background:rgba(10,14,40,.7);color:#fff;border:1px solid rgba(140,160,255,.35);font-weight:800;font-size:15px"><select id="w11rnC" style="padding:10px;border-radius:12px;background:#0f172a;color:#fff;font-weight:800">${W.countryOpts(W.cultCountry[p.cult])}</select><button class="cta" onclick="W11.renameGo('${id}')">Save name (once)</button>`}</div>`; }
+  const tabs = [['ov', 'Overview'], ['sty', 'Playstyle'], ['pos', 'Positions'], ['nm', 'Name']];
+  let o = document.getElementById('w11pm'); if (!o) { o = document.createElement('div'); o.id = 'w11pm'; (document.getElementById('w11') || document.body).appendChild(o); }
+  o.className = 'g12pm'; o.style.cssText = '';
+  o.innerHTML = `<div class="g12" style="height:100%;padding:max(8px,env(safe-area-inset-top)) 12px 10px;grid-template-columns:minmax(0,.62fr) minmax(0,2fr);grid-template-rows:auto minmax(0,1fr);background:radial-gradient(60% 50% at 20% 0%,rgba(80,100,220,.25),transparent),linear-gradient(180deg,#070b22,#0b1236)">
+    <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px"><button class="chip" onclick="W11.ovClose()" style="padding:6px 12px">←</button><b style="font-size:clamp(14px,4.6vh,20px);background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);-webkit-background-clip:text;background-clip:text;color:transparent">PLAYER PROFILE</b><span style="margin-left:auto" class="chip">💎 ${fmt(me.coins)}</span><span class="chip" style="border-color:rgba(250,204,21,.4)!important">🪙 ${fmt(me.gems)}</span></div>
+    <div class="gc" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px"><div id="w11pcImg" style="flex:1;min-height:0;width:100%;display:flex;align-items:flex-end;justify-content:center;border-radius:12px;background:radial-gradient(60% 60% at 50% 40%,rgba(34,211,238,.18),transparent)">${g12shirt(kit.c1, kit.c2 || '#fff', p.num).replace('<svg', '<svg style="width:60%;opacity:.85"')}</div>
+      <p style="font-weight:900;font-size:clamp(13px,4.6vh,20px);text-align:center;line-height:1.1">${p.flag} ${esc(p.name).toUpperCase()} <span class="mu">#${p.num}</span></p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;width:100%">${tabs.map(([k, l]) => `<button class="chip ${tab === k ? 'on' : ''}" style="width:100%;padding:4px 2px;font-size:clamp(9px,2.9vh,12px);white-space:normal" onclick="W11.pMenu('${id}','${k}')">${l}</button>`).join('')}</div></div>
+    <div class="gc" style="display:flex;flex-direction:column;gap:clamp(6px,2vh,12px)"><div style="display:flex;align-items:center;gap:clamp(8px,2vw,18px);flex-wrap:wrap"><span class="chip">Age: ${p.age}</span><div><span class="mu" style="font-weight:900">OVR </span><b style="font-size:clamp(28px,12vh,56px);line-height:1;color:#22d3ee;text-shadow:0 0 18px rgba(34,211,238,.5)">${p.ovr}</b><div>${W.g12stars(p.ovr)}</div></div>
+      <div><p class="cap">Roles</p><div>${known.map(x => `<span class="rl" style="font-size:clamp(11px,3.6vh,15px);padding:3px 9px">${x}</span>`).join('')}</div></div>${W.styleChip(p)}${mineP ? `<span class="chip" style="margin-left:auto">${g12mine('22px').replace('class="crest"', 'class="crest" style="display:inline-grid;vertical-align:middle;width:18px;height:20px"')} ${esc(me.name)}</span>` : ''}</div>
+      <div style="height:1px;background:rgba(255,255,255,.12)"></div><div style="flex:1;min-height:0;overflow:hidden">${body}</div>${tab === 'ov' ? '<p class="t2 mu" style="padding:6px 10px;border-radius:10px;background:rgba(10,14,40,.5);border:1px solid rgba(140,160,255,.2)">Train in the league to improve your whole squad. Players grow until about 27.</p>' : ''}</div></div>`;
+  const fill = () => { const box = document.getElementById('w11pcImg'); if (!box || !W.portraitOf) return; const url = W.portraitOf(id);
+    if (url) box.innerHTML = `<img src="${url}" alt="" style="height:100%;max-width:100%;object-fit:contain;object-position:bottom;display:block">`;
+    else if (W.w3d && W.w3d.st === 1 && (fill.n = (fill.n || 0) + 1) < 40) setTimeout(fill, 500); };
+  setTimeout(fill, 30);
+};
+/* the old home extras (market/youth/cups buttons) are part of the hub now */
+W.g3Bar = (function (b) { return function () { if (document.querySelector('#w11b > .g12')) return; return b.apply(this, arguments); }; })(W.g3Bar);
 
 })();
