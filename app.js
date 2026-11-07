@@ -28150,7 +28150,7 @@ setInterval(() => { try { if (!document.getElementById('view-trending')?.classLi
 window.SG_BUILD = 76;
 window.open11W = async function() {
 if (window.needSignIn && window.needSignIn('play 11 Wonders')) return;
-try { if (!window.W11 || !window.W11.open) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'w11.js?v=19'; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); window.W11.open(); }
+try { if (!window.W11 || !window.W11.open) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'w11.js?v=20'; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); window.W11.open(); }
 catch (e) { showToast('⚠️ Could not open 11 Wonders. Check your internet.'); }
 };
 window.sg11Card = function() {
@@ -28171,7 +28171,7 @@ setTimeout(() => { if (location.hash === '#11wonders') window.open11W(); }, 3000
 The service worker downloads a new version quietly. When it is ready it tells the open page, and a small bar
 appears at the top: "✨ New version ready · Restart". Tapping Restart reloads the app onto the new files.
 Not shown on the very first visit (nothing to update from). */
-window.SG_BUILD = 81;
+window.SG_BUILD = 82;
 (function () {
 if (!('serviceWorker' in navigator)) return;
 const hadCtl = !!navigator.serviceWorker.controller;
