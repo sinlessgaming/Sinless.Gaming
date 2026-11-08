@@ -109,7 +109,7 @@ const oplayer = function (id, S) {
    a{S}x{slot}x{n}  = player sold in the market (born in season S)
    y{S}x{club}x{k}  = one of the 15 youngsters a club sees in its youth draft in season S
    L{S}x{no}        = the 150-OVR wonder given to Pioneer #no (1–50). Only 50 can ever exist. */
-const NEW_RE = /^([aybL])(\d+)x(\d+)(?:x(\d+))?$/;
+const NEW_RE = /^([aybLw])(\d+)x(\d+)(?:x(\d+))?$/;
 const isNew = (id) => NEW_RE.test(String(id));
 const POS15 = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD', 'GK'];
 const LEG_POS = ['FWD', 'MID', 'FWD', 'DEF', 'MID', 'FWD', 'MID', 'DEF', 'FWD', 'GK'];
@@ -123,7 +123,7 @@ const legAttrs = (r, pos) => {
 };
 /* G12 market lots ('b'): any position, picked from the lot (not the slot) */
 const POSB = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD'];
-const posOfNew = (m) => m[1] === 'L' ? LEG_POS[Number(m[3]) % 10] : m[1] === 'b' ? POSB[hash('pb:' + m[0]) % 16] : POS15[Number(m[1] === 'a' ? m[3] : m[4]) % 15];
+const posOfNew = (m) => m[1] === 'L' ? LEG_POS[Number(m[3]) % 10] : (m[1] === 'b' || m[1] === 'w') ? POSB[hash('pb:' + m[0]) % 16] : POS15[Number(m[1] === 'a' ? m[3] : m[4]) % 15];
 /* the player as he is in his first season (g = 0), or the 17-year-old who replaces him after he retires (g > 0) */
 const nbase = function (id, gid, g) {
   const m = NEW_RE.exec(id), k = m[1], r = rng(hash(WORLD + ':n:' + gid)), nm = named(r), pos = posOfNew(m), num = 21 + hash(gid + ':num') % 70;
@@ -143,6 +143,7 @@ const nbase = function (id, gid, g) {
     pot = wk ? 91 + Math.floor(r() * 7) : age < 27 ? clamp(ovr + 3 + Math.floor(r() * 14), ovr, 94) : ovr;
   }
   if (k === 'b') return bplayer(id, k, nm, pos, r, num);
+  if (k === 'w') return wplayer(id, k, nm, pos, r, num);
   return { id, k, ...nm, pos, age, ovr, pot, wk, ...attrs(r, pos, ovr), num };
 };
 /* G12: market players with heavy variety: every age 16–35, OVR 42–93, and a profile that makes him special
@@ -161,6 +162,18 @@ const bplayer = function (id, k, nm, pos, r, num) {
   for (const q in P) A[q] = clamp(Math.round(A[q] + P[q] * sp), 25, 99);
   return { id, k, ...nm, pos, age, ovr, pot, wk, ...A, num };
 };
+/* G18 demo market ('w', from MK_T3): the whole range, OVR 35 to 110. Over 99 the stats go past 99 too (like the legends, but far below 150). */
+const WMAX = 110, WMIN = 35;
+const wplayer = function (id, k, nm, pos, r, num) {
+  const age = 16 + Math.floor(r() * 20), x = r();
+  let ovr = x < 0.14 ? 35 + Math.floor(r() * 15) : x < 0.38 ? 50 + Math.floor(r() * 15) : x < 0.64 ? 65 + Math.floor(r() * 13) : x < 0.85 ? 78 + Math.floor(r() * 12) : x < 0.96 ? 90 + Math.floor(r() * 10) : 100 + Math.floor(r() * 11);
+  if (age <= 18) ovr = Math.min(ovr, 58 + (age - 16) * 8); if (age >= 34) ovr = Math.max(WMIN, ovr - (age - 33) * 3);
+  let wk = false; if (age <= 19 && r() < 0.08) { wk = true; ovr = 62 + Math.floor(r() * 14); }
+  const pot = wk ? 98 + Math.floor(r() * 13) : age < 27 ? clamp(ovr + 2 + Math.floor(r() * (age < 22 ? 24 : 12)), ovr, WMAX) : ovr;
+  const A = attrs(r, pos, Math.min(ovr, 99)), P = B_PROF[pos][Math.floor(r() * B_PROF[pos].length)], sp = 0.8 + r() * 0.7, top = Math.max(0, ovr - 99);
+  for (const q in A) { if (pos !== 'GK' && q === 'gk') continue; A[q] = clamp(Math.round(A[q] + (P[q] || 0) * sp + top * 1.1), 25, 120); }
+  return { id, k, ...nm, pos, age, ovr, pot, wk, ...A, num };
+};
 const nplayer = function (id, S) {
   const m = NEW_RE.exec(id), S0 = Number(m[2]); S = Math.max(S0, Math.floor(S || 1));
   let s = S0, g = 0, gid = String(id), p = nbase(id, gid, 0), a0 = p.age;
@@ -174,8 +187,8 @@ const nplayer = function (id, S) {
   if (p.legend) return { ...p, ci: -1, slot: -1, gid, gen: g, age };
   let d = 0;
   for (let y = a0; y < age; y++) { const st = grow(y) + (p.wk && y < 22 ? 2 : 0) + (hash(gid + ':g' + y) % 3) - 1; d += st > 0 ? Math.max(0, Math.min(st, p.pot - p.ovr - d)) : st; }
-  const sh = (v) => clamp(v + d, 25, 99);
-  return { ...p, ci: -1, slot: -1, gid, gen: g, age, ovr: clamp(p.ovr + d, 40, 97), pac: sh(p.pac), sho: sh(p.sho), pas: sh(p.pas), dri: sh(p.dri), def: sh(p.def), gk: p.pos === 'GK' ? sh(p.gk) : p.gk };
+  const W8 = p.k === 'w' && g === 0, sh = (v) => clamp(v + d, 25, W8 ? 120 : 99);
+  return { ...p, ci: -1, slot: -1, gid, gen: g, age, ovr: W8 ? clamp(p.ovr + d, WMIN, WMAX) : clamp(p.ovr + d, 40, 97), pac: sh(p.pac), sho: sh(p.sho), pas: sh(p.pas), dri: sh(p.dri), def: sh(p.def), gk: p.pos === 'GK' ? sh(p.gk) : p.gk };
 };
 const player = (id, S) => isNew(id) ? nplayer(String(id), S) : oplayer(id, S);
 /* 💰 what a player is worth (plain multiplication only, so phones and the worker agree) */
@@ -200,7 +213,12 @@ const MK_N = 15, MK_LEN = 60000, MK_EXT = 10000, MK_AI = 3000;
 const MK_T2 = Date.UTC(2026, 10, 6, 0, 0), MK_LEN2 = 150000;
 const mkLen = (st) => st >= MK_T2 ? MK_LEN2 : MK_LEN;
 const lotT0 = (i) => EPOCH0 + i * 4000;
-const lotPid = (i, n, st) => (st >= MK_T2 ? 'b' : 'a') + clock(st).s + 'x' + i + 'x' + n;
+/* G18: from MK_T3 the market sells 'w' players (OVR 35–110). MK_T3 comes from w11meta/season.mk3, which the NEW worker sets
+   (a whole hour ahead) the first time it runs, so phones and the worker always switch at the same moment. */
+let MK_T3 = Infinity;
+const setMk3 = (ms) => { ms = Number(ms) || 0; if (ms > Date.UTC(2026, 10, 1) && ms < Date.UTC(2040, 0, 1)) MK_T3 = ms; return MK_T3; };
+const mk3 = () => MK_T3;
+const lotPid = (i, n, st) => (st >= MK_T3 ? 'w' : st >= MK_T2 ? 'b' : 'a') + clock(st).s + 'x' + i + 'x' + n;
 const stepOf = (p) => Math.max(500, r500(p * 0.05));
 const lotInfo = (i, n, st) => {
   const pid = lotPid(i, n, st), p = player(pid, clock(st).s), v = value(p), start = Math.max(1000, r500(v * 0.4)), r = rng(hash('mkai:' + pid));
@@ -558,6 +576,22 @@ const nameProblem = (n) => { const raw = String(n || '').normalize('NFC').replac
   return ''; };
 const rnMap = (club, ids, S) => { const o = {}, R = (club && club.rn) || {}; for (const id of (ids || []).slice(0, 18)) { const g = gidOf(id, S), r = R[g]; if (r && r.n) o[g] = { n: String(r.n).slice(0, 24), c: String(r.c || '').slice(0, 4) }; } return o; };
 const cleanPName = (n) => String(n || '').normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, 24);
+/* G18 🌍 club nation: every player of a club gets a made-up name from his club's country (same answer on every phone and in the worker) */
+const NAT_CULT = (() => { const o = {}, put = (k, L) => L.split(' ').forEach(c => { o[c] = k; });
+  put('gh', 'GH'); put('ng', 'NG'); put('ea', 'KE UG TZ RW ET BI SS SO ER DJ'); put('za', 'ZA BW NA ZW ZM LS SZ MW');
+  put('fr', 'FR SN CI ML CM BF GN NE TG BJ GA CG CD CF TD MG KM GW GM SL LR MU'); put('ar', 'MA DZ TN EG LY SA AE QA KW BH OM JO IQ SY LB YE SD MR PS');
+  put('cn', 'CN TW HK SG MY'); put('jp', 'JP'); put('kr', 'KR KP'); put('in', 'IN PK BD LK NP AF MV BT');
+  put('en', 'GB EN SC2 WA NIR US CA AU NZ IE'); put('es', 'ES AD'); put('pt', 'PT BR AO MZ CV ST TL'); put('it', 'IT SM MT'); put('de', 'DE AT CH LI LU');
+  put('nl', 'NL BE'); put('ee', 'PL HR RS RO CZ SK UA RU BG SI BA ME MK HU AL BY LT LV EE MD XK GR CY GE AM');
+  put('la', 'MX AR CO CL PE UY VE EC PY BO CR HN GT SV NI PA CU DO PR'); put('ca', 'JM TT HT BB BS GY SR LC VC GD AG DM KN BZ'); put('tr', 'TR AZ KZ UZ TM KG');
+  return o; })();
+const natCult = (cc) => NAT_CULT[String(cc || '').toUpperCase()] || 'en';
+const natName = (gid, cc) => {
+  const C = CULT[natCult(cc)], F = C[1].split(' '), L = C[2].split(' '), r = rng(hash(WORLD + ':nat:' + gid + ':' + String(cc).toUpperCase()));
+  const first = pick(r, F); let li = Math.floor(r() * L.length);
+  for (let k = 0; k < L.length; k++) { const n = first + ' ' + L[(li + k) % L.length]; if (!REAL_NAMES.has(n.toLowerCase()) && !nameProblem(n)) return n; }
+  return first + ' ' + L[li];
+};
 
 /* ===================== 🌍 G6 · zones, climate + weather, touchline managers, balls ===================== */
 /* climate: 0 temperate north, 1 temperate south, 2 tropical, 3 dry/desert, 4 cold north (phone picks it from its time zone name) */
@@ -617,7 +651,7 @@ const ballOf = (kind, S, fin) => ({ kind: fin ? 'final' : kind, d: hash('ball:' 
 /* G6: league + cup kick-off times are listed per GMT day in w11kt/{day} (the lock reads only that small doc) */
 const ktDay = (t) => Math.floor(Number(t) / DAY);
 
-return { ZONES, ZONE_NAME, ZONE_FLAG, ZONE_OF, cleanOf, zoneOf, NG, X6, zoneOfG, extraG, groupNo, aiZone, fairKo, cupId, cupOfs, CLIM_NAME, climOk, aiClim, climFromTz, WX_KINDS, WX_NAME, seasonOf, wxOf, wxFx, wxLabel, MGR_LIMITS, MGR_FIT, mgrOf, cleanMgr, ballOf, ktDay,  rnMap, DPOS, DLINE, DPOS_NAME, dpOf, canLearn, LEARN_MAX, LEARN_FAST, LEARN_FAST_DAYS, learnDays, gidOf, knownPos, learnedMap, posFit, COUNTRIES, nameProblem, cleanPName, normName, FAMOUS, EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_LEN2, MK_T2, mkLen, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, FP_X, FP_Y, FP_N, fpSpot, fpOk, fpClean, fpForm, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
+return { ZONES, ZONE_NAME, ZONE_FLAG, ZONE_OF, cleanOf, zoneOf, NG, X6, zoneOfG, extraG, groupNo, aiZone, fairKo, cupId, cupOfs, CLIM_NAME, climOk, aiClim, climFromTz, WX_KINDS, WX_NAME, seasonOf, wxOf, wxFx, wxLabel, MGR_LIMITS, MGR_FIT, mgrOf, cleanMgr, ballOf, ktDay,  rnMap, DPOS, DLINE, DPOS_NAME, dpOf, canLearn, LEARN_MAX, LEARN_FAST, LEARN_FAST_DAYS, learnDays, gidOf, knownPos, learnedMap, posFit, COUNTRIES, nameProblem, cleanPName, normName, FAMOUS, EPOCH0, ENGINE, setEpoch, setMk3, mk3, WMAX, WMIN, natCult, natName, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_LEN2, MK_T2, mkLen, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, FP_X, FP_Y, FP_N, fpSpot, fpOk, fpClean, fpForm, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
 })();
 
 const { WORLD, hash, rng, pick, clamp } = W11C;
@@ -1447,7 +1481,7 @@ const CSS = `
 #w11 .steps{display:flex;gap:6px;margin:10px 0}#w11 .steps i{flex:1;height:8px;border-radius:99px;background:rgba(255,255,255,.1)}#w11 .steps i.done{background:linear-gradient(90deg,#22d3ee,#a855f7)}#w11 .steps i.now{background:#ff2d95}
 #w11 .w11crest{width:46px;height:52px;flex-shrink:0}
 #w11 .tip{font-size:11px;color:#cbd5e1;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.25);border-radius:12px;padding:9px;margin-top:8px}`;
-const ovrColor = (o) => o >= 85 ? '#facc15' : o >= 75 ? '#22d3ee' : o >= 65 ? '#a3e635' : o >= 55 ? '#e2e8f0' : '#94a3b8';
+const ovrColor = (o) => o >= 100 ? '#ff2d95' : o >= 95 ? '#c084fc' : o >= 85 ? '#facc15' : o >= 75 ? '#22d3ee' : o >= 65 ? '#a3e635' : o >= 55 ? '#e2e8f0' : '#94a3b8';
 const badge = (c, short) => `<svg class="w11crest" viewBox="0 0 46 52"><defs><linearGradient id="bg${c.idx}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${c.hue},80%,55%)"/><stop offset="1" stop-color="hsl(${(c.hue + 60) % 360},80%,35%)"/></linearGradient></defs><path d="M23 2 L44 9 L41 34 Q37 45 23 50 Q9 45 5 34 L2 9 Z" fill="url(#bg${c.idx})" stroke="#fff" stroke-width="2"/><text x="23" y="31" text-anchor="middle" font-size="13" font-weight="900" fill="#fff" font-family="system-ui">${esc(short || c.short)}</text></svg>`;
 
 W.ui = function (html, title, back) {
@@ -1576,10 +1610,21 @@ W.feed = function (m) {
 W.pulse = function () { const a = document.getElementById('w11al'), sh = document.getElementById('w11sh'); if (!a) return; a.style.display = 'block'; sh.classList.remove('pulse'); void sh.offsetWidth; sh.classList.add('pulse'); clearTimeout(W._pT); W._pT = setTimeout(() => { a.style.display = 'none'; }, 8000); };
 W.command = function (c) { const m = W.m, live = W.live; if (!m || m.over) return; if (live && live.kind === 'league') return W.sendL(c); m.cmd(0, c); live.cmds = m.cmds.filter(x => x.side === 0); try { localStorage.setItem('w11_live', JSON.stringify(live)); } catch (e) {} W.feed(m); };
 W.shout = function (k) { const T = W.m.T[W.my > 0 ? 1 : 0], cur = Object.keys(T.mods).find(x => T.mods[x]); W.command({ shout: cur === k ? 'none' : k }); };
-W.subMenu = function () {
+/* v4 · SUBSTITUTIONS: one screen. Tap a player on the pitch (who comes off), then tap a bench player (who comes on). */
+W.subMenu = function (outId) {
   const m = W.m, t = m.T[W.my > 0 ? 1 : 0]; if (t.subsLeft <= 0) return toast('No subs left');
-  const ov = document.getElementById('w11ov');
-  ov.innerHTML = `<div class="ov" style="justify-content:flex-start;overflow:auto"><p style="font-weight:900;margin-bottom:8px">🔁 Who comes off?</p>${t.ids.slice(1, 11).filter(id => m.P.some(p => p.id === id && p.side === t.side)).map(id => { const p = W.player(id); return `<button class="btn2" style="margin-bottom:6px;text-align:left" onclick="W11.subOn('${id}')">${p.flag} ${esc(p.name)} · ${p.pos} · ${p.ovr}</button>`; }).join('')}<button class="btn2" onclick="document.getElementById('w11ov').innerHTML=''">Cancel</button></div>`;
+  const ov = document.getElementById('w11ov'), shp = W.shape((t.form || W.me.form), (t.fp || W.me.fp));
+  const onP = t.ids.slice(0, 11).map((id, i) => ({ id, i })).filter(x => m.P.some(p => p.id === x.id && p.side === t.side));
+  const bench = t.ids.slice(11).filter(id => !t.used.has(id) && !t.out.has(id));
+  const dots = onP.map(({ id, i }) => { const p = W.player(id), s0 = shp[i]; if (!s0) return '';
+    const sel = outId === id, L = (s0.y / 68 * 100).toFixed(1), T = (100 - s0.x / 52 * 100).toFixed(1);
+    return `<button onclick="W11.subMenu('${id}')" style="position:absolute;left:${L}%;top:${T}%;transform:translate(-50%,-50%);width:66px;text-align:center;background:none;border:0;color:#fff;padding:0"><span style="display:block;margin:0 auto;width:36px;height:36px;border-radius:50%;background:${sel ? '#ff2d95' : ovrColor(p.ovr)};color:#0b0f24;font-weight:900;font-size:12px;line-height:36px;${sel ? 'box-shadow:0 0 0 3px #fff' : ''}">${p.ovr}</span><span style="display:block;font-size:9px;font-weight:900;text-shadow:0 1px 2px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(String(p.short || p.name).split(' ').pop().slice(0, 10))}</span></button>`; }).join('');
+  const benchHtml = bench.map(id => { const p = W.player(id, m.S); return `<button ${outId ? '' : 'disabled'} onclick="W11.command({sub:['${outId}','${id}']}); document.getElementById('w11ov').innerHTML=''" style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px;padding:8px;border-radius:12px;background:rgba(255,255,255,.06);color:#fff;text-align:left;opacity:${outId ? 1 : .5}"><span style="width:34px;height:34px;border-radius:50%;background:${ovrColor(p.ovr)};color:#0b0f24;font-weight:900;font-size:12px;line-height:34px;text-align:center">${p.ovr}</span><span style="flex:1;font-weight:900;font-size:12px">${p.flag} ${esc(p.name)} · ${esc(p.pos)}</span></button>`; }).join('') || '<p style="font-size:12px;color:#94a3b8">No bench players left.</p>';
+  const hint = outId ? `Now tap a bench player to bring on for <b>${esc(W.player(outId).short)}</b>.` : 'Tap a player on the pitch who comes off.';
+  ov.innerHTML = `<div class="ov" style="justify-content:flex-start;overflow:auto"><p style="font-weight:900;margin-bottom:4px">🔁 Substitution</p><p style="font-size:12px;color:#94a3b8;margin-bottom:8px">${hint}</p>
+    <div style="position:relative;width:100%;max-width:300px;aspect-ratio:68/100;margin:0 auto 10px;border-radius:14px;border:2px solid rgba(255,255,255,.35);background:repeating-linear-gradient(0deg,#2f7d3a 0 10%,#2a7134 10% 20%);overflow:hidden">${dots}</div>
+    <p style="font-weight:900;font-size:12px;margin:6px 0">🪑 Bench</p>${benchHtml}
+    <button class="btn2" onclick="document.getElementById('w11ov').innerHTML=''">Cancel</button></div>`;
 };
 W.subOn = function (out) {
   const t = W.m.T[W.my > 0 ? 1 : 0], ov = document.getElementById('w11ov');
@@ -1718,8 +1763,8 @@ W.tableL = async function () {
   const now = W.nowS(), { day } = CC.clock(now), md = clamp(day, 1, CC.MDS), tb = CC.table(G, now);
   const rows = tb.map((r, i) => { const n = seatName(G, r.pos, md), z = zone(G.t, i);
     return `<div class="row" style="${n.me ? 'background:rgba(34,211,238,.1);border-radius:10px;' : ''}border-left:3px solid ${z === 'up' ? '#22d3ee' : z === 'down' ? '#ff2d95' : 'transparent'};padding-left:6px"><span style="width:18px;font-weight:900;color:#94a3b8">${i + 1}</span>${mini(n.hue, n.sh)}<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:${n.me ? 900 : 700}">${esc(n.n)}${n.user ? ' <span style="font-size:9px">👤</span>' : ''}</span><span style="width:22px;text-align:center;color:#94a3b8">${r.p}</span><span style="width:30px;text-align:center;color:#94a3b8">${r.gf - r.ga > 0 ? '+' : ''}${r.gf - r.ga}</span><span style="width:26px;text-align:right;font-weight:900">${r.pts}</span></div>`; }).join('');
-  W.ui(`<div class="card"><p style="font-weight:900">📊 Division ${G.t} · Group ${CC.groupNo(G.t, G.g)} · ${CC.ZONE_NAME[CC.zoneOfG(G.t, G.g)]} · Season ${G.s}</p><div class="row" style="font-size:10px;color:#94a3b8;font-weight:900"><span style="width:18px">#</span><span style="flex:1;padding-left:30px">Club</span><span style="width:22px;text-align:center">P</span><span style="width:30px;text-align:center">GD</span><span style="width:26px;text-align:right">Pts</span></div>${rows}
-    <p style="font-size:10px;color:#94a3b8;margin-top:8px">${G.t > 1 ? '<span style="color:#22d3ee">▌</span> promotion · ' : ''}${G.t < 6 ? '<span style="color:#ff2d95">▌</span> relegation · ' : ''}👤 = a real manager. Computer matches finish at ${localT(CC.aiKo(G.s, md))} each day.</p></div>`, '📊 Table', 'W11.home()');
+  W.ui(`<div class="card"><p style="font-weight:900">📊 Division ${G.t} · Group ${CC.groupNo(G.t, G.g)} · ${CC.ZONE_NAME[CC.zoneOfG(G.t, G.g)]} · Season ${G.s}</p><div class="row" style="font-size:10px;color:#94a3b8;font-weight:900"><span style="width:18px">#</span><span style="flex:1;padding-left:30px">Club</span><span style="width:22px;text-align:center">P</span><span style="width:30px;text-align:center">GD</span><span style="width:26px;text-align:right">Pts</span></div><div data-solo="1">${rows}</div>
+    <p style="font-size:10px;color:#94a3b8;margin-top:8px">${G.t > 1 ? '<span style="color:#22d3ee">▌</span> promotion · ' : ''}${G.t < 6 ? '<span style="color:#ff2d95">▌</span> relegation · ' : ''}👤 = a real manager. Computer matches finish at ${localT(CC.aiKo(G.s, md))} each day.</p><button class="btn2" onclick="W11.tableAll()" style="margin-top:10px">🌍 Every group in Division ${G.t}</button></div>`, '📊 Table', 'W11.home()');
 };
 W.fixturesL = async function (md) {
   const G = await W.loadG(); if (!G) return W.home();
@@ -1733,7 +1778,7 @@ W.fixturesL = async function (md) {
 W.trainL = function () {
   const me = W.me, tr = { att: 0, def: 0, fit: 0, ...(me.tr || {}) }, done = me.trd === CC.absDay(Date.now());
   const b = (k, ic, name, what) => `<button class="btn2" style="text-align:left;margin-bottom:8px;padding:12px" ${done || tr[k] >= CC.TR_MAX ? 'disabled' : ''} onclick="W11.doTrain('${k}')"><b>${ic} ${name}</b> <span style="float:right;color:#67e8f9">${tr[k]}/${CC.TR_MAX}</span><br><span style="font-size:11px;color:#94a3b8">${what}</span></button>`;
-  W.ui(`<div class="card"><p style="font-weight:900">🏋️ Training · once a day</p><p style="font-size:11px;color:#94a3b8;margin:4px 0 10px">${done ? '✅ Done for today. Come back tomorrow!' : 'Pick one focus for today. Points last until the end of the season.'}</p>
+  W.ui(`<div class="card"><p style="font-weight:900">🏋️ Training · once a day</p><p style="font-size:11px;color:#94a3b8;margin:4px 0 10px">${done ? '✅ Done for today. Play more matches to climb to the top 🏆' : 'Pick one focus for today. Points last until the end of the season.'}</p>
     ${b('att', '⚽', 'Attack', 'Every point: a little better shooting and dribbling for the whole team.')}${b('def', '🧱', 'Defence', 'Every point: a little better tackling and goalkeeping.')}${b('fit', '🏃', 'Fitness', 'Every point: a little faster, and +1 fitness back every day.')}</div>`, '🏋️ Training', 'W11.home()');
 };
 W.doTrain = async function (f) {
@@ -1885,7 +1930,7 @@ W.leaveMatch = (function (b) { return function () { if (W.live && W.live.kind ==
 
 // ===================== 🔨 G3a · market, youth draft, releases, Pioneer wonders =====================
 const POSC = { GK: '#facc15', DEF: '#22d3ee', MID: '#a855f7', FWD: '#ff2d95' };
-const ptag = (p) => p.legend ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:99px;background:linear-gradient(90deg,#facc15,#ff2d95);color:#0b0f24">👑 150 WONDER</span>' : p.wk && p.age <= 21 ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:99px;background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24">🌟 WONDERKID</span>' : '';
+const ptag = (p) => !p.legend && p.ovr >= 100 ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:99px;background:linear-gradient(90deg,#ff2d95,#a855f7);color:#fff">💎 ICON ' + p.ovr + '</span>' : p.legend ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:99px;background:linear-gradient(90deg,#facc15,#ff2d95);color:#0b0f24">👑 150 WONDER</span>' : p.wk && p.age <= 21 ? '<span style="font-size:9px;font-weight:900;padding:2px 6px;border-radius:99px;background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24">🌟 WONDERKID</span>' : '';
 const pline = (p) => `<span class="ovr" style="${p.legend ? 'background:linear-gradient(135deg,#facc15,#ff2d95,#a855f7);color:#fff' : 'background:' + ovrColor(p.ovr)}">${p.ovr}</span><span style="flex:1;min-width:0"><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.flag} <b>${esc(p.name)}</b> ${ptag(p)}</span><span style="font-size:10px;color:#94a3b8"><b style="color:${POSC[p.pos] || '#94a3b8'}">${p.pos}</b> · ${p.age}y · ⚡${p.pac} 🎯${p.sho} 🎩${p.pas} 🪄${p.dri} 🛡️${p.def}${p.pos === 'GK' ? ' 🧤' + p.gk : ''}</span></span>`;
 W.chips = () => { const c = document.querySelector('#w11 .chips'); if (c && W.me) c.innerHTML = `<span>💎 ${fmt(W.me.coins)}</span><span>🪙 ${fmt(W.me.gems)}</span>`; };
 W.giftWaiting = () => { const me = W.me; return !!(me && me.pioneer && me.pioneerNo >= 1 && me.pioneerNo <= CC.PIONEERS && !me.leg); };
@@ -1976,6 +2021,7 @@ W.bid = async function (i, n, amt) {
   if (amt > (W.me.coins || 0)) { W._bidding = 0; return toast('⚠️ Not enough 💎 Gems'); }
   const r = await W.api('/w11/bid', { i, n, amt }); W._bidding = 0;
   if (r.ok) { W.me.coins = r.coins; W.chips(); toast('🔨 Bid placed: ' + fmt(amt) + ' 💎'); W._lots[i] = { ...r.lot, i }; W.mkDraw(); }
+  else if (r.error && /create your club/i.test(r.error)) { toast('🏟️ You need a club before you can bid. Opening club setup…'); setTimeout(() => W.createScreen(), 1200); }
   else { toast('⚠️ ' + (r.error || 'Could not bid')); if (r.full) setTimeout(() => W.releaseMenu(), 600); }
 };
 W.mkClaim = async function (L) {
@@ -1996,7 +2042,7 @@ W.youthD = function () {
   if (done) { const kept = ids.filter(id => (me.ids || []).includes(id)).map(id => W.player(id, S)); return W.ui(intro + `<div class="card"><p style="font-weight:900;color:#a3e635">✅ Done for this season</p>${kept.map(p => `<div class="row">${pline(p)}</div>`).join('') || '<p style="font-size:12px;color:#94a3b8">(already released)</p>'}<p style="font-size:11px;color:#94a3b8;margin-top:8px">New youngsters arrive in Season ${S + 1}: ${localT(CC.dayStart(S + 1, 1), true)}.</p></div>`, '🧒 YOUTH DRAFT', 'W11.home()'); }
   const sel = W._yp;
   W.ui(intro + `<div class="card"><p style="font-weight:900">Pick up to ${max} <span style="font-size:11px;color:#94a3b8">· ${sel.length} picked</span></p>${room < 5 ? `<div class="tip">Your squad has room for only ${room}. <button onclick="W11.releaseMenu()" style="text-decoration:underline;font-weight:900">Release players</button> to keep more.</div>` : ''}
-    ${P.map(({ k, p }) => `<div class="row ${sel.includes(k) ? 'sel' : ''}" onclick="W11.yPick(${k})" style="cursor:pointer">${pline(p)}<span style="font-size:18px">${sel.includes(k) ? '✅' : '⬜'}</span></div>`).join('')}
+    ${P.map(({ k, id, p }) => `<div class="row ${sel.includes(k) ? 'sel' : ''}" onclick="W11.yPick(${k})" style="cursor:pointer"><button onclick="event.stopPropagation();W11.pMenu('${id}')" title="Player profile" style="width:28px;height:28px;border-radius:9px;background:rgba(255,255,255,.08);border:0;color:#fff;font-size:13px;flex:none">🔍</button>${pline(p)}<span style="font-size:18px">${sel.includes(k) ? '✅' : '⬜'}</span></div>`).join('')}
     <button class="btn" style="margin-top:12px" ${sel.length ? '' : 'disabled'} onclick="W11.yGo()">Keep ${sel.length || ''} youngster${sel.length === 1 ? '' : 's'}</button><p style="font-size:10px;color:#94a3b8;margin-top:6px">You can only pick once a season.</p></div>`, '🧒 YOUTH DRAFT', 'W11.home()');
 };
 W.yPick = function (k) {
@@ -2461,10 +2507,17 @@ const lerp = (a, b, u) => a + (b - a) * u, ease = (u) => u < 0 ? 0 : u > 1 ? 1 :
 const angL = (a, b, k) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * k; };
 const sm = (cur, tgt, k) => { if (!cur) return tgt.slice(); for (let i = 0; i < 3; i++) cur[i] += (tgt[i] - cur[i]) * k; return cur; };
 /* animation memory for one player (facing, running) */
-const anim = (st, id, x, z, dt, face) => { let a = st[id]; if (!a) a = st[id] = { x, z, yaw: face == null ? 0 : face, phase: hash('ph' + id) % 6, run: 0 };
-  const dx = x - a.x, dz = z - a.z, d = Math.sqrt(dx * dx + dz * dz), sp = dt > 0 ? d / dt : 0, k = Math.min(1, dt * 9);
-  if (d > 0.015) a.yaw = angL(a.yaw, Math.atan2(dx, dz), k); else if (face != null) a.yaw = angL(a.yaw, face, k * 0.5);
-  a.run += (Math.min(1, sp / 5.5) - a.run) * Math.min(1, dt * 7); a.phase += dt * (3 + sp * 1.7); a.x = x; a.z = z; return a; };
+/* G18 · steady standing players (looks only, the match is unchanged): a player who is standing keeps his spot until the engine moves him
+   more than 20 cm (tiny back-and-forth nudges used to make him twitch and turn), and his body turns with his smoothed running direction only when he really runs. */
+const anim = (st, id, x, z, dt, face) => { let a = st[id]; if (!a) a = st[id] = { x, z, px: x, pz: z, yaw: face == null ? 0 : face, phase: hash('ph' + id) % 6, run: 0, vs: 0, vx: 0, vz: 0, fol: 0 };
+  const dx = x - a.x, dz = z - a.z, k = Math.min(1, dt * 9), e = Math.min(1, dt * 5), iv = dt > 0 ? 1 / dt : 0;
+  a.vx += (Math.max(-12, Math.min(12, dx * iv)) - a.vx) * e; a.vz += (Math.max(-12, Math.min(12, dz * iv)) - a.vz) * e; a.vs = Math.sqrt(a.vx * a.vx + a.vz * a.vz);
+  const gx = x - a.px, gz = z - a.pz, gap = Math.sqrt(gx * gx + gz * gz);
+  if (gap > 2) a.fol = 1; else if (!a.fol && gap > 0.2) a.fol = 1; else if (a.fol && gap < 0.05 && a.vs < 0.4) a.fol = 0;
+  if (a.fol) { a.px = x; a.pz = z; }
+  if (a.fol && a.vs > 0.8) a.yaw = angL(a.yaw, Math.atan2(a.vx, a.vz), k); else if (face != null) a.yaw = angL(a.yaw, face, k * 0.5);
+  const spv = a.fol ? a.vs : 0;
+  a.run += (Math.min(1, spv / 5.5) - a.run) * Math.min(1, dt * 7); a.phase += dt * (3 + spv * 1.7); a.x = x; a.z = z; return a; };
 
 // ---------- 📼 recording the match for replays (only reads the engine; results never change) ----------
 W._rec = 260;
@@ -2503,7 +2556,9 @@ const drawRef = (D, x, y) => { if (x == null) return; G3.fig(refOf(D), false, 'r
 W.cerDur = (live) => live && live.kind === 'league' ? { open: 45, close: 24 } : { open: 24, close: 18 };
 const teamsOf = (live) => { const D = W.dress(live); if (!D.T || D.Tbe !== G3.be) { D.T = [G3.team(D.k[0], D.gk[0], D.cr[0], D.sh[0]), G3.team(D.k[1], D.gk[1], D.cr[1], D.sh[1])]; D.Tbe = G3.be; } return D; };
 /* draw everybody from an engine-like list: [{ side, gk, x, y, id }] (engine metres) */
-const drawPlayers = (D, list, st, dt, opt) => { W._lastList = list; for (const p of list) { const x = PX(p.x), z = PZ(p.y), o = opt ? opt(p) : null, face = o && o.face != null ? o.face : null, a = anim(st, p.id, x, z, dt, face);
+const drawPlayers = (D, list, st, dt, opt) => { W._lastList = list; for (const p of list) { const x0 = PX(p.x), z0 = PZ(p.y), o = opt ? opt(p) : null, face = o && o.face != null ? o.face : null, a = anim(st, p.id, x0, z0, dt, face);
+  /* G18: draw him where he stands (steady), not where the engine nudged him */
+  const busy = o && (o.kick || o.dive || o.slide || o.header || o.catch || o.jump || o.throwIn || o.wall), x = busy ? x0 : a.px, z = busy ? z0 : a.pz; if (busy) { a.px = x0; a.pz = z0; }
   /* G12: a diving keeper moves across his line towards the ball (he used to dive on the spot, metres away from it) */
   const zs = o && o.sh ? PZ(p.y + o.sh) : z;
   G3.fig(D.T[p.side], p.gk, p.id, x, zs, { phase: a.phase, run: o && o.run != null ? o.run : a.run, yaw: o && o.yaw != null ? o.yaw : a.yaw, jump: o && o.jump, cel: o && o.cel, arms: o && o.arms, lean: o && o.lean, kick: o && o.kick, kickLead: o && o.kickLead, kickClip: o && o.kickClip, dive: o && o.dive, num: p.num, throwIn: o && o.throwIn, wall: o && o.wall, slide: o && o.slide, header: o && o.header, catch: o && o.catch, mhClip: o && o.mhClip, card: o && o.card, point: o && o.point, shake: o && o.shake, clap: o && o.clap, wave: o && o.wave, hands: o && o.hands, fierce: o && o.fierce, y: o && o.y, holdB: o && o.holdB }); } };
@@ -3054,7 +3109,7 @@ W.squad = (function (b) { return function () { const r = b.apply(this, arguments
 W.trnLeft = (t) => { const ms = Math.max(0, Number(t.end) - W.nowS()), d = Math.floor(ms / 86400000), h = Math.ceil((ms % 86400000) / 3600000); return d ? `${d} day${d > 1 ? 's' : ''} ${h} h` : `${h} h`; };
 W.pMenu = function (id) {
   const me = W.me, p = W.player(id), main = W11C.dpOf(p), known = W11C.knownPos(me, id, W.S, W.nowS()), extra = known.slice(1), t = me.trn && Number(me.trn.end) > W.nowS() ? me.trn : null, mine = t && t.id === id;
-  const can = W11C.DPOS.filter(x => W11C.canLearn(main, x) && !known.includes(x)), full = extra.length >= W11C.LEARN_MAX, g = W11C.gidOf(id, W.S), renamed = !!(me.rn && me.rn[g]);
+  const can = W11C.DPOS.filter(x => W11C.canLearn(main, x) && !known.includes(x)), full = extra.length >= W11C.LEARN_MAX, g = W11C.gidOf(id, W.S), renamed = !!(me.rn && me.rn[g] && !me.rn[g].a);
   const chip = (x, on) => `<span style="display:inline-block;padding:4px 9px;margin:2px;border-radius:9px;font-size:11px;font-weight:900;background:${on ? 'linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24' : 'rgba(255,255,255,.08)'}" title="${W11C.DPOS_NAME[x]}">${x}</span>`;
   const days = W11C.learnDays(g);
   let train = '';
@@ -3905,11 +3960,15 @@ function fitBox(box, H, key) {
   if (cols >= 3 && !box.style.gridColumn) { box.style.gridColumn = 'span 2'; box.dataset.fz = 1; if (fitsIn(box, H)) return true; }
   /* a list inside: rows in two columns when there is room, then pages of at least 3 rows */
   const L = listIn(box);
-  if (L) { if (L.clientWidth >= 500) L.classList.add('w11two'); if (pageList(box, L, H, key) && (FIT.per || 9) >= 3) return true; undoList(L); }
+  /* G18: a league table stays ONE list in rank order; it scrolls inside its box (your club is scrolled into view) */
+  if (L && L.dataset.solo) { const extra = box.getBoundingClientRect().height - L.getBoundingClientRect().height, room = Math.floor(H - extra - 4);
+    if (room >= 80) { L.style.maxHeight = room + 'px'; L.style.overflowY = 'auto'; L.style.overscrollBehavior = 'contain'; if (fitsIn(box, H)) { const mine = [...L.children].find(c => /rgba\(34, ?211, ?238/.test(c.getAttribute('style') || '')); if (mine) L.scrollTop = Math.max(0, mine.offsetTop - L.offsetTop - room / 2); return true; } }
+    L.style.maxHeight = ''; L.style.overflowY = ''; }
+  if (L) { if (L.clientWidth >= 500 && !L.dataset.solo) L.classList.add('w11two'); if (pageList(box, L, H, key) && (FIT.per || 9) >= 3) return true; undoList(L); }
   /* forms and pictures (designers, stadium): shrink to fit, down to 60 % */
   const z0 = H / box.getBoundingClientRect().height; if (z0 >= 0.6) { box.style.zoom = String(Math.max(0.6, z0 - 0.01)); box.dataset.fz = 1; if (fitsIn(box, H)) return true; box.style.zoom = ''; }
   /* last resort: pages of the list (any size), shrink the rest */
-  if (L && L.clientWidth >= 500) L.classList.add('w11two'); if (L && pageList(box, L, H, key)) return true;
+  if (L && L.clientWidth >= 500 && !L.dataset.solo) L.classList.add('w11two'); if (L && pageList(box, L, H, key)) return true;
   const z = Math.max(0.6, H / box.getBoundingClientRect().height); box.style.zoom = String(z); box.dataset.fz = 1; if (fitsIn(box, H)) return true;
   /* no list and too much to shrink: pages of the card's own blocks (each shrunk if needed) */
   box.style.zoom = ''; if (L) undoList(L); let host = box; while (host.children.length === 1 && host.firstElementChild.children.length) host = host.firstElementChild;
@@ -3917,7 +3976,7 @@ function fitBox(box, H, key) {
   const z2 = Math.max(0.5, H / box.getBoundingClientRect().height); box.style.zoom = String(z2); box.dataset.fz = 1; return fitsIn(box, H);
 }
 function undoList(L) { L.classList.remove('w11two'); [...L.children].forEach(c => c.classList.remove('w11hide')); const g = L.nextElementSibling && L.nextElementSibling.classList.contains('w11pg') ? L.nextElementSibling : L.querySelector(':scope > .w11pg'); if (g) g.remove(); }
-function reset(root) { root.querySelectorAll('.w11two').forEach(e => e.classList.remove('w11two')); root.querySelectorAll('.w11hide').forEach(e => e.classList.remove('w11hide')); root.querySelectorAll('.w11pg').forEach(e => e.remove()); root.querySelectorAll('[data-fz]').forEach(e => { e.style.zoom = ''; e.style.gridColumn = ''; delete e.dataset.fz; }); if (root.dataset && root.dataset.fz) { root.style.zoom = ''; root.style.gridColumn = ''; delete root.dataset.fz; } }
+function reset(root) { root.querySelectorAll('[data-solo]').forEach(e => { e.style.maxHeight = ''; e.style.overflowY = ''; }); root.querySelectorAll('.w11two').forEach(e => e.classList.remove('w11two')); root.querySelectorAll('.w11hide').forEach(e => e.classList.remove('w11hide')); root.querySelectorAll('.w11pg').forEach(e => e.remove()); root.querySelectorAll('[data-fz]').forEach(e => { e.style.zoom = ''; e.style.gridColumn = ''; delete e.dataset.fz; }); if (root.dataset && root.dataset.fz) { root.style.zoom = ''; root.style.gridColumn = ''; delete root.dataset.fz; } }
 W.fit = function () {
   const h = document.getElementById('w11'), bd = document.getElementById('w11b'); if (!h || !bd || FIT.busy) return; FIT.busy = true;
   try {
@@ -4053,7 +4112,7 @@ const g12hm = (ms) => { ms = Math.max(0, ms); const h = Math.floor(ms / 3600000)
 const g12crest = (hue, sh, size) => `<span class="crest" style="width:${size};height:calc(${size} * 1.13)"><svg viewBox="0 0 46 52"><defs><linearGradient id="g12c${hue}${esc(sh)}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${hue},85%,58%)"/><stop offset="1" stop-color="hsl(${(hue + 50) % 360},80%,34%)"/></linearGradient></defs><path d="M23 2 L44 9 L41 34 Q37 45 23 50 Q9 45 5 34 L2 9 Z" fill="url(#g12c${hue}${esc(sh)})" stroke="rgba(255,255,255,.9)" stroke-width="2"/><text x="23" y="31" text-anchor="middle" font-size="13" font-weight="900" fill="#fff" font-family="system-ui">${esc(sh)}</text></svg></span>`;
 const g12mine = (size) => { const me = W.me; return `<span class="crest" style="width:${size};height:calc(${size} * 1.13)">${me.crest ? W.crestSvg(me.crest, me.short) : badge(W.club(me.club), me.short)}</span>`; };
 W.g12stars = (ovr) => { const v = Math.max(0.5, Math.min(5, Math.round(((ovr - 35) / 11) * 2) / 2)); let s = ''; for (let i = 1; i <= 5; i++) s += v >= i ? '<i>★</i>' : v >= i - 0.5 ? '<i class="h">★</i>' : '<i class="e">★</i>'; return `<span class="stars">${s}</span>`; };
-const g12ovr = (p) => `<span class="ovr" style="${p.legend ? 'background:linear-gradient(135deg,#facc15,#ff2d95,#a855f7);color:#fff' : 'background:' + ovrColor(p.ovr)}">${p.ovr}</span>`;
+const g12ovr = (p) => `<span class="ovr" style="${p.legend ? 'background:linear-gradient(135deg,#facc15,#ff2d95,#a855f7);color:#fff' : p.ovr >= 100 ? 'background:linear-gradient(135deg,#ff2d95,#a855f7);color:#fff' : 'background:' + ovrColor(p.ovr)}">${p.ovr}</span>`;
 const g12shirt = (c1, c2, num) => `<svg viewBox="0 0 40 40"><path d="M13 3 L8 5 L1 12 L6 19 L10 16 L10 37 L30 37 L30 16 L34 19 L39 12 L32 5 L27 3 Q20 9 13 3 Z" fill="${c1}" stroke="rgba(0,0,0,.45)" stroke-width="1.4"/><path d="M13 3 Q20 9 27 3" fill="none" stroke="${c2}" stroke-width="2.4"/><text x="20" y="29" text-anchor="middle" font-size="13" font-weight="900" fill="${c2}" stroke="rgba(0,0,0,.55)" stroke-width=".7" font-family="system-ui">${num}</text></svg>`;
 const g12pos = { GK: '#facc15', DEF: '#22d3ee', MID: '#a855f7', FWD: '#ff2d95' };
 
@@ -4265,7 +4324,7 @@ W.pMenu = function (id, tab) {
     else if (!can.length) tr = '<p class="t2">No nearby position left to learn.</p>';
     else tr = `<p class="t2" style="color:#e2e8f0">Free training takes about <b>${days} days</b> for him. Or finish it in ${W11C.LEARN_FAST_DAYS} days for ${W11C.LEARN_FAST} 🪙.</p><div style="display:flex;flex-wrap:wrap;gap:8px">${can.map(x => `<button class="chip" onclick="W11.learn('${id}','${x}')">📚 ${x} · ${esc(W11C.DPOS_NAME[x])}</button>`).join('')}</div>`;
     body = `<div style="display:flex;flex-direction:column;gap:clamp(6px,2.2vh,12px)"><p class="cap">Positions he can play</p><div style="display:flex;flex-wrap:wrap;gap:8px">${known.map((x, i) => `<span class="chip ${i === 0 ? 'on' : ''}">${x} · ${esc(W11C.DPOS_NAME[x])}</span>`).join('')}</div><p class="t2 mu">His own spot is ${esc(W11C.DPOS_NAME[main])}. He can learn up to ${W11C.LEARN_MAX} nearby spots, one at a time. Never a far line (a winger can't become a defender).</p>${tr}</div>`; }
-  else if (tab === 'nm') { const g = W11C.gidOf(id, W.S), renamed = !!(me.rn && me.rn[g]);
+  else if (tab === 'nm') { const g = W11C.gidOf(id, W.S), renamed = !!(me.rn && me.rn[g] && !me.rn[g].a);
     body = `<div style="display:flex;flex-direction:column;gap:clamp(6px,2.2vh,12px);max-width:520px"><p class="cap">Name & country</p>${!mineP ? '<p class="t2">Only for players in your squad.</p>' : renamed ? '<p class="t2">Already renamed (once per player).</p>' : `<p class="t2" style="color:#e2e8f0">You can change his name and country once. Real footballers' names can't be used.</p><input id="w11rnN" maxlength="24" value="${esc(p.name)}" style="padding:10px;border-radius:12px;background:rgba(10,14,40,.7);color:#fff;border:1px solid rgba(140,160,255,.35);font-weight:800;font-size:15px"><select id="w11rnC" style="padding:10px;border-radius:12px;background:#0f172a;color:#fff;font-weight:800">${W.countryOpts(W.cultCountry[p.cult])}</select><button class="cta" onclick="W11.renameGo('${id}')">Save name (once)</button>`}</div>`; }
   const tabs = [['ov', 'Overview'], ['sty', 'Playstyle'], ['pos', 'Positions'], ['nm', 'Name']];
   let o = document.getElementById('w11pm'); if (!o) { o = document.createElement('div'); o.id = 'w11pm'; (document.getElementById('w11') || document.body).appendChild(o); }
@@ -4918,5 +4977,175 @@ W.liveOpts = (function (b) { return function (m) { const f0 = b.apply(this, argu
     /* directing the wall / the marking while the other team sets up a corner or a free kick near his goal */
     if (sp && sp.side !== p.side && (sp.kind === 'corner' || sp.kind === 'fkd' || (sp.kind === 'fk' || sp.kind === 'ifk') && Math.abs(gxOf(1 - p.side) - sp.x) < 35) && m.pauseT > 0.6) return { mhClip: { name: 'MX_GK_Direct', t: 1 + (m.t * 1.0) % 6, loop: 1 }, run: 0, face: face(sp.x, sp.y) };
     return f0(p); }; }; })(W.liveOpts);
+
+// =====================================================================
+// ⚽ G18 · 11 WONDERS DEMO (build.sh pastes this file into w11.js at /*@@G18@@*/, inside the game's main function)
+// 1) every player tap opens his PLAYER PROFILE (3D portrait = his face and look, stats, roles): pitch, bench, market, youth, line-ups
+// 2) 👥 Line-ups: both teams of your next league match, tap any player
+// 3) ◀ the phone's Back button steps back inside the game (it used to jump out to the app)
+// 4) 🌍 club nation: all your players come from your club's country (made-up names, that country's flag)
+// 5) 🎁 demo wallet: 💎 10,000,000 · 🪙 5,000,000 · ⚡ 1,000,000 · 🩹 1,000,000 (filled up again once a day, from the worker)
+// 6) 💎 market players up to OVR 110 from w11meta/season.mk3 (set by the new worker)
+// 7) 🌍 every group of your division in one sheet (from the table)
+// =====================================================================
+
+/* ---------- 6) the 'w' market switch: known before the market draws anything ---------- */
+try { const m = +localStorage.getItem('w11_mk3'); if (m) CC.setMk3(m); } catch (e) {}
+W.syncEpoch = (function (b) { return async function () { const r = await b.apply(this, arguments);
+  try { const m = Number(W.meta && W.meta.mk3) || 0; if (m) { CC.setMk3(m); try { localStorage.setItem('w11_mk3', String(m)); } catch (e) {} } } catch (e) {} W._mk3At = Date.now(); return r; }; })(W.syncEpoch);
+
+/* ---------- 1) player profile everywhere ---------- */
+W.card = function (i) { const id = W.me && W.me.ids && W.me.ids[i]; if (id) W.pMenu(id); };
+W.profileOf = function (id) { if (id) W.pMenu(String(id)); };
+/* pitch + bench: tap = profile (with 🔁 Swap inside). While a swap is waiting, the next tap swaps. */
+W.sqTap = function (i) {
+  if (W._sel != null) return W.swap(i);
+  const id = W.me && W.me.ids && W.me.ids[i]; if (!id) return;
+  W.pMenu(id);
+  const head = document.querySelector('#w11pm .g12 > div'); if (!head || head.querySelector('[data-swp]')) return;
+  head.insertAdjacentHTML('beforeend', `<button data-swp class="chip on" style="padding:6px 12px;margin-left:8px" onclick="W11.sqSwapStart(${i})">🔁 Swap</button>`);
+};
+W.sqSwapStart = function (i) { W.ovClose(); W._sel = i; W.squad(i); toast('🔁 Now tap the player to swap with'); };
+W.squad = (function (b) { return function () { const r = b.apply(this, arguments);
+  try { const box = document.getElementById('w11b'); if (box) {
+    const pitch = box.querySelector('.pitch'), bench = pitch && pitch.parentElement && pitch.parentElement.querySelector('.gc');
+    [pitch, bench].forEach(el => el && el.querySelectorAll('[onclick^="W11.swap("]').forEach(x => x.setAttribute('onclick', x.getAttribute('onclick').replace('W11.swap(', 'W11.sqTap('))));
+    const cap = bench && bench.querySelector('.cap'); if (cap) cap.textContent = W._sel != null ? 'Tap the player to swap with' : 'Bench · tap a player to see him';
+  } } catch (e) {}
+  return r; }; })(W.squad);
+/* market: the big auction box gets a 👁 button and its player line opens the profile */
+W.mkDraw = (function (b) { return function () { const r = b.apply(this, arguments);
+  try { const box = document.getElementById('g12lot');
+    if (box && !box.querySelector('[data-pv]')) { const row = box.firstElementChild, pid = W._mkBigPid;
+      if (row && pid) { row.style.cursor = 'pointer'; row.setAttribute('onclick', `W11.profileOf('${pid}')`); row.insertAdjacentHTML('beforeend', `<button data-pv class="chip" style="padding:6px 10px;white-space:nowrap" onclick="event.stopPropagation();W11.profileOf('${pid}')">👁 Player</button>`); } }
+    if (Date.now() - (W._mk3At || 0) > 5 * 60000) { W._mk3At = Date.now(); W.syncEpoch(); }
+  } catch (e) {}
+  return r; }; })(W.mkDraw);
+/* which player is in the big box: the same choice mkDraw makes (the tapped lot, else the first of the list) */
+(function () {
+  const lotEff0 = CC.lotEff;
+  W._mkTrack = function () {
+    try { const now = W.nowS(), F = W._mkF || { pos: 'ALL', sort: 'end' }, me = uidNow(), rows = [];
+      for (let i = 0; i < CC.MK_N; i++) { const L = (W._lots || [])[i] || null, cur = CC.lotCur(i, L, now), same = !!(L && L.n === cur.n), E = lotEff0(same ? L : { i, n: cur.n, st: cur.st }, now), p = W.player(E.pid, CC.clock(cur.st).s); rows.push({ i, E, p, mine: same && L.u === me }); }
+      const list = rows.filter(r => F.pos === 'ALL' || (F.pos === 'MINE' ? r.mine : r.p.pos === F.pos));
+      list.sort(F.sort === 'ovr' ? (a, b) => b.p.ovr - a.p.ovr : F.sort === 'price' ? (a, b) => a.E.minNext - b.E.minNext : (a, b) => a.E.end - b.E.end);
+      const S = list.find(r => r.i === W._mkSel) || list[0]; W._mkBigPid = S ? S.E.pid : null;
+    } catch (e) { W._mkBigPid = null; }
+  };
+  W.mkDraw = (function (b) { return function () { W._mkTrack(); return b.apply(this, arguments); }; })(W.mkDraw);
+})();
+
+/* ---------- 2) 👥 line-ups of the next league match ---------- */
+W.lineupsL = async function () {
+  if (!W.inLeague || !W.inLeague()) return W.home();
+  const G = await W.loadG(); if (!G) return W.home();
+  const n = W.nextMatch(G); if (!n) { toast('No league match right now'); return; }
+  const oppPos = n.home ? n.ap : n.hp, U = (G.users || {})[oppPos];
+  let oppIds = null, oppForm = '4-4-2', oppName = seatName(G, oppPos, n.md).n;
+  if (U && CC.isUserAt(G, oppPos, n.md)) { try { const f = await fbLoad(), sn = await f.getDoc(f.doc(db(), 'w11Clubs', U.u)); if (sn.exists()) { const d = sn.data(); oppIds = d.ids || null; oppForm = d.form || oppForm; W.addRN(d.rn); } } catch (e) {} }
+  if (!oppIds) oppIds = W.squadIds(CC.seatClub(G, oppPos, n.md));
+  const me = W.me, list = (ids, form, mine) => { const SH = W.shape(form, mine ? me.fp : null);
+    return ids.slice(0, 18).map((id, i) => { const p = W.player(id); if (!p) return '';
+      return `<div onclick="W11.profileOf('${id}')" style="display:grid;grid-template-columns:34px minmax(0,1fr) 38px 18px;align-items:center;gap:8px;padding:4px 6px;border-radius:9px;cursor:pointer;background:${i < 11 ? 'rgba(34,211,238,.06)' : 'transparent'}"><span style="font-size:10px;font-weight:900;text-align:center;color:${i < 11 ? '#67e8f9' : '#94a3b8'}">${i < 11 ? (SH[i] ? SH[i].dp : p.pos) : 'SUB'}</span><span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:800;font-size:13px">${p.flag || ''} ${esc(p.name)}</span><span style="text-align:center;font-weight:900;border-radius:7px;padding:1px 4px;color:${p.ovr >= 100 ? '#fff' : '#0b0f24'};background:${ovrColor(p.ovr)}">${p.ovr}</span><span style="font-size:12px;opacity:.7">👁</span></div>`; }).join(''); };
+  const col = (title, ids, form, mine) => `<div class="gc gpg" data-k="lu${mine ? 1 : 0}" style="display:flex;flex-direction:column;gap:4px;padding:8px"><p class="t1" style="font-size:clamp(12px,4vh,17px)">${title}</p><p class="cap">${esc(form)} · tap a player</p><div class="glist" style="display:flex;flex-direction:column;gap:2px">${list(ids, form, mine)}</div></div>`;
+  g12ui(col('🔵 ' + esc(me.name), me.ids || [], me.form || '4-4-2', 1) + col((n.home ? '🔴 vs ' : '🔴 @ ') + esc(oppName), oppIds, oppForm, 0), '👥 LINE-UPS', 'W11.matchC()', 'minmax(0,1fr) minmax(0,1fr)', 'minmax(0,1fr)');
+};
+W.matchC = (function (b) { return async function () { const r = await b.apply(this, arguments);
+  try { const box = document.getElementById('w11b'), info = box && box.querySelector('.gc'); if (info && W.inLeague() && !box.querySelector('[data-lu]') && /Next match/.test(info.textContent))
+    info.insertAdjacentHTML('beforeend', `<button data-lu class="cta2" style="margin-top:auto" onclick="W11.lineupsL()">👥 Line-ups · tap a player to see him</button>`); } catch (e) {}
+  return r; }; })(W.matchC);
+
+/* ---------- 3) ◀ phone Back inside the game ---------- */
+W.backStep = function () {
+  const pm = document.getElementById('w11pm'); if (pm) { W.ovClose(); return; }
+  const nat = document.getElementById('w11nat'); if (nat) { nat.remove(); return; }
+  const ov = document.getElementById('w11ov'); if (ov && ov.innerHTML.trim() && ov.querySelector('.ov')) { ov.innerHTML = ''; return; }
+  const vis = (el) => el && el.offsetParent !== null;
+  const g8 = document.querySelector('#g8top .g8back'); if (vis(g8)) { g8.click(); return; }
+  const bk = document.querySelector('#w11 .hd .bk'); if (bk) { bk.click(); return; }
+  W.close();
+};
+W.navArm = function () {
+  const N = window.sgNav; if (!N || !window.navPush || !document.getElementById('w11')) return;
+  if (N.stack.some(e => e.w11)) return;
+  window.navPush({ w11: 1, undo: () => { try { W.backStep(); } catch (e) {} setTimeout(W.navArm, 60); }, alive: () => !!document.getElementById('w11') });
+};
+W.ui = (function (b) { return function () { const r = b.apply(this, arguments); try { if (!(window.sgNav && window.sgNav.fromBack)) setTimeout(W.navArm, 0); } catch (e) {} return r; }; })(W.ui);
+W.close = (function (b) { return function () { const r = b.apply(this, arguments);
+  try { const N = window.sgNav; if (N && !N.fromBack) { const i = N.stack.findIndex(e => e.w11); if (i >= 0) { const e = N.stack[i]; N.stack.splice(i, 1); if (history.state && history.state.sgNav === e.n) { N.ignore++; history.back(); } } } } catch (e) {}
+  return r; }; })(W.close);
+
+/* ---------- 4) 🌍 club nation ---------- */
+W.natGuess = function () {
+  try { const loc = (navigator.languages && navigator.languages[0]) || navigator.language || '', reg = (loc.split('-')[1] || '').toUpperCase(); if (CC.COUNTRIES.includes(reg)) return reg; } catch (e) {}
+  try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '', T = { 'Africa/Accra': 'GH', 'Africa/Lagos': 'NG', 'Africa/Nairobi': 'KE', 'Africa/Johannesburg': 'ZA', 'Africa/Cairo': 'EG', 'Africa/Casablanca': 'MA', 'Africa/Abidjan': 'CI', 'Africa/Dakar': 'SN', 'Europe/London': 'EN', 'Europe/Paris': 'FR', 'Europe/Madrid': 'ES', 'Europe/Berlin': 'DE', 'Europe/Rome': 'IT', 'Europe/Lisbon': 'PT', 'America/Sao_Paulo': 'BR', 'America/Mexico_City': 'MX', 'America/New_York': 'US', 'America/Chicago': 'US', 'America/Los_Angeles': 'US', 'Asia/Kolkata': 'IN', 'Asia/Tokyo': 'JP', 'Asia/Seoul': 'KR', 'Asia/Shanghai': 'CN' };
+    if (T[tz] && CC.COUNTRIES.includes(T[tz])) return T[tz]; } catch (e) {}
+  return CC.COUNTRIES.includes('GH') ? 'GH' : CC.COUNTRIES[0];
+};
+W.natHome = (id) => /^\d+-\d+$/.test(String(id)) || /^y\d/.test(String(id));
+W.natOf = () => { const r = W.me && W.me.rn && W.me.rn._nat; return r && r.c ? String(r.c) : ''; };
+W.natOptions = (sel) => typeof W.countryOpts === 'function' ? W.countryOpts(sel) : CC.COUNTRIES.map(c => `<option value="${c}"${c === sel ? ' selected' : ''}>${W.flagOf(c)} ${c}</option>`).join('');
+W.natSheet = function () {
+  if (!W.me || document.getElementById('w11nat')) return;
+  const cur = W.natOf() || W.natGuess(), host = document.getElementById('w11') || document.body;
+  host.insertAdjacentHTML('beforeend', `<div id="w11nat" style="position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(3,6,18,.78)"><div class="card" style="max-width:420px;width:100%">
+    <p style="font-weight:900;font-size:17px">🌍 Your club's country</p>
+    <p style="font-size:12px;color:#cbd5e1;margin-top:6px">Your home-grown players (your first squad and every youth-draft player) come from this country: made-up names and its flag. Players you buy in the market come from all over the world. Players you renamed yourself keep their names.</p>
+    <select id="w11natSel" style="width:100%;margin-top:10px;padding:12px;border-radius:12px;background:#0b1024;border:1px solid rgba(34,211,238,.3);color:#fff;font-size:15px">${W.natOptions(cur)}</select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><button class="btn2" onclick="document.getElementById('w11nat').remove(); W._natLater = 1">Later</button><button class="btn" onclick="W11.natGo(document.getElementById('w11natSel').value)">✅ Use this country</button></div></div></div>`);
+};
+W.natGo = async function (c, quiet) {
+  const r = await W.api('/w11/nation', c ? { c } : {});
+  if (!r || !r.ok) { if (!quiet) toast('⚠️ ' + ((r && r.error) || 'Could not change the country. Try again.')); return false; }
+  W.me.rn = r.rn; W.addRN(r.rn); document.getElementById('w11nat')?.remove();
+  if (!quiet) { toast(`🌍 ${W.flagOf(c)} Your home-grown players now come from your club's country`); if (document.getElementById('w11b')) W.home(); }
+  return true;
+};
+/* players who joined since (market, youth, gifts) get names from the club's country too */
+W.natSync = function () {
+  const c = W.natOf(); if (!c || W._natBusy) return; const rn = W.me.rn || {};
+  const need = (W.me.ids || []).some(id => { if (!W.natHome(id)) return false; const p = W.player(id); if (!p || p.legend) return false; const g = p.gid || id; return !rn[g] || (rn[g].a && rn[g].c !== c); });
+  if (!need) return; W._natBusy = 1; W.natGo('', true).finally(() => { W._natBusy = 0; });
+};
+/* club creation: pick the country on the same screen */
+W.createScreen = (function (b) { return function () { const r = b.apply(this, arguments);
+  try { const d = W._draft || (W._draft = {}); if (!d.nat) d.nat = W.natGuess();
+    const box = document.getElementById('w11b'); if (box && !box.querySelector('[data-nat]')) {
+      const first = box.querySelector('.card, .gc'); const html = `<div data-nat class="card" style="margin-bottom:8px"><p style="font-weight:900">🌍 Country</p><p style="font-size:11px;color:#94a3b8;margin-top:2px">Your squad and youth players come from here. The market has players from all over the world.</p><select onchange="W11._draft.nat=this.value" style="width:100%;margin-top:6px;padding:10px;border-radius:12px;background:#0b1024;border:1px solid rgba(34,211,238,.3);color:#fff">${W.natOptions(d.nat)}</select></div>`;
+      if (first) first.insertAdjacentHTML('beforebegin', html); else box.insertAdjacentHTML('afterbegin', html); } } catch (e) {}
+  return r; }; })(W.createScreen);
+W.createGo = (function (b) { return async function () { const had = !!W.me, r = await b.apply(this, arguments);
+  try { if (!had && W.me) { const c = (W._draft && W._draft.nat) || W.natGuess(); await W.demoGrant(true); await W.natGo(c, true); } } catch (e) {}
+  return r; }; })(W.createGo);
+
+/* ---------- 5) 🎁 demo wallet ---------- */
+W.demoGrant = async function (quiet) {
+  const d = W.me && W.me.rn && W.me.rn._d18; if (!W.me || (d && Date.now() - (Number(d.at) || 0) < 86400000) || W._demoBusy) return; W._demoBusy = 1;
+  try { const r = await W.api('/w11/demo', {}); if (r && r.ok) { ['coins', 'gems', 'energy', 'med'].forEach(k => { if (r[k] != null) W.me[k] = r[k]; }); W.me.rn = Object.assign({}, W.me.rn || {}, { _d18: { at: Date.now() } });
+      try { W.chips && W.chips(); } catch (e) {} if (!quiet && !r.done) toast(`🎁 Demo wallet: ${fmt(r.coins)} 💎 · ${fmt(r.gems)} 🪙 · ⚡${r.energy} · 🩹${r.med}`); } } catch (e) {}
+  W._demoBusy = 0;
+};
+W.open = (function (b) { return async function () { const r = await b.apply(this, arguments);
+  try { if (W.me) { await W.demoGrant(false); if (!W.natOf() && !W._natLater && !W.live) setTimeout(() => { if (document.getElementById('w11') && !W.live) W.natSheet(); }, 900); else W.natSync(); } } catch (e) {}
+  return r; }; })(W.open);
+W.home = (function (b) { return function () { const r = b.apply(this, arguments);
+  try { Promise.resolve(r).then(() => { const box = document.getElementById('w11b'); if (!box || box.querySelector('[data-natbtn]') || !W.me) return; const hd = document.querySelector('#w11 .hd b');
+    if (hd) hd.insertAdjacentHTML('afterend', `<button data-natbtn onclick="W11.natSheet()" title="Club country" style="margin-left:6px;font-size:16px;background:none;border:0">${W.natOf() ? W.flagOf(W.natOf()) : '🌍'}</button>`); }); } catch (e) {}
+  return r; }; })(W.home);
+
+/* ---------- 7) 🌍 every group of your division ---------- */
+W.tableAll = async function () {
+  const G0 = await W.loadG(true); if (!G0) return W.home();
+  W.ui('<p style="text-align:center;padding:40px 0;color:#94a3b8">Loading every group in this division…</p>', '🌍 ALL GROUPS', 'W11.tableL()');
+  const f = await fbLoad(), now = W.nowS(), { day } = CC.clock(now), md = clamp(day, 1, CC.MDS), t = G0.t, s0 = G0.s;
+  const keys = []; for (let g = 0; g < CC.NG(t); g++) keys.push(g);
+  const docs = []; for (let i = 0; i < keys.length; i += 24) { const part = await Promise.all(keys.slice(i, i + 24).map(g => g === G0.g ? Promise.resolve({ g, G: G0 }) : f.getDoc(f.doc(db(), 'w11g', CC.gkey(s0, t, g))).then(sn => (sn.exists() ? { g, G: sn.data() } : null)).catch(() => null))); docs.push(...part); if (!document.getElementById('w11')) return; }
+  const groups = docs.filter(Boolean).sort((a, b) => (a.g === G0.g ? -1 : b.g === G0.g ? 1 : a.g - b.g));
+  const block = ({ g, G }) => { let tb = []; try { tb = CC.table(G, now); } catch (e) { return ''; } const mine = g === G0.g;
+    const rows = tb.map((r, i) => { const n = seatName(G, r.pos, md), z = zone(G.t, i);
+      return `<div class="row" style="${n.me ? 'background:rgba(34,211,238,.1);border-radius:10px;' : ''}border-left:3px solid ${z === 'up' ? '#22d3ee' : z === 'down' ? '#ff2d95' : 'transparent'};padding-left:6px"><span style="width:18px;font-weight:900;color:#94a3b8">${i + 1}</span>${mini(n.hue, n.sh)}<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:${n.me ? 900 : 700}">${esc(n.n)}${n.user ? ' <span style="font-size:9px">👤</span>' : ''}</span><span style="width:22px;text-align:center;color:#94a3b8">${r.p}</span><span style="width:30px;text-align:center;color:#94a3b8">${r.gf - r.ga > 0 ? '+' : ''}${r.gf - r.ga}</span><span style="width:26px;text-align:right;font-weight:900">${r.pts}</span></div>`; }).join('');
+    return `<details class="card" ${mine ? 'open' : ''} style="padding:10px 12px"><summary style="font-weight:900;cursor:pointer">📊 Group ${CC.groupNo(t, g)} · ${esc(CC.ZONE_NAME[CC.zoneOfG(t, g)])}${mine ? ' · <span style="color:#22d3ee">your group</span>' : ''}</summary><div data-solo="1" style="margin-top:8px">${rows}</div></details>`; };
+  W.ui(`<p style="font-size:12px;color:#94a3b8;margin-bottom:8px">Division ${t} · Season ${s0} · ${groups.length} group${groups.length === 1 ? '' : 's'}. Tap a group to open it.</p>${groups.map(block).join('') || '<p style="text-align:center;color:#94a3b8;padding:20px">No groups found yet.</p>'}`, '🌍 ALL GROUPS', 'W11.tableL()');
+};
 
 })();
