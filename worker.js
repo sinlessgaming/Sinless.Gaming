@@ -4520,25 +4520,18 @@ const mlNotif = (toUid, fromUid, from, text, i) => ({ path: `notifications/ml${D
 const mlTid = (uid, cid, s) => `tourn_${uid.slice(0, 6)}_${cid}_s${s}`.replace(/[^\w-]/g, '_');
 const mlOrd = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
 
+/* 🏠 the squad the league lives in: the host's choice, else last season's squad */
+const mlHomeOf = (A, prevT, st) => A.home || A.squad || ((prevT.filter(t => t.squadId && t.compKind === 'league' && (t.season || 0) < st.s).sort((a, b) => (b.season || 0) - (a.season || 0))[0] || {}).squadId) || null;
 /* 📝 open registration and tell last season's players */
 async function mlOpenReg(env, uid, h, A, st, prevT, W) {
   const comps = h.comps || [], leagues = comps.filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier), cups = comps.filter(c => c.kind === 'cup' && ((A.cup || {})[c.id] || 'all') !== 'off');
   W.push({ path: `mlReg/${uid}_s${st.s}`, data: { hostUid: uid, org: h.org || '', user: h.user || '', season: st.s, status: 'open', regAt: st.regAt, closeAt: st.closeAt, startAt: st.startAt, endAt: st.endAt, comps: leagues.map(c => c.name).concat(cups.map(c => c.name)).slice(0, 12),
-    regCups: cups.filter(c => (A.cup || {})[c.id] === 'reg').map(c => ({ id: c.id, name: c.name })), home: A.home || null, game: String(A.game || 'FC MOBILE').slice(0, 30), rules: String(A.rules || '').slice(0, 1500), squadId: A.squad || null, verified: !!h.verified, banned: (st.ban0 || []).slice(0, 100) }, ts: ['createdAt'] });
+    regCups: cups.filter(c => (A.cup || {})[c.id] === 'reg').map(c => ({ id: c.id, name: c.name })), home: mlHomeOf(A, prevT, st), game: String(A.game || 'FC MOBILE').slice(0, 30), rules: String(A.rules || '').slice(0, 1500), squadId: A.squad || null, verified: !!h.verified, banned: (st.ban0 || []).slice(0, 100) }, ts: ['createdAt'] });
   const uids = new Set(); prevT.filter(t => t.compKind === 'league' && t.season === st.s - 1).forEach(t => (t.playerUids || []).forEach(u => uids.add(u)));
-  [...uids].slice(0, 150).forEach((u, i) => W.push(mlNotif(u, uid, h.org || 'Master League', `📝 Registration for ${h.org || 'the Master League'} Season ${st.s} is open. Tap ✅ Register to keep your place (closes ${new Date(st.closeAt).toUTCString().slice(0, 22)} UTC).`, i)));
+  [...uids].slice(0, 150).forEach((u, i) => W.push(mlNotif(u, uid, h.org || 'Master League', `📝 Registration for ${h.org || 'the Master League'} Season ${st.s} is open. Your place from last season is kept. Not playing? Tap ❌ I'm out (closes ${new Date(st.closeAt).toUTCString().slice(0, 22)} UTC).`, i)));
 }
-/* ⚽ close registration: places, fixtures, cups, Champions League */
-async function mlSchedule(env, uid, h, A, st, prevT) {
-  const rid = `${uid}_s${st.s}`, banned = new Set((st.ban0 || []).map(mlTag)), all0 = (await mlListPlayers(env, rid)).filter(x => x && x.tag && !x.out && x.uid);
-  /* G18.1: this season's tournaments the host made by hand (e.g. "Start a full season"): people who joined them directly count as registered */
-  const mine = prevT.filter(t => t.season === st.s && t.hostId === uid && !t.auto && !t.deleted), have = new Set(all0.map(x => mlTag(x.tag)));
-  for (const t of mine) for (const p of (t.players || []).filter(mlReal)) { const k = mlTag(p); if (have.has(k)) continue; have.add(k);
-    const pr = await w11get(env, `profiles/${k}`).catch(() => null), u = pr && pr.data && pr.data.uid; if (u) all0.push({ uid: u, tag: p, ign: '', gid: ((t.gameIds || {})[k] || ''), at: 0 }); }
-  const regs = all0.filter(x => !banned.has(mlTag(x.tag))), bannedRegs = all0.filter(x => banned.has(mlTag(x.tag)));
-  const R = {}; regs.forEach(x => { R[mlTag(x.tag)] = x; });
-  const comps = h.comps || [], leagues = comps.filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier), cups = comps.filter(c => c.kind === 'cup');
-  if (regs.length < 2 || !leagues.length) return { extend: true, n: regs.length };
+/* last season's tables → who belongs in which division next season (promotion, relegation, removed players one division lower) */
+function mlNextFrom(leagues, prevT, st) {
   /* last season: the latest league of each division before this season */
   const last = leagues.map(c => prevT.filter(t => t.compId === c.id && t.compKind === 'league' && (t.season || 0) < st.s).sort((a, b) => (b.season || 0) - (a.season || 0))[0] || null);
   const orders = last.map(t => t ? mlOrder(t).filter(mlReal) : []);
@@ -4552,6 +4545,43 @@ async function mlSchedule(env, uid, h, A, st, prevT) {
   /* removed last season (not banned): one division lower (they stay in the bottom division if there is none below) */
   const drop = new Set((st.drop || []).map(mlTag)), minT = {};
   for (let k = 0; k < next.length - 1; k++) { const down = next[k].filter(p => drop.has(mlTag(p))); if (down.length) { next[k] = next[k].filter(p => !drop.has(mlTag(p))); next[k + 1] = next[k + 1].concat(down); down.forEach(p => { drop.delete(mlTag(p)); minT[mlTag(p)] = k + 1; }); } }
+  return { orders, next, minT };
+}
+/* G18.4: places kept from last season — everyone who played last season keeps his place without registering
+   (unless he taps "I'm out", the host removes him, or he sits out). Divisions are filled top-down; extra players go one division lower. */
+function mlKeep(h, A, st, prevT, outSet) {
+  const leagues = (h.comps || []).filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier); if (!leagues.length) return { leagues, tiers: [] };
+  const { next, minT } = mlNextFrom(leagues, prevT, st), banned = new Set((st.ban0 || []).map(mlTag)), seen = new Set(), ladder = [];
+  next.forEach(L => L.forEach(p => { const k = mlTag(p); if (!mlReal(p) || seen.has(k) || banned.has(k) || outSet.has(k)) return; seen.add(k); ladder.push(p); }));
+  const tiers = leagues.map(() => []);
+  leagues.forEach((c, k) => { const size = mlInt((A.sizes || {})[c.id], 2, 40, 16); for (let i = 0; i < ladder.length && tiers[k].length < size;) { if ((minT[mlTag(ladder[i])] || 0) <= k) tiers[k].push(ladder.splice(i, 1)[0]); else i++; } });
+  if (ladder.length) tiers[tiers.length - 1].push(...ladder);
+  return { leagues, tiers };
+}
+const mlOutSet = (h, st, raw) => { const o = new Set(); (raw || []).forEach(x => { if (x && x.tag && x.out) o.add(mlTag(x.tag)); }); const m = h.mlOut; if (m && Number(m.s) === st.s) (m.tags || []).forEach(t => o.add(mlTag(t))); return o; };
+async function mlKeepWrite(env, uid, h, A, st, prevT) {
+  const raw = await mlListPlayers(env, `${uid}_s${st.s}`), { leagues, tiers } = mlKeep(h, A, st, prevT, mlOutSet(h, st, raw));
+  const keep = leagues.map((c, k) => ({ id: c.id, n: c.name, size: mlInt((A.sizes || {})[c.id], 2, 40, 16), tags: tiers[k].slice(0, 60) }));
+  return { path: `mlReg/${uid}_s${st.s}`, data: { keep, out: [...mlOutSet(h, st, [])].slice(0, 60), home: mlHomeOf(A, prevT, st) }, mask: ['keep', 'out', 'home'] };
+}
+/* ⚽ close registration: places, fixtures, cups, Champions League */
+async function mlSchedule(env, uid, h, A, st, prevT) {
+  const rid = `${uid}_s${st.s}`, banned = new Set((st.ban0 || []).map(mlTag)), raw0 = await mlListPlayers(env, rid), outSet = mlOutSet(h, st, raw0), all0 = raw0.filter(x => x && x.tag && !x.out && x.uid && !outSet.has(mlTag(x.tag)));
+  /* G18.1: this season's tournaments the host made by hand (e.g. "Start a full season"): people who joined them directly count as registered */
+  const mine = prevT.filter(t => t.season === st.s && t.hostId === uid && !t.auto && !t.deleted), have = new Set(all0.map(x => mlTag(x.tag)));
+  for (const t of mine) for (const p of (t.players || []).filter(mlReal)) { const k = mlTag(p); if (have.has(k)) continue; have.add(k);
+    const pr = await w11get(env, `profiles/${k}`).catch(() => null), u = pr && pr.data && pr.data.uid; if (u) all0.push({ uid: u, tag: p, ign: '', gid: ((t.gameIds || {})[k] || ''), at: 0 }); }
+  /* G18.4: last season's players keep their place without registering */
+  { const kept = mlKeep(h, A, st, prevT, outSet).tiers.flat(); let look = 0;
+    for (const p of kept) { const k = mlTag(p); if (have.has(k) || look >= 80) continue; look++; have.add(k);
+      const pr = await w11get(env, `profiles/${k}`).catch(() => null), u = pr && pr.data && pr.data.uid; if (!u) continue;
+      const lt = prevT.find(t => t.season === st.s - 1 && (t.players || []).some(x => mlTag(x) === k)), g = lt && lt.gameIds ? (lt.gameIds[k] || '') : '';
+      all0.push({ uid: u, tag: p, ign: String(g).split(' · ')[0] || '', gid: String(g).split(' · ')[1] || '', at: 0, kept: 1 }); } }
+  const regs = all0.filter(x => !banned.has(mlTag(x.tag))), bannedRegs = all0.filter(x => banned.has(mlTag(x.tag)));
+  const R = {}; regs.forEach(x => { R[mlTag(x.tag)] = x; });
+  const comps = h.comps || [], leagues = comps.filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier), cups = comps.filter(c => c.kind === 'cup');
+  if (regs.length < 2 || !leagues.length) return { extend: true, n: regs.length };
+  const { orders, next, minT } = mlNextFrom(leagues, prevT, st);
   /* the ladder: everyone who was in the league (division by division, best first), then newcomers in the order they registered */
   const seen = new Set(), ladder = [];
   next.forEach(L => L.forEach(p => { const k = mlTag(p); if (R[k] && !seen.has(k)) { seen.add(k); ladder.push(R[k]); } }));
@@ -4562,7 +4592,7 @@ async function mlSchedule(env, uid, h, A, st, prevT) {
   let li = tiers.length - 1; while (li > 0 && !tiers[li].length) li--;
   tiers[li].push(...ladder.splice(0, 8)); const waiting = ladder;
   for (let k = tiers.length - 1; k > 0; k--) if (tiers[k].length && tiers[k].length < 3) { tiers[k - 1].push(...tiers[k]); tiers[k] = []; }
-  const W = [], placed = {}, stamp = Date.now().toString(36), base = { host: h.user || '', hostUid: uid, hostId: uid, hostOrg: h.org || '', game: String(A.game || 'FC MOBILE'), prizePool: String(A.prize || 'Bragging Rights').slice(0, 60), squadId: A.home || A.squad || null, fullSeason: false, eliminated: [], season: st.s, status: 'active', rules: String(A.rules || '').slice(0, 1500), needGameId: true, proofReq: A.proof !== false, deadlineHrs: 24, coHosts: [], coHostUids: [], verified: !!h.verified, auto: true };
+  const W = [], placed = {}, stamp = Date.now().toString(36), base = { host: h.user || '', hostUid: uid, hostId: uid, hostOrg: h.org || '', game: String(A.game || 'FC MOBILE'), prizePool: String(A.prize || 'Bragging Rights').slice(0, 60), squadId: mlHomeOf(A, prevT, st), fullSeason: false, eliminated: [], season: st.s, status: 'active', rules: String(A.rules || '').slice(0, 1500), needGameId: true, proofReq: A.proof !== false, deadlineHrs: 24, coHosts: [], coHostUids: [], verified: !!h.verified, auto: true };
   const gidsOf = (L) => { const o = {}; L.forEach(x => { o[mlTag(x.tag)] = `${x.ign || ''} · ${x.gid || ''}`.slice(0, 40); }); return o; };
   const made = [];
   leagues.forEach((c, k) => {
@@ -4652,6 +4682,7 @@ async function mlHost(env, uid, fromApp) {
     }
     break;
   }
+  if (st.ph === 'reg') { try { W.push(await mlKeepWrite(env, uid, h, A, st, prevT)); } catch (e) {} }
   /* cups whose time is over */
   const keep = [];
   for (const p of (st.pend || [])) { if (now < p.at) { keep.push(p); continue; } const t = prevT.find(x => x.id === p.id); if (t) await mlFinish(env, uid, h, t, notes); }
