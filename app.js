@@ -28194,7 +28194,7 @@ const check = () => { navigator.serviceWorker.getRegistration().then((r) => { if
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
 setInterval(check, 30 * 60000);
 })();
-window.SG_BUILD = 86;
+window.SG_BUILD = 87;
 
 window.tournCheck = window.tournCheck || {};
 window.tournDrop = function (id) {
@@ -28425,7 +28425,12 @@ const leagues = h.comps.filter(c => c.kind === 'league').sort((a, b) => a.tier -
 const A = h.auto || {};
 return { on: !!A.on, days: A.days || 14, reg: A.reg || 2, sched: A.sched || 12, game: A.game || 'FC MOBILE', prize: A.prize || 'Bragging Rights', rules: A.rules || '', squad: A.squad || '',
 sizes: Object.fromEntries(leagues.map(c => [c.id, (A.sizes || {})[c.id] || 16])), h2h: Object.fromEntries(leagues.map(c => [c.id, (A.h2h || {})[c.id] || c.h2h || '1x'])),
-cup: Object.fromEntries(cups.map(c => [c.id, (A.cup || {})[c.id] || (/champion/i.test(c.name) ? 'qual' : 'all')])), first: A.first || 0, s0: A.s0 || 0, off: -new Date().getTimezoneOffset(), ban: A.ban != null ? A.ban : 3, proof: A.proof !== false };
+cup: Object.fromEntries(cups.map(c => [c.id, (A.cup || {})[c.id] || (/champion/i.test(c.name) ? 'qual' : 'all')])), first: A.first || 0, s0: A.s0 || 0, off: -new Date().getTimezoneOffset(), ban: A.ban != null ? A.ban : 3, proof: A.proof !== false, home: A.home != null ? A.home : window.mlHomeGuess(h) };
+};
+/* the league's home squad: the squad of its last season, else the first squad you own */
+window.mlHomeGuess = function (h) {
+const t = (window.tournamentsList || []).filter(x => x.hostId === window.uidNow() && x.squadId && h.comps.some(c => c.id === x.compId)).sort((a, b) => (b.season || 0) - (a.season || 0))[0];
+if (t) return t.squadId; const own = (window.clansData || []).find(c => c.ownerUid === window.uidNow()); return own ? own.id : '';
 };
 window.mlFmt = (ms) => ms ? new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—';
 window.mlLeft = (ms) => { const d = ms - Date.now(); if (d <= 0) return 'now'; const h = Math.floor(d / 3600e3); return h >= 48 ? Math.round(h / 24) + ' days' : h >= 1 ? h + ' h' : Math.max(1, Math.round(d / 60000)) + ' min'; };
@@ -28450,6 +28455,7 @@ ${st.s ? '' : `<label class="block text-[10px] text-gray-400 font-bold">First se
 <label class="text-[10px] text-gray-400 font-bold">Game<select data-mls="game" class="${f}">${['FC MOBILE', 'EA SPORTS FC', 'EFOOTBALL', 'DLS', 'FOOTBALL', 'OTHER GAMES'].map(g => `<option ${A.game === g ? 'selected' : ''}>${g}</option>`).join('')}</select></label>
 <label class="text-[10px] text-gray-400 font-bold">Prize / trophy<input data-mls="prize" maxlength="60" value="${escapeHTML(A.prize)}" class="${f}"></label>
 </div>
+<label class="block text-[10px] text-gray-400 font-bold">🏠 Home squad (the league lives here too: tables, fixtures, registration, results in the chat)<select data-mls="home" class="${f}"><option value="">None</option>${sq.map(s => `<option value="${escapeHTML(s.id)}" ${A.home === s.id ? 'selected' : ''}>🛡️ ${escapeHTML(s.name)}</option>`).join('')}</select></label>
 <label class="block text-[10px] text-gray-400 font-bold">Who can join<select data-mls="squad" class="${f}"><option value="">🌍 Anyone on SINLESS GG</option>${sq.map(s => `<option value="${escapeHTML(s.id)}" ${A.squad === s.id ? 'selected' : ''}>🛡️ Members of ${escapeHTML(s.name)}</option>`).join('')}</select></label>
 <p class="text-[10px] font-black text-gray-300 uppercase tracking-wider pt-1">Divisions</p>
 ${leagues.map(c => `<div class="glass-panel rounded-xl p-2.5 border border-cyan-500/20"><p class="text-[11px] font-black text-white">${['🥇', '🥈', '🥉'][c.tier - 1] || '🏅'} ${escapeHTML(c.name)}</p>
@@ -28530,7 +28536,7 @@ ${none.length ? `<p class="text-[10px] text-amber-300 font-bold">⏳ Last season
 } catch (e) {}
 }
 const card = `<div data-mlap class="glass-panel rounded-2xl p-3.5 border ${A.on ? 'border-emerald-500/40' : 'border-white/10'} space-y-2">
-<div class="flex items-center justify-between gap-2"><p class="text-sm font-black text-white">🤖 Autopilot ${A.on ? '<span class="text-emerald-300">ON</span>' : '<span class="text-gray-500">OFF</span>'}</p>${h.verified ? window.OFFICIAL_BADGE : ''}</div>
+<div class="flex items-center justify-between gap-2"><p class="text-sm font-black text-white">🤖 Autopilot ${A.on ? '<span class="text-emerald-300">ON</span>' : '<span class="text-gray-500">OFF</span>'}</p>${h.verified ? window.OFFICIAL_BADGE : window.isAppAdmin ? `<button onclick="window.adminVerify('h', window.uidNow(), true)" class="px-2.5 py-1 rounded-lg text-[10px] font-black text-slate-950" style="background:linear-gradient(90deg,#22d3ee,#a855f7)">✅ Make OFFICIAL</button>` : ''}</div>
 <p class="text-[11px] text-gray-300">${A.on ? `${A.days || 14}-day seasons · ${A.reg || 2}-day registration · fixtures ${A.sched || 12} h before. ${window.mlPhaseText(st)}.` : 'Turn it on and every season runs by itself: registration, fixtures, cups, Champions League, champions and the next season.'}</p>
 ${soon ? `<div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-[11px] text-amber-200 font-bold">⏰ Season ${st.s} ends in ${window.mlLeft(st.endAt)}. Want to change anything for next season (days, division sizes, cups)? Do it now.</div>` : ''}
 <div class="flex gap-2"><button onclick="window.openLeaguePage(window.uidNow())" class="flex-1 py-2 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-[11px] font-black">📊 League page</button><button onclick="window.mlShare(window.uidNow(), window.myHost && window.myHost.org)" class="flex-1 py-2 rounded-xl bg-gg-900 border border-magenta/30 text-magenta text-[11px] font-black">🔗 Share link</button></div>
@@ -28538,6 +28544,8 @@ ${soon ? `<div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/4
 const sys = [...box.children].find(el => /Your Master League/i.test(el.textContent || '') && el.querySelector('[onclick*="editHostComps"]'));
 if (sys) sys.insertAdjacentHTML('afterend', card + inout); else box.insertAdjacentHTML('afterbegin', card + inout);
 box.insertAdjacentHTML('afterbegin', ex);
+/* while the autopilot runs, the manual season buttons would make a second copy of the season */
+if (A.on) box.querySelectorAll('[data-fsbtn],[onclick*="startNextLeagueSeason"],[onclick*="newSeasonFor"]').forEach(b => { b.style.display = 'none'; });
 } catch (e) { console.warn(e); }
 return r;
 };
@@ -28571,7 +28579,7 @@ let el = document.getElementById('mlRegBanner');
 const show = window.mlRegs.filter(r => r.verified);
 if (feed) { if (!show.length) el && el.remove(); else { const html = `<div id="mlRegBanner" class="space-y-2">${show.slice(0, 2).map(r => window.mlRegCard(r)).join('')}</div>`; if (el) el.outerHTML = html; else feed.insertAdjacentHTML('beforebegin', html); } }
 const tc = document.getElementById('tournamentsDedicatedContainer');
-if (tc && window.tourTab === 'list') { tc.querySelector('[data-mlregs]')?.remove(); if (window.mlRegs.length) tc.insertAdjacentHTML('afterbegin', `<div data-mlregs class="space-y-2 mb-2">${window.mlRegs.map(r => window.mlRegCard(r)).join('')}</div>`); }
+if (tc && window.tourTab === 'list' && !window.tourScopeSquad) { tc.querySelector('[data-mlregs]')?.remove(); if (window.mlRegs.length) tc.insertAdjacentHTML('afterbegin', `<div data-mlregs class="space-y-2 mb-2">${window.mlRegs.map(r => window.mlRegCard(r)).join('')}</div>`); }
 };
 window.mlRegister = function (rid) {
 if (window.needSignIn && window.needSignIn('join this league')) return;
@@ -28585,6 +28593,7 @@ ${r.verified ? `<p>${window.OFFICIAL_BADGE} <span class="text-[10px] text-gray-4
 <label class="block text-[10px] text-gray-400 font-bold">Your in-game ID / UID *<input id="mlGid" maxlength="40" value="${escapeHTML(mine.gid || last.gid || '')}" placeholder="e.g. 123456789" class="${f}"></label>
 ${(r.regCups || []).map(c => `<label class="flex items-center gap-2 text-[11px] text-gray-200"><input type="checkbox" data-mlcup="${escapeHTML(c.id)}" ${(mine.cups || []).includes(c.id) ? 'checked' : ''} class="w-4 h-4 accent-pink-500"> 🏆 Also enter ${escapeHTML(c.name)}</label>`).join('')}
 ${r.rules ? `<div class="p-2.5 rounded-xl bg-gg-950 border border-white/10 text-[11px] text-gray-300 whitespace-pre-wrap">${escapeHTML(r.rules)}</div>` : ''}
+${r.home && !(window.clansData || []).some(c => c.id === r.home && window.isSquadMember && window.isSquadMember(c)) ? `<label class="flex items-center gap-2 text-[11px] text-gray-200"><input id="mlSq" type="checkbox" checked class="w-4 h-4 accent-emerald-400"> 🛡️ Also join ${escapeHTML(((window.clansData || []).find(c => c.id === r.home) || {}).name || 'the league squad')} (fixtures, results and chat)</label>` : ''}
 <label class="flex items-start gap-2 text-[11px] text-gray-200"><input id="mlOk" type="checkbox" class="mt-0.5 w-4 h-4 accent-cyan-400"> <span>I will play my matches on time and accept the rules. If I don't show up, the GG AI gives the result to my opponent.</span></label>
 <button onclick="window.mlRegGo('${escapeHTML(rid)}')" class="w-full py-3 rounded-2xl text-slate-950 font-black text-xs uppercase" style="background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)">✅ Register</button>
 ${mine.uid && !mine.out ? `<button onclick="window.mlRegGo('${escapeHTML(rid)}', true)" class="w-full py-2.5 rounded-2xl bg-gg-900 border border-white/10 text-gray-300 font-black text-[11px]">❌ I'm out this season</button>` : ''}`);
@@ -28602,7 +28611,9 @@ if (!document.getElementById('mlOk').checked) { showToast('Tick the box to accep
 data = { ...base, ign: ign.slice(0, 30), gid: gid.slice(0, 40), cups: [...document.querySelectorAll('[data-mlcup]')].filter(x => x.checked).map(x => x.dataset.mlcup).slice(0, 6) };
 try { const all = JSON.parse(localStorage.getItem('sg_ml_ids') || '{}'); all[r.game] = { ign: data.ign, gid: data.gid }; localStorage.setItem('sg_ml_ids', JSON.stringify(all)); } catch (e) {}
 }
-try { await setDoc(doc(window.db, 'mlReg', rid, 'players', window.uidNow()), data); window.mlMine[rid] = data; window.closePanel(); showToast(out ? 'OK, you are out this season. You can register again until registration closes.' : `✅ You're in! Fixtures come out ${window.mlFmt(r.closeAt)}.`); window.mlRegBanner(); }
+const joinSq = !out && r.home && (document.getElementById('mlSq') || {}).checked;
+try { await setDoc(doc(window.db, 'mlReg', rid, 'players', window.uidNow()), data); window.mlMine[rid] = data; window.closePanel();
+if (joinSq) { const sq = (window.clansData || []).find(c => c.id === r.home); if (sq && !(window.isSquadMember && window.isSquadMember(sq)) && window.toggleSquadMembership) { try { await window.toggleSquadMembership(r.home); } catch (e) {} } } showToast(out ? 'OK, you are out this season. You can register again until registration closes.' : `✅ You're in! Fixtures come out ${window.mlFmt(r.closeAt)}.`); window.mlRegBanner(); }
 catch (e) { showToast('⚠️ Registration is closed or the app needs the new rules.'); }
 };
 window.initApp = (function (b) { return async function (...a) { const r = await b.apply(this, a); setTimeout(window.mlLoadRegs, 4000); setInterval(window.mlLoadRegs, 10 * 60000); return r; }; })(window.initApp);
@@ -28725,10 +28736,251 @@ body.innerHTML = `<div class="rounded-2xl p-3.5 space-y-1" style="background:lin
 <div class="flex items-center gap-2"><p class="flex-1 min-w-0 text-base font-black text-white truncate">🏛️ ${escapeHTML(h.org || 'Master League')}</p>${h.verified ? window.OFFICIAL_BADGE : ''}</div>
 <p class="text-[11px] text-cyan-100">${season ? `Season ${season}` : 'No season yet'}${st.ph === 'live' && st.endAt ? ` · ends ${window.mlFmt(st.endAt)}` : ''}${regOpen ? ` · 📝 Season ${st.s} registration is open` : ''}</p>
 <div class="flex gap-2 pt-1">${regOpen ? `<button onclick="window.closePanel(); window.mlLoadRegs().then(() => window.mlRegister('${escapeHTML(uid)}_s${st.s}'))" class="flex-1 py-2 rounded-xl text-[11px] font-black text-slate-950" style="background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)">⚽ Register</button>` : ''}<button onclick="window.mlShare('${escapeHTML(uid)}')" class="flex-1 py-2 rounded-xl bg-gg-900 border border-magenta/30 text-magenta text-[11px] font-black">🔗 Share this league</button></div></div>
-${leagues.map(table).join('')}
+${leagues.length > 1 ? `<div class="flex gap-1.5 overflow-x-auto scrollbar-none">${leagues.map((t, i) => `<button data-lpt="${i}" onclick="window.lpTab(${i})" class="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black ${i ? 'bg-gg-900 text-gray-300 border border-white/10' : 'bg-amber-400 text-slate-950'}">${['🥇', '🥈', '🥉'][(t.tier || 1) - 1] || '🏅'} ${escapeHTML(window.compShort ? window.compShort(t) : t.compName)}</button>`).join('')}</div>` : ''}
+${leagues.map((t, i) => `<div data-lpd="${i}" style="${i ? 'display:none' : ''}">${table(t)}</div>`).join('')}
 ${cups.length ? `<div class="glass-panel rounded-2xl p-3 border border-magenta/25 space-y-1"><p class="text-xs font-black text-white">🏆 Cups</p>${cups.map(t => `<p class="text-[11px] text-gray-300">${escapeHTML(t.compName || t.title)} · ${t.status === 'finished' ? `👑 ${dn(t.champion || '—')}` : `${(t.players || []).length} players · until ${new Date(t.endAt || 0).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`}</p>`).join('')}</div>` : ''}
 ${next.length ? `<div class="glass-panel rounded-2xl p-3 border border-white/10"><p class="text-xs font-black text-white mb-1">📅 Next matches</p>${next.map(x => fx(x, false)).join('')}</div>` : ''}
 ${played.length ? `<div class="glass-panel rounded-2xl p-3 border border-white/10"><p class="text-xs font-black text-white mb-1">✅ Latest results</p>${played.map(x => fx(x, true)).join('')}</div>` : ''}`;
 };
 /* opened from a shared link */
 (function mlFromLink() { try { const uid = new URLSearchParams(location.search).get('ml'); if (uid && /^[A-Za-z0-9_\-]{6,64}$/.test(uid)) setTimeout(() => window.openLeaguePage(uid), 3500); } catch (e) {} })();
+
+
+window.mlSeasonReg = function (t) {
+if (!t || !t.hostId) return null; const h = window.hostDocOf(t) || {}, st = h.ml || {};
+if (!(h.auto && h.auto.on) || !st.s) return null;
+if (t.season === st.s && st.ph === 'reg') return `${t.hostId}_s${st.s}`;
+if (t.auto && t.status !== 'finished') return 'closed';
+return null;
+};
+window.joinActiveTournament = (function (b) {
+return async function (id, ...a) {
+const t = (window.tournamentsList || []).find(x => x.id === id), rid = window.mlSeasonReg(t);
+if (rid === 'closed') { showToast('📝 This Master League season is full. Registration for the next season opens the day after the league ends.'); return; }
+if (rid) { if (window.needSignIn && window.needSignIn('join this league')) return; await window.mlLoadRegs(); if (window.mlRegs.some(r => r.id === rid)) return window.mlRegister(rid); showToast('📝 Registration for this season is in the Master League card.'); return; }
+return b.call(this, id, ...a);
+};
+})(window.joinActiveTournament);
+
+window.tournWrapped = (t) => !!(t && t.status === 'finished');
+window.tournBrowserHtml = (function (b) {
+return function (...a) {
+if (window.tourFilter !== 'all') return b.apply(this, a);
+const L = window.tournamentsList, done = (L || []).filter(t => window.tournStatus(t) === 'done' && !window.isPrivateTourn(t)).length;
+window.tournamentsList = (L || []).filter(t => !window.tournWrapped(t));
+try { return b.apply(this, a).replace(/🏁 Finished \d+/, '🏁 Finished ' + done); } finally { window.tournamentsList = L; }
+};
+})(window.tournBrowserHtml);
+window.scopedTourns = (function (b) { return function (...a) { const L = b.apply(this, a); if (window.tourScopeSquad && window.squadTourTab !== 'champs') { const live = L.filter(t => !window.tournWrapped(t)); return live.length ? live : L; } return L; }; })(window.scopedTourns);
+
+window.renderSquadTournaments = (function (b) {
+return function (...a) {
+const r = b.apply(this, a);
+try {
+const sq = window.activeSquadDetails, slot = document.getElementById('squadTourSlot'); if (!sq || !slot || (window.squadTourTab && window.squadTourTab !== 'events')) return r;
+const regs = (window.mlRegs || []).filter(x => x.home === sq.id), hostT = (window.tournamentsList || []).find(t => t.squadId === sq.id && t.auto);
+if (!regs.length && !hostT) return r;
+const box = slot.parentElement; box.querySelector('[data-sqml]')?.remove();
+box.insertBefore(Object.assign(document.createElement('div'), { innerHTML: `<div data-sqml class="space-y-2">${regs.map(x => window.mlRegCard(x)).join('')}${hostT ? `<button onclick="window.openLeaguePage('${escapeHTML(hostT.hostId)}')" class="w-full py-2.5 rounded-2xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-xs font-black">📊 ${escapeHTML(hostT.hostOrg || 'Master League')} · tables & fixtures</button>` : ''}</div>` }).firstElementChild, slot);
+} catch (e) {}
+return r;
+};
+})(window.renderSquadTournaments);
+window.mlLoadRegs = (function (b) { return async function (...a) { const r = await b.apply(this, a); try { if (window.activeSquadSubRoom === 'Tournaments' && window.navIsOpen && window.navIsOpen('squadDetailsModal') && !window._sqMlR) { window._sqMlR = 1; try { window.renderSquadTournaments(); } finally { window._sqMlR = 0; } } } catch (e) {} return r; }; })(window.mlLoadRegs);
+
+window.openClipsAt = (function (b) { return function (first, ...a) { window._clipsWant = first || null; return b.call(this, first, ...a); }; })(window.openClipsAt);
+window.buildClipsList = (function (b) {
+return function (...a) {
+let l = b.apply(this, a) || []; const f = window._clipsWant; window._clipsWant = null;
+if (!f || !f.id) return l;
+try {
+const i = l.findIndex(x => x && x.id === f.id && (!f.kind || x.kind === f.kind));
+let item = i >= 0 ? l.splice(i, 1)[0] : null;
+if (!item && f.kind === 'post') { const p = window.findPost && window.findPost(f.id), m = p && (p.mediaList || []).find(x => x.type === 'video'); if (m) item = { kind: 'post', id: f.id, p, url: m.url, cat: (p.game || '').toLowerCase() }; }
+if (!item && f.kind === 'short' && f.v) item = { kind: 'short', id: f.id, v: { ...f.v, short: true }, cat: f.v.cat };
+if (item) l = [item, ...l.filter(x => x !== item)];
+} catch (e) {}
+return l;
+};
+})(window.buildClipsList);
+
+window.lpTab = function (i) {
+document.querySelectorAll('#sgPanelBody [data-lpd]').forEach(d => { d.style.display = +d.dataset.lpd === i ? '' : 'none'; });
+document.querySelectorAll('#sgPanelBody [data-lpt]').forEach(b => { const on = +b.dataset.lpt === i; b.className = `shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black ${on ? 'bg-amber-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-white/10'}`; });
+};
+
+window.divSiblings = function (t) {
+if (!t || !t.hostId || !t.season || !/^(league|cup)$/.test(t.compKind || '')) return [];
+return (window.tournamentsList || []).filter(x => x.hostId === t.hostId && x.season === t.season && /^(league|cup)$/.test(x.compKind || '') && !x.deleted)
+.sort((a, b) => (a.compKind === 'cup') - (b.compKind === 'cup') || (a.tier || 9) - (b.tier || 9) || String(a.compName || '').localeCompare(String(b.compName || '')));
+};
+window.divSwitch = function (id) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+const y = window.scrollY, sc = document.getElementById('squadRoomMsgsBox'), sy = sc ? sc.scrollTop : 0;
+window.activeTournament = t; window.tourBrowse = false; window.renderTournamentsTabDedicated();
+window.scrollTo(0, y); if (sc) sc.scrollTop = sy;
+};
+window.renderTournamentsTabDedicated = (function (b) {
+return function (...a) {
+const r = b.apply(this, a);
+try {
+const c = document.getElementById('tournamentsDedicatedContainer'), t = window.activeTournament;
+if (!c || !t || (window.tourBrowseOn && window.tourBrowseOn()) || c.querySelector('[data-divbar]')) return r;
+const sib = window.divSiblings(t); if (sib.length < 2) return r;
+const lab = (x) => `${x.compKind === 'cup' ? (/champion/i.test(x.compName || '') ? '⭐' : '🏆') : (['🥇', '🥈', '🥉'][(x.tier || 1) - 1] || '🏅')} ${escapeHTML(window.compShort ? window.compShort(x) : (x.compName || x.title))}`;
+const bar = `<div data-divbar class="flex gap-1.5 overflow-x-auto scrollbar-none mb-2">${sib.map(x => `<button onclick="window.divSwitch('${escapeHTML(x.id)}')" class="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black ${x.id === t.id ? 'bg-amber-400 text-slate-950' : 'bg-gg-900 text-gray-300 border border-white/10'}">${lab(x)}</button>`).join('')}</div>`;
+const back = [...c.children].find(el => /All tournaments/.test(el.textContent || '') && el.tagName === 'BUTTON');
+if (back) back.insertAdjacentHTML('afterend', bar); else c.insertAdjacentHTML('afterbegin', bar);
+} catch (e) {}
+return r;
+};
+})(window.renderTournamentsTabDedicated);
+
+window.shareLinesCard = async function (title, sub, lines, fname, text) {
+showToast('📲 Making the picture…');
+const L = lines.filter(Boolean).slice(0, 18), H = Math.max(1350, 520 + L.length * 62), { c, x, y0 } = await window.cardBase(H, title, sub);
+L.forEach((ln, i) => { const yy = y0 + 20 + i * 62; x.fillStyle = i % 2 ? 'rgba(255,255,255,.04)' : 'rgba(255,255,255,.08)'; x.fillRect(50, yy, 980, 56);
+x.textAlign = 'left'; x.fillStyle = i < 3 ? '#fbbf24' : '#fff'; x.font = '900 28px system-ui'; let s = String(ln[0] || ''); x.fillText(s, 72, yy + 38);
+x.font = '800 28px system-ui'; x.fillStyle = '#fff'; let n = String(ln[1] || ''); while (x.measureText(n).width > 640 && n.length > 3) n = n.slice(0, -2) + '…'; x.fillText(n, 160, yy + 38);
+x.textAlign = 'right'; x.fillStyle = '#22d3ee'; x.font = '900 28px system-ui'; x.fillText(String(ln[2] || ''), 1010, yy + 38); });
+x.textAlign = 'left'; await window.shareCanvas(c, fname, text);
+};
+window.shareLinkOf = (uid, v, extra) => `https://sinlessgg.com/?ml=${encodeURIComponent(uid)}&v=${v}${extra ? '&t=' + encodeURIComponent(extra) : ''}`;
+window.shareLinkGo = async function (url, title) {
+try { if (navigator.share) { await navigator.share({ title, text: `${title} on SINLESS GG`, url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+try { await navigator.clipboard.writeText(url); showToast('🔗 Link copied'); } catch (e) { window.sgPrompt && window.sgPrompt('Copy this link', { title: '🔗 Link', defaultValue: url, okText: 'Done' }); }
+};
+window.shareBar = (pic, link) => `<div data-shbar class="grid grid-cols-2 gap-2 pt-1"><button onclick="${pic}" class="py-2.5 rounded-xl bg-gg-900 border border-amber-500/40 text-amber-300 text-[11px] font-black">📲 Share picture</button><button onclick="${link}" class="py-2.5 rounded-xl bg-gg-900 border border-magenta/30 text-magenta text-[11px] font-black">🔗 Share link</button></div>`;
+window.orgOf = (uid) => ((uid === window.uidNow() && window.myHost) ? window.myHost.org : ((window._hostDocs || {})[uid] || {}).org) || (window._mlOrgs || {})[uid] || 'SINLESS GG';
+window.sharePwrPic = function (uid) { const list = window.powerRanking(uid) || []; return window.shareLinesCard(`${window.orgOf(uid)} power ranking`, `👑 POWER RANKING · ${new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`, list.map((r, i) => [i + 1, window.dnText(r.p), r.score]), 'sinless-power-ranking.png', `👑 ${window.orgOf(uid)} power ranking ${window.shareLinkOf(uid, 'pwr')}`); };
+window.shareHofPic = async function (uid) { const T = (await window.loadTitles()).filter(x => x.hostUid === uid).sort((a, b) => (b.season || 0) - (a.season || 0)); return window.shareLinesCard(`${window.orgOf(uid)} Hall of Fame`, '📜 HALL OF FAME · CHAMPIONS', T.map(x => [`S${x.season || 1}`, `${window.dnText(x.user)} · ${String(x.title || '').replace(/ Champion$/, '')}`, '👑']), 'sinless-hall-of-fame.png', `📜 ${window.orgOf(uid)} Hall of Fame ${window.shareLinkOf(uid, 'hof')}`); };
+window.shareAwardsPic = function (id) { const t = (window.tournamentsList || []).find(x => x.id === id), body = document.getElementById('sgPanelBody'); if (!t || !body) return;
+const lines = body.innerText.split('\n').map(s => s.trim()).filter(s => s && s.length < 60 && !/Share (picture|link)|vote|Vote/.test(s)).slice(0, 18).map(s => ['🏅', s, '']);
+return window.shareLinesCard(`${window.compShort ? window.compShort(t) : t.title}${t.season ? ' · Season ' + t.season : ''}`, '🏅 SEASON AWARDS', lines, 'sinless-awards.png', `🏅 ${t.title} awards ${window.shareLinkOf(t.hostId || '', 'aw', id)}`); };
+window.openPowerRanking = (function (b) { return function (uid, ...a) { const r = b.call(this, uid, ...a); try { const body = document.getElementById('sgPanelBody'); if (body && !body.querySelector('[data-shbar]')) body.insertAdjacentHTML('beforeend', window.shareBar(`window.sharePwrPic('${escapeHTML(uid)}')`, `window.shareLinkGo(window.shareLinkOf('${escapeHTML(uid)}','pwr'), 'Power ranking')`)); } catch (e) {} return r; }; })(window.openPowerRanking);
+window.openHallOfFame = (function (b) { return async function (uid, ...a) { const r = await b.call(this, uid, ...a); try { const body = document.getElementById('sgPanelBody'); if (body && !body.querySelector('[data-shbar]')) body.insertAdjacentHTML('beforeend', window.shareBar(`window.shareHofPic('${escapeHTML(uid)}')`, `window.shareLinkGo(window.shareLinkOf('${escapeHTML(uid)}','hof'), 'Hall of Fame')`)); } catch (e) {} return r; }; })(window.openHallOfFame);
+window.openAwards = (function (b) { return async function (id, ...a) { const r = await b.call(this, id, ...a); try { const t = (window.tournamentsList || []).find(x => x.id === id), body = document.getElementById('sgPanelBody'); if (t && body && !body.querySelector('[data-shbar]')) body.insertAdjacentHTML('beforeend', window.shareBar(`window.shareAwardsPic('${escapeHTML(id)}')`, `window.shareLinkGo(window.shareLinkOf('${escapeHTML(t.hostId || '')}','aw','${escapeHTML(id)}'), 'Season awards')`)); } catch (e) {} return r; }; })(window.openAwards);
+/* the league page gets power ranking + Hall of Fame buttons; shared links open the right screen */
+window.openLeaguePage = (function (b) { return async function (uid, ...a) { const r = await b.call(this, uid, ...a); try { const body = document.getElementById('sgPanelBody'), head = body && body.firstElementChild; if (head && !body.querySelector('[data-lpx]')) head.insertAdjacentHTML('beforeend', `<div data-lpx class="grid grid-cols-2 gap-2"><button onclick="window.openPowerRanking('${escapeHTML(uid)}')" class="py-2 rounded-xl bg-gg-900 border border-amber-500/40 text-amber-300 text-[11px] font-black">👑 Power ranking</button><button onclick="window.openHallOfFame('${escapeHTML(uid)}')" class="py-2 rounded-xl bg-gg-900 border border-amber-500/40 text-amber-300 text-[11px] font-black">📜 Hall of Fame</button></div>`); } catch (e) {} return r; }; })(window.openLeaguePage);
+(function shareFromLink() { try { const q = new URLSearchParams(location.search), uid = q.get('ml'), v = q.get('v'), t = q.get('t'); if (!uid || !v || !/^[A-Za-z0-9_\-]{6,64}$/.test(uid)) return;
+setTimeout(() => { if (v === 'pwr') window.openPowerRanking(uid); else if (v === 'hof') window.openHallOfFame(uid); else if (v === 'aw' && t) window.openAwards(t); }, 6500); } catch (e) {} })();
+
+window.nameMap = function () {
+const now = Date.now(); if (window._nameMapAt && now - window._nameMapAt < 15000) return window._nameMap; const M = new Map();
+(window.tournamentsList || []).forEach(t => (t.players || []).forEach(p => { if (p && window.isRealPlayer && window.isRealPlayer(p)) { M.set(String(window.dnText(p)).trim(), p); M.set(String(p).trim(), p); } }));
+(window.clansData || []).forEach(c => (c.members || []).forEach(p => { if (p) { M.set(String(window.dnText(p)).trim(), p); M.set(String(p).trim(), p); } }));
+window._nameMap = M; window._nameMapAt = now; return M;
+};
+window.linkNames = function (root) {
+if (!root || !root.querySelectorAll) return; const M = window.nameMap(); if (!M.size) return;
+const seen = window._nlSeen || (window._nlSeen = new WeakMap()), stamp = window._nameMapAt;
+root.querySelectorAll('span,b,p,td,div').forEach(el => {
+if (seen.get(el) === stamp) return; seen.set(el, stamp);   // each box is checked once (no slow-down on big tables)
+if (el.children.length || el.dataset.nl || el.closest('[data-nl],a,input,textarea,[onclick*="openUserProfileModal"],[data-user]')) return;
+const tx = (el.textContent || '').trim(); if (tx.length < 2 || tx.length > 40) return;
+const tag = M.get(tx); if (!tag) return;
+el.dataset.nl = '1'; el.style.cursor = 'pointer';
+el.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); window.openUserProfileModal(tag, ev); });
+});
+};
+(function nameObserve() {
+const ids = ['tournamentsDedicatedContainer', 'sgPanelBody', 'tourExtraBody', 'squadRoomMsgsBox'];
+let q = 0; const run = () => { q = 0; ids.forEach(id => { const el = document.getElementById(id); if (el) window.linkNames(el); }); };
+const go = () => new MutationObserver(() => { if (!q) q = requestAnimationFrame(run); }).observe(document.body, { childList: true, subtree: true });
+if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
+})();
+
+/* The Titles manager had a name list (datalist) with every gamer on SINLESS GG (thousands). Android phones freeze on a list that big
+when you touch the box and then leave it. Now: a small list of up to 6 names that matches what you type. */
+window.sgSuggest = function (inp, names) {
+if (!inp || inp._sgs) return; inp._sgs = 1; inp.removeAttribute('list'); inp.setAttribute('autocomplete', 'off');
+const box = document.createElement('div'); box.className = 'flex flex-wrap gap-1.5 mt-1'; inp.insertAdjacentElement('afterend', box);
+let tmr = 0; const draw = () => { const q = inp.value.trim().toLowerCase(); if (!q) { box.innerHTML = ''; return; }
+const A = [], B = []; for (const n of names) { const l = n.toLowerCase(); if (l === q) continue; if (l.startsWith(q)) { A.push(n); if (A.length >= 6) break; } else if (B.length < 6 && l.includes(q)) B.push(n); }
+box.innerHTML = A.concat(B).slice(0, 6).map(n => `<button type="button" data-sv="${escapeHTML(n)}" class="px-2.5 py-1 rounded-lg bg-gg-900 border border-amber-500/30 text-amber-200 text-[11px] font-bold">${escapeHTML(n)}</button>`).join(''); };
+inp.addEventListener('input', () => { clearTimeout(tmr); tmr = setTimeout(draw, 120); });
+box.addEventListener('click', (e) => { const b = e.target.closest('[data-sv]'); if (!b) return; inp.value = b.dataset.sv; box.innerHTML = ''; });
+};
+window.openTitlesManager = (function (b) {
+return async function (...a) {
+const op = window.openPanel; let names = [];
+window.openPanel = function (title, html, ...r) {
+if (typeof html === 'string') html = html.replace(/<datalist id="tmNames">([\s\S]*?)<\/datalist>/, (all, opts) => { names = [...opts.matchAll(/value="([^"]*)"/g)].map(m => { const d = document.createElement('textarea'); d.innerHTML = m[1]; return d.value; }); return ''; });
+return op.call(this, title, html, ...r);
+};
+try { return await b.apply(this, a); }
+finally { window.openPanel = op; ['tmPlayer', 'tmRunner'].forEach(id => window.sgSuggest(document.getElementById(id), names)); }
+};
+})(window.openTitlesManager);
+
+window.shareTourn = function (id) { const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return; window.shareLinkGo(window.tournLink(id), t.title || 'Tournament'); };
+
+/* A player says "I'm away for 3 days". His matches in those days go to his opponents 1–0 straight away (so nobody waits for him),
+they are NOT no-shows (no warning, no removal), and everyone sees "🌴 on break until …". Works for every league and cup of that season. */
+window.brkSeason = function (t) { // the tournaments of the same season of the same host where I play
+const me = window.me(), mine = (x) => (x.players || []).some(p => window.tagEq(p, me)) && x.status !== 'finished' && !x.deleted;
+const L = (t.hostId && t.season) ? (window.tournamentsList || []).filter(x => x.hostId === t.hostId && x.season === t.season && mine(x)) : [];
+return L.length ? L : (mine(t) ? [t] : []);
+};
+window.brkMatches = function (t, me, from, to) {
+return (t.matches || []).filter(m => { if (window.isPlayedM(m) || m.status === 'disputed') return false;
+const isMe = window.tagEq(m.p1, me) || window.tagEq(m.p2, me); if (!isMe) return false;
+const opp = window.tagEq(m.p1, me) ? m.p2 : m.p1; if (!window.isRealPlayer(opp)) return false;
+const d = window.matchDate(t, m); return d !== null && d + window.DAY > from && d < to; });
+};
+window.brkOf = function (t) { // who is on a break in this tournament right now → { tag: until }
+const out = {}, now = Date.now(); (t && t.matches || []).forEach(m => { if (m.brk && m.brk.to > now) { const k = m.brk.who; if (!out[k] || out[k] < m.brk.to) out[k] = m.brk.to; } }); return out;
+};
+window.openBreak = function (id) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+const ch = [1, 2, 3, 5, 7, 10, 14];
+window.openPanel('🌴 Take a break', `<p class="text-xs text-gray-300 mb-3">Away for some days? Tell everyone. Your matches in those days go to your opponents <b class="text-white">1–0</b> right away, so nobody has to look for you. They <b class="text-white">don't count as no-shows</b>: no warning, no removal.</p>
+<p class="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">How many days?</p>
+<div class="grid grid-cols-4 gap-2 mb-2">${ch.map(n => `<button onclick="window.brkPick('${escapeHTML(id)}',${n})" class="py-2.5 rounded-xl bg-gg-900 border border-emerald-500/40 text-emerald-300 text-xs font-black">${n} day${n > 1 ? 's' : ''}</button>`).join('')}
+<button onclick="window.brkPick('${escapeHTML(id)}',0)" class="py-2.5 rounded-xl bg-gg-900 border border-white/15 text-white text-xs font-black">Other</button></div>
+<p class="text-[10px] text-gray-500">Counts from today. Cup rounds that aren't drawn yet are not included.</p>`);
+};
+window.brkPick = async function (id, n) {
+if (!n) { const v = await window.sgPrompt('How many days will you be away? (1–30)', { title: '🌴 Take a break', defaultValue: '4', okText: 'Next' }); n = parseInt(v, 10); if (!(n >= 1 && n <= 30)) { if (v != null) showToast('Pick 1 to 30 days'); return; } }
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t) return;
+const me = window.me(), from = window.dayStartOf ? window.dayStartOf(Date.now()) : Date.now(), to = from + n * window.DAY;
+const T = window.brkSeason(t), plan = T.map(x => [x, window.brkMatches(x, me, from, to)]).filter(([, L]) => L.length), cnt = plan.reduce((s, [, L]) => s + L.length, 0);
+const until = new Date(to - 60e3).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+if (!cnt) { showToast(`🌴 You have no matches until ${until}. Enjoy your break!`); window.closePanel(); return; }
+if (!(await window.sgConfirm(`🌴 ${n}-day break (until ${until}).\n\n${cnt} match${cnt > 1 ? 'es go' : ' goes'} to your opponent${cnt > 1 ? 's' : ''} 1–0 now. This can't be undone.`, { title: 'Take a break?', okText: '🌴 Yes, take the break' }))) return;
+try {
+for (const [x, L] of plan) {
+const at = Date.now();
+L.forEach(m => { const opp = window.tagEq(m.p1, me) ? m.p2 : m.p1, p1me = window.tagEq(m.p1, me);
+Object.assign(m, { s1: p1me ? 0 : 1, s2: p1me ? 1 : 0, winner: opp, status: 'approved', forfeit: p1me ? m.p1 : m.p2, forfeitBy: '🌴 break', brk: { who: p1me ? m.p1 : m.p2, from, to, at } });
+if (x.format !== 'LEAGUE') { x.eliminated = x.eliminated || []; if (!x.eliminated.includes(m.forfeit)) x.eliminated.push(m.forfeit); try { if (typeof advanceWinnerInBracket === 'function') advanceWinnerInBracket(x, m); } catch (e) {} } });
+await window.saveTournament(x);
+L.forEach(m => { const opp = m.winner; window.notifyTag(opp, `🌴 ${window.dnText(me)} is on a ${n}-day break. Your match in ${x.title} is yours 1–0. No need to wait.`); window.tlog && window.tlog(x, { type: 'decision', mid: m.id, text: `🌴 ${me} took a ${n}-day break: ${opp} wins 1–0`, why: 'break' }); });
+if (x.host && !window.tagEq(x.host, me)) window.notifyTag(x.host, `🌴 ${window.dnText(me)} took a ${n}-day break (until ${until}) in ${x.title}. ${L.length} match${L.length > 1 ? 'es' : ''} went 1–0 to the opponents.`);
+}
+window.closePanel(); showToast(`🌴 Break saved until ${until}. See you soon!`);
+window.renderTournamentsTabDedicated && window.renderTournamentsTabDedicated();
+} catch (e) { console.warn('break', e); showToast('⚠️ Couldn’t save. Try again'); }
+};
+
+/* buttons in the tournament bar + "on break" notice */
+window.renderTournamentsTabDedicated = (function (b) {
+return function (...a) {
+const r = b.apply(this, a);
+try {
+const c = document.getElementById('tournamentsDedicatedContainer'), t = window.activeTournament, bar = c && c.querySelector('[data-v38]');
+if (bar && t && !bar.querySelector('[data-shtour]')) {
+bar.insertAdjacentHTML('afterbegin', `<button data-shtour onclick="window.shareTourn('${escapeHTML(t.id)}')" class="px-2.5 py-1 rounded-lg bg-magenta/15 text-magenta border border-magenta/40 font-black">🔗 Share</button>`);
+const me = window.isSignedIn() && window.me();
+if (me && t.status !== 'finished' && (t.players || []).some(p => window.tagEq(p, me))) bar.insertAdjacentHTML('beforeend', `<button data-brk onclick="window.openBreak('${escapeHTML(t.id)}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-black">🌴 Take a break</button>`);
+}
+const B = window.brkOf(t), ks = Object.keys(B);
+if (c && t && ks.length && !c.querySelector('[data-brkon]')) {
+const head = c.querySelector('[data-season-bar]');
+const html = `<div data-brkon class="w-full my-2 p-2.5 rounded-xl text-[11px] text-emerald-200" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.35)">🌴 On a break: ${ks.map(k => `<b class="text-white">${escapeHTML(window.dnText(k))}</b> until ${escapeHTML(new Date(B[k] - 60e3).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }))}`).join(' · ')}. Their matches in those days are already 1–0 to the opponents.</div>`;
+if (head) head.insertAdjacentHTML('afterend', html); else c.insertAdjacentHTML('afterbegin', html);
+}
+} catch (e) {}
+return r;
+};
+})(window.renderTournamentsTabDedicated);
