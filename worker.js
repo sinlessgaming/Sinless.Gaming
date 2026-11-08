@@ -4631,6 +4631,10 @@ async function mlHost(env, uid, fromApp) {
     if (st.ph === 'reg' && now >= st.closeAt) {
       if (W.length) { await w11commit(env, W); W = []; }
       const res = await mlSchedule(env, uid, h, A, st, prevT);
+      /* G18.3: not enough players yet → wait up to 2 more days ONCE, but the season still ends on the same day (it gets shorter, not later) */
+      if (res.extend && !st.ext && st.endAt - (st.startAt + 2 * MLD) >= 3 * MLD) { st.ext = 1; st.closeAt += 2 * MLD; st.startAt += 2 * MLD; [st.cupS, st.cupE] = mlCupDates(st.startAt, st.endAt, false); [st.clS, st.clE] = mlCupDates(st.startAt, st.endAt, true);
+        W.push({ path: `mlReg/${uid}_s${st.s}`, data: { closeAt: st.closeAt, startAt: st.startAt, endAt: st.endAt }, mask: ['closeAt', 'startAt', 'endAt'] });
+        W.push(mlNotif(uid, uid, 'Master League', `⏳ Only ${res.n} registered for Season ${st.s}, so registration stays open 2 more days. The season still ends on the same day.`, 'x')); notes.push('Not enough players yet: 2 more days, same end date'); break; }
       if (res.extend) { const shift = reg * MLD; ['closeAt', 'startAt', 'endAt', 'cupS', 'cupE', 'clS', 'clE'].forEach(k => { st[k] += shift; }); W.push({ path: `mlReg/${uid}_s${st.s}`, data: { closeAt: st.closeAt, startAt: st.startAt, endAt: st.endAt }, mask: ['closeAt', 'startAt', 'endAt'] });
         W.push(mlNotif(uid, uid, 'Master League', `⏳ Only ${res.n} registered for Season ${st.s}, so registration stays open ${reg} more day(s).`, 'x')); notes.push('Not enough players yet: registration extended'); break; }
       if (res.error) { notes.push(res.error); break; }
