@@ -28567,8 +28567,8 @@ window.mlRegBanner();
 window.mlRegCard = function (r, compact) {
 const mine = window.mlMine[r.id], inn = mine && !mine.out, ban = window.isSignedIn() && (r.banned || []).some(x => window.tagEq(x, window.me()));
 return `<div data-mlreg="${escapeHTML(r.id)}" class="rounded-2xl p-3 space-y-2" style="background:linear-gradient(135deg,rgba(250,204,21,.12),rgba(168,85,247,.16));border:1px solid ${r.verified ? 'rgba(34,211,238,.55)' : 'rgba(250,204,21,.35)'}">
-<div class="flex items-center gap-2"><p class="flex-1 min-w-0 text-xs font-black text-white truncate">📝 ${escapeHTML(r.org || 'Master League')} · Season ${r.season} registration</p>${r.verified ? window.OFFICIAL_BADGE : ''}</div>
-<p class="text-[10px] text-amber-100">${escapeHTML((r.comps || []).join(' · '))} · ${escapeHTML(r.game || '')}</p>
+<div class="flex items-center gap-2"><p class="flex-1 min-w-0 text-xs font-black text-white truncate">📝 Registration open · ${escapeHTML(r.org || 'Master League')} Season ${r.season}</p>${r.verified ? window.OFFICIAL_BADGE : ''}</div>
+<p class="text-[10px] text-amber-100">One registration for the whole league · ${escapeHTML(r.game || '')}. The system puts you in your division.</p>
 <p class="text-[10px] text-cyan-200">Closes in ${window.mlLeft(r.closeAt)} · season starts ${window.mlFmt(r.startAt)}</p>
 <div class="flex gap-2">${ban ? `<span class="flex-1 py-2 rounded-xl text-center text-[11px] font-black bg-gg-900 text-gray-300 border border-white/10">🚫 You sit out this season (removed 3 times). Come back next season 💪</span>` : ''}${ban ? '' : inn ? `<span class="flex-1 py-2 rounded-xl text-center text-[11px] font-black bg-emerald-500/20 text-emerald-200 border border-emerald-400/50">✅ You're in</span><button onclick="window.mlRegister('${escapeHTML(r.id)}')" class="px-3 py-2 rounded-xl bg-gg-900 border border-white/10 text-gray-300 text-[11px] font-black">Edit</button>`
 : `<button onclick="window.mlRegister('${escapeHTML(r.id)}')" class="flex-1 py-2 rounded-xl text-[11px] font-black text-slate-950" style="background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)">⚽ ${mine && mine.out ? 'I changed my mind: register' : 'Register to play'}</button>`}<button onclick="window.openLeaguePage('${escapeHTML(r.hostUid || '')}')" title="Tables & fixtures" class="px-3 py-2 rounded-xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-[11px] font-black">📊</button></div></div>`;
@@ -28588,7 +28588,7 @@ const mine = window.mlMine[rid] || {}; let last = {}; try { last = JSON.parse(lo
 const f = 'w-full mt-0.5 bg-gg-900 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-sm text-white';
 window.openPanel(`📝 ${escapeHTML(r.org || 'Master League')} · Season ${r.season}`, `
 ${r.verified ? `<p>${window.OFFICIAL_BADGE} <span class="text-[10px] text-gray-400">verified by SINLESS GG</span></p>` : ''}
-<p class="text-[11px] text-gray-300">Divisions and cups: <b class="text-white">${escapeHTML((r.comps || []).join(' · '))}</b>. Game: <b class="text-white">${escapeHTML(r.game || '')}</b>. Season starts ${window.mlFmt(r.startAt)}; fixtures are out ${window.mlFmt(r.closeAt)}.</p>
+<p class="text-[11px] text-gray-300">You don't pick a division. <b class="text-white">The system puts you in yours:</b> last season's players by their final position (with promotion and relegation), new players first come, first served. When a division is full, the next players go to the division below. You play in <b class="text-white">one division only</b>. Game: <b class="text-white">${escapeHTML(r.game || '')}</b>. Season starts ${window.mlFmt(r.startAt)}; fixtures are out ${window.mlFmt(r.closeAt)}.</p>
 <label class="block text-[10px] text-gray-400 font-bold">Your in-game name *<input id="mlIgn" maxlength="30" value="${escapeHTML(mine.ign || last.ign || '')}" placeholder="exactly as it shows in the game" class="${f}"></label>
 <label class="block text-[10px] text-gray-400 font-bold">Your in-game ID / UID *<input id="mlGid" maxlength="40" value="${escapeHTML(mine.gid || last.gid || '')}" placeholder="e.g. 123456789" class="${f}"></label>
 ${(r.regCups || []).map(c => `<label class="flex items-center gap-2 text-[11px] text-gray-200"><input type="checkbox" data-mlcup="${escapeHTML(c.id)}" ${(mine.cups || []).includes(c.id) ? 'checked' : ''} class="w-4 h-4 accent-pink-500"> 🏆 Also enter ${escapeHTML(c.name)}</label>`).join('')}
@@ -28984,3 +28984,35 @@ if (head) head.insertAdjacentHTML('afterend', html); else c.insertAdjacentHTML('
 return r;
 };
 })(window.renderTournamentsTabDedicated);
+
+/* While a Master League season is in registration, its division tournaments are not shown as "open" (nobody picks a division):
+people see the one 📝 Registration open card. The host and admins still see them. */
+window.mlRegHidden = (t) => { try { if (!t || t.status === 'finished' || window.isAppAdmin) return false; const host = t.hostId || t.hostUid; if (!host || host === window.uidNow()) return false;
+if ((window.mlRegs || []).some(r => r.hostUid === host && r.season === t.season && r.closeAt > Date.now())) return true;   // this season's registration is open
+const r = window.mlSeasonReg(t); return !!r && r !== 'closed'; } catch (e) { return false; } };
+window.tournBrowserHtml = (function (b) { return function (...a) { const L = window.tournamentsList; window.tournamentsList = (L || []).filter(t => !window.mlRegHidden(t)); try { return b.apply(this, a); } finally { window.tournamentsList = L; } }; })(window.tournBrowserHtml);
+window.scopedTourns = (function (b) { return function (...a) { return b.apply(this, a).filter(t => !window.mlRegHidden(t)); }; })(window.scopedTourns);
+/* nobody plays two divisions of the same season (Super League + Rising Stars = impossible) */
+window.otherDivOf = function (t, tag) {
+const host = t && (t.hostId || t.hostUid); if (!t || t.format !== 'LEAGUE' || !host || !t.season || !tag) return null;
+return (window.tournamentsList || []).find(x => x.id !== t.id && !x.deleted && x.format === 'LEAGUE' && (x.hostId || x.hostUid) === host && x.season === t.season && (x.players || []).some(p => window.tagEq(p, tag))) || null;
+};
+REG_MSG.otherDiv = 'Already playing in another division this season. One division per player.';
+window.registerPlayer = (function (b) { return function (t, tag, ...a) { if (window.otherDivOf(t, tag)) return 'otherDiv'; return b.call(this, t, tag, ...a); }; })(window.registerPlayer);
+window.confirmManualAddPlayer = (function (b) {
+return function (...a) {
+const ctx = window.activeManualAddContext, v = (document.getElementById('manualPlayerInput') || {}).value || '', t = ctx && (window.tournamentsList || []).find(x => x.id === ctx.tournId), o = t && window.otherDivOf(t, v.trim().replace('@', ''));
+if (o) { showToast(`⚠️ ${v.trim()} already plays in ${o.compName || o.title} this season. One division per player.`); return; }
+return b.apply(this, a);
+};
+})(window.confirmManualAddPlayer);
+window.nsReplace = (function (b) {
+return async function (p) {
+const sp = window.sgPrompt; let typed = null;
+window.sgPrompt = async (...a) => { const v = await sp(...a); typed = v; if (!v) return v; const tag = v.trim().replace(/^@/, ''), P = window.nsPlan(), S = window._ns || {};
+const inUse = P.next.flat().some(x => window.tagEq(x, tag) && !(S.out || []).some(o => window.tagEq(o, x))) || Object.values(S.repl || {}).some(x => window.tagEq(x, tag));
+if (inUse) { showToast(`⚠️ ${tag} already has a place in the league. One division per player.`); return null; } return v; };
+try { return await b.call(this, p); } finally { window.sgPrompt = sp; }
+};
+})(window.nsReplace);
+
