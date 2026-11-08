@@ -28194,7 +28194,7 @@ const check = () => { navigator.serviceWorker.getRegistration().then((r) => { if
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
 setInterval(check, 30 * 60000);
 })();
-window.SG_BUILD = 87;
+window.SG_BUILD = 88;
 
 window.tournCheck = window.tournCheck || {};
 window.tournDrop = function (id) {
@@ -28525,14 +28525,16 @@ let inout = '';
 if (st.ph === 'reg' && st.s) {
 try {
 const s = await getDocs(collection(window.db, 'mlReg', window.mlRegId(window.uidNow(), st.s), 'players')), ins = [], outs = []; s.forEach(d => { const x = d.data(); (x.out ? outs : ins).push(x.tag); });
-const prev = new Set(); (window.tournamentsList || []).filter(t => t.hostId === window.uidNow() && t.compKind === 'league' && t.season === st.s - 1).forEach(t => (t.players || []).forEach(p => { if (!/^Club_\d+$/.test(p)) prev.add(p); }));
-const lower = new Set([...ins, ...outs].map(x => String(x).toLowerCase())), none = [...prev].filter(p => !lower.has(p.toLowerCase()));
+const rd = await getDoc(doc(window.db, 'mlReg', window.mlRegId(window.uidNow(), st.s))), rg = rd.exists() ? { ...rd.data(), id: rd.id } : null;
+const keptAll = new Set(((rg && rg.keep) || []).flatMap(d => (d.tags || []).map(x => String(x).toLowerCase())));
+const fresh = ins.filter(p => !keptAll.has(String(p).toLowerCase()));
 const pill = (p, c) => `<span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-black border ${c}">${escapeHTML(window.dnText(p))}</span>`;
 inout = `<div class="glass-panel rounded-2xl p-3 border border-emerald-500/30 space-y-1.5"><p class="text-xs font-black text-white">📝 Season ${st.s}: who's in</p>
-<p class="text-[10px] text-emerald-300 font-bold">✅ In (${ins.length})</p><div class="flex flex-wrap gap-1">${ins.map(p => pill(p, 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30')).join('') || '<span class="text-[10px] text-gray-500">nobody yet</span>'}</div>
-${outs.length ? `<p class="text-[10px] text-gray-300 font-bold">❌ Out (${outs.length})</p><div class="flex flex-wrap gap-1">${outs.map(p => pill(p, 'bg-gg-900 text-gray-300 border-white/10')).join('')}</div>` : ''}
-${none.length ? `<p class="text-[10px] text-amber-300 font-bold">⏳ Last season, no answer yet (${none.length})</p><div class="flex flex-wrap gap-1">${none.map(p => pill(p, 'bg-amber-500/10 text-amber-200 border-amber-500/30')).join('')}</div>` : ''}
-<p class="text-[9px] text-gray-500">Anyone who doesn't register is out. The next team in the table moves up to take their place; newcomers start lower down.</p></div>`;
+<p class="text-[10px] text-gray-300">Last season's players keep their place (after promotion &amp; relegation), no need to register. ✕ = take someone out (retired / not playing): the next player moves up.</p>
+${rg && (rg.keep || []).length ? window.mlKeepHtml(rg, true) : '<p class="text-[10px] text-amber-300">⏳ Places are being worked out. Tap ▶ Check now.</p>'}
+<p class="text-[10px] text-emerald-300 font-bold">🆕 New players registered (${fresh.length})</p><div class="flex flex-wrap gap-1">${fresh.map(p => pill(p, 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30')).join('') || '<span class="text-[10px] text-gray-500">nobody yet</span>'}</div>
+${outs.length ? `<p class="text-[10px] text-gray-300 font-bold">❌ Said they're out (${outs.length})</p><div class="flex flex-wrap gap-1">${outs.map(p => pill(p, 'bg-gg-900 text-gray-300 border-white/10')).join('')}</div>` : ''}
+<p class="text-[9px] text-gray-500">New players fill the free spots first come, first served (top division first). Everything is final when fixtures come out.</p></div>`;
 } catch (e) {}
 }
 const card = `<div data-mlap class="glass-panel rounded-2xl p-3.5 border ${A.on ? 'border-emerald-500/40' : 'border-white/10'} space-y-2">
@@ -29082,4 +29084,14 @@ const last = (window.tournamentsList || []).filter(t => (t.hostId || t.hostUid) 
 if (last) return last.squadId === sq.id;
 return sq.ownerUid === r.hostUid;
 };
+
+window.mlOpenRegOf = (t) => { const host = t && (t.hostId || t.hostUid); return host && t.season ? (window.mlRegs || []).find(r => r.hostUid === host && r.season === t.season && r.closeAt > Date.now()) : null; };
+window.joinActiveTournament = (function (b) {
+return async function (id, ...a) {
+const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.mlOpenRegOf(t)) { if (t && (t.hostId || t.hostUid) && t.season) { await window.mlLoadRegs(); } if (!t || !window.mlOpenRegOf(t)) return b.call(this, id, ...a); }
+if (window.needSignIn && window.needSignIn('join this league')) return; return window.mlRegister(window.mlOpenRegOf(t).id);
+};
+})(window.joinActiveTournament);
+window.registerPlayer = (function (b) { return function (t, tag, ...a) { const host = t && (t.hostId || t.hostUid); if (window.mlOpenRegOf(t) && !(window.isAppAdmin || host === window.uidNow())) return 'useReg'; return b.call(this, t, tag, ...a); }; })(window.registerPlayer);
+REG_MSG.useReg = 'Use the 📝 Registration open card: the system puts you in your division.';
 
