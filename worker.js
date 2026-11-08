@@ -4564,6 +4564,19 @@ async function mlKeepWrite(env, uid, h, A, st, prevT) {
   const keep = leagues.map((c, k) => ({ id: c.id, n: c.name, size: mlInt((A.sizes || {})[c.id], 2, 40, 16), tags: tiers[k].slice(0, 60) }));
   return { path: `mlReg/${uid}_s${st.s}`, data: { keep, out: [...mlOutSet(h, st, [])].slice(0, 60), home: mlHomeOf(A, prevT, st) }, mask: ['keep', 'out', 'home'] };
 }
+/* G18.4b: while registration is open, this season's division tables already show the players who kept their place
+   (the rest are empty Club_ spots; no fixtures yet — they come out when registration closes). Only the season docs that exist (made by hand). */
+function mlKeepTables(uid, keep, st, prevT) {
+  const W = [];
+  for (const d of keep || []) {
+    const id = mlTid(uid, d.id, st.s), t = prevT.find(x => x.id === id && !x.deleted && x.status !== 'finished'); if (!t || t.auto) continue;
+    const allK = new Set((keep || []).flatMap(x => x.tags.map(mlTag))), joined = (t.players || []).filter(p => mlReal(p) && !allK.has(mlTag(p)));   // people who joined this table directly stay
+    const players = d.tags.concat(joined).slice(0, Math.max(d.size, d.tags.length + joined.length)); for (let i = 1; players.length < d.size; i++) players.push('Club_' + i);
+    if (JSON.stringify(t.players || []) === JSON.stringify(players) && !(t.matches || []).length) continue;
+    W.push({ path: `tournaments/${id}`, data: { players, matches: [], maxPlayers: players.length }, mask: ['players', 'matches', 'maxPlayers'], ts: ['updatedAt'], pre: t._ut ? { ut: t._ut } : undefined });
+  }
+  return W;
+}
 /* ⚽ close registration: places, fixtures, cups, Champions League */
 async function mlSchedule(env, uid, h, A, st, prevT) {
   const rid = `${uid}_s${st.s}`, banned = new Set((st.ban0 || []).map(mlTag)), raw0 = await mlListPlayers(env, rid), outSet = mlOutSet(h, st, raw0), all0 = raw0.filter(x => x && x.tag && !x.out && x.uid && !outSet.has(mlTag(x.tag)));
@@ -4682,7 +4695,7 @@ async function mlHost(env, uid, fromApp) {
     }
     break;
   }
-  if (st.ph === 'reg') { try { W.push(await mlKeepWrite(env, uid, h, A, st, prevT)); } catch (e) {} }
+  if (st.ph === 'reg') { try { const kw = await mlKeepWrite(env, uid, h, A, st, prevT); W.push(kw); W.push(...mlKeepTables(uid, kw.data.keep, st, prevT)); } catch (e) {} }
   /* cups whose time is over */
   const keep = [];
   for (const p of (st.pend || [])) { if (now < p.at) { keep.push(p); continue; } const t = prevT.find(x => x.id === p.id); if (t) await mlFinish(env, uid, h, t, notes); }
