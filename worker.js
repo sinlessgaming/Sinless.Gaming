@@ -66,6 +66,13 @@ export default {
       return json({ ok: true });
     }
 
+    // 🏛️ G18 Master League autopilot: one host per request (started by the hourly run below)
+    if (url.pathname === '/mlrun' && req.method === 'POST') {
+      if (!env.FIREBASE_SERVICE_ACCOUNT || req.headers.get('X-Key') !== sa(env).private_key_id) return json({ ok: false }, 403);
+      let body = {}; try { body = await req.json(); } catch (e) {}
+      if (body.uid) ctx.waitUntil(mlHost(env, String(body.uid)).catch(() => {}));
+      return json({ ok: true });
+    }
     // evening gaming-streak reminders, also sent in small batches
     if (url.pathname === '/remindgame' && req.method === 'POST') {
       if (!env.FIREBASE_SERVICE_ACCOUNT || req.headers.get('X-Key') !== sa(env).private_key_id) return json({ ok: false }, 403);
@@ -389,6 +396,8 @@ export default {
     if (cron.startsWith('4-59/5')) { ctx.waitUntil(w11cron(env).catch(() => {})); return; }
     // 📺 videos: their own schedule "2-59/5 * * * *" (40 channels a run); without it, the news run checks 12 channels too
     if (cron.startsWith('2-59/5')) { ctx.waitUntil((async () => { const g = await goalsRun(env).catch(() => 0); await vidsRun(env, ctx, g ? 24 : 36).catch(() => {}); })()); return; }   // ⚽ v60 goal alerts first, then videos
+    // 🏛️ G18: once an hour (minutes 30–34) the 5-minute run does the Master League autopilot instead of the news (its own full budget)
+    if (cron.startsWith('*/5')) { const mm = new Date(event.scheduledTime || Date.now()).getUTCMinutes(); if (mm >= 30 && mm < 35) { ctx.waitUntil(mlCron(env).catch(() => {})); return; } }
     if (cron.includes('/5') || cron.includes('/10')) ctx.waitUntil(confessRun(env).catch(() => {}));   // 🤫 daily question + GG AI replies
     if (cron.includes('/5') || cron.includes('/10')) { ctx.waitUntil(newsRun(env, ctx).then(async () => { const d = await getDocument(env, CH_DOC).catch(() => null); const st = (() => { try { return JSON.parse((d && d.st) || '{}'); } catch (e) { return {}; } })(); if (!st.last || Date.now() - st.last > 12 * 60000) await vidsRun(env, ctx, 12); }).catch(() => {})); return; }
     if (new Date(event.scheduledTime || Date.now()).getUTCHours() >= 15) ctx.waitUntil(streakReminders(env).catch(() => {}));
@@ -2859,6 +2868,7 @@ async function xpGrant(env, uid, events) {
 // ⚽ v60 GOAL ALERTS — big matches only, sent to everyone who has match alerts on (topic "n_goals"), even with the app closed.
 // Uses ESPN's public scoreboard; max 8 matches a day so nobody gets spammed.
 // =====================================================================
+// G18: big matches = kick-off, every goal and full time, to everyone with alerts on (on by default once notifications are allowed)
 const GOAL_LEAGUES = ['uefa.champions', 'uefa.europa', 'eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'fifa.world', 'caf.nations', 'caf.champions'];
 const GOAL_ALWAYS = /^(uefa\.champions|fifa\.world|caf\.nations)$/;
 const GOAL_BIG = /arsenal|chelsea|liverpool|manchester|man utd|man city|tottenham|newcastle|real madrid|barcelona|atl[eé]tico|bayern|dortmund|leverkusen|juventus|inter|milan|napoli|roma|psg|paris saint|marseille|monaco|benfica|porto|sporting|ajax|celtic|galatasaray|al ahly|zamalek|mamelodi|esp[eé]rance|wydad|raja/i;
@@ -2881,7 +2891,9 @@ async function goalsRun(env) {
       if (!big) return;
       if (st8 === 'in') liveAny = 1;
       const sc = `${hm.score || 0}-${aw.score || 0}`, prev = st.m[ev.id];
-      if (!prev) { if (st.n >= 8 || st8 !== 'in') return; st.n++; st.m[ev.id] = { s: sc }; if (sc !== '0-0') return; return; }   // first time we see it: remember, no alert (we may have missed the moment)
+      const clk = parseInt(((ev.status || {}).displayClock || '').replace(/[^0-9]/g, ''), 10);
+      if (!prev) { if (st.n >= 10 || st8 !== 'in') return; st.n++; st.m[ev.id] = { s: sc }; if (sc === '0-0' && !(clk > 12)) pushes.push(['🔥 Big match kick-off', `${hn} vs ${an} has started. Follow it live on SINLESS GG`, ev.id + 'ko']); return; }   // G18: first time we see it near the start: kick-off alert (later: just remember it)
+      if (st8 === 'post' && !prev.ft) { prev.ft = 1; prev.s = sc; pushes.push(['🏁 Full time', `${hn} ${sc.replace('-', '–')} ${an}`, ev.id + 'ft']); return; }   // G18: full-time alert
       if (prev.s === sc || st8 !== 'in') { prev.s = sc; return; }
       const [h1, a1] = prev.s.split('-').map(Number), [h2, a2] = sc.split('-').map(Number); prev.s = sc;
       if (h2 + a2 <= h1 + a1) return;                                                  // only when a goal is added (not VAR take-backs)
@@ -2998,7 +3010,7 @@ const oplayer = function (id, S) {
    a{S}x{slot}x{n}  = player sold in the market (born in season S)
    y{S}x{club}x{k}  = one of the 15 youngsters a club sees in its youth draft in season S
    L{S}x{no}        = the 150-OVR wonder given to Pioneer #no (1–50). Only 50 can ever exist. */
-const NEW_RE = /^([aybL])(\d+)x(\d+)(?:x(\d+))?$/;
+const NEW_RE = /^([aybLw])(\d+)x(\d+)(?:x(\d+))?$/;
 const isNew = (id) => NEW_RE.test(String(id));
 const POS15 = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD', 'GK'];
 const LEG_POS = ['FWD', 'MID', 'FWD', 'DEF', 'MID', 'FWD', 'MID', 'DEF', 'FWD', 'GK'];
@@ -3012,7 +3024,7 @@ const legAttrs = (r, pos) => {
 };
 /* G12 market lots ('b'): any position, picked from the lot (not the slot) */
 const POSB = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD', 'FWD'];
-const posOfNew = (m) => m[1] === 'L' ? LEG_POS[Number(m[3]) % 10] : m[1] === 'b' ? POSB[hash('pb:' + m[0]) % 16] : POS15[Number(m[1] === 'a' ? m[3] : m[4]) % 15];
+const posOfNew = (m) => m[1] === 'L' ? LEG_POS[Number(m[3]) % 10] : (m[1] === 'b' || m[1] === 'w') ? POSB[hash('pb:' + m[0]) % 16] : POS15[Number(m[1] === 'a' ? m[3] : m[4]) % 15];
 /* the player as he is in his first season (g = 0), or the 17-year-old who replaces him after he retires (g > 0) */
 const nbase = function (id, gid, g) {
   const m = NEW_RE.exec(id), k = m[1], r = rng(hash(WORLD + ':n:' + gid)), nm = named(r), pos = posOfNew(m), num = 21 + hash(gid + ':num') % 70;
@@ -3032,6 +3044,7 @@ const nbase = function (id, gid, g) {
     pot = wk ? 91 + Math.floor(r() * 7) : age < 27 ? clamp(ovr + 3 + Math.floor(r() * 14), ovr, 94) : ovr;
   }
   if (k === 'b') return bplayer(id, k, nm, pos, r, num);
+  if (k === 'w') return wplayer(id, k, nm, pos, r, num);
   return { id, k, ...nm, pos, age, ovr, pot, wk, ...attrs(r, pos, ovr), num };
 };
 /* G12: market players with heavy variety: every age 16–35, OVR 42–93, and a profile that makes him special
@@ -3050,6 +3063,18 @@ const bplayer = function (id, k, nm, pos, r, num) {
   for (const q in P) A[q] = clamp(Math.round(A[q] + P[q] * sp), 25, 99);
   return { id, k, ...nm, pos, age, ovr, pot, wk, ...A, num };
 };
+/* G18 demo market ('w', from MK_T3): the whole range, OVR 35 to 110. Over 99 the stats go past 99 too (like the legends, but far below 150). */
+const WMAX = 110, WMIN = 35;
+const wplayer = function (id, k, nm, pos, r, num) {
+  const age = 16 + Math.floor(r() * 20), x = r();
+  let ovr = x < 0.14 ? 35 + Math.floor(r() * 15) : x < 0.38 ? 50 + Math.floor(r() * 15) : x < 0.64 ? 65 + Math.floor(r() * 13) : x < 0.85 ? 78 + Math.floor(r() * 12) : x < 0.96 ? 90 + Math.floor(r() * 10) : 100 + Math.floor(r() * 11);
+  if (age <= 18) ovr = Math.min(ovr, 58 + (age - 16) * 8); if (age >= 34) ovr = Math.max(WMIN, ovr - (age - 33) * 3);
+  let wk = false; if (age <= 19 && r() < 0.08) { wk = true; ovr = 62 + Math.floor(r() * 14); }
+  const pot = wk ? 98 + Math.floor(r() * 13) : age < 27 ? clamp(ovr + 2 + Math.floor(r() * (age < 22 ? 24 : 12)), ovr, WMAX) : ovr;
+  const A = attrs(r, pos, Math.min(ovr, 99)), P = B_PROF[pos][Math.floor(r() * B_PROF[pos].length)], sp = 0.8 + r() * 0.7, top = Math.max(0, ovr - 99);
+  for (const q in A) { if (pos !== 'GK' && q === 'gk') continue; A[q] = clamp(Math.round(A[q] + (P[q] || 0) * sp + top * 1.1), 25, 120); }
+  return { id, k, ...nm, pos, age, ovr, pot, wk, ...A, num };
+};
 const nplayer = function (id, S) {
   const m = NEW_RE.exec(id), S0 = Number(m[2]); S = Math.max(S0, Math.floor(S || 1));
   let s = S0, g = 0, gid = String(id), p = nbase(id, gid, 0), a0 = p.age;
@@ -3063,8 +3088,8 @@ const nplayer = function (id, S) {
   if (p.legend) return { ...p, ci: -1, slot: -1, gid, gen: g, age };
   let d = 0;
   for (let y = a0; y < age; y++) { const st = grow(y) + (p.wk && y < 22 ? 2 : 0) + (hash(gid + ':g' + y) % 3) - 1; d += st > 0 ? Math.max(0, Math.min(st, p.pot - p.ovr - d)) : st; }
-  const sh = (v) => clamp(v + d, 25, 99);
-  return { ...p, ci: -1, slot: -1, gid, gen: g, age, ovr: clamp(p.ovr + d, 40, 97), pac: sh(p.pac), sho: sh(p.sho), pas: sh(p.pas), dri: sh(p.dri), def: sh(p.def), gk: p.pos === 'GK' ? sh(p.gk) : p.gk };
+  const W8 = p.k === 'w' && g === 0, sh = (v) => clamp(v + d, 25, W8 ? 120 : 99);
+  return { ...p, ci: -1, slot: -1, gid, gen: g, age, ovr: W8 ? clamp(p.ovr + d, WMIN, WMAX) : clamp(p.ovr + d, 40, 97), pac: sh(p.pac), sho: sh(p.sho), pas: sh(p.pas), dri: sh(p.dri), def: sh(p.def), gk: p.pos === 'GK' ? sh(p.gk) : p.gk };
 };
 const player = (id, S) => isNew(id) ? nplayer(String(id), S) : oplayer(id, S);
 /* 💰 what a player is worth (plain multiplication only, so phones and the worker agree) */
@@ -3089,7 +3114,12 @@ const MK_N = 15, MK_LEN = 60000, MK_EXT = 10000, MK_AI = 3000;
 const MK_T2 = Date.UTC(2026, 10, 6, 0, 0), MK_LEN2 = 150000;
 const mkLen = (st) => st >= MK_T2 ? MK_LEN2 : MK_LEN;
 const lotT0 = (i) => EPOCH0 + i * 4000;
-const lotPid = (i, n, st) => (st >= MK_T2 ? 'b' : 'a') + clock(st).s + 'x' + i + 'x' + n;
+/* G18: from MK_T3 the market sells 'w' players (OVR 35–110). MK_T3 comes from w11meta/season.mk3, which the NEW worker sets
+   (a whole hour ahead) the first time it runs, so phones and the worker always switch at the same moment. */
+let MK_T3 = Infinity;
+const setMk3 = (ms) => { ms = Number(ms) || 0; if (ms > Date.UTC(2026, 10, 1) && ms < Date.UTC(2040, 0, 1)) MK_T3 = ms; return MK_T3; };
+const mk3 = () => MK_T3;
+const lotPid = (i, n, st) => (st >= MK_T3 ? 'w' : st >= MK_T2 ? 'b' : 'a') + clock(st).s + 'x' + i + 'x' + n;
 const stepOf = (p) => Math.max(500, r500(p * 0.05));
 const lotInfo = (i, n, st) => {
   const pid = lotPid(i, n, st), p = player(pid, clock(st).s), v = value(p), start = Math.max(1000, r500(v * 0.4)), r = rng(hash('mkai:' + pid));
@@ -3447,6 +3477,22 @@ const nameProblem = (n) => { const raw = String(n || '').normalize('NFC').replac
   return ''; };
 const rnMap = (club, ids, S) => { const o = {}, R = (club && club.rn) || {}; for (const id of (ids || []).slice(0, 18)) { const g = gidOf(id, S), r = R[g]; if (r && r.n) o[g] = { n: String(r.n).slice(0, 24), c: String(r.c || '').slice(0, 4) }; } return o; };
 const cleanPName = (n) => String(n || '').normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, 24);
+/* G18 🌍 club nation: every player of a club gets a made-up name from his club's country (same answer on every phone and in the worker) */
+const NAT_CULT = (() => { const o = {}, put = (k, L) => L.split(' ').forEach(c => { o[c] = k; });
+  put('gh', 'GH'); put('ng', 'NG'); put('ea', 'KE UG TZ RW ET BI SS SO ER DJ'); put('za', 'ZA BW NA ZW ZM LS SZ MW');
+  put('fr', 'FR SN CI ML CM BF GN NE TG BJ GA CG CD CF TD MG KM GW GM SL LR MU'); put('ar', 'MA DZ TN EG LY SA AE QA KW BH OM JO IQ SY LB YE SD MR PS');
+  put('cn', 'CN TW HK SG MY'); put('jp', 'JP'); put('kr', 'KR KP'); put('in', 'IN PK BD LK NP AF MV BT');
+  put('en', 'GB EN SC2 WA NIR US CA AU NZ IE'); put('es', 'ES AD'); put('pt', 'PT BR AO MZ CV ST TL'); put('it', 'IT SM MT'); put('de', 'DE AT CH LI LU');
+  put('nl', 'NL BE'); put('ee', 'PL HR RS RO CZ SK UA RU BG SI BA ME MK HU AL BY LT LV EE MD XK GR CY GE AM');
+  put('la', 'MX AR CO CL PE UY VE EC PY BO CR HN GT SV NI PA CU DO PR'); put('ca', 'JM TT HT BB BS GY SR LC VC GD AG DM KN BZ'); put('tr', 'TR AZ KZ UZ TM KG');
+  return o; })();
+const natCult = (cc) => NAT_CULT[String(cc || '').toUpperCase()] || 'en';
+const natName = (gid, cc) => {
+  const C = CULT[natCult(cc)], F = C[1].split(' '), L = C[2].split(' '), r = rng(hash(WORLD + ':nat:' + gid + ':' + String(cc).toUpperCase()));
+  const first = pick(r, F); let li = Math.floor(r() * L.length);
+  for (let k = 0; k < L.length; k++) { const n = first + ' ' + L[(li + k) % L.length]; if (!REAL_NAMES.has(n.toLowerCase()) && !nameProblem(n)) return n; }
+  return first + ' ' + L[li];
+};
 
 /* ===================== 🌍 G6 · zones, climate + weather, touchline managers, balls ===================== */
 /* climate: 0 temperate north, 1 temperate south, 2 tropical, 3 dry/desert, 4 cold north (phone picks it from its time zone name) */
@@ -3506,7 +3552,7 @@ const ballOf = (kind, S, fin) => ({ kind: fin ? 'final' : kind, d: hash('ball:' 
 /* G6: league + cup kick-off times are listed per GMT day in w11kt/{day} (the lock reads only that small doc) */
 const ktDay = (t) => Math.floor(Number(t) / DAY);
 
-return { ZONES, ZONE_NAME, ZONE_FLAG, ZONE_OF, cleanOf, zoneOf, NG, X6, zoneOfG, extraG, groupNo, aiZone, fairKo, cupId, cupOfs, CLIM_NAME, climOk, aiClim, climFromTz, WX_KINDS, WX_NAME, seasonOf, wxOf, wxFx, wxLabel, MGR_LIMITS, MGR_FIT, mgrOf, cleanMgr, ballOf, ktDay,  rnMap, DPOS, DLINE, DPOS_NAME, dpOf, canLearn, LEARN_MAX, LEARN_FAST, LEARN_FAST_DAYS, learnDays, gidOf, knownPos, learnedMap, posFit, COUNTRIES, nameProblem, cleanPName, normName, FAMOUS, EPOCH0, ENGINE, setEpoch, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_LEN2, MK_T2, mkLen, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, FP_X, FP_Y, FP_N, fpSpot, fpOk, fpClean, fpForm, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
+return { ZONES, ZONE_NAME, ZONE_FLAG, ZONE_OF, cleanOf, zoneOf, NG, X6, zoneOfG, extraG, groupNo, aiZone, fairKo, cupId, cupOfs, CLIM_NAME, climOk, aiClim, climFromTz, WX_KINDS, WX_NAME, seasonOf, wxOf, wxFx, wxLabel, MGR_LIMITS, MGR_FIT, mgrOf, cleanMgr, ballOf, ktDay,  rnMap, DPOS, DLINE, DPOS_NAME, dpOf, canLearn, LEARN_MAX, LEARN_FAST, LEARN_FAST_DAYS, learnDays, gidOf, knownPos, learnedMap, posFit, COUNTRIES, nameProblem, cleanPName, normName, FAMOUS, EPOCH0, ENGINE, setEpoch, setMk3, mk3, WMAX, WMIN, natCult, natName, epoch, OC_FIRST, CL_FIRST, cupOn, CUP_TIMES, cupKoAt, TOK, COLORS, SHAPES, SYMS, PATS, BANDS, cleanKit, cleanCrest, STAFF, PHYSIO_REC, SCOUT_N, hasStaff, STD_SEATS, STD_TICKET, STD_COST, stdLv, SP_KINDS, spOffers, spOf, matchExtra, OC_DAYS, CL_DAYS, CL_GR, CUP_GAP, CUP_FIRST, OC_WIN, CL_WIN, CL_DRAW, CUP_PRIZE, CUP_NAME, cupDays, cupDay, cupKo, cupAiKo, cupMid, isCupDay, isKO, seat, cupUser, roundName, pens, cupScore, cupWin, winSide, cupStr, cupResStr, cupCoins, clTable, cupPairs, cupQuick, cupKoOf, ocBracket, clGroups, r500, NEW_RE, isNew, POS15, LEGEND_OVR, MAX_SQUAD, MIN_SQUAD, PLAYABLE, PIONEERS, nplayer, oplayer, value, releaseValue, youthIds, legendId, MK_N, MK_LEN, MK_LEN2, MK_T2, mkLen, MK_EXT, MK_AI, lotT0, lotPid, stepOf, lotInfo, lotEff, lotCur, absDay, REC, DRAIN, AI_COND, TR_MAX, PACK_FIT, condNow, FORM_NAMES, FP_X, FP_Y, FP_N, fpSpot, fpOk, fpClean, fpForm, sheetOf, aiSheet, ENGINE_TICKS, parseRes, RES_RE, WORLD, hash, rng, pick, clamp, CULT, POS_TEMPLATE, club, base, youth, player, squadIds, avg, DAY, EPOCH, SDAYS, MDS, SLOTS, AI_HOUR, MATCH_MS, clock, dayStart, ko, aiKo, TIER_START, groupsIn, gkey, initClubs, pairs, mid, quick, seatClub, isUserAt, strength, result, table, UP, DOWN, parentOf, childrenOf, nextClubs, winCoins, drawCoins, prize, PROMO_BONUS };
 })();
 // =====================================================================
 // ⚽ G2 · 11 WONDERS LEAGUE (worker side). The worker never plays matches (too heavy for the free plan).
@@ -3570,6 +3616,7 @@ async function w11commit(env, writes) {
     const tr = [];
     for (const k in (w.inc || {})) tr.push({ fieldPath: k.split('.').map(w11fp).join('.'), increment: w11v(w.inc[k]) });
     for (const k in (w.push || {})) tr.push({ fieldPath: w11fp(k), appendMissingElements: { values: w.push[k].map(w11v) } });
+    for (const k of (w.ts || [])) tr.push({ fieldPath: w11fp(k), setToServerValue: 'REQUEST_TIME' });
     if (tr.length) o.updateTransforms = tr;
     return o;
   }) };
@@ -3890,6 +3937,7 @@ async function w11route(req, env, ctx, url, json) {
   if (tooFast('w11:' + uid, 30, 60000)) return json({ ok: false, error: 'slow down' }, 429);
   let b = {}; if (req.method === 'POST') { try { b = await req.json(); } catch (e) {} }
   const p = url.pathname; await w11epoch(env);
+  const g18 = await w11g18route(p, env, uid, b); if (g18) return json(g18);
   const g5 = await w11g5route(p, env, uid, b); if (g5) return json(g5);
   const g4c = await w11g4croute(p, env, uid, b); if (g4c) return json(g4c);
   const g6 = await w11g6route(p, env, uid, b); if (g6) return json(g6);
@@ -4230,7 +4278,12 @@ let W11EP = { at: 0, ep: 0 };
 async function w11epoch(env, force) {
   if (!force && Date.now() - W11EP.at < 60000) return W11EP.ep;
   const m = await w11get(env, W11_META); const ep = Number(m && m.data && m.data.ep) || 0; W11EP = { at: Date.now(), ep };
-  if (ep) C11.setEpoch(ep); return ep;
+  if (ep) C11.setEpoch(ep);
+  /* G18: the 'w' market (OVR 35–110) starts at w11meta/season.mk3. The first new worker sets it a whole hour ahead, so every phone learns it in time. */
+  let mk = Number(m && m.data && m.data.mk3) || 0;
+  if (!mk && m) { mk = Math.ceil((Date.now() + 1800000) / 3600000) * 3600000; try { await w11commit(env, [{ path: W11_META, data: { mk3: mk }, mask: ['mk3'] }]); } catch (e) {} }
+  if (mk) C11.setMk3(mk);
+  return ep;
 }
 /* set-piece takers: captain, penalties, free kicks, corners (must be in the squad) */
 async function w11takers(env, uid, b) {
@@ -4307,7 +4360,7 @@ async function w11rename(env, uid, b) {
   const c = cd.data, id = String(b && b.id || ''), S = C11.clock(Date.now()).s;
   if (!(c.ids || []).includes(id)) return { ok: false, error: 'Not your player' };
   const p = C11.player(id, S), g = (p && p.gid) || id, rn = Object.assign({}, c.rn || {});
-  if (rn[g]) return { ok: false, error: 'This player was already renamed (once only)' };
+  if (rn[g] && !rn[g].a) return { ok: false, error: 'This player was already renamed (once only)' };
   const n = C11.cleanPName(b && b.n), bad = C11.nameProblem(n); if (bad) return { ok: false, error: bad };
   const cc = String(b && b.c || '').toUpperCase(); if (!C11.COUNTRIES.includes(cc)) return { ok: false, error: 'Pick a country' };
   rn[g] = { n, c: cc };
@@ -4345,4 +4398,298 @@ async function w11g6route(p, env, uid, b) {
   if (p === '/w11/tz') return await w11tz(env, uid, b);
   if (p === '/w11/mgr') return await w11mgr(env, uid, b);
   return null;
+}
+// =====================================================================
+// ⚽ G18 · 11 WONDERS DEMO
+// - /w11/nation {c}: your club's country. Your home-grown players (first squad + youth draft) get made-up names from that country
+//   (market players stay from all over the world)
+//   (C11.natName), with the country's flag. Names you changed yourself (✏️ rename) are kept.
+//   Call it again with no country after new players join, and they get names from your country too.
+//   The auto names are marked a:1, so you can still rename those players once yourself.
+//   The country is kept in rn._nat (rn is worker-only and every phone already reads it).
+// - /w11/demo: the demo wallet: 💎 10,000,000 · 🪙 5,000,000 · ⚡ 1,000,000 · 🩹 1,000,000. Filled up again once a day (only ever raised, never lowered).
+// =====================================================================
+/* home-grown = the club's first squad ("club-slot", and the 17-year-olds who replace them) and youth-draft players ('y…'). Market players ('a', 'b', 'w') keep their own country. */
+const w18home = (id) => /^\d+-\d+$/.test(String(id)) || /^y\d/.test(String(id));
+const W18_DEMO = { coins: 10000000, gems: 5000000, energy: 1000000, med: 1000000 };
+async function w11nation(env, uid, b) {
+  const cd = await w11get(env, `w11Clubs/${uid}`); if (!cd) return { ok: false, error: 'no club' };
+  const c = cd.data, rn = Object.assign({}, c.rn || {}), S = C11.clock(Date.now()).s;
+  let cc = String((b && b.c) || '').toUpperCase();
+  if (!cc) cc = String((rn._nat && rn._nat.c) || '');
+  if (!C11.COUNTRIES.includes(cc)) return { ok: false, error: 'Pick a country' };
+  const same = rn._nat && rn._nat.c === cc; let n = 0;
+  for (const id of (c.ids || [])) {
+    if (!w18home(id)) continue;                        // market players stay from all over the world
+    const p = C11.player(id, S); if (!p || p.legend) continue;
+    const g = p.gid || id, cur = rn[g];
+    if (cur && !cur.a) continue;                        // the manager renamed this one himself
+    if (cur && cur.a && same && cur.c === cc) continue;  // already done
+    rn[g] = { n: C11.natName(g, cc), c: cc, a: 1 }; n++;
+  }
+  if (same && !n) return { ok: true, rn, n: 0 };
+  rn._nat = { c: cc };
+  const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { rn }, mask: ['rn'], pre: { ut: cd.ut } }]);
+  return ok ? { ok: true, rn, n } : { ok: false, error: 'try again' };
+}
+async function w11demo(env, uid) {
+  const cd = await w11get(env, `w11Clubs/${uid}`); if (!cd) return { ok: false, error: 'no club' };
+  const c = cd.data, rn = Object.assign({}, c.rn || {});
+  if (rn._d18 && Date.now() - (Number(rn._d18.at) || 0) < 86400000) return { ok: true, done: 1, coins: c.coins, gems: c.gems, energy: c.energy, med: c.med };
+  const up = {}; for (const k in W18_DEMO) up[k] = Math.max(Number(c[k]) || 0, W18_DEMO[k]);
+  rn._d18 = { at: Date.now() };
+  const ok = await w11commit(env, [{ path: `w11Clubs/${uid}`, data: { ...up, rn }, mask: ['coins', 'gems', 'energy', 'med', 'rn'], pre: { ut: cd.ut } }]);
+  return ok ? { ok: true, ...up } : { ok: false, error: 'try again' };
+}
+async function w11g18route(p, env, uid, b) {
+  if (p === '/w11/nation') return await w11nation(env, uid, b || {});
+  if (p === '/w11/demo') return await w11demo(env, uid);
+  if (p === '/w11/mlnow') return await mlHost(env, uid, true);
+  return null;
+}
+// =====================================================================
+// 🏛️ G18 · MASTER LEAGUE AUTOPILOT (runs every hour, with or without the host)
+// hosts/{uid}.auto  = the host's settings (written by the app): on, days, reg, sched, sizes, h2h, cup modes, game, prize, rules, squad, first, s0, off
+// hosts/{uid}.ml    = where the season is (written ONLY here): s, ph (wait → reg → live), regAt, closeAt, startAt, endAt, cupS, cupE, clS, clE, rem, pend
+// mlReg/{uid}_s{N}  = the registration (status open/closed); mlReg/…/players/{uid} = { uid, tag, ign, gid, cups, out } written by each player
+// Season timeline (host's own midnight): registration opens the day after the league ends → closes `sched` h before the start (fixtures out)
+//   → league `days` days → Open Cup from day 3 to 2 days before the league ends → Champions League after the cup until 2 days after the league
+//   → reminder to the host 2 days before the end → champions, titles and season news → next registration.
+// Places: last season's divisions after promotion/relegation, only people who registered; empty places are filled by the next best from the
+// division below (and so on); newcomers come in after everyone who was already in the league. A division with fewer than 3 joins the one above.
+// =====================================================================
+const MLD = 86400000, MLH = 3600000;
+const mlInt = (v, lo, hi, d) => { v = Math.round(Number(v)); return v >= lo && v <= hi ? v : d; };
+const mlDay0 = (t, off) => Math.floor((t + (off || 0) * 60000) / MLD) * MLD - (off || 0) * 60000;
+const mlTag = (p) => String(p || '').toLowerCase();
+const mlReal = (p) => p && !/^Club_\d+$/.test(p) && p !== 'Open Spot' && p !== 'TBD' && p !== '__BYE__';
+function mlCupDates(start, end, isCL) {
+  const days = Math.max(1, Math.round((end - start) / MLD) + 1), cupS = days >= 8 ? start + 2 * MLD : start, cupE = Math.max(cupS + MLD - 60000, end - 2 * MLD);
+  if (!isCL) return [cupS, cupE];
+  const clE = end + 2 * MLD, gap = Math.max(1, Math.round((clE - cupS) / MLD / 4)), clS = Math.min(Math.max(cupS + MLD, cupS + gap * MLD), end);
+  return [clS, clE];
+}
+function mlPlan(A, s, regAt) {
+  const reg = mlInt(A.reg, 1, 5, 2), days = mlInt(A.days, 3, 90, 14), sched = [6, 12, 24].includes(Number(A.sched)) ? Number(A.sched) : 12;
+  const startAt = regAt + reg * MLD, closeAt = startAt - sched * MLH, endAt = startAt + days * MLD - 60000;
+  const [cupS, cupE] = mlCupDates(startAt, endAt, false), [clS, clE] = mlCupDates(startAt, endAt, true);
+  return { s, ph: 'wait', regAt, closeAt, startAt, endAt, cupS, cupE, clS, clE, rem: 0, pend: [] };
+}
+/* the same fixtures the app makes: everyone once (or home & away), matchdays by the circle method */
+function mlLeagueMatches(players, h2h, stamp) {
+  const ms = []; let n = 0;
+  for (let i = 0; i < players.length; i++) for (let j = i + 1; j < players.length; j++) {
+    ms.push({ id: `m_${stamp}_${n++}`, round: 1, p1: players[i], p2: players[j], s1: null, s2: null, winner: null, stage: 'League Match (Leg 1)', streamUrl: '', mvp: null, status: 'approved' });
+    if (h2h === '2x') ms.push({ id: `m_${stamp}_${n++}`, round: 1, p1: players[j], p2: players[i], s1: null, s2: null, winner: null, stage: 'League Match (Leg 2)', streamUrl: '', mvp: null, status: 'approved' });
+  }
+  const ps = [...players]; if (ps.length % 2) ps.push('__BYE__');
+  const N = ps.length, R1 = N - 1, key = (a, b) => [a, b].sort().join('\u0001'), round = {}, arr = [...ps];
+  for (let r = 0; r < R1; r++) { for (let i = 0; i < N / 2; i++) round[key(arr[i], arr[N - 1 - i])] = r + 1; arr.splice(1, 0, arr.pop()); }
+  ms.forEach(m => { const r = round[key(m.p1, m.p2)]; if (!r) return; m.leg = /leg 2/i.test(m.stage) ? 2 : 1; m.round = m.leg === 2 ? r + R1 : r; m.stage = `Matchday ${m.round}`; });
+  return ms.sort((a, b) => a.round - b.round);
+}
+function mlStage(N, round) { const k = N / Math.pow(2, round - 1); return k === 2 ? 'Final' : k === 4 ? 'Semi-Final' : k === 8 ? 'Quarter-Final' : 'Round of ' + k; }
+function mlKnockout(players, name, stamp) {
+  let N = 2; while (N < players.length) N *= 2;
+  const ms = []; for (let i = 0; i < N / 2; i++) ms.push({ id: `m_${stamp}_${i}`, round: 1, p1: players[i * 2] || 'Open Spot', p2: players[i * 2 + 1] || 'Open Spot', s1: null, s2: null, winner: null, stage: `🏆 ${name} · ${mlStage(N, 1)}`, streamUrl: '', mvp: null, status: 'approved' });
+  return { N, ms };
+}
+const mlShuffle = (L, seed) => { const a = [...L], r = C11.rng(C11.hash(String(seed))); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+/* final table: points, goal difference, goals scored (approved results only) */
+function mlOrder(t) {
+  if (t.finalOrder && t.finalOrder.length) return t.finalOrder;
+  const st = {}; (t.players || []).filter(mlReal).forEach(p => { st[p] = { p, pts: 0, gd: 0, gf: 0 }; });
+  for (const m of (t.matches || [])) {
+    if (m.status !== 'approved' || m.s1 == null || m.s2 == null || !mlReal(m.p1) || !mlReal(m.p2) || m.winner === 'NONE') continue;
+    for (const p of [m.p1, m.p2]) st[p] = st[p] || { p, pts: 0, gd: 0, gf: 0 };
+    const a = Number(m.s1), b = Number(m.s2); st[m.p1].gf += a; st[m.p2].gf += b; st[m.p1].gd += a - b; st[m.p2].gd += b - a;
+    if (a > b) st[m.p1].pts += 3; else if (b > a) st[m.p2].pts += 3; else { st[m.p1].pts++; st[m.p2].pts++; }
+  }
+  return Object.values(st).sort((x, y) => y.pts - x.pts || y.gd - x.gd || y.gf - x.gf || x.p.localeCompare(y.p)).map(x => x.p);
+}
+function mlKoWinner(t) { const ms = (t.matches || []).filter(m => m.winner && m.winner !== 'DRAW' && m.winner !== 'NONE'); if (!ms.length) return null; const top = Math.max(...(t.matches || []).map(m => m.round || 1)); const fin = ms.filter(m => m.round === top).slice(-1)[0]; return fin && /final/i.test(fin.stage || '') && !/semi|quarter/i.test(fin.stage || '') ? fin.winner : null; }
+async function mlListPlayers(env, rid) {
+  const out = []; let tok = '';
+  for (let k = 0; k < 4; k++) {
+    const r = await fetch(`${fsBase(env)}/mlReg/${rid}/players?pageSize=300${tok ? '&pageToken=' + encodeURIComponent(tok) : ''}`, { headers: { Authorization: `Bearer ${await accessToken(env)}` } });
+    if (!r.ok) break; const j = await r.json(); (j.documents || []).forEach(d => out.push(decodeFields(d.fields || {}))); tok = j.nextPageToken || ''; if (!tok) break;
+  }
+  return out;
+}
+const mlNotif = (toUid, fromUid, from, text, i) => ({ path: `notifications/ml${Date.now().toString(36)}${i}${Math.floor(Math.random() * 1e6).toString(36)}`, data: { toUid, fromUid, fromUser: from, type: 'tournament', postId: null, text: String(text).slice(0, 140), read: false }, ts: ['createdAt'] });
+const mlTid = (uid, cid, s) => `tourn_${uid.slice(0, 6)}_${cid}_s${s}`.replace(/[^\w-]/g, '_');
+const mlOrd = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
+
+/* 📝 open registration and tell last season's players */
+async function mlOpenReg(env, uid, h, A, st, prevT, W) {
+  const comps = h.comps || [], leagues = comps.filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier), cups = comps.filter(c => c.kind === 'cup' && ((A.cup || {})[c.id] || 'all') !== 'off');
+  W.push({ path: `mlReg/${uid}_s${st.s}`, data: { hostUid: uid, org: h.org || '', user: h.user || '', season: st.s, status: 'open', regAt: st.regAt, closeAt: st.closeAt, startAt: st.startAt, endAt: st.endAt, comps: leagues.map(c => c.name).concat(cups.map(c => c.name)).slice(0, 12),
+    regCups: cups.filter(c => (A.cup || {})[c.id] === 'reg').map(c => ({ id: c.id, name: c.name })), game: String(A.game || 'FC MOBILE').slice(0, 30), rules: String(A.rules || '').slice(0, 1500), squadId: A.squad || null, verified: !!h.verified, banned: (st.ban0 || []).slice(0, 100) }, ts: ['createdAt'] });
+  const uids = new Set(); prevT.filter(t => t.compKind === 'league' && t.season === st.s - 1).forEach(t => (t.playerUids || []).forEach(u => uids.add(u)));
+  [...uids].slice(0, 150).forEach((u, i) => W.push(mlNotif(u, uid, h.org || 'Master League', `📝 Registration for ${h.org || 'the Master League'} Season ${st.s} is open. Tap ✅ Register to keep your place (closes ${new Date(st.closeAt).toUTCString().slice(0, 22)} UTC).`, i)));
+}
+/* ⚽ close registration: places, fixtures, cups, Champions League */
+async function mlSchedule(env, uid, h, A, st, prevT) {
+  const rid = `${uid}_s${st.s}`, banned = new Set((st.ban0 || []).map(mlTag)), all0 = (await mlListPlayers(env, rid)).filter(x => x && x.tag && !x.out && x.uid);
+  const regs = all0.filter(x => !banned.has(mlTag(x.tag))), bannedRegs = all0.filter(x => banned.has(mlTag(x.tag)));
+  const R = {}; regs.forEach(x => { R[mlTag(x.tag)] = x; });
+  const comps = h.comps || [], leagues = comps.filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier), cups = comps.filter(c => c.kind === 'cup');
+  if (regs.length < 2 || !leagues.length) return { extend: true, n: regs.length };
+  /* last season: the latest league of each division before this season */
+  const last = leagues.map(c => prevT.filter(t => t.compId === c.id && t.compKind === 'league' && (t.season || 0) < st.s).sort((a, b) => (b.season || 0) - (a.season || 0))[0] || null);
+  const orders = last.map(t => t ? mlOrder(t).filter(mlReal) : []);
+  const next = orders.map(o => [...o]);
+  for (let k = 0; k < leagues.length - 1; k++) {
+    const up = Math.min(leagues[k + 1].promote || 0, orders[k + 1].length), down = Math.min(leagues[k].relegate || 0, orders[k].length);
+    const promoted = orders[k + 1].slice(0, up), relegated = down ? orders[k].slice(-down) : [];
+    next[k] = next[k].filter(p => !relegated.includes(p)).concat(promoted);
+    next[k + 1] = next[k + 1].filter(p => !promoted.includes(p)).concat(relegated);
+  }
+  /* removed last season (not banned): one division lower (they stay in the bottom division if there is none below) */
+  const drop = new Set((st.drop || []).map(mlTag)), minT = {};
+  for (let k = 0; k < next.length - 1; k++) { const down = next[k].filter(p => drop.has(mlTag(p))); if (down.length) { next[k] = next[k].filter(p => !drop.has(mlTag(p))); next[k + 1] = next[k + 1].concat(down); down.forEach(p => { drop.delete(mlTag(p)); minT[mlTag(p)] = k + 1; }); } }
+  /* the ladder: everyone who was in the league (division by division, best first), then newcomers in the order they registered */
+  const seen = new Set(), ladder = [];
+  next.forEach(L => L.forEach(p => { const k = mlTag(p); if (R[k] && !seen.has(k)) { seen.add(k); ladder.push(R[k]); } }));
+  regs.filter(x => !seen.has(mlTag(x.tag))).sort((a, b) => (a.at || 0) - (b.at || 0)).forEach(x => { seen.add(mlTag(x.tag)); ladder.push(x); });
+  /* fill each division from the top of the ladder; a player who dropped can't be pulled back above his new division */
+  const tiers = leagues.map(() => []);
+  leagues.forEach((c, k) => { const size = mlInt((A.sizes || {})[c.id], 2, 40, 16); for (let i = 0; i < ladder.length && tiers[k].length < size;) { if ((minT[mlTag(ladder[i].tag)] || 0) <= k) tiers[k].push(ladder.splice(i, 1)[0]); else i++; } });
+  let li = tiers.length - 1; while (li > 0 && !tiers[li].length) li--;
+  tiers[li].push(...ladder.splice(0, 8)); const waiting = ladder;
+  for (let k = tiers.length - 1; k > 0; k--) if (tiers[k].length && tiers[k].length < 3) { tiers[k - 1].push(...tiers[k]); tiers[k] = []; }
+  const W = [], placed = {}, stamp = Date.now().toString(36), base = { host: h.user || '', hostUid: uid, hostId: uid, hostOrg: h.org || '', game: String(A.game || 'FC MOBILE'), prizePool: String(A.prize || 'Bragging Rights').slice(0, 60), squadId: A.squad || null, eliminated: [], season: st.s, status: 'active', rules: String(A.rules || '').slice(0, 1500), needGameId: true, proofReq: A.proof !== false, deadlineHrs: 24, coHosts: [], coHostUids: [], verified: !!h.verified, auto: true };
+  const gidsOf = (L) => { const o = {}; L.forEach(x => { o[mlTag(x.tag)] = `${x.ign || ''} · ${x.gid || ''}`.slice(0, 40); }); return o; };
+  const made = [];
+  leagues.forEach((c, k) => {
+    const L = tiers[k]; if (L.length < 2) return; const players = L.map(x => x.tag), h2h = (A.h2h || {})[c.id] || c.h2h || '1x', id = mlTid(uid, c.id, st.s);
+    W.push({ path: `tournaments/${id}`, data: { ...base, title: `${c.name} · Season ${st.s}`, format: 'LEAGUE', leagueH2H: h2h, maxPlayers: players.length, players, playerUids: L.map(x => x.uid), matches: mlLeagueMatches(players, h2h, stamp + k), compId: c.id, compName: c.name, compKind: 'league', tier: c.tier, startAt: st.startAt, endAt: st.endAt, gameIds: gidsOf(L) }, ts: ['createdAt', 'updatedAt'], pre: { exists: false } });
+    L.forEach(x => { placed[mlTag(x.tag)] = { x, comp: c.name }; }); made.push(c.name + ' (' + players.length + ')');
+  });
+  const all = Object.values(placed).map(v => v.x);
+  cups.forEach((c, ci) => {
+    const mode = (A.cup || {})[c.id] || (/champion/i.test(c.name) ? 'qual' : 'all'); if (mode === 'off') return;
+    let L = [];
+    if (mode === 'all') L = all;
+    else if (mode === 'reg') L = all.filter(x => (x.cups || []).includes(c.id));
+    else { const q = []; leagues.forEach((lg, k) => { let from = 0; (lg.qual || []).forEach(x => { if (x.to === c.id) orders[k].slice(from, from + x.n).forEach(p => q.push(p)); from += x.n; }); });
+      if (!q.length && orders[0]) orders[0].slice(0, 4).forEach(p => q.push(p)); L = q.map(p => placed[mlTag(p)] && placed[mlTag(p)].x).filter(Boolean); }
+    if (L.length < 2) return;
+    const isCL = mode === 'qual' || /champion/i.test(c.name), [s0, e0] = isCL ? [st.clS, st.clE] : [st.cupS, st.cupE], id = mlTid(uid, c.id, st.s);
+    const ko = mlKnockout(mlShuffle(L.map(x => x.tag), id), c.name, stamp + 'c' + ci);
+    W.push({ path: `tournaments/${id}`, data: { ...base, title: `${c.name} · Season ${st.s}`, format: 'KNOCKOUT', maxPlayers: ko.N, players: L.map(x => x.tag), playerUids: L.map(x => x.uid), matches: ko.ms, compId: c.id, compName: c.name, compKind: 'cup', tier: 0, startAt: s0, endAt: e0, gameIds: gidsOf(L) }, ts: ['createdAt', 'updatedAt'], pre: { exists: false } });
+    st.pend.push({ id, at: e0 + MLD }); made.push(c.name + ' (' + L.length + ')');
+  });
+  W.push({ path: `mlReg/${rid}`, data: { status: 'closed', placed: Object.fromEntries(Object.values(placed).map(v => [mlTag(v.x.tag), v.comp])) }, mask: ['status', 'placed'] });
+  Object.values(placed).forEach((v, i) => W.push(mlNotif(v.x.uid, uid, h.org || 'Master League', `⚽ ${h.org || 'Master League'} Season ${st.s}: fixtures are out! You play in ${v.comp}. Kick-off ${new Date(st.startAt).toUTCString().slice(0, 16)}.`, 'p' + i)));
+  bannedRegs.slice(0, 40).forEach((x, i) => W.push(mlNotif(x.uid, uid, h.org || 'Master League', `🚫 You sit out ${h.org || 'the Master League'} Season ${st.s} (removed 3 times). You can come back next season 💪`, 'b' + i)));
+  waiting.slice(0, 60).forEach((x, i) => W.push(mlNotif(x.uid, uid, h.org || 'Master League', `⏳ ${h.org || 'Master League'} Season ${st.s} is full. You're first in line for next season.`, 'w' + i)));
+  for (let i = 0; i < W.length; i += 400) { const ok = await w11commit(env, W.slice(i, i + 400)); if (!ok && i === 0) return { error: 'could not save the season' }; }
+  return { ok: true, made, n: regs.length };
+}
+/* 🏁 a competition is over: champion, final table, title, everyone's news */
+async function mlFinish(env, uid, h, t, notes) {
+  if (!t || t.status === 'finished') return [];
+  const W = [], league = t.format === 'LEAGUE', order = league ? mlOrder(t) : [], champ = league ? order[0] : mlKoWinner(t);
+  W.push({ path: `tournaments/${t.id}`, data: { status: 'finished', champion: champ || null, finalOrder: league ? order : (champ ? [champ] : []), finishedAt: Date.now() }, mask: ['status', 'champion', 'finalOrder', 'finishedAt'] });
+  if (champ) W.push({ path: `titles/ml_${t.id}`, data: { tag: mlTag(champ), user: champ, title: `${t.compName || t.title} Champion`, compId: t.compId || null, compName: t.compName || t.title, season: t.season || 1, hostUid: uid, hostOrg: t.hostOrg || null, compKind: t.compKind || null, tier: t.tier || 0, format: t.format || null, game: t.game || null, runnerUp: order[1] || null, tournId: t.id }, ts: ['at'] });
+  /* season news for every player (their uid comes from the registration) */
+  const regs = await mlListPlayers(env, `${uid}_s${t.season}`), U = {}; regs.forEach(x => { if (x && x.tag) U[mlTag(x.tag)] = x.uid; });
+  const comps = (h.comps || []).filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier), k = comps.findIndex(c => c.id === t.compId);
+  (league ? order : (t.players || [])).forEach((p, i) => {
+    const u = U[mlTag(p)]; if (!u) return;
+    let txt;
+    if (champ && mlTag(p) === mlTag(champ)) txt = `👑 Congratulations! You are the ${t.compName || t.title} Champion (Season ${t.season})! 🏆`;
+    else if (league) { const up = k > 0 ? (comps[k].promote || 0) : 0, down = k >= 0 && k < comps.length - 1 ? (comps[k].relegate || 0) : 0;
+      txt = `🏁 ${t.compName} Season ${t.season} is over: you finished ${mlOrd(i + 1)} of ${order.length}.` + (up && i < up ? ` ⬆️ Promoted to ${comps[k - 1].name}!` : down && i >= order.length - down ? ` ⬇️ Relegated to ${comps[k + 1].name}.` : '') + ' Register for the next season to keep your place.'; }
+    else txt = `🏁 ${t.compName || t.title} is over.${champ ? ' Champion: ' + champ + '.' : ''}`;
+    W.push(mlNotif(u, uid, h.org || 'Master League', txt, i));
+  });
+  await w11commit(env, W); notes.push(`🏁 ${t.compName || t.title}: ${champ || 'no champion'}`);
+  return [champ];
+}
+async function mlHost(env, uid, fromApp) {
+  const hd = await w11get(env, `hosts/${uid}`); if (!hd) return { ok: false, error: 'Create your Master League first' };
+  const h = hd.data, A = h.auto || {}; if (!A.on) return { ok: true, ml: h.ml || null, note: 'Autopilot is off' };
+  const now = Date.now(), notes = [], off = Number(A.off) || 0, reg = mlInt(A.reg, 1, 5, 2);
+  let st = h.ml && h.ml.s ? { ...h.ml, pend: [...(h.ml.pend || [])] } : null;
+  if (!st) { const first = Number(A.first) || (mlDay0(now, off) + (reg + 1) * MLD); st = mlPlan(A, Math.max(1, mlInt(A.s0, 1, 999, 1)), mlDay0(first, off) - reg * MLD); notes.push(`Season ${st.s} planned`); }
+  const prevT = (await w11query(env, 'tournaments', [w11eq('hostId', uid)], 120)).map(x => ({ ...x.data, id: x.id, _ut: x.ut }));
+  let W = [];
+  for (let guard = 0; guard < 4; guard++) {
+    if (st.ph === 'wait' && now >= st.regAt) { await mlOpenReg(env, uid, h, A, st, prevT, W); st.ph = 'reg'; notes.push(`📝 Season ${st.s} registration is open`); continue; }
+    if (st.ph === 'reg' && now >= st.closeAt) {
+      if (W.length) { await w11commit(env, W); W = []; }
+      const res = await mlSchedule(env, uid, h, A, st, prevT);
+      if (res.extend) { const shift = reg * MLD; ['closeAt', 'startAt', 'endAt', 'cupS', 'cupE', 'clS', 'clE'].forEach(k => { st[k] += shift; }); W.push({ path: `mlReg/${uid}_s${st.s}`, data: { closeAt: st.closeAt, startAt: st.startAt, endAt: st.endAt }, mask: ['closeAt', 'startAt', 'endAt'] });
+        W.push(mlNotif(uid, uid, 'Master League', `⏳ Only ${res.n} registered for Season ${st.s}, so registration stays open ${reg} more day(s).`, 'x')); notes.push('Not enough players yet: registration extended'); break; }
+      if (res.error) { notes.push(res.error); break; }
+      st.ph = 'live'; notes.push(`⚽ Season ${st.s} fixtures are out: ${res.made.join(', ')}`); break;
+    }
+    if (st.ph === 'live' && now <= st.endAt) { if (W.length) { await w11commit(env, W); W = []; } await mlDiscipline(env, uid, h, A, st, prevT, notes); }
+    if (st.ph === 'live' && !st.rem && now >= st.endAt - 2 * MLD) { st.rem = 1; W.push(mlNotif(uid, uid, 'Master League', `⏰ ${h.org || 'Your'} Season ${st.s} ends in 2 days. Want to change anything for next season (days, division sizes, cups)? Master League → ⚙️ Settings.`, 'r'));
+      ctxPush(env, uid, '⏰ Season ending soon', `Season ${st.s} ends in 2 days. Any changes for next season?`); notes.push('Reminder sent'); }
+    if (st.ph === 'live' && now > st.endAt) {
+      const mine = prevT.filter(t => t.season === st.s && t.hostId === uid);
+      for (const t of mine.filter(t => t.compKind === 'league')) await mlFinish(env, uid, h, t, notes);
+      const nx = mlPlan(A, st.s + 1, mlDay0(st.endAt + MLH, off) + (mlDay0(st.endAt + MLH, off) <= st.endAt ? MLD : 0));
+      const sk = { ...(st.strikes || {}) }, ban0 = Object.keys(sk).filter(k => sk[k] >= 3); ban0.forEach(k => { sk[k] = 0; });
+      nx.pend = st.pend; nx.strikes = sk; nx.ban0 = ban0; nx.drop = Object.keys(st.ban || {}).filter(k => !ban0.includes(k)); st = nx; notes.push(`Season ${st.s} is next`); continue;
+    }
+    break;
+  }
+  /* cups whose time is over */
+  const keep = [];
+  for (const p of (st.pend || [])) { if (now < p.at) { keep.push(p); continue; } const t = prevT.find(x => x.id === p.id); if (t) await mlFinish(env, uid, h, t, notes); }
+  st.pend = keep;
+  W.push({ path: `hosts/${uid}`, data: { ml: st }, mask: ['ml'] });
+  await w11commit(env, W);
+  return { ok: true, ml: st, note: notes.join(' · ') || (fromApp ? 'All up to date' : '') };
+}
+function ctxPush(env, uid, title, body) { try { pushToUser(env, uid, title, body, SITE + '#tournaments', 'ml-' + uid).catch(() => {}); } catch (e) {} }
+/* every hour: one run per host (each in its own request, so every host gets a full budget) */
+async function mlCron(env) {
+  const hosts = await w11query(env, 'hosts', [w11eq('auto.on', true)], 60);
+  if (!hosts.length) return 0;
+  const cfg = await getDocument(env, 'config/push').catch(() => null), self = cfg && cfg.url ? String(cfg.url).replace(/\/$/, '') : '';
+  if (!self) { await mlHost(env, hosts[0].id).catch(() => {}); return 1; }
+  for (const x of hosts.slice(0, 40)) await fetch(`${self}/mlrun`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Key': sa(env).private_key_id || '' }, body: JSON.stringify({ uid: x.id }) }).catch(() => {});
+  return hosts.length;
+}
+
+/* 🚫 no-shows: missing a match in play time (the GG AI gave the win to the opponent, or nobody came) counts as a no-show.
+   One before the limit = a warning. At the limit (A.ban, default 3, 0 = off) the player is removed: his remaining league matches
+   go to his opponents (1–0) and next season he starts one division lower (ml.drop). Every removal is a strike (ml.strikes, kept
+   across seasons); the 3rd strike = he sits out the next season (ml.ban0), then his strikes start again from 0. The host can still undo single auto results. */
+async function mlDiscipline(env, uid, h, A, st, prevT, notes) {
+  const lim = mlInt(A.ban, 0, 9, 3); if (!lim) return;
+  const mine = prevT.filter(t => t.season === st.s && t.hostId === uid && t.status !== 'finished' && !t.deleted), cnt = {}, tagOf = {};
+  mine.forEach(t => (t.matches || []).forEach(m => { const a = m.auto; if (!a || m.autoUndone) return;
+    const add = (p) => { if (!mlReal(p)) return; const k = mlTag(p); cnt[k] = (cnt[k] || 0) + 1; tagOf[k] = p; };
+    if (a.kind === 'win' && !a.ai && m.forfeit) add(m.forfeit); else if (a.kind === 'both') { add(m.p1); add(m.p2); } }));
+  st.warn = st.warn || {}; st.ban = st.ban || {};
+  const todo = Object.keys(cnt).filter(k => (cnt[k] >= lim && !st.ban[k]) || (lim > 1 && cnt[k] >= lim - 1 && cnt[k] < lim && !st.warn[k]));
+  if (!todo.length) return;
+  const regs = await mlListPlayers(env, `${uid}_s${st.s}`), U = {}; regs.forEach(x => { if (x && x.tag) U[mlTag(x.tag)] = x.uid; });
+  const W = [], org = h.org || 'the Master League';
+  for (const k of todo) {
+    const c = cnt[k], who = tagOf[k];
+    if (c >= lim) {
+      st.ban[k] = 1; st.warn[k] = 1; st.strikes = st.strikes || {}; st.strikes[k] = (st.strikes[k] || 0) + 1; const third = st.strikes[k] >= 3;
+      for (const t of mine.filter(x => x.format === 'LEAGUE')) {
+        let n = 0; const ms = (t.matches || []).map(m => { const mineM = mlTag(m.p1) === k || mlTag(m.p2) === k, open = m.s1 == null && !m.winner;
+          if (!mineM || !open) return m; const opp = mlTag(m.p1) === k ? m.p2 : m.p1; if (!mlReal(opp)) return m; n++;
+          return { ...m, s1: mlTag(m.p1) === k ? 0 : 1, s2: mlTag(m.p1) === k ? 1 : 0, winner: opp, status: 'approved', forfeit: m.p1 === opp ? m.p2 : m.p1, forfeitBy: '🤖 SINLESS GG bot', auto: { at: Date.now(), kind: 'ban' } }; });
+        if (n) { t.matches = ms; await w11commit(env, [{ path: `tournaments/${t.id}`, data: { matches: ms }, mask: ['matches'], pre: t._ut ? { ut: t._ut } : undefined }]); }
+      }
+      if (U[k]) W.push(mlNotif(U[k], uid, org, third ? `🚫 You were removed from ${org} Season ${st.s} after ${c} no-shows. That's your 3rd removal, so you sit out next season. You can come back the season after 💪` : `🚫 You were removed from ${org} Season ${st.s} after ${c} no-shows. Your remaining matches go to your opponents (1–0), and next season you start one division lower.`, 'B' + k));
+      W.push(mlNotif(uid, uid, 'Master League', `🚫 ${who} was removed from Season ${st.s} for ${c} no-shows${third ? ' (3rd time: sits out next season)' : ' (drops one division next season)'}.`, 'H' + k));
+      notes.push(`🚫 ${who} removed (${c} no-shows)`);
+    } else {
+      st.warn[k] = 1;
+      if (U[k]) W.push(mlNotif(U[k], uid, org, `⚠️ Warning: you missed ${c} match${c > 1 ? 'es' : ''} in ${org} Season ${st.s}. One more no-show and you're removed for the rest of this season and next season.`, 'W' + k));
+      notes.push(`⚠️ ${who} warned (${c} no-shows)`);
+    }
+  }
+  if (W.length) await w11commit(env, W);
 }
