@@ -2581,7 +2581,7 @@ let bodyHtml = `
 <div class="flex items-center justify-between border-b border-cyan-500/15 pb-2">
 <div>
 <h3 class="text-xs font-black text-white uppercase tracking-wider">${current.title}</h3>
-<p class="text-[9px] text-cyan-400">Host: ${window.nameLink(current.host, 'font-bold text-cyan-400')}${current.squadId && window.squadTournLabel ? window.squadTournLabel(current.squadId) : ''} • ${current.game} • ${current.players.length}/${current.maxPlayers} Registered</p>
+<p class="text-[9px] text-cyan-400">Host: ${window.nameLink(current.host, 'font-bold text-cyan-400')}${current.squadId && window.squadTournLabel ? window.squadTournLabel(current.squadId) : ''} • ${current.game} • ${window.realPlayers ? window.realPlayers(current).length : current.players.length}/${current.maxPlayers} Registered</p>
 <div class="flex items-center space-x-2 mt-1">
 <span class="inline-block text-[8px] bg-magenta/20 text-magenta font-extrabold px-2 py-0.5 rounded-md">${formatBadge}</span>
 <span class="inline-block text-[8px] bg-amber-500/20 text-amber-300 font-extrabold px-2 py-0.5 rounded-md border border-amber-500/30">🏆 Prize Pool: ${current.prizePool || 'Bragging Rights'}</span>
@@ -2590,7 +2590,7 @@ let bodyHtml = `
 <div class="flex items-center space-x-1.5">
 ${isHost ? `<button onclick="window.deleteTournament('${current.id}')" class="px-2 py-1 bg-red-600/20 text-red-400 border border-red-500/30 text-[9px] font-bold rounded-lg"><i class="fa-solid fa-trash mr-1"></i>Delete</button>` : ''}
 ${!isJoined
-? (current.players.length >= current.maxPlayers
+? ((window.realPlayers ? window.realPlayers(current).length : current.players.length) >= current.maxPlayers
 ? `<span class="text-[9px] bg-red-500/10 text-red-400 font-extrabold px-2.5 py-1 rounded-full">Full</span>`
 : `<button onclick="window.joinActiveTournament('${current.id}')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-xl uppercase shadow">Register</button>`)
 : `<div class="flex flex-col items-end space-y-1"><span class="text-[9px] bg-cyan-500/10 text-cyan-400 font-extrabold px-2.5 py-1 rounded-full">✓ Registered</span><button onclick="window.leaveTournament('${current.id}')" class="text-[9px] text-red-400 font-bold underline">Leave</button></div>`}
@@ -28771,14 +28771,14 @@ window.tournamentsList = (L || []).filter(t => !window.tournWrapped(t));
 try { return b.apply(this, a).replace(/🏁 Finished \d+/, '🏁 Finished ' + done); } finally { window.tournamentsList = L; }
 };
 })(window.tournBrowserHtml);
-window.scopedTourns = (function (b) { return function (...a) { const L = b.apply(this, a); if (window.tourScopeSquad && window.squadTourTab !== 'champs') { const live = L.filter(t => !window.tournWrapped(t)); return live.length ? live : L; } return L; }; })(window.scopedTourns);
+window.scopedTourns = (function (b) { return function (...a) { const L = b.apply(this, a); if (window.tourScopeSquad && window.squadTourTab !== 'champs') return L.filter(t => !window.tournWrapped(t)); return L; }; })(window.scopedTourns);
 
 window.renderSquadTournaments = (function (b) {
 return function (...a) {
 const r = b.apply(this, a);
 try {
 const sq = window.activeSquadDetails, slot = document.getElementById('squadTourSlot'); if (!sq || !slot || (window.squadTourTab && window.squadTourTab !== 'events')) return r;
-const regs = (window.mlRegs || []).filter(x => x.home === sq.id), hostT = (window.tournamentsList || []).find(t => t.squadId === sq.id && t.auto);
+const regs = (window.mlRegs || []).filter(x => window.mlHomeIs(x, sq)), hostT = (window.tournamentsList || []).find(t => t.squadId === sq.id && t.auto);
 if (!regs.length && !hostT) return r;
 const box = slot.parentElement; box.querySelector('[data-sqml]')?.remove();
 box.insertBefore(Object.assign(document.createElement('div'), { innerHTML: `<div data-sqml class="space-y-2">${regs.map(x => window.mlRegCard(x)).join('')}${hostT ? `<button onclick="window.openLeaguePage('${escapeHTML(hostT.hostId)}')" class="w-full py-2.5 rounded-2xl bg-gg-900 border border-cyan-500/30 text-cyan-300 text-xs font-black">📊 ${escapeHTML(hostT.hostOrg || 'Master League')} · tables & fixtures</button>` : ''}</div>` }).firstElementChild, slot);
@@ -29015,4 +29015,71 @@ if (inUse) { showToast(`⚠️ ${tag} already has a place in the league. One div
 try { return await b.call(this, p); } finally { window.sgPrompt = sp; }
 };
 })(window.nsReplace);
+
+/* The worker writes mlReg.keep = [{ id, n, size, tags }] while registration is open: last season's players, after promotion and relegation,
+already in their division. They don't need to register. They can tap "I'm out"; the host can take anyone out (hosts.mlOut). */
+window.mlKeptOf = (r, tag) => { const k = (r && r.keep || []).find(d => (d.tags || []).some(x => window.tagEq(x, tag))); return k ? k.n : null; };
+window.mlKeepHtml = function (r, hostView) {
+if (!r || !(r.keep || []).length) return '';
+const out = (r.out || []);
+return `<div data-mlkeep class="space-y-1.5">${r.keep.map(d => { const n = (d.tags || []).length, left = Math.max(0, d.size - n);
+return `<details class="rounded-xl bg-gg-950/70 border border-white/10 px-2.5 py-1.5"${hostView ? ' open' : ''}><summary class="text-[11px] text-white font-black cursor-pointer">${escapeHTML(d.n)} · <span class="text-cyan-300">${n}/${d.size} in</span> · <span class="${left ? 'text-emerald-300' : 'text-gray-400'}">${left ? left + ' spot' + (left > 1 ? 's' : '') + ' left' : 'full'}</span></summary>
+<div class="flex flex-wrap gap-1 mt-1.5">${(d.tags || []).map(t => `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gg-900 border border-white/10 text-[10px] text-gray-200">${escapeHTML(window.dnText(t))}${hostView ? `<button onclick="window.mlHostOut('${escapeHTML(r.hostUid)}',${r.season},'${escapeHTML(t)}',true)" class="text-gray-400 font-black">✕</button>` : ''}</span>`).join('') || '<span class="text-[10px] text-gray-500">Empty: first come, first served</span>'}</div></details>`; }).join('')}
+${hostView && out.length ? `<p class="text-[10px] text-gray-400">Taken out: ${out.map(t => `<button onclick="window.mlHostOut('${escapeHTML(r.hostUid)}',${r.season},'${escapeHTML(t)}',false)" class="underline">${escapeHTML(window.dnText(t))} ↩</button>`).join(' · ')}</p>` : ''}</div>`;
+};
+window.mlHostOut = async function (uid, season, tag, out) {
+if (uid !== window.uidNow()) return;
+if (out && !(await window.sgConfirm(`Take ${window.dnText(tag)} out of Season ${season}? (retired, not playing…) The next player moves up into the place.`, { title: '✕ Take out', okText: 'Take out' }))) return;
+try { const h = window.myHost || {}, m = h.mlOut && Number(h.mlOut.s) === season ? h.mlOut : { s: season, tags: [] };
+const tags = out ? [...new Set([...(m.tags || []), tag])] : (m.tags || []).filter(x => !window.tagEq(x, tag));
+await updateDoc(doc(window.db, 'hosts', uid), { mlOut: { s: season, tags: tags.slice(0, 60) } }); if (window.myHost) window.myHost.mlOut = { s: season, tags };
+showToast(out ? `✕ ${window.dnText(tag)} is out. Updating the divisions…` : `↩ ${window.dnText(tag)} is back`);
+if (window.mlNow) await window.mlNow(true); await window.mlLoadRegs(); window.mlKeepPanel(uid);
+} catch (e) { showToast('⚠️ Couldn’t save. Try again'); }
+};
+window.mlKeepPanel = function (uid) {
+const r = (window.mlRegs || []).find(x => x.hostUid === uid); if (!r) { showToast('Registration is not open right now.'); return; }
+window.openPanel(`👥 Season ${r.season} · who is in`, `<p class="text-[11px] text-gray-300 mb-2">Like a real league: last season's players are already in their division (after promotion and relegation). They don't have to register. New players fill the spots left, first come, first served. When fixtures come out ${window.mlFmt(r.closeAt)}, everything is final.</p>
+${window.mlKeepHtml(r, uid === window.uidNow())}
+${uid === window.uidNow() ? '<p class="text-[10px] text-gray-500 mt-2">✕ = take someone out (retired, not playing). The next player in the table below moves up into the place.</p>' : ''}`);
+};
+window.mlRegCard = (function (b) {
+return function (r, ...a) {
+let h = b.call(this, r, ...a);
+try {
+const me = window.isSignedIn() && window.me(), kept = me && window.mlKeptOf(r, me), mine = window.mlMine[r.id];
+if (kept && !(mine && mine.out)) h = h.replace(/<button onclick="window\.mlRegister\('[^']*'\)" class="flex-1[^>]*>[^<]*<\/button>/, `<span class="flex-1 py-2 rounded-xl text-center text-[11px] font-black bg-emerald-500/20 text-emerald-200 border border-emerald-400/50">✅ Your place is kept: ${escapeHTML(kept)}</span><button onclick="window.mlRegGo('${escapeHTML(r.id)}', true)" class="px-3 py-2 rounded-xl bg-gg-900 border border-white/10 text-gray-300 text-[11px] font-black">I'm out</button>`);
+const sum = (r.keep || []).map(d => { const left = Math.max(0, d.size - (d.tags || []).length); return `${escapeHTML(String(d.n).replace(/^.*?(Super|Rising Stars?|Junior|Premier|Championship|League One|League Two)/i, '$1'))}: ${left ? left + ' left' : 'full'}`; }).join(' · ');
+if (sum) h = h.replace(/(<p class="text-\[10px\] text-cyan-200">)/, `<button onclick="window.mlKeepPanel('${escapeHTML(r.hostUid)}')" class="w-full text-left text-[10px] text-amber-100 underline decoration-dotted">👥 Spots: ${sum}${r.hostUid === window.uidNow() ? ' · tap to manage' : ' · tap to see who is in'}</button>$1`);
+} catch (e) {}
+return h;
+};
+})(window.mlRegCard);
+window.mlRegGo = (function (b) { return async function (rid, out, ...a) { const r = (window.mlRegs || []).find(x => x.id === rid);
+if (out && r && window.mlKeptOf(r, window.me()) && !(await window.sgConfirm(`Give up your place in ${window.mlKeptOf(r, window.me())} for Season ${r.season}? The next player moves up.`, { title: "I'm out", okText: "Yes, I'm out" }))) return;
+return b.call(this, rid, out, ...a); }; })(window.mlRegGo);
+/* the host's season tournaments during registration: explain the empty table */
+window.renderTournamentsTabDedicated = (function (b) {
+return function (...a) {
+const r = b.apply(this, a);
+try {
+const c = document.getElementById('tournamentsDedicatedContainer'), t = window.activeTournament; if (!c || !t || c.querySelector('[data-mlpre]')) return r;
+const host = t.hostId || t.hostUid, rg = (window.mlRegs || []).find(x => x.hostUid === host && x.season === t.season && x.closeAt > Date.now()); if (!rg) return r;
+const d = (rg.keep || []).find(x => x.id === t.compId), head = c.querySelector('[data-season-bar]');
+const html = `<div data-mlpre class="w-full my-2 p-3 rounded-xl text-[11px] text-amber-100" style="background:rgba(250,204,21,.08);border:1px solid rgba(250,204,21,.35)">📝 <b class="text-white">Registration is open.</b> The real table and fixtures come out ${window.mlFmt(rg.closeAt)}. Club_1, Club_2… are only empty spots until then.
+${d ? `<p class="mt-1.5">Already in (kept from last season): <b class="text-white">${(d.tags || []).length}/${d.size}</b>${(d.tags || []).length ? ' · ' + d.tags.map(x => escapeHTML(window.dnText(x))).join(', ') : ''}</p>` : ''}
+<button onclick="window.mlKeepPanel('${escapeHTML(host)}')" class="mt-2 px-3 py-1.5 rounded-lg bg-gg-900 border border-amber-500/40 text-amber-300 font-black">👥 Who is in every division</button></div>`;
+if (head) head.insertAdjacentHTML('afterend', html); else c.insertAdjacentHTML('afterbegin', html);
+} catch (e) {}
+return r;
+};
+})(window.renderTournamentsTabDedicated);
+
+/* the squad of a registration: the host's 🏠 home squad, else the squad of his last season, else a squad he owns */
+window.mlHomeIs = function (r, sq) {
+if (!r || !sq) return false; if (r.home) return r.home === sq.id; if (r.squadId) return r.squadId === sq.id;
+const last = (window.tournamentsList || []).filter(t => (t.hostId || t.hostUid) === r.hostUid && t.squadId).sort((a, b) => (b.season || 0) - (a.season || 0) || (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
+if (last) return last.squadId === sq.id;
+return sq.ownerUid === r.hostUid;
+};
 
