@@ -4559,23 +4559,43 @@ function mlKeep(h, A, st, prevT, outSet) {
   return { leagues, tiers };
 }
 const mlOutSet = (h, st, raw) => { const o = new Set(); (raw || []).forEach(x => { if (x && x.tag && x.out) o.add(mlTag(x.tag)); }); const m = h.mlOut; if (m && Number(m.s) === st.s) (m.tags || []).forEach(t => o.add(mlTag(t))); return o; };
-async function mlKeepWrite(env, uid, h, A, st, prevT) {
-  const raw = await mlListPlayers(env, `${uid}_s${st.s}`), { leagues, tiers } = mlKeep(h, A, st, prevT, mlOutSet(h, st, raw));
+async function mlKeepWrite(env, uid, h, A, st, prevT, conv) {
+  const raw = (await mlListPlayers(env, `${uid}_s${st.s}`)).concat(conv || []), outSet = mlOutSet(h, st, raw), { leagues, tiers } = mlKeep(h, A, st, prevT, outSet);
+  { const banned = new Set((st.ban0 || []).map(mlTag)), inK = new Set(tiers.flat().map(mlTag)), fresh = [], sn = new Set();
+    raw.filter(x => x && x.tag && !x.out && !outSet.has(mlTag(x.tag)) && !banned.has(mlTag(x.tag)) && !inK.has(mlTag(x.tag))).sort((a, b) => (a.at || 0) - (b.at || 0)).forEach(x => { const k = mlTag(x.tag); if (!sn.has(k)) { sn.add(k); fresh.push(x.tag); } });
+    leagues.forEach((c, k) => { const size = mlInt((A.sizes || {})[c.id], 2, 40, 16); while (fresh.length && tiers[k].length < size) tiers[k].push(fresh.shift()); });
+    if (fresh.length && tiers.length) tiers[tiers.length - 1].push(...fresh.splice(0, 8)); }
   const keep = leagues.map((c, k) => ({ id: c.id, n: c.name, size: mlInt((A.sizes || {})[c.id], 2, 40, 16), tags: tiers[k].slice(0, 60) }));
   return { path: `mlReg/${uid}_s${st.s}`, data: { keep, out: [...mlOutSet(h, st, [])].slice(0, 60), home: mlHomeOf(A, prevT, st) }, mask: ['keep', 'out', 'home'] };
 }
 /* G18.4b: while registration is open, this season's division tables already show the players who kept their place
    (the rest are empty Club_ spots; no fixtures yet — they come out when registration closes). Only the season docs that exist (made by hand). */
-function mlKeepTables(uid, keep, st, prevT) {
-  const W = [];
-  for (const d of keep || []) {
-    const id = mlTid(uid, d.id, st.s), t = prevT.find(x => x.id === id && !x.deleted && x.status !== 'finished'); if (!t || t.auto) continue;
-    const allK = new Set((keep || []).flatMap(x => x.tags.map(mlTag))), joined = (t.players || []).filter(p => mlReal(p) && !allK.has(mlTag(p)));   // people who joined this table directly stay
-    const players = d.tags.concat(joined).slice(0, Math.max(d.size, d.tags.length + joined.length)); for (let i = 1; players.length < d.size; i++) players.push('Club_' + i);
-    if (JSON.stringify(t.players || []) === JSON.stringify(players) && !(t.matches || []).length) continue;
-    W.push({ path: `tournaments/${id}`, data: { players, matches: [], maxPlayers: players.length }, mask: ['players', 'matches', 'maxPlayers'], ts: ['updatedAt'], pre: t._ut ? { ut: t._ut } : undefined });
-  }
+function mlKeepTables(uid, keep, st, prevT, A) {
+  /* G18.7: the tables show exactly who is in — no empty Club_ spots to join (also on old app versions the tables are "full").
+     Spots left are on the 📝 Registration card. Open Cup ("everyone in the leagues") = every league player. Champions League = after the draw. */
+  const W = [], put = (t, players) => { if (!players.length) players = ['Club_1'];
+    if (JSON.stringify(t.players || []) === JSON.stringify(players) && !(t.matches || []).length && Number(t.maxPlayers) === players.length) return;
+    W.push({ path: `tournaments/${t.id}`, data: { players, matches: [], eliminated: [], maxPlayers: players.length }, mask: ['players', 'matches', 'eliminated', 'maxPlayers'], ts: ['updatedAt'], pre: t._ut ? { ut: t._ut } : undefined }); };
+  const mine = prevT.filter(x => (x.hostId || x.hostUid) === uid && x.season === st.s && !x.auto && !x.deleted && x.status !== 'finished');
+  for (const d of keep || []) { const t = mine.find(x => x.id === mlTid(uid, d.id, st.s) || (x.compId === d.id && x.compKind === 'league')); if (t) put(t, d.tags.slice()); }
+  const all = (keep || []).flatMap(d => d.tags);
+  for (const t of mine.filter(x => x.compKind === 'cup')) put(t, ((A && A.cup || {})[t.compId] || 'all') === 'all' ? all.slice() : []);
   return W;
+}
+/* G18.6: people who pressed Join on one of this season's tables (old app versions) → registered for the league like everybody else.
+   They are taken off that table; the system puts them in their division, and the cups come with the league. */
+async function mlConvertJoins(env, uid, h, st, prevT, W) {
+  const rid = `${uid}_s${st.s}`, raw = await mlListPlayers(env, rid), have = new Set(raw.map(x => mlTag(x.tag))), conv = [];
+  const kept = new Set(mlKeep(h, h.auto || {}, st, prevT, new Set()).tiers.flat().map(mlTag));
+  for (const t of prevT.filter(x => (x.hostId || x.hostUid) === uid && x.season === st.s && !x.auto && !x.deleted && x.status !== 'finished')) {
+    const joined = (t.players || []).filter(p => mlReal(p) && !have.has(mlTag(p)) && !kept.has(mlTag(p)));
+    for (const p of joined.slice(0, 40)) { const k = mlTag(p); have.add(k);
+      const pr = await w11get(env, `profiles/${k}`).catch(() => null), u = pr && pr.data && pr.data.uid; if (!u) continue;
+      const g = String((t.gameIds || {})[k] || (t.gameIds || {})[p] || ''), x = { uid: u, tag: p, ign: g.split(' · ')[0] || '', gid: g.split(' · ')[1] || '', cups: [], out: false, at: Date.now() };
+      W.push({ path: `mlReg/${rid}/players/${u}`, data: x }); conv.push(x);
+      W.push(mlNotif(u, uid, h.org || 'Master League', `📝 You're registered for ${h.org || 'the Master League'} Season ${st.s}. The system puts you in your division when fixtures come out; everyone in the leagues plays the Open Cup.`, conv.length)); }
+  }
+  return conv;
 }
 /* ⚽ close registration: places, fixtures, cups, Champions League */
 async function mlSchedule(env, uid, h, A, st, prevT) {
@@ -4695,7 +4715,8 @@ async function mlHost(env, uid, fromApp) {
     }
     break;
   }
-  if (st.ph === 'reg') { try { const kw = await mlKeepWrite(env, uid, h, A, st, prevT); W.push(kw); W.push(...mlKeepTables(uid, kw.data.keep, st, prevT)); } catch (e) {} }
+  if (st.ph === 'reg') { let conv = []; try { conv = await mlConvertJoins(env, uid, h, st, prevT, W); } catch (e) {}
+    try { const kw = await mlKeepWrite(env, uid, h, A, st, prevT, conv); W.push(kw); W.push(...mlKeepTables(uid, kw.data.keep, st, prevT, A)); } catch (e) {} }
   /* cups whose time is over */
   const keep = [];
   for (const p of (st.pend || [])) { if (now < p.at) { keep.push(p); continue; } const t = prevT.find(x => x.id === p.id); if (t) await mlFinish(env, uid, h, t, notes); }
