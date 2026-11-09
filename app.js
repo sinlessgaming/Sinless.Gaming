@@ -28194,7 +28194,7 @@ const check = () => { navigator.serviceWorker.getRegistration().then((r) => { if
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
 setInterval(check, 30 * 60000);
 })();
-window.SG_BUILD = 88;
+window.SG_BUILD = 87;
 
 window.tournCheck = window.tournCheck || {};
 window.tournDrop = function (id) {
@@ -28525,16 +28525,14 @@ let inout = '';
 if (st.ph === 'reg' && st.s) {
 try {
 const s = await getDocs(collection(window.db, 'mlReg', window.mlRegId(window.uidNow(), st.s), 'players')), ins = [], outs = []; s.forEach(d => { const x = d.data(); (x.out ? outs : ins).push(x.tag); });
-const rd = await getDoc(doc(window.db, 'mlReg', window.mlRegId(window.uidNow(), st.s))), rg = rd.exists() ? { ...rd.data(), id: rd.id } : null;
-const keptAll = new Set(((rg && rg.keep) || []).flatMap(d => (d.tags || []).map(x => String(x).toLowerCase())));
-const fresh = ins.filter(p => !keptAll.has(String(p).toLowerCase()));
+const prev = new Set(); (window.tournamentsList || []).filter(t => t.hostId === window.uidNow() && t.compKind === 'league' && t.season === st.s - 1).forEach(t => (t.players || []).forEach(p => { if (!/^Club_\d+$/.test(p)) prev.add(p); }));
+const lower = new Set([...ins, ...outs].map(x => String(x).toLowerCase())), none = [...prev].filter(p => !lower.has(p.toLowerCase()));
 const pill = (p, c) => `<span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-black border ${c}">${escapeHTML(window.dnText(p))}</span>`;
 inout = `<div class="glass-panel rounded-2xl p-3 border border-emerald-500/30 space-y-1.5"><p class="text-xs font-black text-white">📝 Season ${st.s}: who's in</p>
-<p class="text-[10px] text-gray-300">Last season's players keep their place (after promotion &amp; relegation), no need to register. ✕ = take someone out (retired / not playing): the next player moves up.</p>
-${rg && (rg.keep || []).length ? window.mlKeepHtml(rg, true) : '<p class="text-[10px] text-amber-300">⏳ Places are being worked out. Tap ▶ Check now.</p>'}
-<p class="text-[10px] text-emerald-300 font-bold">🆕 New players registered (${fresh.length})</p><div class="flex flex-wrap gap-1">${fresh.map(p => pill(p, 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30')).join('') || '<span class="text-[10px] text-gray-500">nobody yet</span>'}</div>
-${outs.length ? `<p class="text-[10px] text-gray-300 font-bold">❌ Said they're out (${outs.length})</p><div class="flex flex-wrap gap-1">${outs.map(p => pill(p, 'bg-gg-900 text-gray-300 border-white/10')).join('')}</div>` : ''}
-<p class="text-[9px] text-gray-500">New players fill the free spots first come, first served (top division first). Everything is final when fixtures come out.</p></div>`;
+<p class="text-[10px] text-emerald-300 font-bold">✅ In (${ins.length})</p><div class="flex flex-wrap gap-1">${ins.map(p => pill(p, 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30')).join('') || '<span class="text-[10px] text-gray-500">nobody yet</span>'}</div>
+${outs.length ? `<p class="text-[10px] text-gray-300 font-bold">❌ Out (${outs.length})</p><div class="flex flex-wrap gap-1">${outs.map(p => pill(p, 'bg-gg-900 text-gray-300 border-white/10')).join('')}</div>` : ''}
+${none.length ? `<p class="text-[10px] text-amber-300 font-bold">⏳ Last season, no answer yet (${none.length})</p><div class="flex flex-wrap gap-1">${none.map(p => pill(p, 'bg-amber-500/10 text-amber-200 border-amber-500/30')).join('')}</div>` : ''}
+<p class="text-[9px] text-gray-500">Anyone who doesn't register is out. The next team in the table moves up to take their place; newcomers start lower down.</p></div>`;
 } catch (e) {}
 }
 const card = `<div data-mlap class="glass-panel rounded-2xl p-3.5 border ${A.on ? 'border-emerald-500/40' : 'border-white/10'} space-y-2">
@@ -29085,13 +29083,174 @@ if (last) return last.squadId === sq.id;
 return sq.ownerUid === r.hostUid;
 };
 
-window.mlOpenRegOf = (t) => { const host = t && (t.hostId || t.hostUid); return host && t.season ? (window.mlRegs || []).find(r => r.hostUid === host && r.season === t.season && r.closeAt > Date.now()) : null; };
-window.joinActiveTournament = (function (b) {
-return async function (id, ...a) {
-const t = (window.tournamentsList || []).find(x => x.id === id); if (!t || !window.mlOpenRegOf(t)) { if (t && (t.hostId || t.hostUid) && t.season) { await window.mlLoadRegs(); } if (!t || !window.mlOpenRegOf(t)) return b.call(this, id, ...a); }
-if (window.needSignIn && window.needSignIn('join this league')) return; return window.mlRegister(window.mlOpenRegOf(t).id);
-};
-})(window.joinActiveTournament);
-window.registerPlayer = (function (b) { return function (t, tag, ...a) { const host = t && (t.hostId || t.hostUid); if (window.mlOpenRegOf(t) && !(window.isAppAdmin || host === window.uidNow())) return 'useReg'; return b.call(this, t, tag, ...a); }; })(window.registerPlayer);
-REG_MSG.useReg = 'Use the 📝 Registration open card: the system puts you in your division.';
 
+window.SG_BUILD = 89;
+
+window.sgInAnySquad = () => { try { return window.isSignedIn() && (window.clansData || []).some(c => c && window.isSquadMember(c)); } catch (e) { return false; } };
+window.mlSaved = (game) => { try { return JSON.parse(localStorage.getItem('sg_ml_ids') || '{}')[game] || {}; } catch (e) { return {}; } };
+
+window.mlQuickJoin = async function (rid) {
+const r = (window.mlRegs || []).find(x => x.id === rid); if (!r) return;
+const last = window.mlSaved(r.game), mine = window.mlMine[rid] || {};
+const data = { uid: window.uidNow(), tag: window.me(), at: Date.now(), ign: String(mine.ign || last.ign || '').slice(0, 30), gid: String(mine.gid || last.gid || '').slice(0, 40), cups: (r.regCups || []).map(c => c.id).slice(0, 6) };
+try { await setDoc(doc(window.db, 'mlReg', rid, 'players', window.uidNow()), data); window.mlMine[rid] = data;
+showToast(`✅ You're in! Fixtures come out ${window.mlFmt(r.closeAt)}.`); window.mlRegBanner(); if (window.mlNow && r.hostUid === window.uidNow()) window.mlNow(true);
+} catch (e) { showToast('⚠️ Registration is closed or the app needs the new rules.'); }
+};
+window.mlRegister = (function (b) {
+return function (rid, form) {
+if (window.needSignIn && window.needSignIn('join this league')) return;
+const r = (window.mlRegs || []).find(x => x.id === rid), mine = window.mlMine[rid];
+const sq = window.sgInAnySquad(), ban = r && (r.banned || []).some(x => window.tagEq(x, window.me()));
+if (r && sq && !ban && !form && !(mine && !mine.out)) return window.mlQuickJoin(rid);
+if (!sq) return b.call(this, rid);
+/* squad member editing: same form, but name and ID are optional */
+const op = window.openPanel;
+window.openPanel = function (title, html, ...a) { if (typeof html === 'string') html = html.replace('Your in-game name *', 'Your in-game name (optional)').replace('Your in-game ID / UID *', 'Your in-game ID / UID (optional)')
+.replace(/<label class="flex items-start gap-2[^"]*"><input id="mlOk"[^>]*>/, '<label class="hidden"><input id="mlOk" type="checkbox" checked>'); return op.call(this, title, html, ...a); };
+try { return b.call(this, rid); } finally { window.openPanel = op; }
+};
+})(window.mlRegister);
+window.mlRegGo = (function (b) {
+return async function (rid, out, ...a) {
+if (out || !window.sgInAnySquad()) return b.call(this, rid, out, ...a);
+const r = (window.mlRegs || []).find(x => x.id === rid); if (!r) return;
+const ign = ((document.getElementById('mlIgn') || {}).value || '').trim().replace(/\s+/g, ' ').slice(0, 30), gid = ((document.getElementById('mlGid') || {}).value || '').trim().replace(/\s+/g, '').slice(0, 40);
+const data = { uid: window.uidNow(), tag: window.me(), at: (window.mlMine[rid] && window.mlMine[rid].at) || Date.now(), ign, gid, cups: [...document.querySelectorAll('[data-mlcup]')].filter(x => x.checked).map(x => x.dataset.mlcup).slice(0, 6) };
+if (ign || gid) { try { const all = JSON.parse(localStorage.getItem('sg_ml_ids') || '{}'); all[r.game] = { ign, gid }; localStorage.setItem('sg_ml_ids', JSON.stringify(all)); } catch (e) {} }
+try { await setDoc(doc(window.db, 'mlReg', rid, 'players', window.uidNow()), data); window.mlMine[rid] = data; window.closePanel(); showToast('✅ Saved'); window.mlRegBanner(); }
+catch (e) { showToast('⚠️ Registration is closed or the app needs the new rules.'); }
+};
+})(window.mlRegGo);
+
+window.mlCanManage = (host) => { try { if (!window.isSignedIn() || !host) return false; if (host === window.uidNow() || window.isAppAdmin) return true;
+return (window.tournamentsList || []).some(t => (t.hostId || t.hostUid) === host && (t.coHostUids || []).includes(window.uidNow())); } catch (e) { return false; } };
+window.mlMove = async function (host, body) {
+try { const base = await window.nwUrl(); if (!base) { showToast('⚠️ Could not reach the helper.'); return null; }
+const r = await fetch(base + '/w11/mlmove', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await window.mediaIdToken()) }, body: JSON.stringify({ host, ...body }) });
+const j = await r.json().catch(() => ({}));
+if (j && j.ok) { showToast('✅ ' + (j.note || 'Done')); if (host === window.uidNow() && j.ml && window.myHost) window.myHost.ml = j.ml; }
+else showToast('⚠️ ' + ((j && j.error) || 'The helper is not updated yet (upload worker.js).'));
+return j;
+} catch (e) { showToast('⚠️ Could not reach the helper.'); return null; }
+};
+window._mlHosts = {};
+window.mlHostDoc = async function (host) {
+if (host === window.uidNow() && window.myHost) return window.myHost;
+try { const s = await getDoc(doc(window.db, 'hosts', host)); window._mlHosts[host] = s.exists() ? s.data() : null; } catch (e) {}
+return window._mlHosts[host] || null;
+};
+/* the divisions as they are now: during registration from the preview (mlReg.keep), after fixtures from the tournaments */
+window.mlNowDivs = function (host, h) {
+const rg = (window.mlRegs || []).find(x => x.hostUid === host && x.closeAt > Date.now());
+if (rg && (rg.keep || []).length) return { ph: 'reg', season: rg.season, divs: rg.keep.map(d => ({ id: d.id, n: d.n, size: d.size, tags: d.tags || [], nw: d.nw || [] })), wait: rg.wait || [], out: rg.out || [], dup: rg.dup || [], lock: !!rg.lock, rg };
+const T = (window.tournamentsList || []).filter(t => (t.hostId || t.hostUid) === host && t.season && !t.deleted && t.status !== 'finished');
+const S = Math.max(0, ...T.map(t => t.season)); if (!S) return { ph: 'none', divs: [] };
+const L = (h && h.comps || []).filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier);
+const divs = L.map(c => { const t = T.find(x => x.season === S && x.compId === c.id && x.format === 'LEAGUE'); return { id: c.id, n: c.name, size: t ? t.players.length : 0, tags: t ? (t.players || []).filter(p => !/^Club_\d+$/.test(p) && p !== '__BYE__') : [], nw: [], t, played: t && (t.matches || []).some(m => m.s1 != null || (m.winner && m.winner !== 'NONE')) }; });
+return { ph: 'live', season: S, divs, wait: [], out: [], dup: [], lock: false };
+};
+window._mlSel = null;
+window.mlManage = async function (host, keepSel) {
+if (!window.mlCanManage(host)) return;
+if (!keepSel) window._mlSel = null;
+const h = await window.mlHostDoc(host), D = window.mlNowDivs(host, h), pins = (h && h.mlPlace && Number(h.mlPlace.s) === D.season && h.mlPlace.pin) || {};
+if (D.ph === 'none' || !D.divs.length) { showToast('Nothing to arrange yet: wait for registration to open.'); return; }
+window._mlMg = { host, D, h };
+const sel = window._mlSel, esc = escapeHTML, q = (t) => esc(t).replace(/'/g, '&#39;');
+const chip = (t, k) => { const pinned = Object.keys(pins).some(x => window.tagEq(x, t)), nw = (D.divs[k] && D.divs[k].nw || []).some(x => window.tagEq(x, t)), on = sel && sel.has(t);
+return `<button onclick="window.mlChip('${q(t)}',${k})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border ${on ? 'bg-cyan-500/25 border-cyan-300' : 'bg-gg-900 ' + (pinned ? 'border-amber-400/70' : 'border-white/10')} text-[11px] text-gray-100 font-bold">${sel ? (on ? '☑️ ' : '⬜ ') : ''}${pinned ? '📌 ' : ''}${esc(window.dnText(t))}${nw ? ' <span class="text-emerald-300">new</span>' : ''}${sel ? '' : ' <span class="text-gray-500">⋯</span>'}</button>`; };
+const log = (h && h.mlLog || []).slice(-20).reverse();
+const btn = 'py-2 rounded-lg bg-gg-900 text-[11px] font-black';
+window.openPanel(`👥 Season ${D.season} · move players`, `
+<p class="text-[11px] text-gray-300">Tap a name to <b class="text-white">move</b> him, <b class="text-white">🔁 swap</b> his account (old ↔ new, he keeps the place) or <b class="text-white">✕ take him out</b>. ${D.ph === 'reg' ? `Fixtures come out ${window.mlFmt(D.rg.closeAt)}. 📌 = placed by hand.` : 'Fixtures are out: moving makes new fixtures for that division (only before its first match). 🔁 Swap works any time and keeps the results.'}</p>
+<div class="flex gap-2">
+<button onclick="window.mlSelToggle()" class="flex-1 ${btn} border ${sel ? 'border-cyan-300 text-cyan-200' : 'border-cyan-500/30 text-cyan-300'}">${sel ? '✖ Stop selecting' : '☑️ Select many'}</button>
+${D.ph === 'reg' ? `<button onclick="window.mlDo('${D.lock ? 'unlock' : 'lock'}')" class="flex-1 ${btn} border ${D.lock ? 'border-amber-400 text-amber-200' : 'border-white/15 text-gray-200'}">${D.lock ? '🔒 Locked · tap to unlock' : '🔓 Lock divisions'}</button>` : ''}</div>
+${D.lock ? '<p class="text-[10px] text-amber-200">🔒 Locked: nobody is placed by the system any more. New players go to ⏳ Waiting; you put them in by hand.</p>' : ''}
+${sel && sel.size ? `<div class="sticky top-0 z-10 p-2.5 rounded-xl bg-gg-950 border border-cyan-400/60 space-y-1.5"><p class="text-[11px] font-black text-white">${sel.size} selected: ${[...sel].map(t => esc(window.dnText(t))).join(', ')}</p>
+<div class="flex flex-wrap gap-1.5">${D.divs.map(d => `<button onclick="window.mlSelGo('move','${q(d.id)}')" class="px-2.5 ${btn} border border-cyan-500/40 text-cyan-200">➡️ ${esc(d.n)}</button>`).join('')}<button onclick="window.mlSelGo('out')" class="px-2.5 ${btn} border border-white/15 text-gray-300">✕ Take out</button></div></div>` : ''}
+${D.dup.length ? `<div class="rounded-xl p-2.5 space-y-2" style="background:rgba(250,204,21,.08);border:1px solid rgba(250,204,21,.45)"><p class="text-[11px] font-black text-amber-200">⚠️ Same person with two accounts?</p>
+${D.dup.map(d => `<div class="space-y-1"><p class="text-[11px] text-white"><b>${esc(window.dnText(d.a))}</b> and <b>${esc(window.dnText(d.b))}</b> · <span class="text-amber-200">${esc(d.why)}</span></p>
+<div class="flex flex-wrap gap-1.5"><button onclick="window.mlDo('swap','${q(d.b)}','','${q(d.a)}')" class="px-2.5 ${btn} border border-purple-400/50 text-purple-200">Keep ${esc(window.dnText(d.a))}</button><button onclick="window.mlDo('swap','${q(d.a)}','','${q(d.b)}')" class="px-2.5 ${btn} border border-purple-400/50 text-purple-200">Keep ${esc(window.dnText(d.b))}</button><button onclick="window.mlDo('okdup','${q(d.a)}','','${q(d.b)}')" class="px-2.5 ${btn} border border-white/15 text-gray-300">👍 Two people</button></div></div>`).join('')}</div>` : ''}
+${D.divs.map((d, k) => `<div class="rounded-xl bg-gg-950/70 border border-white/10 p-2.5 space-y-2">
+<p class="text-[11px] font-black text-white">${esc(d.n)} · <span class="text-cyan-300">${d.tags.length}${D.ph === 'reg' ? '/' + d.size : ''}</span>${d.played ? ' · <span class="text-amber-300">matches started</span>' : ''}</p>
+<div class="flex flex-wrap gap-1.5">${d.tags.map(t => chip(t, k)).join('') || '<span class="text-[10px] text-gray-500">Empty</span>'}</div>
+${sel ? '' : `<button onclick="window.mlAddTo('${q(d.id)}')" class="w-full ${btn} border border-emerald-400/40 text-emerald-300">➕ Add a player to ${esc(d.n)}</button>`}</div>`).join('')}
+${D.wait.length ? `<div class="rounded-xl bg-gg-950/70 border border-white/10 p-2.5"><p class="text-[11px] font-black text-white">⏳ Waiting${D.lock ? ' (locked)' : ' (divisions full)'}</p><div class="flex flex-wrap gap-1.5 mt-1.5">${D.wait.map(t => chip(t, -1)).join('')}</div></div>` : ''}
+${D.out.length ? `<p class="text-[10px] text-gray-400">Taken out: ${D.out.map(t => `<button onclick="window.mlDo('in','${q(t)}')" class="underline">${esc(window.dnText(t))} ↩</button>`).join(' · ')}</p>` : ''}
+<details class="rounded-xl bg-gg-950/70 border border-white/10 px-2.5 py-1.5"><summary class="text-[11px] font-black text-white cursor-pointer">📜 Changes (${(h && h.mlLog || []).length})</summary>
+<div class="mt-1.5 space-y-1">${log.map(x => `<p class="text-[10px] text-gray-300"><span class="text-gray-500">${esc(new Date(x.at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }))}</span> · <b class="text-cyan-200">${esc(x.by || '')}</b>: ${esc(x.note || x.act)}</p>`).join('') || '<p class="text-[10px] text-gray-500">No changes yet.</p>'}</div></details>`);
+};
+window.mlChip = function (tag, k) { const s = window._mlSel; if (!s) return window.mlPick(tag, k); if (s.has(tag)) s.delete(tag); else s.add(tag); window.mlManage(window._mlMg.host, true); };
+window.mlSelToggle = function () { window._mlSel = window._mlSel ? null : new Set(); window.mlManage(window._mlMg.host, true); };
+window.mlSelGo = async function (act, to) { const s = window._mlSel; if (!s || !s.size) return; const tags = [...s];
+if (act === 'out' && !(await window.sgConfirm(`Take ${tags.length} player${tags.length > 1 ? 's' : ''} out of Season ${window._mlMg.D.season}?`, { title: '✕ Take out', okText: 'Take out' }))) return;
+window._mlSel = null; window.mlDo(act, '', to, '', tags, true); };
+window.mlPick = function (tag, k) {
+const M = window._mlMg; if (!M) return; const D = M.D, q = (t) => escapeHTML(t).replace(/'/g, '&#39;');
+const pinned = M.h && M.h.mlPlace && M.h.mlPlace.pin;
+window.openPanel(`${escapeHTML(window.dnText(tag))}`, `
+<p class="text-[11px] text-gray-300">Now: <b class="text-white">${k >= 0 ? escapeHTML(D.divs[k].n) : '⏳ waiting'}</b></p>
+${D.divs.map((d, j) => j === k ? '' : `<button onclick="window.mlDo('move','${q(tag)}','${q(d.id)}')" class="w-full py-2.5 rounded-xl bg-gg-900 border border-cyan-500/40 text-cyan-200 text-xs font-black">${j < k || k < 0 ? '⬆️' : '⬇️'} Move to ${escapeHTML(d.n)}</button>`).join('')}
+<button onclick="window.mlSwap('${q(tag)}')" class="w-full py-2.5 rounded-xl bg-gg-900 border border-purple-400/50 text-purple-200 text-xs font-black">🔁 Swap account (old ↔ new, keeps this place)</button>
+${D.ph === 'reg' && pinned && Object.keys(pinned).some(x => window.tagEq(x, tag)) ? `<button onclick="window.mlDo('unpin','${q(tag)}')" class="w-full py-2.5 rounded-xl bg-gg-900 border border-white/10 text-gray-300 text-xs font-black">↩ Back to his normal place</button>` : ''}
+<button onclick="window.mlDo('out','${q(tag)}')" class="w-full py-2.5 rounded-xl bg-gg-900 border border-white/10 text-gray-300 text-xs font-black">✕ Take out of this season</button>
+<button onclick="window.mlManage('${q(M.host)}')" class="w-full py-2 text-[11px] text-gray-400 font-bold">◀ Back</button>`);
+};
+window.mlDo = async function (act, tag, to, tag2, tags, asked) {
+const M = window._mlMg; if (!M) return;
+if (act === 'out' && !asked && !(await window.sgConfirm(`Take ${window.dnText(tag)} out of Season ${M.D.season}?`, { title: '✕ Take out', okText: 'Take out' }))) return;
+if (act === 'lock' && !(await window.sgConfirm('Lock the divisions? Everyone stays where they are now. New players go to ⏳ Waiting and only your moves count.', { title: '🔒 Lock divisions', okText: 'Lock' }))) return;
+showToast('⏳ Saving…'); const j = await window.mlMove(M.host, { act, tag, to, tag2, tags });
+if (window._mlHosts) delete window._mlHosts[M.host]; if (M.host === window.uidNow() && window.loadMyHost) { try { await window.loadMyHost(true); } catch (e) {} }
+await window.mlLoadRegs(); if (j && j.ok) window.mlManage(M.host);
+};
+window.mlAddTo = async function (to) {
+const v = await window.sgPrompt('Username of the player to add (his SINLESS GG name):', { title: '➕ Add a player', placeholder: '@username', okText: 'Add' }); if (!v || !v.trim()) return;
+window.mlDo('add', v.trim().replace(/^@/, ''), to);
+};
+window.mlSwap = async function (tag) {
+const v = await window.sgPrompt(`${window.dnText(tag)} uses another account now? Type the account that takes his place (SINLESS GG username). Results and his place stay.`, { title: '🔁 Swap account', placeholder: '@old_or_new_account', okText: 'Swap' }); if (!v || !v.trim()) return;
+window.mlDo('swap', tag, '', v.trim().replace(/^@/, ''));
+};
+/* the old host-only ✕ panel → the full manager for everyone allowed */
+window.mlKeepPanel = (function (b) { return function (uid, ...a) { if (window.mlCanManage(uid)) return window.mlManage(uid); return b.call(this, uid, ...a); }; })(window.mlKeepPanel);
+window.mlHostOut = function (uid, season, tag, out) { window._mlMg = { host: uid, D: window.mlNowDivs(uid, null) }; return window.mlDo(out ? 'out' : 'in', tag); };
+
+window.mlRegCard = (function (b) {
+return function (r, ...a) {
+let h = b.call(this, r, ...a);
+try {
+const me = window.isSignedIn() && window.me(), mine = window.mlMine[r.id];
+if (window.sgInAnySquad()) h = h.replace('⚽ Register to play', '⚽ Tap to join').replace('I changed my mind: register', 'I changed my mind: tap to join');
+const d = me && (r.keep || []).find(x => (x.nw || []).some(t => window.tagEq(t, me)));
+if (d) h = h.replace('✅ Your place is kept: ', "✅ You're in: ");
+else if (mine && !mine.out && !(r.keep || []).some(x => (x.tags || []).some(t => window.tagEq(t, me))) && (r.wait || []).some(t => window.tagEq(t, me))) h = h.replace("✅ You're in</span>", "⏳ You're on the waiting list</span>");
+if (window.mlCanManage(r.hostUid) && r.hostUid !== window.uidNow()) h = h.replace(' · tap to see who is in', ' · tap to manage');
+if (window.mlCanManage(r.hostUid) && (r.dup || []).length) h = h.replace(/(<p class="text-\[10px\] text-cyan-200">)/, `<button onclick="window.mlManage('${escapeHTML(r.hostUid)}')" class="w-full text-left text-[10px] text-amber-200 font-black underline">⚠️ ${r.dup.length} possible duplicate account${r.dup.length > 1 ? 's' : ''} · tap to check</button>$1`);
+if (window.mlCanManage(r.hostUid) && !(r.keep || []).length) h = h.replace(/(<p class="text-\[10px\] text-cyan-200">)/, `<button onclick="window.mlManage('${escapeHTML(r.hostUid)}')" class="w-full text-left text-[10px] text-amber-100 underline decoration-dotted">👥 Move players</button>$1`);
+} catch (e) {}
+return h;
+};
+})(window.mlRegCard);
+
+window.renderHostDash = (function (b) {
+return async function (...a) {
+const r = await b.apply(this, a);
+try { const box = [...document.querySelectorAll('button')].find(x => /📊 League page/.test(x.textContent) && /openLeaguePage\(window\.uidNow\(\)\)/.test(x.getAttribute('onclick') || ''));
+const row = box && box.parentElement; if (row && !row.parentElement.querySelector('[data-mlmove]')) row.insertAdjacentHTML('afterend', `<button data-mlmove onclick="window.mlManage(window.uidNow())" class="w-full py-2.5 rounded-xl bg-gg-900 border border-emerald-400/40 text-emerald-300 text-[11px] font-black">👥 Move players · divisions, add, swap account</button>`); } catch (e) {}
+return r;
+};
+})(window.renderHostDash);
+window.renderTournamentsTabDedicated = (function (b) {
+return function (...a) {
+const r = b.apply(this, a);
+try { const c = document.getElementById('tournamentsDedicatedContainer'), t = window.activeTournament;
+if (c && t && t.auto && t.status !== 'finished' && !c.querySelector('[data-mlmv]') && window.mlCanManage(t.hostId || t.hostUid)) {
+const html = `<button data-mlmv onclick="window.mlManage('${escapeHTML(t.hostId || t.hostUid)}')" class="w-full my-2 py-2.5 rounded-xl bg-gg-900 border border-emerald-400/40 text-emerald-300 text-[11px] font-black">👥 Move players between divisions</button>`;
+const head = c.querySelector('[data-mlpre]') || c.querySelector('[data-season-bar]'); if (head) head.insertAdjacentHTML('afterend', html); else c.insertAdjacentHTML('afterbegin', html); }
+} catch (e) {}
+return r;
+};
+})(window.renderTournamentsTabDedicated);
