@@ -4445,6 +4445,7 @@ async function w11g18route(p, env, uid, b) {
   if (p === '/w11/nation') return await w11nation(env, uid, b || {});
   if (p === '/w11/demo') return await w11demo(env, uid);
   if (p === '/w11/mlnow') return await mlHost(env, uid, true);
+  if (p === '/w11/mlmove') return await mlMove(env, uid, b || {});
   return null;
 }
 // =====================================================================
@@ -4549,54 +4550,19 @@ function mlNextFrom(leagues, prevT, st) {
 }
 /* G18.4: places kept from last season — everyone who played last season keeps his place without registering
    (unless he taps "I'm out", the host removes him, or he sits out). Divisions are filled top-down; extra players go one division lower. */
-function mlKeep(h, A, st, prevT, outSet) {
-  const leagues = (h.comps || []).filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier); if (!leagues.length) return { leagues, tiers: [] };
-  const { next, minT } = mlNextFrom(leagues, prevT, st), banned = new Set((st.ban0 || []).map(mlTag)), seen = new Set(), ladder = [];
-  next.forEach(L => L.forEach(p => { const k = mlTag(p); if (!mlReal(p) || seen.has(k) || banned.has(k) || outSet.has(k)) return; seen.add(k); ladder.push(p); }));
-  const tiers = leagues.map(() => []);
-  leagues.forEach((c, k) => { const size = mlInt((A.sizes || {})[c.id], 2, 40, 16); for (let i = 0; i < ladder.length && tiers[k].length < size;) { if ((minT[mlTag(ladder[i])] || 0) <= k) tiers[k].push(ladder.splice(i, 1)[0]); else i++; } });
-  if (ladder.length) tiers[tiers.length - 1].push(...ladder);
-  return { leagues, tiers };
+function mlKeep(h, A, st, prevT, outSet, raw) {
+  const leagues = (h.comps || []).filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier); if (!leagues.length) return { leagues, tiers: [], waiting: [] };
+  const { next, minT } = mlNextFrom(leagues, prevT, st), banned = new Set((st.ban0 || []).map(mlTag)), R = {};
+  const ok = (p) => { const k = mlTag(p); return mlReal(p) && !banned.has(k) && !outSet.has(k); };
+  /* G19: everyone who will play: last season's players (kept), people who registered, players the host added by hand */
+  next.forEach(L => L.forEach(p => { if (ok(p) && !R[mlTag(p)]) R[mlTag(p)] = { tag: p, at: 0, kept: 1 }; }));
+  (raw || []).forEach(x => { if (x && x.tag && !x.out && x.uid && ok(x.tag) && !R[mlTag(x.tag)]) R[mlTag(x.tag)] = { ...x, nw: 1 }; });
+  mlAdds(h, st).forEach(x => { if (ok(x.tag) && !R[mlTag(x.tag)]) R[mlTag(x.tag)] = { ...x, nw: 1 }; });
+  const { tiers, waiting } = mlArrange(leagues, A, next, minT, R, mlPins(h, st), mlLocked(h, st));
+  return { leagues, tiers, waiting };
 }
 const mlOutSet = (h, st, raw) => { const o = new Set(); (raw || []).forEach(x => { if (x && x.tag && x.out) o.add(mlTag(x.tag)); }); const m = h.mlOut; if (m && Number(m.s) === st.s) (m.tags || []).forEach(t => o.add(mlTag(t))); return o; };
-async function mlKeepWrite(env, uid, h, A, st, prevT, conv) {
-  const raw = (await mlListPlayers(env, `${uid}_s${st.s}`)).concat(conv || []), outSet = mlOutSet(h, st, raw), { leagues, tiers } = mlKeep(h, A, st, prevT, outSet);
-  { const banned = new Set((st.ban0 || []).map(mlTag)), inK = new Set(tiers.flat().map(mlTag)), fresh = [], sn = new Set();
-    raw.filter(x => x && x.tag && !x.out && !outSet.has(mlTag(x.tag)) && !banned.has(mlTag(x.tag)) && !inK.has(mlTag(x.tag))).sort((a, b) => (a.at || 0) - (b.at || 0)).forEach(x => { const k = mlTag(x.tag); if (!sn.has(k)) { sn.add(k); fresh.push(x.tag); } });
-    leagues.forEach((c, k) => { const size = mlInt((A.sizes || {})[c.id], 2, 40, 16); while (fresh.length && tiers[k].length < size) tiers[k].push(fresh.shift()); });
-    if (fresh.length && tiers.length) tiers[tiers.length - 1].push(...fresh.splice(0, 8)); }
-  const keep = leagues.map((c, k) => ({ id: c.id, n: c.name, size: mlInt((A.sizes || {})[c.id], 2, 40, 16), tags: tiers[k].slice(0, 60) }));
-  return { path: `mlReg/${uid}_s${st.s}`, data: { keep, out: [...mlOutSet(h, st, [])].slice(0, 60), home: mlHomeOf(A, prevT, st) }, mask: ['keep', 'out', 'home'] };
-}
-/* G18.4b: while registration is open, this season's division tables already show the players who kept their place
-   (the rest are empty Club_ spots; no fixtures yet — they come out when registration closes). Only the season docs that exist (made by hand). */
-function mlKeepTables(uid, keep, st, prevT, A) {
-  /* G18.7: the tables show exactly who is in — no empty Club_ spots to join (also on old app versions the tables are "full").
-     Spots left are on the 📝 Registration card. Open Cup ("everyone in the leagues") = every league player. Champions League = after the draw. */
-  const W = [], put = (t, players) => { if (!players.length) players = ['Club_1'];
-    if (JSON.stringify(t.players || []) === JSON.stringify(players) && !(t.matches || []).length && Number(t.maxPlayers) === players.length) return;
-    W.push({ path: `tournaments/${t.id}`, data: { players, matches: [], eliminated: [], maxPlayers: players.length }, mask: ['players', 'matches', 'eliminated', 'maxPlayers'], ts: ['updatedAt'], pre: t._ut ? { ut: t._ut } : undefined }); };
-  const mine = prevT.filter(x => (x.hostId || x.hostUid) === uid && x.season === st.s && !x.auto && !x.deleted && x.status !== 'finished');
-  for (const d of keep || []) { const t = mine.find(x => x.id === mlTid(uid, d.id, st.s) || (x.compId === d.id && x.compKind === 'league')); if (t) put(t, d.tags.slice()); }
-  const all = (keep || []).flatMap(d => d.tags);
-  for (const t of mine.filter(x => x.compKind === 'cup')) put(t, ((A && A.cup || {})[t.compId] || 'all') === 'all' ? all.slice() : []);
-  return W;
-}
-/* G18.6: people who pressed Join on one of this season's tables (old app versions) → registered for the league like everybody else.
-   They are taken off that table; the system puts them in their division, and the cups come with the league. */
-async function mlConvertJoins(env, uid, h, st, prevT, W) {
-  const rid = `${uid}_s${st.s}`, raw = await mlListPlayers(env, rid), have = new Set(raw.map(x => mlTag(x.tag))), conv = [];
-  const kept = new Set(mlKeep(h, h.auto || {}, st, prevT, new Set()).tiers.flat().map(mlTag));
-  for (const t of prevT.filter(x => (x.hostId || x.hostUid) === uid && x.season === st.s && !x.auto && !x.deleted && x.status !== 'finished')) {
-    const joined = (t.players || []).filter(p => mlReal(p) && !have.has(mlTag(p)) && !kept.has(mlTag(p)));
-    for (const p of joined.slice(0, 40)) { const k = mlTag(p); have.add(k);
-      const pr = await w11get(env, `profiles/${k}`).catch(() => null), u = pr && pr.data && pr.data.uid; if (!u) continue;
-      const g = String((t.gameIds || {})[k] || (t.gameIds || {})[p] || ''), x = { uid: u, tag: p, ign: g.split(' · ')[0] || '', gid: g.split(' · ')[1] || '', cups: [], out: false, at: Date.now() };
-      W.push({ path: `mlReg/${rid}/players/${u}`, data: x }); conv.push(x);
-      W.push(mlNotif(u, uid, h.org || 'Master League', `📝 You're registered for ${h.org || 'the Master League'} Season ${st.s}. The system puts you in your division when fixtures come out; everyone in the leagues plays the Open Cup.`, conv.length)); }
-  }
-  return conv;
-}
+/* mlKeepWrite: see ml19.js (G19) */
 /* ⚽ close registration: places, fixtures, cups, Champions League */
 async function mlSchedule(env, uid, h, A, st, prevT) {
   const rid = `${uid}_s${st.s}`, banned = new Set((st.ban0 || []).map(mlTag)), raw0 = await mlListPlayers(env, rid), outSet = mlOutSet(h, st, raw0), all0 = raw0.filter(x => x && x.tag && !x.out && x.uid && !outSet.has(mlTag(x.tag)));
@@ -4605,26 +4571,20 @@ async function mlSchedule(env, uid, h, A, st, prevT) {
   for (const t of mine) for (const p of (t.players || []).filter(mlReal)) { const k = mlTag(p); if (have.has(k)) continue; have.add(k);
     const pr = await w11get(env, `profiles/${k}`).catch(() => null), u = pr && pr.data && pr.data.uid; if (u) all0.push({ uid: u, tag: p, ign: '', gid: ((t.gameIds || {})[k] || ''), at: 0 }); }
   /* G18.4: last season's players keep their place without registering */
-  { const kept = mlKeep(h, A, st, prevT, outSet).tiers.flat(); let look = 0;
+  { const kept = mlKeep(h, A, st, prevT, outSet, []).tiers.flat().map(x => x.tag); let look = 0;
     for (const p of kept) { const k = mlTag(p); if (have.has(k) || look >= 80) continue; look++; have.add(k);
       const pr = await w11get(env, `profiles/${k}`).catch(() => null), u = pr && pr.data && pr.data.uid; if (!u) continue;
       const lt = prevT.find(t => t.season === st.s - 1 && (t.players || []).some(x => mlTag(x) === k)), g = lt && lt.gameIds ? (lt.gameIds[k] || '') : '';
       all0.push({ uid: u, tag: p, ign: String(g).split(' · ')[0] || '', gid: String(g).split(' · ')[1] || '', at: 0, kept: 1 }); } }
+  /* G19: players the host / an admin added by hand (no registration needed) */
+  mlAdds(h, st).forEach(x => { const k = mlTag(x.tag); if (have.has(k) || outSet.has(k) || !x.uid) return; have.add(k); all0.push({ uid: x.uid, tag: x.tag, ign: '', gid: '', at: x.at || 0 }); });
   const regs = all0.filter(x => !banned.has(mlTag(x.tag))), bannedRegs = all0.filter(x => banned.has(mlTag(x.tag)));
   const R = {}; regs.forEach(x => { R[mlTag(x.tag)] = x; });
   const comps = h.comps || [], leagues = comps.filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier), cups = comps.filter(c => c.kind === 'cup');
   if (regs.length < 2 || !leagues.length) return { extend: true, n: regs.length };
   const { orders, next, minT } = mlNextFrom(leagues, prevT, st);
-  /* the ladder: everyone who was in the league (division by division, best first), then newcomers in the order they registered */
-  const seen = new Set(), ladder = [];
-  next.forEach(L => L.forEach(p => { const k = mlTag(p); if (R[k] && !seen.has(k)) { seen.add(k); ladder.push(R[k]); } }));
-  regs.filter(x => !seen.has(mlTag(x.tag))).sort((a, b) => (a.at || 0) - (b.at || 0)).forEach(x => { seen.add(mlTag(x.tag)); ladder.push(x); });
-  /* fill each division from the top of the ladder; a player who dropped can't be pulled back above his new division */
-  const tiers = leagues.map(() => []);
-  leagues.forEach((c, k) => { const size = mlInt((A.sizes || {})[c.id], 2, 40, 16); for (let i = 0; i < ladder.length && tiers[k].length < size;) { if ((minT[mlTag(ladder[i].tag)] || 0) <= k) tiers[k].push(ladder.splice(i, 1)[0]); else i++; } });
-  let li = tiers.length - 1; while (li > 0 && !tiers[li].length) li--;
-  tiers[li].push(...ladder.splice(0, 8)); const waiting = ladder;
-  for (let k = tiers.length - 1; k > 0; k--) if (tiers[k].length && tiers[k].length < 3) { tiers[k - 1].push(...tiers[k]); tiers[k] = []; }
+  /* the ladder (G19: shared with the preview, host moves first): pinned players → last season's places → newcomers in the order they registered */
+  const { tiers, waiting } = mlArrange(leagues, A, next, minT, R, mlPins(h, st), mlLocked(h, st));
   const W = [], placed = {}, stamp = Date.now().toString(36), base = { host: h.user || '', hostUid: uid, hostId: uid, hostOrg: h.org || '', game: String(A.game || 'FC MOBILE'), prizePool: String(A.prize || 'Bragging Rights').slice(0, 60), squadId: mlHomeOf(A, prevT, st), fullSeason: false, eliminated: [], season: st.s, status: 'active', rules: String(A.rules || '').slice(0, 1500), needGameId: true, proofReq: A.proof !== false, deadlineHrs: 24, coHosts: [], coHostUids: [], verified: !!h.verified, auto: true };
   const gidsOf = (L) => { const o = {}; L.forEach(x => { o[mlTag(x.tag)] = `${x.ign || ''} · ${x.gid || ''}`.slice(0, 40); }); return o; };
   const made = [];
@@ -4715,8 +4675,7 @@ async function mlHost(env, uid, fromApp) {
     }
     break;
   }
-  if (st.ph === 'reg') { let conv = []; try { conv = await mlConvertJoins(env, uid, h, st, prevT, W); } catch (e) {}
-    try { const kw = await mlKeepWrite(env, uid, h, A, st, prevT, conv); W.push(kw); W.push(...mlKeepTables(uid, kw.data.keep, st, prevT, A)); } catch (e) {} }
+  if (st.ph === 'reg') { try { W.push(await mlKeepWrite(env, uid, h, A, st, prevT)); } catch (e) {} }
   /* cups whose time is over */
   const keep = [];
   for (const p of (st.pend || [])) { if (now < p.at) { keep.push(p); continue; } const t = prevT.find(x => x.id === p.id); if (t) await mlFinish(env, uid, h, t, notes); }
@@ -4771,4 +4730,158 @@ async function mlDiscipline(env, uid, h, A, st, prevT, notes) {
     }
   }
   if (W.length) await w11commit(env, W);
+}
+
+// =====================================================================
+// 🏛️ G19 · MASTER LEAGUE: the host (and admins / co-hosts) move players by hand
+// hosts/{uid}.mlPlace = { s, pin: { tag: compId }, add: [{ tag, uid, at }], lock, okDup: ["a|b"] }   (written ONLY here, by /w11/mlmove)
+// hosts/{uid}.mlOut   = { s, tags }                                                                (taken out)
+// hosts/{uid}.mlLog   = [{ at, by, act, tags, to, tag2, note }] last 60 changes (who did what)
+// Before fixtures: the moves are kept as "pins" and the preview (mlReg.keep) shows them at once; fixtures follow them.
+//   🔒 lock: everyone in the preview right now is pinned; newcomers go to the waiting list, the system stops filling places.
+// After fixtures: the division tournaments are changed straight away (only while their matches haven't started),
+//   and 🔁 swap account (old account ↔ new account of the same person) works at any time, results included.
+// ⚠️ Possible duplicate accounts (same in-game ID or name) are listed in mlReg.dup and the host gets a message.
+// =====================================================================
+const mlPins = (h, st) => { const m = h.mlPlace; return m && Number(m.s) === st.s && m.pin ? m.pin : {}; };
+const mlAdds = (h, st) => { const m = h.mlPlace; return m && Number(m.s) === st.s ? (m.add || []).filter(x => x && x.tag) : []; };
+const mlLocked = (h, st) => { const m = h.mlPlace; return !!(m && Number(m.s) === st.s && m.lock); };
+/* one placement for the preview and the real fixtures: pinned players first (in the division the host chose), then last season's
+   places (promotion / relegation), then newcomers by time. Full divisions push the next players one division down.
+   Locked: only pinned players play, everyone else waits. */
+function mlArrange(leagues, A, next, minT, R, pin, lock) {
+  const idx = {}, seen = new Set(), tiers = leagues.map(() => []), pinned = leagues.map(() => 0), ladder = [];
+  leagues.forEach((c, k) => { idx[c.id] = k; });
+  Object.keys(pin || {}).forEach(t => { const k = mlTag(t), e = R[k], d = idx[pin[t]]; if (!e || d == null || seen.has(k)) return; seen.add(k); tiers[d].push(e); pinned[d]++; });
+  next.forEach(L => L.forEach(p => { const k = mlTag(p); if (R[k] && !seen.has(k)) { seen.add(k); ladder.push(R[k]); } }));
+  Object.values(R).filter(x => !seen.has(mlTag(x.tag))).sort((a, b) => (a.at || 0) - (b.at || 0)).forEach(x => { seen.add(mlTag(x.tag)); ladder.push(x); });
+  if (lock) return { tiers, waiting: ladder };
+  leagues.forEach((c, k) => { const size = mlInt((A.sizes || {})[c.id], 2, 40, 16); for (let i = 0; i < ladder.length && tiers[k].length < size;) { if ((minT[mlTag(ladder[i].tag)] || 0) <= k) tiers[k].push(ladder.splice(i, 1)[0]); else i++; } });
+  let li = tiers.length - 1; while (li > 0 && !tiers[li].length) li--;
+  tiers[li].push(...ladder.splice(0, 8)); const waiting = ladder;
+  for (let k = tiers.length - 1; k > 0; k--) if (tiers[k].length && tiers[k].length < 3 && !pinned[k]) { tiers[k - 1].push(...tiers[k]); tiers[k] = []; }
+  return { tiers, waiting };
+}
+/* ⚠️ same person with two accounts? Same in-game ID, or same in-game name. ids = { tag: 'ign · gid' } from last season */
+const mlNorm = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+function mlDups(list, ids, okDup) {
+  const by = {}, out = [], seen = new Set(), ok = new Set(okDup || []);
+  list.forEach(x => { const k = mlTag(x.tag), g = String(ids[k] || ''), ign = mlNorm(x.ign || g.split(' · ')[0]), gid = mlNorm(x.gid || g.split(' · ')[1]);
+    [['id', gid], ['name', ign]].forEach(([w, v]) => { if (v.length < 3) return; const key = w + ':' + v; (by[key] = by[key] || []).push(x.tag); }); });
+  Object.keys(by).forEach(key => { const L = [...new Set(by[key])]; for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+    const pk = [mlTag(L[i]), mlTag(L[j])].sort().join('|'); if (seen.has(pk) || ok.has(pk) || mlTag(L[i]) === mlTag(L[j])) continue; seen.add(pk);
+    out.push({ a: L[i], b: L[j], why: key.startsWith('id:') ? 'same in-game ID' : 'same in-game name' }); } });
+  return out.slice(0, 20);
+}
+const mlLastIds = (prevT, S) => { const o = {}; prevT.filter(t => (t.season || 0) < S).sort((a, b) => (a.season || 0) - (b.season || 0)).forEach(t => Object.assign(o, t.gameIds || {})); return o; };
+/* the preview write (replaces the G18.4 one): placed + waiting + duplicates; tells the host about NEW duplicates */
+async function mlKeepWrite(env, uid, h, A, st, prevT) {
+  const raw = await mlListPlayers(env, `${uid}_s${st.s}`), { leagues, tiers, waiting } = mlKeep(h, A, st, prevT, mlOutSet(h, st, raw), raw);
+  const keep = leagues.map((c, k) => ({ id: c.id, n: c.name, size: mlInt((A.sizes || {})[c.id], 2, 40, 16), tags: tiers[k].map(x => x.tag).slice(0, 60), nw: tiers[k].filter(x => x.nw).map(x => x.tag).slice(0, 60) }));
+  const dup = mlDups(tiers.flat().concat(waiting), mlLastIds(prevT, st.s), (h.mlPlace && Number(h.mlPlace.s) === st.s && h.mlPlace.okDup) || []);
+  const W = [];
+  try { const old = await w11get(env, `mlReg/${uid}_s${st.s}`), was = new Set(((old && old.data.dup) || []).map(d => [mlTag(d.a), mlTag(d.b)].sort().join('|')));
+    dup.filter(d => !was.has([mlTag(d.a), mlTag(d.b)].sort().join('|'))).slice(0, 5).forEach((d, i) => W.push(mlNotif(uid, uid, 'Master League', `⚠️ Same person? ${d.a} and ${d.b} have the ${d.why.replace('same ', '')}. Master League → 👥 Move players to swap or keep both.`, 'd' + i))); } catch (e) {}
+  if (W.length) await w11commit(env, W).catch(() => {});
+  return { path: `mlReg/${uid}_s${st.s}`, data: { keep, wait: waiting.map(x => x.tag).slice(0, 60), out: [...mlOutSet(h, st, [])].slice(0, 60), home: mlHomeOf(A, prevT, st), dup, lock: mlLocked(h, st) }, mask: ['keep', 'wait', 'out', 'home', 'dup', 'lock'] };
+}
+const mlPlayed = (t) => (t.matches || []).some(m => m.s1 != null || (m.winner && m.winner !== 'NONE'));
+async function mlUidOf(env, tag) { const pr = await w11get(env, `profiles/${mlTag(String(tag).replace(/^@/, ''))}`).catch(() => null); return pr && pr.data ? { uid: pr.data.uid || '', tag: pr.data.gamertag || pr.data.username || String(tag).replace(/^@/, '') } : null; }
+const ML_ACTS = ['move', 'out', 'in', 'add', 'swap', 'unpin', 'lock', 'unlock', 'okdup'];
+
+async function mlMove(env, uid, b) {
+  const host = String(b.host || uid), act = String(b.act || ''), to = String(b.to || ''), tag2 = String(b.tag2 || '').replace(/^@/, '').trim();
+  const clean = (t) => String(t || '').replace(/^@/, '').trim();
+  const tags = [...new Set((Array.isArray(b.tags) && b.tags.length ? b.tags : [b.tag]).map(clean).filter(t => t && t.length <= 40))].slice(0, 30);
+  if (!ML_ACTS.includes(act) || (!tags.length && !['lock', 'unlock'].includes(act))) return { ok: false, error: 'Bad request' };
+  if (tags.length > 1 && !['move', 'out', 'in', 'unpin'].includes(act)) return { ok: false, error: 'One player at a time for this' };
+  const hd = await w11get(env, `hosts/${host}`); if (!hd) return { ok: false, error: 'No Master League' };
+  const h = hd.data, A = h.auto || {}, st = h.ml || {}, S = Number(st.s) || 0;
+  const prevT = (await w11query(env, 'tournaments', [w11eq('hostId', host)], 120)).map(x => ({ ...x.data, id: x.id, _ut: x.ut }));
+  if (uid !== host && !(await isAdminUid(env, uid)) && !prevT.some(t => (t.coHostUids || []).includes(uid))) return { ok: false, error: 'Only the host, co-hosts and admins can do this' };
+  if (!S) return { ok: false, error: 'Turn on the autopilot first' };
+  const leagues = (h.comps || []).filter(c => c.kind === 'league').sort((a, b) => a.tier - b.tier), lg = leagues.find(c => c.id === to);
+  if ((act === 'move' || (act === 'add' && to)) && !lg) return { ok: false, error: 'Pick a division' };
+  const tag = tags[0] || '', k1 = mlTag(tag);
+  let nw = null; if (act === 'add' || act === 'swap') { nw = await mlUidOf(env, act === 'add' ? tag : tag2); if (!nw || !nw.uid) return { ok: false, error: `No SINLESS GG account called ${act === 'add' ? tag : tag2}` }; }
+  const by = await (async () => { if (uid === host) return h.user || 'host'; const u = await w11get(env, `users/${uid}`).catch(() => null); return (u && (u.data.gamertag || u.data.username)) || 'admin'; })();
+  const logW = (note) => ({ path: `hosts/${host}`, data: { mlLog: [...(h.mlLog || []), { at: Date.now(), by: String(by).replace(/^@/, '').slice(0, 40), act, tags: tags.slice(0, 30), to: lg ? lg.name : '', tag2: nw ? nw.tag : '', note: String(note).slice(0, 200) }].slice(-60) }, mask: ['mlLog'] });
+  const season = prevT.filter(t => t.season === S && !t.deleted && t.status !== 'finished'), out = [];
+
+  /* ---------- fixtures are out: change the tournaments ---------- */
+  if (st.ph === 'live' && season.length) {
+    if (['lock', 'unlock', 'okdup', 'unpin', 'in'].includes(act)) return { ok: false, error: 'Fixtures are already out: the divisions are fixed now' };
+    const L = season.filter(t => t.format === 'LEAGUE'), cups = season.filter(t => t.format !== 'LEAGUE'), stamp = Date.now().toString(36), touched = new Set(), W = [];
+    const has = (t, k) => (t.players || []).some(p => mlTag(p) === k);
+    const uidAt = (t, k) => { const i = (t.players || []).findIndex(p => mlTag(p) === k); return i >= 0 ? (t.playerUids || [])[i] || '' : ''; };
+    const drop = (t, k) => { const i = t.players.findIndex(p => mlTag(p) === k); t.players = t.players.filter((p, j) => j !== i); t.playerUids = (t.playerUids || []).filter((p, j) => j !== i); const g = { ...(t.gameIds || {}) }, gv = g[k]; delete g[k]; t.gameIds = g; return gv; };
+    const remake = (t) => { touched.add(t); t._re = 1; };
+    let n = 0;
+    if (act === 'swap') {
+      const k2 = mlTag(nw.tag); if (season.some(t => has(t, k2))) return { ok: false, error: `${nw.tag} is already playing this season` };
+      const sw = (p) => mlTag(p) === k1 ? nw.tag : p;
+      season.filter(t => has(t, k1)).forEach(t => { const i = t.players.findIndex(p => mlTag(p) === k1); t.players = t.players.map(sw); const u = [...(t.playerUids || [])]; if (i >= 0) u[i] = nw.uid; t.playerUids = u;
+        const g = { ...(t.gameIds || {}) }; if (g[k1] != null) { g[k2] = g[k1]; delete g[k1]; } t.gameIds = g; t.eliminated = (t.eliminated || []).map(sw);
+        t.matches = (t.matches || []).map(m => ({ ...m, p1: sw(m.p1), p2: sw(m.p2), winner: m.winner ? sw(m.winner) : m.winner, forfeit: m.forfeit ? sw(m.forfeit) : m.forfeit })); touched.add(t); n++; });
+      if (!n) return { ok: false, error: `${tag} is not in this season` };
+      out.push(`🔁 ${nw.tag} takes ${tag}'s place (${n} tournament${n > 1 ? 's' : ''}, results kept)`);
+      W.push(mlNotif(nw.uid, host, h.org || 'Master League', `🔁 You take over ${tag}'s place in ${h.org || 'the Master League'} Season ${S}.`, 's'));
+    } else if (act === 'add') {
+      const k2 = mlTag(nw.tag); if (L.some(t => has(t, k2))) return { ok: false, error: `${nw.tag} already plays in a division` };
+      const d = lg ? L.find(t => t.compId === lg.id) : L[L.length - 1]; if (!d) return { ok: false, error: `${lg ? lg.name : 'That division'} has no tournament this season` }; if (mlPlayed(d)) return { ok: false, error: `Matches already started in ${d.compName}` };
+      d.players = [...d.players, nw.tag]; d.playerUids = [...(d.playerUids || []), nw.uid]; remake(d);
+      const oc = cups.find(t => ((A.cup || {})[t.compId] || 'all') === 'all' && !/champion/i.test(t.compName || '') && !mlPlayed(t) && !has(t, k2));
+      if (oc) { oc.players = [...oc.players, nw.tag]; oc.playerUids = [...(oc.playerUids || []), nw.uid]; remake(oc); }
+      out.push(`➕ ${nw.tag} added to ${d.compName}${oc ? ' and ' + oc.compName : ''}. New fixtures made.`);
+      W.push(mlNotif(nw.uid, host, h.org || 'Master League', `⚽ You were added to ${h.org || 'the Master League'} Season ${S}: ${d.compName}.`, 'a'));
+    } else {
+      const bad = [];
+      for (const tg of tags) { const k = mlTag(tg);
+        if (act === 'move') {
+          const src = L.find(t => has(t, k)), dst = L.find(t => t.compId === lg.id);
+          if (!src) { bad.push(`${tg} is not in a division`); continue; } if (!dst) return { ok: false, error: `${lg.name} has no tournament this season` }; if (src === dst) continue;
+          if (mlPlayed(src) || mlPlayed(dst)) { bad.push(`${tg}: matches already started (use 🔁 Swap)`); continue; }
+          if (src.players.length <= 2) { bad.push(`${tg}: ${src.compName} would have fewer than 2 players`); continue; }
+          const nm = src.players.find(p => mlTag(p) === k), u = uidAt(src, k), g = drop(src, k); dst.players = [...dst.players, nm]; dst.playerUids = [...(dst.playerUids || []), u]; if (g != null) dst.gameIds = { ...(dst.gameIds || {}), [k]: g };
+          remake(src); remake(dst); n++;
+        } else if (act === 'out') { let m = 0;
+          for (const t of season.filter(t => has(t, k))) { if (mlPlayed(t) || (t.format === 'LEAGUE' && t.players.length <= 2)) continue; drop(t, k); remake(t); m++; }
+          if (m) n++; else bad.push(`${tg}: matches already started`); }
+      }
+      if (!n) return { ok: false, error: bad[0] || 'Nothing changed' };
+      out.push(act === 'move' ? `➡️ ${n} moved to ${lg.name}. New fixtures made.` : `✕ ${n} taken out. New fixtures made.`); if (bad.length) out.push('Not changed: ' + bad.slice(0, 4).join('; '));
+    }
+    let i = 0; for (const t of touched) { if (t._re) { if (t.format === 'LEAGUE') { t.matches = mlLeagueMatches(t.players, t.leagueH2H || '1x', stamp + (i++)); t.maxPlayers = t.players.length; } else { const ko = mlKnockout(mlShuffle(t.players, t.id + stamp), t.compName || t.title, stamp + (i++)); t.matches = ko.ms; t.maxPlayers = ko.N; } }
+      W.push({ path: `tournaments/${t.id}`, data: { players: t.players, playerUids: t.playerUids || [], matches: t.matches, gameIds: t.gameIds || {}, maxPlayers: t.maxPlayers, eliminated: t.eliminated || [] }, mask: ['players', 'playerUids', 'matches', 'gameIds', 'maxPlayers', 'eliminated'], ts: ['updatedAt'], pre: t._ut ? { ut: t._ut } : undefined }); }
+    W.push(logW(out.join(' · ')));
+    if (!(await w11commit(env, W))) return { ok: false, error: 'Someone changed it at the same time. Try again.' };
+    return { ok: true, note: out.join(' · '), live: 1 };
+  }
+
+  /* ---------- registration (or before it): remember the move; the preview and the fixtures follow it ---------- */
+  const m0 = h.mlPlace && Number(h.mlPlace.s) === S ? h.mlPlace : {};
+  const P = { s: S, pin: { ...(m0.pin || {}) }, add: [...(m0.add || [])], lock: !!m0.lock, okDup: [...(m0.okDup || [])] };
+  const O = h.mlOut && Number(h.mlOut.s) === S ? { s: S, tags: [...(h.mlOut.tags || [])] } : { s: S, tags: [] };
+  let tell = null; const unOut = (k) => { O.tags = O.tags.filter(x => mlTag(x) !== k); }, unPin = (k) => { Object.keys(P.pin).forEach(x => { if (mlTag(x) === k) delete P.pin[x]; }); };
+  const reg = ['swap', 'lock'].includes(act) ? await w11get(env, `mlReg/${host}_s${S}`) : null, keep = (reg && reg.data.keep) || [];
+  if (act === 'move') { tags.forEach(t => { const k = mlTag(t); unPin(k); P.pin[t] = lg.id; unOut(k); }); out.push(`➡️ ${tags.join(', ')} → ${lg.name}`); }
+  else if (act === 'unpin') { tags.forEach(t => unPin(mlTag(t))); out.push(`↩ ${tags.join(', ')} back to the normal place`); }
+  else if (act === 'out') { tags.forEach(t => { const k = mlTag(t); unPin(k); P.add = P.add.filter(x => mlTag(x.tag) !== k); if (!O.tags.some(x => mlTag(x) === k)) O.tags.push(t); }); out.push(`✕ ${tags.join(', ')} out`); }
+  else if (act === 'in') { tags.forEach(t => unOut(mlTag(t))); out.push(`↩ ${tags.join(', ')} back in`); }
+  else if (act === 'add') { const k2 = mlTag(nw.tag); unOut(k2); if (!P.add.some(x => mlTag(x.tag) === k2)) P.add.push({ tag: nw.tag, uid: nw.uid, at: Date.now() }); if (lg) { unPin(k2); P.pin[nw.tag] = lg.id; } out.push(`➕ ${nw.tag} added${lg ? ' to ' + lg.name : ''}`); tell = nw.uid; }
+  else if (act === 'swap') {
+    const d = keep.find(x => (x.tags || []).some(t => mlTag(t) === k1)), k2 = mlTag(nw.tag);
+    unPin(k1); unPin(k2); unOut(k2); if (!O.tags.some(x => mlTag(x) === k1)) O.tags.push(tag);
+    if (!P.add.some(x => mlTag(x.tag) === k2)) P.add.push({ tag: nw.tag, uid: nw.uid, at: Date.now() }); if (d) P.pin[nw.tag] = d.id;
+    P.okDup = P.okDup.filter(x => x !== [k1, k2].sort().join('|'));
+    out.push(`🔁 ${nw.tag} takes ${tag}'s place${d ? ' in ' + d.n : ''}`); tell = nw.uid; }
+  else if (act === 'okdup') { const pk = [k1, mlTag(tag2)].sort().join('|'); if (!P.okDup.includes(pk)) P.okDup.push(pk); out.push(`👍 ${tag} and ${tag2} are two different people`); }
+  else if (act === 'lock') { keep.forEach(d => (d.tags || []).forEach(t => { if (!Object.keys(P.pin).some(x => mlTag(x) === mlTag(t))) P.pin[t] = d.id; })); P.lock = true; out.push('🔒 Divisions locked: only your moves count now, new players wait'); }
+  else if (act === 'unlock') { P.lock = false; out.push('🔓 Unlocked: the system fills empty places again'); }
+  if (Object.keys(P.pin).length > 300 || P.add.length > 120 || O.tags.length > 120 || P.okDup.length > 100) return { ok: false, error: 'Too many changes' };
+  const W = [{ path: `hosts/${host}`, data: { mlPlace: P, mlOut: O }, mask: ['mlPlace', 'mlOut'] }, logW(out.join(' · '))];
+  if (tell) W.push(mlNotif(tell, host, h.org || 'Master League', `⚽ You were added to ${h.org || 'the Master League'} Season ${S}. Fixtures come out ${st.closeAt ? new Date(st.closeAt).toUTCString().slice(0, 22) + ' UTC' : 'soon'}.`, 'a'));
+  if (!(await w11commit(env, W))) return { ok: false, error: 'Could not save. Try again.' };
+  let ml = null; if (A.on) { try { ml = (await mlHost(env, host, true)).ml; } catch (e) {} }
+  return { ok: true, note: out.join(' · '), ml };
 }
