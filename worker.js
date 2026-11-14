@@ -131,8 +131,9 @@ export default {
       const tps = (url.searchParams.get('t') || '').split(',').filter(Boolean), ks = (url.searchParams.get('k') || '').split(',').filter(Boolean);
       const rg = url.searchParams.get('rg') || '', q = (url.searchParams.get('q') || '').toLowerCase().slice(0, 60), one = url.searchParams.get('id');
       const lim = Math.min(120, +url.searchParams.get('limit') || 60), before = +url.searchParams.get('before') || 0;
-      let list = all;
-      if (one) list = list.filter(it => it.id === one);
+      /* G20: only the six groups of the mix */
+      let list = all.filter(it => mixOf('', it.tp));
+      if (one) list = all.filter(it => it.id === one);
       else {
         if (tps.length) list = list.filter(it => it.tp.some(z => tps.includes(z)));
         if (ks.length) list = list.filter(it => ks.includes(it.k));
@@ -141,7 +142,9 @@ export default {
         if (before) list = list.filter(it => it.ts < before);
       }
       const counts = {}; all.forEach(it => { if (now - it.dt < 3600e3) it.tp.forEach(z => counts[z] = (counts[z] || 0) + 1); });
-      const out = list.slice(0, lim).map(({ w, ...it }) => it);
+      /* G20: the plain feed (no topic, search or paging) comes in the mix's proportions */
+      if (!one && !tps.length && !ks.length && !rg && !q && !before) list = mixTake(list.map(it => ({ ...it, d: it.dt || it.ts })), it => mixOf('', it.tp), lim).map(({ d, ...it }) => it);
+      const out = list.slice(0, lim).map(({ w, ...it }) => ({ ...it, m: mixOf('', it.tp) }));
       return new Response(JSON.stringify({ ok: true, at: now, hour: all.filter(it => now - it.dt < 3600e3).length, counts, items: out }), { headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } });
     }
     // 🎁 free games right now
@@ -153,12 +156,15 @@ export default {
     if (url.pathname === '/vids' && req.method === 'GET') {
       const all = await vidsGet(env), q = url.searchParams;
       const cs = (q.get('c') || '').split(',').filter(Boolean), ch = q.get('ch') || '', rg = q.get('rg') || '', lim = Math.min(200, +q.get('limit') || 60), before = +q.get('before') || 0, full = q.get('full') === '1';
-      let list = ch ? all.filter(x => x.ci === ch) : all.filter(x => x.s === 'o');
+      /* G20: only the mix (a single channel you ask for is always shown) */
+      let list = ch ? all.filter(x => x.ci === ch) : all.filter(x => x.s === 'o' && mixOf(x.c, x.k));
       if (cs.length) list = list.filter(x => String(x.c).split(',').some(z => cs.includes(z)));
       if (rg) list = list.filter(x => x.rg === rg || x.rg === 'global');
       if (full) list = list.filter(x => x.f);
       if (before) list = list.filter(x => x.d < before);
-      return new Response(JSON.stringify({ ok: true, items: list.slice(0, lim) }), { headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=120' } });
+      const plain = ch || cs.length || before || full;
+      const items = (plain ? list.slice(0, lim) : mixTake(list, x => mixOf(x.c, x.k), lim)).map(x => ({ ...x, m: mixOf(x.c, x.k) }));
+      return new Response(JSON.stringify({ ok: true, items }), { headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' } });
     }
     // 🛠️ admin: see / approve / remove / add channels
     if (url.pathname === '/channels' && req.method === 'GET') {
@@ -413,8 +419,10 @@ export default {
 // =====================================================================
 const NEWS_DOC = 'news/feed';
 // [id, url, topics, kind, tier, region]   kind: o=official p=press c=community v=video   tier: A=fast, B=normal
+// G20 · THE MIX: only gaming (50%), football (30%), movies (5%), anime (5%), tech (5%) and esports (5%).
+// Music, cars, fashion, food, travel, wrestling, books, other sports, dance and comedy sources were removed.
+// A new source must belong to one of the six groups (see mixOf below), or it is ignored.
 const NEWS_SOURCES = [
-  // 🎮 games
   ['ign', 'https://feeds.feedburner.com/ign/news', 'games', 'p', 'A'],
   ['gamespot', 'https://www.gamespot.com/feeds/news/', 'games', 'p', 'A'],
   ['eurogamer', 'https://www.eurogamer.net/feed', 'games', 'p', 'B'],
@@ -434,35 +442,20 @@ const NEWS_SOURCES = [
   ['r_dls', 'https://www.reddit.com/r/DreamLeagueSoccer/.rss', 'dls', 'c', 'B'],
   ['r_codm', 'https://www.reddit.com/r/CallOfDutyMobile/.rss', 'cod', 'c', 'B'],
   ['esportsinsider', 'https://esportsinsider.com/feed', 'esports', 'p', 'B'],
-  // ⚽ football & sports
   ['bbcfootball', 'https://feeds.bbci.co.uk/sport/football/rss.xml', 'football', 'p', 'A', 'europe'],
   ['skytransfers', 'https://www.skysports.com/rss/12040', 'football,transfers', 'p', 'A', 'europe'],
   ['skyfootball', 'https://www.skysports.com/rss/11095', 'football', 'p', 'B', 'europe'],
   ['guardianfootball', 'https://www.theguardian.com/football/rss', 'football', 'p', 'B', 'europe'],
   ['espnfc', 'https://www.espn.com/espn/rss/soccer/news', 'football', 'p', 'A', 'us'],
   ['ghanasoccernet', 'https://ghanasoccernet.com/feed', 'football', 'p', 'B', 'africa'],
-  ['espnnba', 'https://www.espn.com/espn/rss/nba/news', 'sports,nba', 'p', 'B', 'us'],
-  ['espnmma', 'https://www.espn.com/espn/rss/mma/news', 'sports,ufc', 'p', 'B', 'us'],
-  ['espntennis', 'https://www.espn.com/espn/rss/tennis/news', 'sports', 'p', 'B'],
-  ['f1', 'https://www.formula1.com/en/latest/all.xml', 'sports,f1', 'o', 'B'],
-  ['cricinfo', 'https://www.espncricinfo.com/rss/content/story/feeds/0.xml', 'sports,cricket', 'p', 'B', 'india'],
-  // 🎬 movies, series, asian dramas, anime
   ['deadline', 'https://deadline.com/feed/', 'movies,series', 'p', 'A', 'us'],
   ['variety', 'https://variety.com/feed/', 'movies,series', 'p', 'B', 'us'],
   ['collider', 'https://collider.com/feed/', 'movies,series', 'p', 'B'],
   ['screenrant', 'https://screenrant.com/feed/', 'movies,series', 'p', 'B'],
-  ['soompi', 'https://www.soompi.com/feed', 'kdrama,kpop,music', 'p', 'A', 'asia'],
   ['htbollywood', 'https://www.hindustantimes.com/feeds/rss/entertainment/bollywood/rssfeed.xml', 'bollywood,movies', 'p', 'B', 'india'],
-  ['bellanaija', 'https://www.bellanaija.com/feed/', 'nollywood,music', 'p', 'B', 'africa'],
   ['ann', 'https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us', 'anime', 'p', 'A', 'asia'],
   ['crunchyroll', 'https://cr-news-api-service.prd.crunchyrollsvc.com/v1/en-US/rss', 'anime', 'o', 'B', 'asia'],
   ['mal', 'https://myanimelist.net/rss/news.xml', 'anime', 'p', 'B', 'asia'],
-  // 🎵 music
-  ['billboard', 'https://www.billboard.com/feed/', 'music', 'p', 'B', 'us'],
-  ['rollingstone', 'https://www.rollingstone.com/feed/', 'music', 'p', 'B', 'us'],
-  ['notjustok', 'https://notjustok.com/feed/', 'music,afrobeats', 'p', 'B', 'africa'],
-  ['remezcla', 'https://remezcla.com/feed/', 'music,latin', 'p', 'B', 'latam'],
-  // 📱 phones, tech, AI
   ['gsmarena', 'https://www.gsmarena.com/rss-news-reviews.php3', 'phones', 'p', 'A'],
   ['macrumors', 'https://feeds.macrumors.com/MacRumors-All', 'phones,tech', 'p', 'A'],
   ['9to5mac', 'https://9to5mac.com/feed/', 'phones,tech', 'p', 'A'],
@@ -476,22 +469,6 @@ const NEWS_SOURCES = [
   ['engadget', 'https://www.engadget.com/rss.xml', 'tech', 'p', 'B'],
   ['applenews', 'https://www.apple.com/newsroom/rss-feed.rss', 'phones,tech', 'o', 'B'],
   ['samsungnews', 'https://news.samsung.com/global/feed', 'phones,tech', 'o', 'B'],
-  // 🚗 cars
-  ['electrek', 'https://electrek.co/feed/', 'cars', 'p', 'B'],
-  ['motor1', 'https://www.motor1.com/rss/news/all/', 'cars', 'p', 'B'],
-  ['carscoops', 'https://www.carscoops.com/feed/', 'cars', 'p', 'B'],
-  // 👗 lifestyle, wrestling, books, students
-  ['hypebeast', 'https://hypebeast.com/feed', 'fashion', 'p', 'B'],
-  ['vogue', 'https://www.vogue.com/feed/rss', 'fashion', 'p', 'B'],
-  ['bonappetit', 'https://www.bonappetit.com/feed/rss', 'food', 'p', 'B'],
-  ['menshealth', 'https://www.menshealth.com/rss/all.xml/', 'fitness', 'p', 'B'],
-  ['cntraveler', 'https://www.cntraveler.com/feed/rss', 'travel', 'p', 'B'],
-  ['cageside', 'https://www.cagesideseats.com/rss/index.xml', 'wrestling', 'p', 'B'],
-  ['wrestlinginc', 'https://www.wrestlinginc.com/feed/', 'wrestling', 'p', 'B'],
-  ['bookriot', 'https://bookriot.com/feed/', 'books', 'p', 'B'],
-  ['lithub', 'https://lithub.com/feed/', 'books', 'p', 'B'],
-  ['oppdesk', 'https://opportunitydesk.org/feed/', 'students', 'p', 'B'],
-  // 🎬 official YouTube channels (trailers, gameplay) — "yt:@handle" is turned into the channel feed once
   ['yt_easportsfc', 'yt:@EASPORTSFC', 'eafc,fcmobile', 'v', 'A'],
   ['yt_efootball', 'yt:@play_eFootball', 'efootball', 'v', 'A'],
   ['yt_cod', 'yt:@CallofDuty', 'cod', 'v', 'A'],
@@ -504,27 +481,36 @@ const NEWS_SOURCES = [
   ['yt_sony', 'yt:@SonyPictures', 'movies', 'v', 'B'],
   ['yt_crunchyroll', 'yt:@Crunchyroll', 'anime', 'v', 'B', 'asia'],
   ['yt_fabrizio', 'yt:@FabrizioRomanoYT', 'football,transfers', 'v', 'A'],
-  ['yt_wwe', 'yt:@WWE', 'wrestling', 'v', 'B'],
-  ['yt_nba', 'yt:@NBA', 'sports,nba', 'v', 'B', 'us'],
-  ['yt_f1', 'yt:@Formula1', 'sports,f1', 'v', 'B'],
-  ['yt_tseries', 'yt:@tseries', 'music,bollywood', 'v', 'B', 'india'],
-  ['yt_hybe', 'yt:@HYBELABELS', 'music,kpop', 'v', 'B', 'asia'],
   ['yt_samsung', 'yt:@Samsung', 'phones', 'v', 'B'],
   ['yt_apple', 'yt:@Apple', 'phones,tech', 'v', 'B'],
   ['yt_mkbhd', 'yt:@mkbhd', 'phones,tech', 'v', 'B'],
-  ['yt_topgear', 'yt:@TopGear', 'cars', 'v', 'B'],
-  // 🎙️ podcasts (audio plays from the podcast's own host, like any podcast app; video podcasts use YouTube's player)
   ['pod_footballdaily', 'https://podcasts.files.bbci.co.uk/p02nrsln.rss', 'football,podcasts', 'a', 'B', 'europe'],
   ['yt_overlap', 'yt:@TheOverlap', 'football,podcasts', 'v', 'B'],
   ['yt_restisfootball', 'yt:@TheRestIsFootball', 'football,podcasts', 'v', 'B'],
   ['yt_kindafunny', 'yt:@KindaFunnyGames', 'games,podcasts', 'v', 'B'],
-  ['yt_hotones', 'yt:@FirstWeFeast', 'food,comedy,podcasts', 'v', 'B'],
-  // 💃 dance & 😂 comedy (official channels only)
-  ['yt_justdance', 'yt:@justdance', 'dance,games', 'v', 'B'],
-  ['yt_1million', 'yt:@1MILLIONDanceStudio', 'dance', 'v', 'B', 'asia'],
-  ['yt_snl', 'yt:@SNL', 'comedy', 'v', 'B', 'us'],
-  ['yt_comedycentral', 'yt:@ComedyCentral', 'comedy', 'v', 'B', 'us']
+  ['yt_justdance', 'yt:@justdance', 'dance,games', 'v', 'B']
 ];
+const MIX = { gaming: 50, football: 30, movies: 5, anime: 5, tech: 5, esports: 5 };
+/* the same rule as the app (v_g20.js): which of the six groups does this belong to? '' = not shown */
+function mixOf(cats, topics) {
+  const s = (String(Array.isArray(cats) ? cats.join(',') : cats || '') + ',' + String(Array.isArray(topics) ? topics.join(',') : topics || '')).toLowerCase().replace(/\s+/g, '');
+  const has = (re) => re.test(s), game = has(/(^|,)(games|gaming|fcmobile|efootball|dls|cod|eafc|gta|patch|codes)(,|$)/), foot = has(/(^|,)(football|transfers)(,|$)/);
+  if (has(/(^|,)esports(,|$)/) && (game || !foot)) return 'esports';
+  if (has(/(^|,)(anime|manga)(,|$)/)) return 'anime';
+  if (game) return 'gaming';
+  if (foot && !has(/(^|,)(cricket|nba|f1|ufc|mma|tennis|rugby|wrestling)(,|$)/)) return 'football';
+  if (has(/(^|,)(phones|tech|ai)(,|$)/)) return 'tech';
+  if (has(/(^|,)(movies|series|trailers|kdrama|cdrama|nollywood|bollywood|turkish|telenovela)(,|$)/) && !has(/(^|,)(music|kpop|afrobeats|dance|comedy|latin)(,|$)/)) return 'movies';
+  return '';
+}
+/* newest videos in the mix's proportions: each group gets its share of the list, spare places go to the newest of the rest */
+function mixTake(list, groupOf, lim) {
+  const q = {}, order = Object.keys(MIX); order.forEach(k => { q[k] = []; });
+  list.forEach(x => { const g = groupOf(x); if (q[g]) q[g].push(x); });
+  const out = []; order.forEach(k => { out.push(...q[k].splice(0, Math.round(lim * MIX[k] / 100))); });
+  const rest = order.flatMap(k => q[k]).sort((a, b) => (b.d || 0) - (a.d || 0));
+  return out.concat(rest.slice(0, Math.max(0, lim - out.length))).sort((a, b) => (b.d || 0) - (a.d || 0));
+}
 const NEWS_BLOCK = /\b(mod ?apk|apk mod|free download|cracked?|hack(s|ed)? (tool|apk)|cheat (engine|codes? download)|torrent|nudes?|porn|xxx|onlyfans|betting tips?|sure odds|fixed matches?)\b/i;
 const NEWS_TOPIC_WORDS = [
   ['fcmobile', /\b(fc ?mobile|fifa ?mobile)\b/i], ['efootball', /\befootball\b/i], ['dls', /\b(dls ?\d*|dream league)\b/i],
@@ -2389,7 +2375,8 @@ async function vidsRun(env, ctx, budget) {
   const { L, st } = await chLoad(env), items = await vidLoad(env), now = Date.now(), day = new Date().toISOString().slice(0, 10);
   if (st.rv !== 1) { st.rv = 1; L.forEach(c => { if (c.id === 'x') { delete c.id; c.tries = 0; c.nt = 0; c.e = ''; } }); }   // v60: retry everything YouTube refused before
   st.i = st.i || 0; st.ya = st.ya && st.day === day ? st.ya : {}; st.day = day;
-  const live = L.filter(c => c.st !== 'x' && c.id !== 'x');
+  /* G20: only channels in the mix are checked (a channel people follow is always kept), so the gaming and football ones come round faster */
+  const live = L.filter(c => c.st !== 'x' && c.id !== 'x' && (mixOf(c.c, c.t) || c.fol > 0));
   // followed channels first (every hour), then everyone in turns
   const pick = live.filter(c => c.fol > 0 && c.id && now - (c.last || 0) > 3600e3).slice(0, Math.floor(budget / 3));
   // still looking channels up? spend most of this run on that (approved ones first) — everything is found within a few hours
@@ -3714,7 +3701,7 @@ async function w11lock(env, budget) {
     }
     for (let i = 0; i < writes.length; i += 400) { await w11commit(env, writes.slice(i, i + 400)); budget.n--; }
     done += rows.length;
-    for (const u of alert.slice(0, 5)) { if (budget.n < 10) break; budget.n -= 4; await pushToUser(env, u, '⚽ 11 Wonders: kick-off in 15 min', 'Your match is about to start. Come and shout from the touchline!', SITE + '#11wonders', 'w11ko').catch(() => {}); }
+    for (const u of alert.slice(0, 5)) { if (budget.n < 10) break; budget.n -= 4; await pushToUser(env, u, '⚽ 11 Wonders Demo: kick-off in 15 min', 'Your match is about to start. Come and shout from the touchline!', SITE + '#11wonders', 'w11ko').catch(() => {}); }
   }
   return done;
 }
@@ -4321,7 +4308,7 @@ async function w11fresh(env, uid) {
   return { ok: true, done: done.concat('clubs:' + nc), ep };
 }
 async function w11g5route(p, env, uid, b) {
-  if (p === '/w11/result' && Number(b && b.ev) !== C11.ENGINE) return { ok: false, update: 1, error: 'Please close and reopen SINLESS GG to update 11 Wonders' };
+  if (p === '/w11/result' && Number(b && b.ev) !== C11.ENGINE) return { ok: false, update: 1, error: 'Please close and reopen SINLESS GG to update 11 Wonders Demo' };
   if (p === '/w11/tk') return await w11takers(env, uid, b);
   if (p === '/w11/fresh') return await w11fresh(env, uid);
   return null;
