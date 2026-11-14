@@ -1443,7 +1443,7 @@ W.BOOT = [
   { gap: 5, opp: 601, tip: 'Match 2 · Formations. Before kick-off (or at half time) open 📐 and try a new shape. 4-3-3 attacks, 5-4-1 defends.' },
   { gap: 5, opp: 602, tip: 'Match 3 · Substitutions. You have 5 subs. Tap 🔁, pick the player coming off, then the one coming on.' },
   { gap: 30, opp: 603, tip: 'Match 4 · Cards & wear and tear. Fouls bring yellow cards; two yellows = red. Rested players play better; from the league on, fitness and injuries count.' },
-  { gap: 60, opp: 604, tip: 'Match 5 · Grand Finale. Use everything: the right shout at the right moment wins games. Win or not, you graduate to the 11 Wonders league!' },
+  { gap: 60, opp: 604, tip: 'Match 5 · Grand Finale. Use everything: the right shout at the right moment wins games. Win or not, you graduate to the 11 Wonders Demo league!' },
 ];
 W.bootNext = function () {
   const b = (W.me && W.me.boot) || [], i = b.length; if (i >= 5) return null;
@@ -1488,12 +1488,12 @@ W.ui = function (html, title, back) {
   let el = document.getElementById('w11');
   if (!el) { const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st); document.body.insertAdjacentHTML('beforeend', '<div id="w11"></div>'); el = document.getElementById('w11'); }
   const me = W.me;
-  el.innerHTML = `<div class="hd"><button class="bk" onclick="${back || 'W11.close()'}">←</button><b>${esc(title || '11 WONDERS')}</b>${me ? `<div class="chips"><span>💎 ${fmt(me.coins)}</span><span>🪙 ${fmt(me.gems)}</span></div>` : ''}</div><div class="bd" id="w11b">${html}</div>`;
+  el.innerHTML = `<div class="hd"><button class="bk" onclick="${back || 'W11.close()'}">←</button><b>${esc(title || '11 WONDERS DEMO')}</b>${me ? `<div class="chips"><span>💎 ${fmt(me.coins)}</span><span>🪙 ${fmt(me.gems)}</span></div>` : ''}</div><div class="bd" id="w11b">${html}</div>`;
   return el;
 };
 W.close = function () { W.stopLoop(); document.getElementById('w11')?.remove(); };
 W.open = async function () {
-  if (window.needSignIn && window.needSignIn('play 11 Wonders')) return;
+  if (window.needSignIn && window.needSignIn('play 11 Wonders Demo')) return;
   W.ui('<p style="text-align:center;padding:40px 0;color:#94a3b8">Loading your world…</p>');
   try { await W.syncEpoch(); } catch (e) {}
   await W.load();
@@ -1655,7 +1655,7 @@ W.finish = async function (live, m, offline) {
   if (live.kind === 'boot') patch.boot = [...(me.boot || []), { at: Date.now(), gf, ga }].slice(0, 5); else patch.fr = (me.fr || 0) + 1;
   await W.save(patch);
   window.addXP && window.addXP(res === 'w' ? 10 : 5, 'game');
-  if (live.kind === 'friend' && live.opp && live.opp.uid && window.notify) window.notify(live.opp.uid, 'game', { text: `⚽ 11 Wonders: ${me.name} played your club in a friendly · ${gf}–${ga}`, postId: 'w11' });
+  if (live.kind === 'friend' && live.opp && live.opp.uid && window.notify) window.notify(live.opp.uid, 'game', { text: `⚽ 11 Wonders Demo: ${me.name} played your club in a friendly · ${gf}–${ga}`, postId: 'w11' });
   const a = m.T[0], b = m.T[1], pt = a.poss + b.poss || 1, goals = m.ev.filter(e => e.k === 'goal');
   const graduated = live.kind === 'boot' && patch.boot.length >= 5;
   W.ui(`<div class="card" style="text-align:center">${offline ? '<p style="font-size:11px;color:#94a3b8">Played while you were away</p>' : ''}<p style="font-size:12px;font-weight:900;color:${res === 'w' ? '#a3e635' : res === 'l' ? '#ff2d95' : '#facc15'}">${res === 'w' ? 'WIN' : res === 'l' ? 'DEFEAT' : 'DRAW'}</p>
@@ -1748,7 +1748,7 @@ W.helpL = function () {
     <p style="margin-top:6px">🏔️ <b>6 divisions</b>, 14 clubs in each group. Top 2 go up, bottom 4 go down.</p>
     <p style="margin-top:6px">📋 <b>Team sheet</b> locks 15 minutes before kick-off. Injured or banned starters are swapped for the best player on the bench.</p>
     <p style="margin-top:6px">📢 <b>Live:</b> both managers can shout, change shape and make subs. Your orders reach the pitch 2 seconds later, so both phones see the same match. Not there? GG AI shouts for you.</p>
-    <p style="margin-top:6px">✅ <b>Results</b> are worked out on phones. A result counts when 2 different phones get exactly the same score. When you open 11 Wonders, your phone may quietly check one or two other matches. Nobody checked within a day? The match gets a quick result.</p>
+    <p style="margin-top:6px">✅ <b>Results</b> are worked out on phones. A result counts when 2 different phones get exactly the same score. When you open 11 Wonders Demo, your phone may quietly check one or two other matches. Nobody checked within a day? The match gets a quick result.</p>
     <p style="margin-top:6px">💪 <b>Fitness:</b> a full match costs 24, each day back gives +15. ⚡ An Energy Pack gives +25 to the whole squad. Tired players play worse and get injured more.</p>
     <p style="margin-top:6px">🤕 <b>Injuries</b> last 1–3 matches. 🩹 One Med-Pack heals one player. 🟨 5 yellows or 🟥 a red = 1-match ban.</p>
     <p style="margin-top:6px">🏋️ <b>Training:</b> once a day, pick attack, defence or fitness. Max 15 of each per season. Resets every season.</p>
@@ -1898,7 +1898,7 @@ W.finishL = async function (live) {
   const LM = live.M, pk = LM.cup && CC.isKO({ k: LM.cup }, LM.cr) && a.score === b.score ? CC.pens(live.mid) : null;
   let res = my < 0 ? '' : mineGf > mineGa ? 'w' : mineGf < mineGa ? 'l' : 'd'; if (pk && res) res = (pk[0] > pk[1] ? 0 : 1) === my ? 'w' : 'l';
   const coins = LM.cup ? (my < 0 ? 0 : CC.cupCoins(LM.cup, LM.cr, a.score, b.score, live.mid, my)) : res === 'w' ? CC.winCoins(LM.t) : res === 'd' ? CC.drawCoins(LM.t) : 0;
-  const status = j.final ? (j.final === r ? `✅ Result confirmed${coins ? ` · +${fmt(coins)} 💎` : ''}` : `✅ Confirmed by other phones: ${esc(String(j.final).split('|')[0])}`) : j.ok ? '⏳ Waiting for a second phone to check the result. Gems arrive once it is confirmed.' : '⚠️ ' + esc(j.error || 'Could not send the result. It will be sent next time you open 11 Wonders.');
+  const status = j.final ? (j.final === r ? `✅ Result confirmed${coins ? ` · +${fmt(coins)} 💎` : ''}` : `✅ Confirmed by other phones: ${esc(String(j.final).split('|')[0])}`) : j.ok ? '⏳ Waiting for a second phone to check the result. Gems arrive once it is confirmed.' : '⚠️ ' + esc(j.error || 'Could not send the result. It will be sent next time you open 11 Wonders Demo.');
   W.G = null; await W.load();
   W.ui(`<div class="card" style="text-align:center">${res ? `<p style="font-size:12px;font-weight:900;color:${res === 'w' ? '#a3e635' : res === 'l' ? '#ff2d95' : '#facc15'}">${res === 'w' ? 'WIN' : res === 'l' ? 'DEFEAT' : 'DRAW'}</p>` : ''}
     <p style="font-size:34px;font-weight:900">${a.score}–${b.score}</p>${pk ? `<p style="font-size:13px;font-weight:900;color:#facc15">🥅 Penalties ${pk[0]}–${pk[1]}</p>` : ''}<p style="font-size:12px;color:#94a3b8">${esc(a.name)} vs ${esc(b.name)}${LM.cup ? ' · ' + CC.CUP_NAME[LM.cup] + ' · ' + esc(LM.rn || '') : ''}</p>
@@ -1957,7 +1957,7 @@ W.gift = async function (auto) {
   W.ui(`<div class="card" style="text-align:center"><p style="font-size:44px">👑</p><p style="font-size:10px;font-weight:900;letter-spacing:.12em;color:#facc15">PIONEER #${W.me.pioneerNo} · ONE OF ONLY 50</p>
     <p style="font-size:22px;font-weight:900;margin-top:6px">${p.flag} ${esc(p.name)}</p><p style="font-size:13px;color:#cbd5e1;margin-top:4px">${p.pos} · ${p.age} years old</p>
     <p style="font-size:54px;font-weight:900;margin-top:8px;background:linear-gradient(90deg,#facc15,#ff2d95,#a855f7);-webkit-background-clip:text;background-clip:text;color:transparent">${p.ovr}</p><p style="font-size:11px;color:#94a3b8">OVR</p>
-    <p style="font-size:12px;color:#cbd5e1;margin-top:10px">Thank you for being one of the first 50 managers. Only 50 players like this will ever exist in 11 Wonders. He is now in your squad. Move him into your top 18 to play him!</p>
+    <p style="font-size:12px;color:#cbd5e1;margin-top:10px">Thank you for being one of the first 50 managers. Only 50 players like this will ever exist in 11 Wonders Demo. He is now in your squad. Move him into your top 18 to play him!</p>
     <button class="btn" style="margin-top:14px" onclick="W11.squad()">👕 See my squad</button></div>`, '🎁 PIONEER WONDER', 'W11.home()');
 };
 
@@ -2853,7 +2853,7 @@ const LAND_CSS = `
 W.land = function () {
   if (!document.getElementById('w11land')) { const st = document.createElement('style'); st.id = 'w11land'; st.textContent = LAND_CSS; document.head.appendChild(st); }
   let r = document.getElementById('w11rot');
-  if (!r) { document.body.insertAdjacentHTML('beforeend', `<div id="w11rot"><div class="ph"></div><p style="font-size:20px;font-weight:900;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);-webkit-background-clip:text;background-clip:text;color:transparent">Turn your phone sideways</p><p style="font-size:13px;color:#cbd5e1;max-width:300px">11 Wonders is played in landscape, like a console game. Your match keeps playing.</p><button onclick="W11.landLock()" style="margin-top:6px;padding:12px 18px;border-radius:14px;font-weight:900;color:#0b0f24;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)">⛶ Full screen</button><button onclick="W11.close()" style="padding:8px 14px;border-radius:12px;font-size:12px;background:rgba(255,255,255,.08)">← Back to SINLESS GG</button></div>`); r = document.getElementById('w11rot'); }
+  if (!r) { document.body.insertAdjacentHTML('beforeend', `<div id="w11rot"><div class="ph"></div><p style="font-size:20px;font-weight:900;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95);-webkit-background-clip:text;background-clip:text;color:transparent">Turn your phone sideways</p><p style="font-size:13px;color:#cbd5e1;max-width:300px">11 Wonders Demo is played in landscape, like a console game. Your match keeps playing.</p><button onclick="W11.landLock()" style="margin-top:6px;padding:12px 18px;border-radius:14px;font-weight:900;color:#0b0f24;background:linear-gradient(90deg,#22d3ee,#a855f7,#ff2d95)">⛶ Full screen</button><button onclick="W11.close()" style="padding:8px 14px;border-radius:12px;font-size:12px;background:rgba(255,255,255,.08)">← Back to SINLESS GG</button></div>`); r = document.getElementById('w11rot'); }
   r.classList.add('on'); W.landLock();
 };
 W.landLock = function () {
@@ -2910,7 +2910,7 @@ W.hq = (function (b) { return function () { b.apply(this, arguments); const me =
     <button class="btn2" style="margin-top:10px" onclick="W11.redesign()">🎨 Redesign crest & kits · ${CC.TOK.design} 🪙 <span style="color:#94a3b8">(you have ${fmt(me.gems || 0)})</span></button></div>`); }; })(W.hq);
 W.helpL = (function (b) { return function () { b.apply(this, arguments); const el = document.querySelector('#w11b .card'); if (!el) return;
   el.insertAdjacentHTML('beforeend', `<p style="margin-top:6px">🎥 <b>3D</b>: goals and big saves switch to a live 3D camera (see below), plus an opening ceremony before kick-off and a closing ceremony at full time. Switch the live match between 🎥 3D and 🗺️ 2D at any time. Win a trophy and your players lift it in 3D.</p>
-    <p style="margin-top:6px">🧍 <b>Real 3D players</b>: your players wear your full kit (pattern, crest, collar, sleeves, shorts, socks, number on the back), run, kick, dive and celebrate. The 3D files download once when you open 11 Wonders and are then saved on your phone. Phones without the newest 3D keep the simple 3D.</p>
+    <p style="margin-top:6px">🧍 <b>Real 3D players</b>: your players wear your full kit (pattern, crest, collar, sleeves, shorts, socks, number on the back), run, kick, dive and celebrate. The 3D files download once when you open 11 Wonders Demo and are then saved on your phone. Phones without the newest 3D keep the simple 3D.</p>
     <p style="margin-top:6px">🎨 <b>Crest & kits</b>: change them in 🏟️ Club HQ for ${CC.TOK.design} 🪙 GG Coins.</p>`); }; })(W.helpL);
 
 // ---------- 🎬 live cinematic: the radar turns into a full-screen 3D camera for goals and big saves ----------
@@ -3002,10 +3002,10 @@ W.syncEpoch = async function () {
   try { const f = await fbLoad(), sn = await f.getDoc(f.doc(db(), 'w11meta', 'season')), d = sn.exists() ? sn.data() : {};
     if (d.ep) { CC.setEpoch(d.ep); try { localStorage.setItem('w11_ep', String(d.ep)); } catch (e) {} }
     W.S = CC.clock(W.nowS ? W.nowS() : Date.now()).s; W.meta = d;
-    if (d.eng && d.eng > W.ENGINE) toast('🆕 A new 11 Wonders engine is out. Close and reopen SINLESS GG to update.'); } catch (e) {}
+    if (d.eng && d.eng > W.ENGINE) toast('🆕 A new 11 Wonders Demo engine is out. Close and reopen SINLESS GG to update.'); } catch (e) {}
 };
 /* results carry the engine version; old phones are asked to update */
-W.api = (function (b) { return async function (path, body) { if (path === '/w11/result') body = { ...(body || {}), ev: W.ENGINE }; const r = await b.call(this, path, body); if (r && r.update && !W._updT) { W._updT = 1; toast('🆕 ' + (r.error || 'Please update 11 Wonders')); } return r; }; })(W.api);
+W.api = (function (b) { return async function (path, body) { if (path === '/w11/result') body = { ...(body || {}), ev: W.ENGINE }; const r = await b.call(this, path, body); if (r && r.update && !W._updT) { W._updT = 1; toast('🆕 ' + (r.error || 'Please update 11 Wonders Demo')); } return r; }; })(W.api);
 
 /* 🏠 no waiting: the league home is the home; Boot Camp is optional practice */
 W.bootHome = function () { W._boot = 1; try { return W.home(); } finally { W._boot = 0; } };
@@ -3078,7 +3078,7 @@ W.dev = (function () {
 /* the cheapest phones keep the 2D radar by default and draw at 30 fps; everything else stays the same for everyone */
 W.weak = W.dev.tier === 'low';
 W.gfxName = { auto: '🤖 Auto', high: '🔥 High', mid: '⚖️ Mid', low: '🔋 Low' };
-W.gfxSet = function (k) { try { localStorage.setItem('w11_gfx', k); } catch (e) {} toast(`${W.gfxName[k]} graphics. Close and reopen 11 Wonders to use it.`); W.hq && W.hq(); };
+W.gfxSet = function (k) { try { localStorage.setItem('w11_gfx', k); } catch (e) {} toast(`${W.gfxName[k]} graphics. Close and reopen 11 Wonders Demo to use it.`); W.hq && W.hq(); };
 W.gfxCard = () => `<div class="card" id="w11gfx"><p style="font-weight:900">⚙️ Graphics</p><p style="font-size:11px;color:#94a3b8;margin:4px 0 8px">Auto checks your phone (chip, memory, a quick speed test) and keeps adjusting while you play. Matches, rules, kits and players are the same on every setting; only background detail changes (crowd, shadows, sharpness). This phone: <b>${W.gfxName[W.dev.auto]}</b>.</p>${W.gfxStatus()}<div style="display:flex;gap:6px;flex-wrap:wrap">${['auto', 'high', 'mid', 'low'].map(k => `<button onclick="W11.gfxSet('${k}')" style="flex:1;padding:8px;border-radius:10px;font-size:12px;font-weight:900;${W.dev.pick === k || (k === 'auto' && !['high', 'mid', 'low'].includes(W.dev.pick)) ? 'background:linear-gradient(90deg,#22d3ee,#a855f7);color:#0b0f24' : 'background:rgba(255,255,255,.06)'}">${W.gfxName[k]}</button>`).join('')}</div></div>`;
 /* G11: which players does this phone show? New MakeHuman athletes, or the old ones (with the reason and a retry) */
 W.gfxStatus = () => { const st = W.w3d.st, B = G3.B3, I = st === 2 && B && B.mhInfo ? B.mhInfo() : null;
@@ -3883,7 +3883,7 @@ W.profileCard = function (id) {
     <div style="position:relative;padding:12px 12px 6px;width:52%"><div style="border-left:4px solid #22d3ee;padding-left:8px"><p style="font-size:10px;font-weight:900;letter-spacing:.12em;color:#67e8f9">PLAYER PROFILE</p>
       <p style="font-weight:900;font-size:17px;line-height:1.15">${esc(p.name)}</p><p style="font-size:12px;color:#cbd5e1;font-weight:900">${dp} · ${p.ovr} OVR · ${p.flag || ''}</p></div>
       <div style="margin-top:6px">${W.radarSvg(p)}</div></div>
-    <p style="position:absolute;right:10px;bottom:6px;font-size:10px;font-weight:900;color:rgba(255,255,255,.55)">11 WONDERS</p></div>`;
+    <p style="position:absolute;right:10px;bottom:6px;font-size:10px;font-weight:900;color:rgba(255,255,255,.55)">11 WONDERS DEMO</p></div>`;
 };
 W.pMenu = (function (b) { return function (id) { const r = b.apply(this, arguments);
   try { const ov = document.getElementById('w11pm'), card = ov && ov.querySelector('.card'); if (!card || document.getElementById('w11pc')) return r;
@@ -4178,7 +4178,7 @@ W.leagueHome = async function () {
       <button class="gc tile" onclick="W11.squad()"><span style="width:clamp(26px,9vh,40px);display:block">${g12mine('100%')}</span><span class="t1">👕 Squad<span class="t2 mu" style="display:block;font-size:.72em">${esc(me.short)} · ${esc(me.form)}</span></span></button>
       <div class="gc" style="padding:0;display:grid;grid-template-columns:1fr 1fr"><button class="tile" style="justify-content:center;border-right:1px solid rgba(255,255,255,.12)!important" onclick="W11.cups()"><span class="ic" style="font-size:clamp(18px,6.5vh,30px)">🏆</span><span class="t1">Cups</span></button><button class="tile" style="justify-content:center" onclick="W11.hq()"><span class="ic" style="font-size:clamp(18px,6.5vh,30px)">🏟️</span><span class="t1">Club HQ</span></button></div>
       <button class="gc tile" style="justify-content:center" onclick="W11.hof()"><span class="ic" style="font-size:clamp(18px,6.5vh,30px)">🏛️</span><span class="t1">Hall of Fame</span></button></div>`;
-  g12ui(left + centre + right + bottom, '11 WONDERS', 'W11.close()', '1fr 1.35fr 1fr', 'minmax(0,1fr) auto');
+  g12ui(left + centre + right + bottom, '11 WONDERS DEMO', 'W11.close()', '1fr 1.35fr 1fr', 'minmax(0,1fr) auto');
   if (boot < 5) { const b = document.querySelector('#w11 .hd'); if (b && !document.getElementById('g12boot')) b.querySelector('b').insertAdjacentHTML('afterend', `<button id="g12boot" class="chip" style="margin-left:6px;font-size:11px;padding:4px 9px;border-radius:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14)" onclick="W11.bootHome()">🏕️ Boot Camp ${boot}/5</button>`); }
   if (gift && !W._giftTried) { W._giftTried = 1; W.gift(true); }
   if (A) { const tick = () => { const el = document.getElementById('g12cd'); if (!el) return; const ms = A.ko - W.nowS();
@@ -5146,6 +5146,63 @@ W.tableAll = async function () {
       return `<div class="row" style="${n.me ? 'background:rgba(34,211,238,.1);border-radius:10px;' : ''}border-left:3px solid ${z === 'up' ? '#22d3ee' : z === 'down' ? '#ff2d95' : 'transparent'};padding-left:6px"><span style="width:18px;font-weight:900;color:#94a3b8">${i + 1}</span>${mini(n.hue, n.sh)}<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:${n.me ? 900 : 700}">${esc(n.n)}${n.user ? ' <span style="font-size:9px">👤</span>' : ''}</span><span style="width:22px;text-align:center;color:#94a3b8">${r.p}</span><span style="width:30px;text-align:center;color:#94a3b8">${r.gf - r.ga > 0 ? '+' : ''}${r.gf - r.ga}</span><span style="width:26px;text-align:right;font-weight:900">${r.pts}</span></div>`; }).join('');
     return `<details class="card" ${mine ? 'open' : ''} style="padding:10px 12px"><summary style="font-weight:900;cursor:pointer">📊 Group ${CC.groupNo(t, g)} · ${esc(CC.ZONE_NAME[CC.zoneOfG(t, g)])}${mine ? ' · <span style="color:#22d3ee">your group</span>' : ''}</summary><div data-solo="1" style="margin-top:8px">${rows}</div></details>`; };
   W.ui(`<p style="font-size:12px;color:#94a3b8;margin-bottom:8px">Division ${t} · Season ${s0} · ${groups.length} group${groups.length === 1 ? '' : 's'}. Tap a group to open it.</p>${groups.map(block).join('') || '<p style="text-align:center;color:#94a3b8;padding:20px">No groups found yet.</p>'}`, '🌍 ALL GROUPS', 'W11.tableL()');
+};
+
+/* =====================================================================
+   G20 · 11 WONDERS DEMO: "Best fit" now picks the BEST TEAM from the whole squad
+   (build.sh pastes this file into w11.js at the G20 marker, inside the game's main function)
+   Before: it only shuffled the 11 starters. Now: best 11 for the formation from all 25 players
+   (spot fit x rating x fitness), injured and banned players left out, best 7 on the bench (a spare keeper first).
+   ===================================================================== */
+/* smallest-cost assignment (Hungarian): cost[i][j], rows <= columns; returns the column picked for every row */
+W.assign = function (cost) {
+  const n = cost.length, m = cost[0].length, u = new Array(n + 1).fill(0), v = new Array(m + 1).fill(0), p = new Array(m + 1).fill(0), way = new Array(m + 1).fill(0);
+  for (let i = 1; i <= n; i++) {
+    p[0] = i; let j0 = 0; const minv = new Array(m + 1).fill(Infinity), used = new Array(m + 1).fill(false);
+    do { used[j0] = true; const i0 = p[j0]; let delta = Infinity, j1 = 0;
+      for (let j = 1; j <= m; j++) if (!used[j]) { const cur = cost[i0 - 1][j - 1] - u[i0] - v[j]; if (cur < minv[j]) { minv[j] = cur; way[j] = j0; } if (minv[j] < delta) { delta = minv[j]; j1 = j; } }
+      for (let j = 0; j <= m; j++) if (used[j]) { u[p[j]] += delta; v[j] -= delta; } else minv[j] -= delta;
+      j0 = j1;
+    } while (p[j0] !== 0);
+    do { const j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while (j0);
+  }
+  const out = new Array(n).fill(-1); for (let j = 1; j <= m; j++) if (p[j]) out[p[j] - 1] = j - 1; return out;
+};
+/* how much a player is worth today: tired legs count for less, very tired for much less */
+W.fitWorth = (c) => c >= 75 ? 1 : c >= 50 ? 0.9 + (c - 50) * 0.004 : 0.6 + c * 0.006;
+W.bestXI = function (me) {
+  const ids = (me.ids || []).slice(), S = W.S, lp = W.lpOf(me), sh = W.shape(me.form, me.fp), day = W11C.absDay(Date.now()), inLg = !!(me.lg && me.lg.s === W.S);
+  if (ids.length < 11) return ids;
+  const P = ids.map(id => W.player(id, S)), cond = (id) => inLg ? W11C.condNow(me, id, day) : 100;
+  const outNow = (id) => (Number((me.inj || {})[id]) || 0) > 0 || (Number((me.ban || {})[id]) || 0) > 0;
+  let pool = P.map((p, i) => i).filter(i => P[i] && !outNow(ids[i]));
+  /* not enough fit players: the injured / banned ones fill the gaps (the lock swaps them anyway) */
+  if (pool.length < 11) pool = pool.concat(P.map((p, i) => i).filter(i => P[i] && !pool.includes(i))).slice(0, Math.max(11, pool.length));
+  const worth = (i) => (P[i].ovr || 0) * W.fitWorth(cond(ids[i]));
+  /* tiny bonus for staying where he is, so equal choices never reshuffle the team */
+  const cost = sh.slice(0, 11).map((s, si) => pool.map(i => -(W.fitOf(P[i], s.dp, lp) * worth(i) + (i === si ? 0.02 : 0))));
+  const pick = W.assign(cost), xi = pick.map(k => pool[k]), inXI = new Set(xi);
+  const rest = P.map((p, i) => i).filter(i => P[i] && !inXI.has(i));
+  const okRest = rest.filter(i => !outNow(ids[i])).sort((a, b) => worth(b) - worth(a) || a - b), bad = rest.filter(i => outNow(ids[i]));
+  /* bench: a spare keeper first (when one is fit), then the best of the rest */
+  const gk = okRest.find(i => P[i].pos === 'GK'), bench = [];
+  if (gk != null) bench.push(gk);
+  okRest.forEach(i => { if (bench.length < 7 && i !== gk && P[i].pos !== 'GK') bench.push(i); });
+  okRest.forEach(i => { if (bench.length < 7 && !bench.includes(i)) bench.push(i); });
+  const tail = okRest.filter(i => !bench.includes(i)).concat(bad);
+  const out = xi.concat(bench, tail).map(i => ids[i]);
+  /* safety: never lose or repeat a player */
+  if (out.length !== ids.length || new Set(out).size !== new Set(ids).size) return ids;
+  return out;
+};
+W.bestFitGo = async function () {
+  const me = W.me, old = (me.ids || []).slice(), ids = W.bestXI(me);
+  if (ids.join() === old.join()) return toast('✅ This is already your best team');
+  const was = new Set(old.slice(0, 11)), now = new Set(ids.slice(0, 11)), nm = (id) => W.player(id).short;
+  const inn = ids.slice(0, 11).filter(id => !was.has(id)), off = old.slice(0, 11).filter(id => !now.has(id));
+  W._sel = null; await W.save({ ids, ovr: W.avg(ids) });
+  toast(inn.length ? `🧩 Best team picked · IN: ${inn.slice(0, 4).map(nm).join(', ')}${inn.length > 4 ? ' +' + (inn.length - 4) : ''} · OUT: ${off.slice(0, 4).map(nm).join(', ')}${off.length > 4 ? ' +' + (off.length - 4) : ''}` : '🧩 Same 11, each one moved to his best spot');
+  W.squad();
 };
 
 })();
